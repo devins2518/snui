@@ -83,6 +83,12 @@ pub trait Container {
     fn add(&mut self, object: impl Drawable + 'static) -> Result<(), Error>;
 }
 
+pub trait Geometry {
+    fn get_width(&self) -> u32;
+    fn get_height(&self) -> u32;
+    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool;
+}
+
 pub trait Drawable {
     fn set_content(&mut self, content: Content);
     fn get_width(&self) -> u32;
@@ -90,6 +96,12 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32);
     fn contains(&mut self, x: u32, y: u32, event: Input) -> bool;
 }
+
+/*
+pub trait ActionListener {
+    fn set_callback(&mut self, f: impl FnMut(&mut impl Drawable, Input) + 'static);
+}
+*/
 
 pub trait Transform {
     fn scale(&mut self, f: u32);
