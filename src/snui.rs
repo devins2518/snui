@@ -80,52 +80,6 @@ pub trait Transform {
     fn scale(&mut self, f: u32);
 }
 
-pub fn color<D: Drawable>(mut geometry: D, color: Content) -> D {
-    geometry.set_content(color);
-    geometry
-}
-
-pub fn anchor<D, C>(surface: &mut Surface, geometry: &D, anchor: Anchor, margin: u32)
-where
-    D: Drawable,
-{
-    if surface.get_width() >= geometry.get_width() && surface.get_height() >= geometry.get_height()
-    {
-        let mut x = (surface.get_width() - geometry.get_width()) / 2;
-        let mut y = (surface.get_height() - geometry.get_height()) / 2;
-        match anchor {
-            Anchor::Left => x = margin,
-            Anchor::Right => x = surface.get_width() - geometry.get_width() - margin,
-            Anchor::Top => y = margin,
-            Anchor::Bottom => y = surface.get_height() - geometry.get_height() - margin,
-            Anchor::Center => {}
-            Anchor::TopRight => {
-                x = surface.get_width() - geometry.get_width() - margin;
-                y = surface.get_height() - geometry.get_height() - margin;
-            }
-            Anchor::TopLeft => {
-                x = margin;
-                y = surface.get_height() - geometry.get_height() - margin;
-            }
-            Anchor::BottomRight => {
-                x = surface.get_width() - geometry.get_width() - margin;
-                y = margin;
-            }
-            Anchor::BottomLeft => {
-                x = margin;
-                y = margin;
-            }
-        }
-        geometry.draw(surface, x, y);
-    } else {
-        // TO-DO
-        // Actually use the Error enum
-        print!("Requested size: {} x {}\n", geometry.get_width(), geometry.get_height());
-        print!("Available size: {} x {}\n", surface.get_width(), surface.get_height());
-        println!("widget doesn't fit on the surface");
-    }
-}
-
 impl Error {
     pub fn debug(&self) {
         match self {

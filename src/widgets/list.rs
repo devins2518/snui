@@ -1,12 +1,12 @@
 use crate::snui::*;
-use crate::widgets::{Surface, Rectangle};
+use crate::widgets::{ListBox, Surface, Rectangle};
 
 pub struct List {
     content: Content,
     margin: u32,
     orientation: Orientation,
     capacity: Option<u32>,
-    widgets: Vec<Box<Drawable>>,
+    widgets: Vec<ListBox>,
 }
 
 impl Drawable for List {
@@ -62,35 +62,15 @@ impl Drawable for List {
         );
         bg.set_content(self.content);
         bg.draw(canvas, x, y);
-        let (mut rx, mut ry) = (self.margin / 2, self.margin / 2);
         for w in &self.widgets {
-            w.draw(canvas, rx, ry);
-            match self.orientation {
-                Orientation::Horizontal => {
-                    rx += ((2 * w.get_width()) + self.margin) / 2;
-                }
-                Orientation::Vertical => {
-                    ry += ((2 * w.get_height()) + self.margin) / 2;
-                }
-            }
+            let (x, y) = w.get_location();
+            w.draw(canvas, x, y);
         }
     }
     fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
         let (mut rx, mut ry) = (self.margin / 2, self.margin / 2);
-        for w in &mut self.widgets {
-            if x > rx && x < rx + w.get_width()
-            && y > ry && y < ry + w.get_height() {
-                w.contains(x, y, event);
-            } {
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        rx += ((2 * w.get_width()) + self.margin) / 2;
-                    }
-                    Orientation::Vertical => {
-                        ry += ((2 * w.get_height()) + self.margin) / 2;
-                    }
-                }
-            }
+        for l in &mut self.widgets {
+            l.contains(x, y, event);
         }
         false
     }
@@ -102,23 +82,30 @@ impl Container for List {
     }
     // Appends an object at the end of a Container
     fn add(&mut self, object: impl Drawable + 'static) -> Result<(), Error> {
-        if let Some(capacity) = self.capacity {
-            if self.len() == capacity {
-                Err(Error::Overflow("wbox", capacity as u32))
-            } else {
-                self.widgets.push(Box::new(object));
-                Ok(())
+        let mut list_element = ListBox::new(object);
+        let last_element = self.widgets.last();
+        if let Some(w) = last_element {
+            let (mut x, mut y) = w.get_location();
+            match self.orientation {
+                Orientation::Horizontal => {
+                    x += ((2 * w.get_width()) + self.margin) / 2;
+                }
+                Orientation::Vertical => {
+                    y += ((2 * w.get_height()) + self.margin) / 2;
+                }
             }
+            list_element.set_location(x, y);
         } else {
-            self.widgets.push(Box::new(object));
-            Ok(())
+            list_element.set_location(self.margin / 2, self.margin / 2);
         }
+        self.widgets.push(list_element);
+        Ok(())
     }
     // Returns the list of child windows
     fn get_child(&self) -> Vec<&Drawable> {
         let mut v = Vec::new();
         for w in &self.widgets {
-            v.push(&**w);
+            v.append(&mut w.get_child())
         }
         v
     }
@@ -126,20 +113,33 @@ impl Container for List {
 
 impl List {
     pub fn new(orientation: Orientation, capacity: Option<u32>) -> Self {
-        let widgets = match capacity {
-            Some(capacity) => Vec::with_capacity(capacity as usize),
-            None => Vec::new(),
-        };
         List {
             content: Content::Empty,
             capacity,
-            widgets,
+            widgets: Vec::new(),
             margin: 0,
             orientation,
         }
     }
     pub fn set_margin(&mut self, margin: u32) {
         self.margin = margin;
+    }
+    pub fn set(&mut self, object: impl Drawable + 'static, index: u32) -> Result<(), Error> {
+        if index > self.len() {
+            Err(Error::Overflow("list", self.len()))
+        } else {
+            let (x, y) = self.widgets[index as usize].get_location();
+            let list_element = ListBox::new(object);
+            self.widgets[index as usize] = list_element;
+            Ok(())
+        }
+    }
+    pub fn get_listbox(&self, index: u32) -> Result<&ListBox, Error> {
+        if index < self.len() {
+            Ok(&self.widgets[index as usize])
+        } else {
+            Err(Error::Overflow("list", self.len()))
+        }
     }
     pub fn set_orientation(&mut self, orientation: Orientation) {
         self.orientation = orientation;

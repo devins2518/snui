@@ -8,7 +8,7 @@ pub fn assign_pointer<G:'static + Drawable>(pointer: &Main<wl_pointer::WlPointer
     let mut input = Input::None;
     let (mut x, mut y) = (0, 0);
     pointer.quick_assign(move |pointer, event, mut shell| {
-        let mut shell = shell.get::<G>().unwrap();
+        let shell = shell.get::<G>().unwrap();
         match event {
             wl_pointer::Event::Enter {
                 serial,

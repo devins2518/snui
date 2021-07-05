@@ -1,11 +1,13 @@
 pub mod list;
 pub mod wbox;
+pub mod listbox;
 pub mod button;
 
 use crate::snui::*;
 pub use wbox::Wbox as Wbox;
 pub use list::List as List;
 pub use button::Button as Button;
+pub use listbox::ListBox as ListBox;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Rectangle {
@@ -55,6 +57,14 @@ impl Rectangle {
             empty: false,
         }
     }
+    pub fn empty(width: u32, height: u32) -> Rectangle {
+        Rectangle {
+            content: Content::Empty,
+            width,
+            height,
+            empty: true,
+        }
+    }
     pub fn square(size: u32, content: Content) -> Rectangle {
         Rectangle {
             content,
@@ -79,7 +89,11 @@ impl Drawable for Surface {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn set_content(&mut self, content: Content) {}
+    fn set_content(&mut self, content: Content) {
+        for c in &mut self.canvas {
+            *c = content;
+        }
+    }
     fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
         true
     }
@@ -103,10 +117,8 @@ impl Canvas for Surface {
                 self.composite(&surface, x, y);
             }
             Damage::Destroy{ x, y, width, height } => {
-                for x in x..x+width {
-                    for x in y..y+height {
-                        self.set(x, y, Content::Empty);
-                    }
+                for c in &mut self.canvas {
+                    *c = Content::Empty;
                 }
             }
             Damage::None => {}
@@ -136,7 +148,7 @@ impl Canvas for Surface {
     }
     fn set(&mut self, x: u32, y: u32, content: Content) {
         if ((x * y) as usize) < self.canvas.len() {
-            let y = self.height - y - 1;
+            let y = self.height - 1 - y;
             let index = (x + (y * self.get_width()));
             self.canvas[index as usize] = content;
         }
