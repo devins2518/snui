@@ -1,5 +1,5 @@
 use crate::snui::*;
-use crate::widgets::{ListBox, Surface, Rectangle};
+use crate::widgets::{ListBox, Rectangle, Surface};
 
 pub struct List {
     content: Content,
@@ -27,7 +27,7 @@ impl Drawable for List {
                         width = w.get_width() as u32;
                     }
                 }
-                width + self.margin - self.margin%2
+                width + self.margin - self.margin % 2
             }
         }
     }
@@ -48,7 +48,7 @@ impl Drawable for List {
                         height = w.get_height() as u32;
                     }
                 }
-                height + self.margin - self.margin%2
+                height + self.margin - self.margin % 2
             }
         }
     }
@@ -56,10 +56,7 @@ impl Drawable for List {
         self.content = content;
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        let mut bg = Rectangle::new(
-            self.get_width(),
-            self.get_height(),
-        );
+        let mut bg = Rectangle::new(self.get_width(), self.get_height());
         bg.set_content(self.content);
         bg.draw(canvas, x, y);
         for w in &self.widgets {

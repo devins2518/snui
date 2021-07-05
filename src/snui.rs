@@ -37,16 +37,31 @@ pub enum Anchor {
 }
 
 pub enum Damage {
-    Area{ surface: Surface, x: u32, y: u32 },
-    Destroy{ x: u32, y: u32, width: u32, height: u32 },
-    All{ surface: Surface },
+    Area {
+        surface: Surface,
+        x: u32,
+        y: u32,
+    },
+    Destroy {
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    },
+    All {
+        surface: Surface,
+    },
     None,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum Input {
     Key,
-    MouseClick{ time: u32, button: u32 , pressed: bool },
+    MouseClick {
+        time: u32,
+        button: u32,
+        pressed: bool,
+    },
     Enter,
     Leave,
     Hover,
@@ -59,7 +74,7 @@ pub trait Canvas {
     fn damage(&mut self, event: Damage);
     fn get(&self, x: u32, y: u32) -> Content;
     fn set(&mut self, x: u32, y: u32, content: Content);
-    fn composite(&mut self, surface: &Surface, x: u32, y: u32);
+    fn composite(&mut self, surface: &(impl Canvas + Drawable), x: u32, y: u32);
 }
 
 pub trait Container {
@@ -84,7 +99,10 @@ impl Error {
     pub fn debug(&self) {
         match self {
             Error::Dimension(name, w, h) => {
-                println!("requested dimension {}x{} is too large for \"{}\"",w, h, name)
+                println!(
+                    "requested dimension {}x{} is too large for \"{}\"",
+                    w, h, name
+                )
             }
             Error::Overflow(name, capacity) => {
                 println!("\"{}\" reached its full capacity: {}", name, capacity);

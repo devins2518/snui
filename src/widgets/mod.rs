@@ -1,13 +1,13 @@
-pub mod list;
-pub mod wbox;
-pub mod listbox;
 pub mod button;
+pub mod list;
+pub mod listbox;
+pub mod wbox;
 
 use crate::snui::*;
-pub use wbox::Wbox as Wbox;
-pub use list::List as List;
-pub use button::Button as Button;
-pub use listbox::ListBox as ListBox;
+pub use button::Button;
+pub use list::List;
+pub use listbox::ListBox;
+pub use wbox::Wbox;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Rectangle {
@@ -39,9 +39,9 @@ impl Drawable for Rectangle {
                         || dx == self.get_width() - 1
                         || dy == self.get_height() - 1)
                 {
-                    canvas.set(x+dx, y+dy, self.content);
+                    canvas.set(x + dx, y + dy, self.content);
                 } else {
-                    canvas.set(x+dx, y+dy, self.content);
+                    canvas.set(x + dx, y + dy, self.content);
                 }
             }
         }
@@ -110,13 +110,18 @@ impl Canvas for Surface {
     }
     fn damage(&mut self, event: Damage) {
         match event {
-            Damage::All{ surface } => {
+            Damage::All { surface } => {
                 self.composite(&surface, 0, 0);
             }
-            Damage::Area{ surface, x, y } => {
+            Damage::Area { surface, x, y } => {
                 self.composite(&surface, x, y);
             }
-            Damage::Destroy{ x, y, width, height } => {
+            Damage::Destroy {
+                x,
+                y,
+                width,
+                height,
+            } => {
                 for c in &mut self.canvas {
                     *c = Content::Empty;
                 }
@@ -124,7 +129,7 @@ impl Canvas for Surface {
             Damage::None => {}
         }
     }
-    fn composite(&mut self, surface: &Surface, x: u32, y: u32) {
+    fn composite(&mut self, surface: &(impl Canvas + Drawable), x: u32, y: u32) {
         let width = if x + surface.get_width() <= self.width {
             surface.get_width()
         } else if self.width > x {
@@ -209,8 +214,16 @@ where
     } else {
         // TO-DO
         // Actually use the Error enum
-        print!("Requested size: {} x {}\n", geometry.get_width(), geometry.get_height());
-        print!("Available size: {} x {}\n", surface.get_width(), surface.get_height());
+        print!(
+            "Requested size: {} x {}\n",
+            geometry.get_width(),
+            geometry.get_height()
+        );
+        print!(
+            "Available size: {} x {}\n",
+            surface.get_width(),
+            surface.get_height()
+        );
         println!("widget doesn't fit on the surface");
     }
 }

@@ -8,7 +8,9 @@ pub struct ListBox {
 }
 
 impl Container for ListBox {
-    fn len(&self) -> u32 { 1 }
+    fn len(&self) -> u32 {
+        1
+    }
     fn add(&mut self, object: impl Drawable + 'static) -> Result<(), Error> {
         Err(Error::Overflow("listbox", 1))
     }
@@ -22,10 +24,15 @@ impl Drawable for ListBox {
         self.child.set_content(content);
     }
     fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
-        if x > self.x && x < self.x + self.child.get_width()
-        && y > self.y && y < self.y + self.child.get_height() {
+        if x > self.x
+            && x < self.x + self.child.get_width()
+            && y > self.y
+            && y < self.y + self.child.get_height()
+        {
             self.child.contains(x, y, event)
-        } else { false }
+        } else {
+            false
+        }
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
         self.child.draw(canvas, x, y);
@@ -43,17 +50,17 @@ impl ListBox {
         ListBox {
             x: 0,
             y: 0,
-            child: Box::new(child)
+            child: Box::new(child),
         }
     }
     pub fn new_at(child: impl Drawable + 'static, x: u32, y: u32) -> ListBox {
         ListBox {
             x,
             y,
-            child: Box::new(child)
+            child: Box::new(child),
         }
     }
-    pub fn set_location(&mut self, x:u32, y:u32) {
+    pub fn set_location(&mut self, x: u32, y: u32) {
         self.x = x;
         self.y = y;
     }

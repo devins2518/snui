@@ -23,7 +23,7 @@ impl Drawable for Wbox {
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
         self.head.draw(canvas, x, y);
         if let Some(tail) = &self.tail {
-            tail.deref().draw(canvas, x+tail.pos.0, y+tail.pos.1);
+            tail.deref().draw(canvas, x + tail.pos.0, y + tail.pos.1);
         }
     }
     fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
@@ -92,9 +92,14 @@ impl Wbox {
     pub fn set_anchor(&mut self, x: u32, y: u32) {
         self.pos = (x, y);
     }
-    pub fn anchor(&mut self, object: impl Drawable + 'static, anchor: Anchor, xoffset: u32, yoffset: u32) -> Result<(), Error> {
-        if self.get_width() >= object.get_width() && self.get_height() >= object.get_height()
-        {
+    pub fn anchor(
+        &mut self,
+        object: impl Drawable + 'static,
+        anchor: Anchor,
+        xoffset: u32,
+        yoffset: u32,
+    ) -> Result<(), Error> {
+        if self.get_width() >= object.get_width() && self.get_height() >= object.get_height() {
             let mut x = (self.get_width() - object.get_width()) / 2;
             let mut y = (self.get_height() - object.get_height()) / 2;
             match anchor {
@@ -123,15 +128,15 @@ impl Wbox {
             self.push(Wbox::new_at(object, x, y));
             Ok(())
         } else {
-            Err(Error::Dimension("wbox",object.get_width(),object.get_height()))
+            Err(Error::Dimension(
+                "wbox",
+                object.get_width(),
+                object.get_height(),
+            ))
         }
     }
     pub fn to_surface(&self) -> Surface {
-        let mut surface = Surface::new(
-            self.get_width(),
-            self.get_height(),
-            Content::Empty,
-        );
+        let mut surface = Surface::new(self.get_width(), self.get_height(), Content::Empty);
         self.draw(&mut surface, 0, 0);
         surface
     }
@@ -139,10 +144,9 @@ impl Wbox {
         if let Some(tail) = &mut self.tail {
             tail.deref_mut().center(object)
         } else {
-            if object.get_width() < self.get_width()
-        	&& object.get_height() < self.get_height() {
-                let x = (self.head.get_width() - object.get_width())/2;
-                let y = (self.head.get_height() - object.get_height())/2;
+            if object.get_width() < self.get_width() && object.get_height() < self.get_height() {
+                let x = (self.head.get_width() - object.get_width()) / 2;
+                let y = (self.head.get_height() - object.get_height()) / 2;
                 self.tail = Some(Box::new(Wbox::new_at(object, x, y)));
                 Ok(())
             } else {

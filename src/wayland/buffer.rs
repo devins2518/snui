@@ -1,8 +1,8 @@
-use std::convert::TryInto;
-use crate::wayland::*;
 use crate::snui::*;
+use crate::wayland::*;
 use crate::widgets::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
+use std::convert::TryInto;
 use wayland_client::protocol::{
     wl_buffer, wl_buffer::WlBuffer, wl_output::WlOutput, wl_surface::WlSurface,
 };
@@ -28,15 +28,20 @@ impl<'b> Canvas for Buffer<'b> {
     fn paint(&self) {}
     fn damage(&mut self, event: Damage) {
         match event {
-            Damage::All{ surface } => {
+            Damage::All { surface } => {
                 self.composite(&surface, 0, 0);
             }
-            Damage::Area{ surface, x, y } => {
+            Damage::Area { surface, x, y } => {
                 self.composite(&surface, x, y);
             }
-            Damage::Destroy{ x, y, width, height } => {
-                for x in x..x+width {
-                    for x in y..y+height {
+            Damage::Destroy {
+                x,
+                y,
+                width,
+                height,
+            } => {
+                for x in x..x + width {
+                    for x in y..y + height {
                         self.set(x, y, Content::Transparent);
                     }
                 }
@@ -56,13 +61,13 @@ impl<'b> Canvas for Buffer<'b> {
         let index = (x + (y * self.get_width())) * 4;
         if ((x * y) as usize) < self.canvas.len() {
             match content {
-                Content::Pixel(p) => set_pixel(self.canvas, index , p),
-                Content::Transparent => set_pixel(self.canvas, index , TRANSPARENT),
+                Content::Pixel(p) => set_pixel(self.canvas, index, p),
+                Content::Transparent => set_pixel(self.canvas, index, TRANSPARENT),
                 _ => {}
             }
         }
     }
-    fn composite(&mut self, surface: &Surface, x: u32, y: u32) {
+    fn composite(&mut self, surface: &(impl Canvas + Drawable), x: u32, y: u32) {
         let width = if x + surface.get_width() <= self.width {
             surface.get_width()
         } else if self.width > x {
@@ -100,9 +105,10 @@ impl<'b> Drawable for Buffer<'b> {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {}
+    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
+        true
     }
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool { true }
 }
 
 impl<'b> Buffer<'b> {

@@ -1,10 +1,10 @@
 use crate::snui::*;
-use wayland_client::Main;
 use wayland_client::protocol::wl_pointer;
-use wayland_client::protocol::wl_pointer::WlPointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
+use wayland_client::protocol::wl_pointer::WlPointer;
+use wayland_client::Main;
 
-pub fn assign_pointer<G:'static + Drawable>(pointer: &Main<wl_pointer::WlPointer>) {
+pub fn assign_pointer<G: 'static + Drawable>(pointer: &Main<wl_pointer::WlPointer>) {
     let mut input = Input::None;
     let (mut x, mut y) = (0, 0);
     pointer.quick_assign(move |pointer, event, mut shell| {
@@ -33,27 +33,26 @@ pub fn assign_pointer<G:'static + Drawable>(pointer: &Main<wl_pointer::WlPointer
                 serial,
                 time,
                 button,
-                state
+                state,
             } => {
-                input = Input::MouseClick{
+                input = Input::MouseClick {
                     time,
                     button,
                     pressed: match state {
                         ButtonState::Released => false,
                         ButtonState::Pressed => true,
-                        _ => false
-                    }
+                        _ => false,
+                    },
                 };
             }
+            _ => {}
+        }
+        // Dispatching the event to widgets
+        match input {
+            Input::None => {}
             _ => {
+                shell.contains(x as u32, y as u32, input);
             }
         }
-		// Dispatching the event to widgets
-		match input {
-			Input::None => {},
-			_ => {
-                shell.contains(x as u32, y as u32, input);
-			}
-		}
     });
 }
