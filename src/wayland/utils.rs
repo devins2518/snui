@@ -1,11 +1,11 @@
 use crate::snui::*;
 use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
+use wayland_client::protocol::wl_surface::WlSurface;
+use wayland_client::Main;
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
-use wayland_client::Main;
-use wayland_client::protocol::wl_surface::WlSurface;
 
 pub trait LayerSurface {
     // fn get_widget(&self) -> &Widget;
@@ -15,9 +15,9 @@ pub trait LayerSurface {
 
 pub fn assign_layer_surface<S>(layer_surface: &Main<ZwlrLayerSurfaceV1>)
 where
-    S:'static + LayerSurface + Canvas
+    S: 'static + LayerSurface + Canvas,
 {
-    layer_surface.quick_assign( move |layer_surface, event, mut shell| {
+    layer_surface.quick_assign(move |layer_surface, event, mut shell| {
         match event {
             zwlr_layer_surface_v1::Event::Configure {
                 serial,
@@ -92,11 +92,9 @@ pub fn assign_pointer<G: 'static + Geometry + Canvas>(pointer: &Main<wl_pointer:
         match input {
             Input::None => {}
             _ => {
-                let msg = shell.contains(x as u32, y as u32, input);
+                let msg = shell.contains(0, 0, x as u32, y as u32, input);
                 shell.damage(msg);
             }
         }
     });
 }
-
-

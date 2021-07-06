@@ -1,15 +1,15 @@
 use crate::snui::*;
-use crate::widgets::{Rectangle, Surface};
+use crate::widgets::{Inner, Rectangle, Surface};
 
-pub struct List {
+pub struct ListBox {
     content: Content,
     margin: u32,
     orientation: Orientation,
     capacity: Option<u32>,
-    widgets: Vec<Box<dyn Widget>>,
+    widgets: Vec<Inner>,
 }
 
-impl Geometry for List {
+impl Geometry for ListBox {
     fn get_width(&self) -> u32 {
         match self.orientation {
             Orientation::Horizontal => {
@@ -52,35 +52,22 @@ impl Geometry for List {
             }
         }
     }
-    fn get_location(&self) -> (u32, u32) {
-        if self.len() > 0 {
-            self.widgets[0].get_location()
-        } else {
-            (0, 0)
-        }
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        if self.len() > 0 {
-            self.widgets[0].set_location(x, y);
-        }
-    }
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage {
+    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
         for l in &mut self.widgets {
-            let msg = l.contains(x, y, event);
+            let (rx, ry) = l.get_location();
+            let msg = l.contains(widget_x + rx, widget_y + ry, x, y, event);
             match &msg {
-                Damage::None => {},
-                _ => {
-                    return msg
-                }
+                Damage::None => {}
+                _ => return msg,
             }
         }
         Damage::None
     }
 }
 
-impl Widget for List { }
+impl Widget for ListBox {}
 
-impl Drawable for List {
+impl Drawable for ListBox {
     fn set_content(&mut self, content: Content) {
         self.content = content;
     }
@@ -95,14 +82,14 @@ impl Drawable for List {
     }
 }
 
-impl Container for List {
+impl Container for ListBox {
     fn len(&self) -> u32 {
         self.widgets.len() as u32
     }
     // Appends an object at the end of a Container
     fn add(&mut self, mut object: impl Widget + 'static) -> Result<(), Error> {
         let last_element = self.widgets.last();
-        if let Some(w) = last_element {
+        let (x, y) = if let Some(w) = last_element {
             let (mut x, mut y) = w.get_location();
             match self.orientation {
                 Orientation::Horizontal => {
@@ -112,11 +99,27 @@ impl Container for List {
                     y += ((2 * w.get_height()) + self.margin) / 2;
                 }
             }
-            object.set_location(x, y);
+            (x, y)
         } else {
-            object.set_location(self.margin / 2, self.margin / 2);
+            (self.margin / 2, self.margin / 2)
+        };
+        self.widgets.push(Inner::new_at(object, x, y));
+        Ok(())
+    }
+    fn get_location(&self) -> (u32, u32) {
+        if self.len() > 0 {
+            self.widgets[0].get_location()
+        } else {
+            (0, 0)
         }
-        self.widgets.push(Box::new(object));
+    }
+    fn set_location(&mut self, x: u32, y: u32) {
+        if self.len() > 0 {
+            self.widgets[0].set_location(x, y);
+        }
+    }
+    fn put(&mut self, object: Inner) -> Result<(), Error> {
+        self.widgets.push(object);
         Ok(())
     }
     /*
@@ -131,9 +134,9 @@ impl Container for List {
     */
 }
 
-impl List {
+impl ListBox {
     pub fn new(orientation: Orientation, capacity: Option<u32>) -> Self {
-        List {
+        ListBox {
             content: Content::Empty,
             capacity,
             widgets: Vec::new(),
@@ -143,16 +146,6 @@ impl List {
     }
     pub fn set_margin(&mut self, margin: u32) {
         self.margin = margin;
-    }
-    pub fn set(&mut self, mut object: impl Widget + 'static, index: u32) -> Result<(), Error> {
-        if index > self.len() {
-            Err(Error::Overflow("list", self.len()))
-        } else {
-            let (x, y) = self.widgets[index as usize].get_location();
-            object.set_location(x, y);
-            self.widgets[index as usize] = Box::new(object);
-            Ok(())
-        }
     }
     /*
     pub fn get_listbox(&self, index: u32) -> Result<&Inner, Error> {

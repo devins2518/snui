@@ -1,16 +1,12 @@
 use crate::snui::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use std::convert::TryInto;
-use wayland_client::protocol::{
-    wl_buffer::WlBuffer, wl_surface::WlSurface,
-};
+use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 use wayland_client::Main;
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
 
 pub struct Buffer<'b> {
-    x: u32,
-    y: u32,
     width: u32,
     height: u32,
     wl_buffer: WlBuffer,
@@ -31,14 +27,14 @@ impl<'b> Geometry for Buffer<'b> {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn get_location(&self) -> (u32, u32) {
-        (self.x, self.y)
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        self.x = x;
-        self.y = y;
-    }
-    fn contains(&mut self, _x: u32, _y: u32, _event: Input) -> Damage {
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Input,
+    ) -> Damage {
         Damage::None
     }
 }
@@ -115,8 +111,6 @@ impl<'b> Buffer<'b> {
         let format = Format::Argb8888;
         let buffer = mempool.buffer(width, height, stride, format).unwrap();
         Buffer {
-            x: 0,
-            y: 0,
             width: width as u32,
             height: height as u32,
             wl_buffer: buffer.1,

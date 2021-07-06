@@ -2,21 +2,7 @@ use crate::widgets::*;
 
 pub struct Button<W: Widget> {
     widget: W,
-    callback: Box<dyn FnMut(&mut W, Input) -> Damage>,
-}
-
-impl<W: Widget> Container for Button<W> {
-    fn len(&self) -> u32 {
-        1
-    }
-    fn add(&mut self, _object: impl Widget + 'static) -> Result<(), Error> {
-        Err(Error::Overflow("button", 1))
-    }
-    /*
-    fn get_child(&self) -> Vec<&Inner> {
-        vec![&self.widget]
-    }
-    */
+    callback: Box<dyn FnMut(&mut W, u32, u32, Input) -> Damage>,
 }
 
 impl<W: Widget> Geometry for Button<W> {
@@ -26,20 +12,13 @@ impl<W: Widget> Geometry for Button<W> {
     fn get_height(&self) -> u32 {
         self.widget.get_height()
     }
-    fn get_location(&self) -> (u32, u32) {
-        self.widget.get_location()
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        self.widget.set_location(x, y);
-    }
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage {
-        let (sx, sy) = self.widget.get_location();
-        if x > sx
-            && y > sy
-            && x < sx + self.widget.get_width()
-            && y < sy + self.widget.get_height()
+    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+        if x > widget_x
+            && y > widget_y
+            && x < widget_x + self.widget.get_width()
+            && y < widget_y + self.widget.get_height()
         {
-            (self.callback)(&mut self.widget, event)
+            (self.callback)(&mut self.widget, widget_x, widget_y, event)
         } else {
             Damage::None
         }
@@ -55,10 +34,10 @@ impl<W: Widget> Drawable for Button<W> {
     }
 }
 
-impl<W: Widget> Widget for Button<W> { }
+impl<W: Widget> Widget for Button<W> {}
 
 impl<W: Widget> Button<W> {
-    pub fn new(widget: W, f: impl FnMut(&mut W, Input) -> Damage + 'static) -> Button<W> {
+    pub fn new(widget: W, f: impl FnMut(&mut W, u32, u32, Input) -> Damage + 'static) -> Button<W> {
         Button {
             widget: widget,
             callback: Box::new(f),

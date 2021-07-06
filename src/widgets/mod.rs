@@ -1,18 +1,16 @@
 pub mod button;
-pub mod list;
 pub mod inner;
+pub mod listbox;
 pub mod wbox;
 
 use crate::snui::*;
 pub use button::Button;
-pub use list::List;
 pub use inner::Inner;
+pub use listbox::ListBox;
 pub use wbox::Wbox;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Rectangle {
-    x: u32,
-    y: u32,
     width: u32,
     height: u32,
     content: Content,
@@ -26,14 +24,14 @@ impl Geometry for Rectangle {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn get_location(&self) -> (u32, u32) {
-        (self.x, self.y)
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        self.x = x;
-        self.y = y;
-    }
-    fn contains(&mut self, _x: u32, _y: u32, _event: Input) -> Damage {
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Input,
+    ) -> Damage {
         Damage::None
     }
 }
@@ -60,13 +58,11 @@ impl Drawable for Rectangle {
     }
 }
 
-impl Widget for Rectangle { }
+impl Widget for Rectangle {}
 
 impl Rectangle {
     pub fn new(width: u32, height: u32) -> Rectangle {
         Rectangle {
-            x: 0,
-            y: 0,
             content: Content::Empty,
             width,
             height,
@@ -75,8 +71,6 @@ impl Rectangle {
     }
     pub fn empty(width: u32, height: u32) -> Rectangle {
         Rectangle {
-            x: 0,
-            y: 0,
             content: Content::Empty,
             width,
             height,
@@ -85,8 +79,6 @@ impl Rectangle {
     }
     pub fn square(size: u32, content: Content) -> Rectangle {
         Rectangle {
-            x: 0,
-            y: 0,
             content,
             width: size,
             height: size,
@@ -98,8 +90,6 @@ impl Rectangle {
 // A minimal implementation of a canvas objects can use to draw themselves
 #[derive(Clone, Debug)]
 pub struct Surface {
-    x: u32,
-    y: u32,
     width: u32,
     height: u32,
     canvas: Vec<Content>,
@@ -112,14 +102,7 @@ impl Geometry for Surface {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn get_location(&self) -> (u32, u32) {
-        (self.x, self.y)
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        self.x = x;
-        self.y = y;
-    }
-    fn contains(&mut self, _x: u32, _y: u32, _event: Input) -> Damage {
+    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
         Damage::None
     }
 }
@@ -157,8 +140,8 @@ impl Canvas for Surface {
                 width,
                 height,
             } => {
-                for x in 0..x+width {
-                    for y in 0..y+height {
+                for x in 0..x + width {
+                    for y in 0..y + height {
                         self.set(x, y, Content::Empty);
                     }
                 }
@@ -201,8 +184,6 @@ impl Surface {
     pub fn empty(width: u32, height: u32) -> Surface {
         let canvas = vec![Content::Empty; (width * height) as usize];
         Surface {
-            x: 0,
-            y: 0,
             width: width,
             height: height,
             canvas,
@@ -211,8 +192,6 @@ impl Surface {
     pub fn new(width: u32, height: u32, content: Content) -> Surface {
         let canvas = vec![content; (width * height) as usize];
         Surface {
-            x: 0,
-            y: 0,
             width,
             height,
             canvas,
@@ -220,8 +199,12 @@ impl Surface {
     }
 }
 
-
-pub fn anchor<W: 'static, C>(container:&mut  C, mut widget: W, anchor: Anchor, margin: u32) -> Result<(), Error>
+pub fn anchor<W: 'static, C>(
+    container: &mut C,
+    widget: W,
+    anchor: Anchor,
+    margin: u32,
+) -> Result<(), Error>
 where
     W: Widget,
     C: Container + Geometry,
@@ -253,9 +236,12 @@ where
                 y = margin;
             }
         }
-        widget.set_location(x, y);
-        container.add(widget)
+        container.put(Inner::new_at(widget, x, y))
     } else {
-        Err(Error::Dimension("anchor", widget.get_width(), widget.get_height()))
+        Err(Error::Dimension(
+            "anchor",
+            widget.get_width(),
+            widget.get_height(),
+        ))
     }
 }

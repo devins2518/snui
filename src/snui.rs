@@ -1,4 +1,4 @@
-use crate::widgets::Surface;
+use crate::widgets::{Inner, Surface};
 
 // This NEEDS to be documentated at some point
 #[derive(Copy, Clone, Debug)]
@@ -85,14 +85,15 @@ pub trait Container {
     fn len(&self) -> u32;
     // fn get_child(&self) -> Vec<&(Drawable + Geometry)>;
     fn add(&mut self, object: impl Widget + 'static) -> Result<(), Error>;
+    fn put(&mut self, object: Inner) -> Result<(), Error>;
+    fn get_location(&self) -> (u32, u32);
+    fn set_location(&mut self, x: u32, y: u32);
 }
 
 pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
-    fn get_location(&self) -> (u32, u32);
-    fn set_location(&mut self, x: u32, y: u32);
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage;
+    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage;
 }
 
 pub trait Drawable {
@@ -103,11 +104,7 @@ pub trait Drawable {
 pub trait Widget: Drawable + Geometry {}
 
 pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
-    let mut surface = Surface::new(
-        widget.get_width(),
-        widget.get_height(),
-        Content::Empty,
-    );
+    let mut surface = Surface::new(widget.get_width(), widget.get_height(), Content::Empty);
     widget.draw(&mut surface, 0, 0);
     surface
 }
