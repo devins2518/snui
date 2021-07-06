@@ -124,7 +124,7 @@ impl Geometry for Surface {
     }
 }
 
-impl Widget for Surface { }
+impl Widget for Surface {}
 
 impl Drawable for Surface {
     fn set_content(&mut self, content: Content) {
@@ -138,7 +138,7 @@ impl Drawable for Surface {
 }
 
 impl Canvas for Surface {
-    fn paint(&self) {}
+    fn display(&mut self) {}
     fn get(&self, x: u32, y: u32) -> Content {
         let index = x + (y * self.get_width());
         self.canvas[index as usize]
@@ -220,31 +220,32 @@ impl Surface {
     }
 }
 
-/*
-pub fn anchor<D, C>(surface: &mut Surface, geometry: &D, anchor: Anchor, margin: u32)
+
+pub fn anchor<W: 'static, C>(container:&mut  C, mut widget: W, anchor: Anchor, margin: u32) -> Result<(), Error>
 where
-    D: Drawable,
+    W: Widget,
+    C: Container + Geometry,
 {
-    if surface.get_width() >= geometry.get_width() && surface.get_height() >= geometry.get_height()
+    if container.get_width() >= widget.get_width() && container.get_height() >= widget.get_height()
     {
-        let mut x = (surface.get_width() - geometry.get_width()) / 2;
-        let mut y = (surface.get_height() - geometry.get_height()) / 2;
+        let mut x = (container.get_width() - widget.get_width()) / 2;
+        let mut y = (container.get_height() - widget.get_height()) / 2;
         match anchor {
             Anchor::Left => x = margin,
-            Anchor::Right => x = surface.get_width() - geometry.get_width() - margin,
+            Anchor::Right => x = container.get_width() - widget.get_width() - margin,
             Anchor::Top => y = margin,
-            Anchor::Bottom => y = surface.get_height() - geometry.get_height() - margin,
+            Anchor::Bottom => y = container.get_height() - widget.get_height() - margin,
             Anchor::Center => {}
             Anchor::TopRight => {
-                x = surface.get_width() - geometry.get_width() - margin;
-                y = surface.get_height() - geometry.get_height() - margin;
+                x = container.get_width() - widget.get_width() - margin;
+                y = container.get_height() - widget.get_height() - margin;
             }
             Anchor::TopLeft => {
                 x = margin;
-                y = surface.get_height() - geometry.get_height() - margin;
+                y = container.get_height() - widget.get_height() - margin;
             }
             Anchor::BottomRight => {
-                x = surface.get_width() - geometry.get_width() - margin;
+                x = container.get_width() - widget.get_width() - margin;
                 y = margin;
             }
             Anchor::BottomLeft => {
@@ -252,21 +253,9 @@ where
                 y = margin;
             }
         }
-        geometry.draw(surface, x, y);
+        widget.set_location(x, y);
+        container.add(widget)
     } else {
-        // TO-DO
-        // Actually use the Error enum
-        print!(
-            "Requested size: {} x {}\n",
-            geometry.get_width(),
-            geometry.get_height()
-        );
-        print!(
-            "Available size: {} x {}\n",
-            surface.get_width(),
-            surface.get_height()
-        );
-        println!("widget doesn't fit on the surface");
+        Err(Error::Dimension("anchor", widget.get_width(), widget.get_height()))
     }
 }
-*/

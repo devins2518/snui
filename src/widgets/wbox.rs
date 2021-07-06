@@ -32,13 +32,8 @@ impl Geometry for Wbox {
         self.head.get_location()
     }
     fn set_location(&mut self, x: u32, y: u32) {
-        let (hx, hy) = self.get_location();
+        // let (hx, hy) = self.get_location();
         self.head.set_location(x, y);
-        if let Some(tail) = &mut self.tail {
-            let (tx, ty) = tail.as_ref().get_location();
-            let (dx, dy) = (hx as i32 - tx as i32, hy as i32 - ty as i32);
-            tail.set_location(x + dx.abs() as u32, y + dy.abs() as u32);
-        }
     }
     fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage {
         let msg = self.head.contains(x, y, event);
@@ -68,10 +63,11 @@ impl Container for Wbox {
     }
     // Appends an object at the end of a Container
     fn add(&mut self, object: impl Widget + 'static) -> Result<(), Error> {
+        let (x, y) = self.head.get_location();
         if let Some(tail) = &mut self.tail {
             tail.deref_mut().add(object)
         } else {
-            self.tail = Some(Box::new(Wbox::new(object)));
+            self.tail = Some(Box::new(Wbox::new_at(object, x, y)));
             Ok(())
         }
     }
@@ -112,49 +108,6 @@ impl Wbox {
     }
     pub fn set_anchor(&mut self, x: u32, y: u32) {
         self.head.set_location(x, y);
-    }
-    pub fn anchor(
-        &mut self,
-        object: impl Widget + 'static,
-        anchor: Anchor,
-        xoffset: u32,
-        yoffset: u32,
-    ) -> Result<(), Error> {
-        if self.get_width() >= object.get_width() && self.get_height() >= object.get_height() {
-            let mut x = (self.get_width() - object.get_width()) / 2;
-            let mut y = (self.get_height() - object.get_height()) / 2;
-            match anchor {
-                Anchor::Left => x = xoffset,
-                Anchor::Right => x = self.get_width() - object.get_width() - xoffset,
-                Anchor::Top => y = yoffset,
-                Anchor::Bottom => y = self.get_height() - object.get_height() - yoffset,
-                Anchor::Center => {}
-                Anchor::TopRight => {
-                    x = self.get_width() - object.get_width() - xoffset;
-                    y = self.get_height() - object.get_height() - yoffset;
-                }
-                Anchor::TopLeft => {
-                    x = xoffset;
-                    y = self.get_height() - object.get_height() - yoffset;
-                }
-                Anchor::BottomRight => {
-                    x = self.get_width() - object.get_width() - xoffset;
-                    y = yoffset;
-                }
-                Anchor::BottomLeft => {
-                    x = xoffset;
-                    y = yoffset;
-                }
-            }
-            self.push(Wbox::new_at(object, x, y));
-            Ok(())
-        } else {
-            Err(Error::Dimension(
-                "wbox",
-                object.get_width(),
-                object.get_height(),
-            ))
-        }
     }
     pub fn center(&mut self, object: impl Widget + 'static) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {

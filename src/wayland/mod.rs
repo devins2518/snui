@@ -1,4 +1,4 @@
 pub mod buffer;
-pub mod input;
+pub mod utils;
 
 pub use buffer::Buffer;

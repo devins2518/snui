@@ -2,7 +2,7 @@ use crate::snui::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use std::convert::TryInto;
 use wayland_client::protocol::{
-    wl_buffer, wl_buffer::WlBuffer, wl_output::WlOutput, wl_surface::WlSurface,
+    wl_buffer::WlBuffer, wl_surface::WlSurface,
 };
 use wayland_client::Main;
 
@@ -44,7 +44,7 @@ impl<'b> Geometry for Buffer<'b> {
 }
 
 impl<'b> Canvas for Buffer<'b> {
-    fn paint(&self) {}
+    fn display(&mut self) {}
     fn damage(&mut self, event: Damage) {
         match event {
             Damage::All { surface } => {

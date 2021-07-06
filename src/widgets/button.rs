@@ -1,12 +1,11 @@
 use crate::widgets::*;
-use crate::widgets::inner::Inner;
 
-pub struct Button {
-    inner: Inner,
-    callback: Box<dyn FnMut(&mut Inner, Input) -> Damage>,
+pub struct Button<W: Widget> {
+    widget: W,
+    callback: Box<dyn FnMut(&mut W, Input) -> Damage>,
 }
 
-impl Container for Button {
+impl<W: Widget> Container for Button<W> {
     fn len(&self) -> u32 {
         1
     }
@@ -15,53 +14,53 @@ impl Container for Button {
     }
     /*
     fn get_child(&self) -> Vec<&Inner> {
-        vec![&self.inner]
+        vec![&self.widget]
     }
     */
 }
 
-impl Geometry for Button {
+impl<W: Widget> Geometry for Button<W> {
     fn get_width(&self) -> u32 {
-        self.inner.get_width()
+        self.widget.get_width()
     }
     fn get_height(&self) -> u32 {
-        self.inner.get_height()
+        self.widget.get_height()
     }
     fn get_location(&self) -> (u32, u32) {
-        self.inner.get_location()
+        self.widget.get_location()
     }
     fn set_location(&mut self, x: u32, y: u32) {
-        self.inner.set_location(x, y);
+        self.widget.set_location(x, y);
     }
     fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage {
-        let (sx, sy) = self.inner.get_location();
+        let (sx, sy) = self.widget.get_location();
         if x > sx
             && y > sy
-            && x < sx + self.inner.get_width()
-            && y < sy + self.inner.get_height()
+            && x < sx + self.widget.get_width()
+            && y < sy + self.widget.get_height()
         {
-            (self.callback)(&mut self.inner, event)
+            (self.callback)(&mut self.widget, event)
         } else {
             Damage::None
         }
     }
 }
 
-impl Drawable for Button {
+impl<W: Widget> Drawable for Button<W> {
     fn set_content(&mut self, content: Content) {
-        self.inner.set_content(content);
+        self.widget.set_content(content);
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        self.inner.draw(canvas, x, y)
+        self.widget.draw(canvas, x, y)
     }
 }
 
-impl Widget for Button { }
+impl<W: Widget> Widget for Button<W> { }
 
-impl Button {
-    pub fn new(inner: impl Widget + 'static, f: impl FnMut(&mut Inner, Input) -> Damage + 'static) -> Button {
+impl<W: Widget> Button<W> {
+    pub fn new(widget: W, f: impl FnMut(&mut W, Input) -> Damage + 'static) -> Button<W> {
         Button {
-            inner: Inner::new(inner),
+            widget: widget,
             callback: Box::new(f),
         }
     }

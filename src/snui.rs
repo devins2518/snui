@@ -72,7 +72,7 @@ pub enum Input {
 
 // API to manipulate the Canvas
 pub trait Canvas {
-    fn paint(&self);
+    fn display(&mut self);
     fn damage(&mut self, event: Damage);
     fn get(&self, x: u32, y: u32) -> Content;
     fn set(&mut self, x: u32, y: u32, content: Content);
