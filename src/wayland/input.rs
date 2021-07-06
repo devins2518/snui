@@ -1,10 +1,9 @@
 use crate::snui::*;
 use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
-use wayland_client::protocol::wl_pointer::WlPointer;
 use wayland_client::Main;
 
-pub fn assign_pointer<G: 'static + Drawable>(pointer: &Main<wl_pointer::WlPointer>) {
+pub fn assign_pointer<G: 'static + Geometry + Canvas>(pointer: &Main<wl_pointer::WlPointer>) {
     let mut input = Input::None;
     let (mut x, mut y) = (0, 0);
     pointer.quick_assign(move |pointer, event, mut shell| {
@@ -51,7 +50,8 @@ pub fn assign_pointer<G: 'static + Drawable>(pointer: &Main<wl_pointer::WlPointe
         match input {
             Input::None => {}
             _ => {
-                shell.contains(x as u32, y as u32, input);
+                let msg = shell.contains(x as u32, y as u32, input);
+                shell.damage(msg);
             }
         }
     });

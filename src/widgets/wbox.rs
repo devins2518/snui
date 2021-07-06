@@ -1,41 +1,61 @@
 use crate::snui::*;
-use crate::widgets::Surface;
+use crate::widgets::{Surface, Inner};
 use std::ops::{Deref, DerefMut};
 
 // that can unfold it's inner content
 pub struct Wbox {
-    head: Box<Drawable>,
+    head: Inner,
     content: Content,
-    pos: (u32, u32),
     tail: Option<Box<Self>>,
 }
 
 impl Drawable for Wbox {
-    fn get_width(&self) -> u32 {
-        self.head.get_width()
-    }
-    fn get_height(&self) -> u32 {
-        self.head.get_height()
-    }
     fn set_content(&mut self, content: Content) {
         self.content = content;
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
         self.head.draw(canvas, x, y);
         if let Some(tail) = &self.tail {
-            tail.deref().draw(canvas, x + tail.pos.0, y + tail.pos.1);
+            tail.deref().draw(canvas, x + tail.head.get_location().0, y + tail.head.get_location().1);
         }
     }
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
-        if !self.head.contains(x, y, event) {
-            if let Some(tail) = &mut self.tail {
-                tail.deref_mut().contains(x, y, event)
-            } else {
-                false
-            };
-        }
-        false
+}
+
+impl Geometry for Wbox {
+    fn get_width(&self) -> u32 {
+        self.head.get_width()
     }
+    fn get_height(&self) -> u32 {
+        self.head.get_height()
+    }
+    fn get_location(&self) -> (u32, u32) {
+        self.head.get_location()
+    }
+    fn set_location(&mut self, x: u32, y: u32) {
+        let (hx, hy) = self.get_location();
+        self.head.set_location(x, y);
+        if let Some(tail) = &mut self.tail {
+            let (tx, ty) = tail.as_ref().get_location();
+            let (dx, dy) = (hx as i32 - tx as i32, hy as i32 - ty as i32);
+            tail.set_location(x + dx.abs() as u32, y + dy.abs() as u32);
+        }
+    }
+    fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage {
+        let msg = self.head.contains(x, y, event);
+        match &msg {
+            Damage::None => {
+                if let Some(tail) = &mut self.tail {
+                    tail.deref_mut().contains(x, y, event)
+                } else {
+                    Damage::None
+                }
+            }
+            _ => Damage::None
+        }
+    }
+}
+
+impl Widget for Wbox {
 }
 
 impl Container for Wbox {
@@ -47,7 +67,7 @@ impl Container for Wbox {
         }
     }
     // Appends an object at the end of a Container
-    fn add(&mut self, object: impl Drawable + 'static) -> Result<(), Error> {
+    fn add(&mut self, object: impl Widget + 'static) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
             tail.deref_mut().add(object)
         } else {
@@ -55,30 +75,31 @@ impl Container for Wbox {
             Ok(())
         }
     }
-    fn get_child(&self) -> Vec<&dyn Drawable> {
+    /*
+    fn get_child(&self) -> Vec<&Inner> {
         let mut v = Vec::new();
-        v.push(self.head.deref());
+        v.push(&self.head);
         if let Some(tail) = &self.tail {
-            v.push(tail.as_ref());
+            v.push(&tail.as_ref().head);
         }
         v
     }
+    */
 }
 
+
 impl Wbox {
-    pub fn new(head: impl Drawable + 'static) -> Wbox {
+    pub fn new(head: impl Widget + 'static) -> Wbox {
         Wbox {
-            head: Box::new(head),
+            head: Inner::new(head),
             content: Content::Empty,
-            pos: (0, 0),
             tail: None,
         }
     }
-    pub fn new_at(head: impl Drawable + 'static, x: u32, y: u32) -> Wbox {
+    pub fn new_at(head: impl Widget + 'static, x: u32, y: u32) -> Wbox {
         Wbox {
-            head: Box::new(head),
+            head: Inner::new_at(head, x, y),
             content: Content::Empty,
-            pos: (x, y),
             tail: None,
         }
     }
@@ -90,11 +111,11 @@ impl Wbox {
         }
     }
     pub fn set_anchor(&mut self, x: u32, y: u32) {
-        self.pos = (x, y);
+        self.head.set_location(x, y);
     }
     pub fn anchor(
         &mut self,
-        object: impl Drawable + 'static,
+        object: impl Widget + 'static,
         anchor: Anchor,
         xoffset: u32,
         yoffset: u32,
@@ -135,12 +156,7 @@ impl Wbox {
             ))
         }
     }
-    pub fn to_surface(&self) -> Surface {
-        let mut surface = Surface::new(self.get_width(), self.get_height(), Content::Empty);
-        self.draw(&mut surface, 0, 0);
-        surface
-    }
-    pub fn center(&mut self, object: impl Drawable + 'static) -> Result<(), Error> {
+    pub fn center(&mut self, object: impl Widget + 'static) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
             tail.deref_mut().center(object)
         } else {
@@ -153,5 +169,8 @@ impl Wbox {
                 self.add(object)
             }
         }
+    }
+    pub fn set_location(&mut self, x: u32, y: u32) {
+        self.head.set_location(x, y);
     }
 }

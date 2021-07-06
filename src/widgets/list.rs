@@ -1,15 +1,15 @@
 use crate::snui::*;
-use crate::widgets::{ListBox, Rectangle, Surface};
+use crate::widgets::{Rectangle, Surface};
 
 pub struct List {
     content: Content,
     margin: u32,
     orientation: Orientation,
     capacity: Option<u32>,
-    widgets: Vec<ListBox>,
+    widgets: Vec<Box<dyn Widget>>,
 }
 
-impl Drawable for List {
+impl Geometry for List {
     fn get_width(&self) -> u32 {
         match self.orientation {
             Orientation::Horizontal => {
@@ -52,6 +52,35 @@ impl Drawable for List {
             }
         }
     }
+    fn get_location(&self) -> (u32, u32) {
+        if self.len() > 0 {
+            self.widgets[0].get_location()
+        } else {
+            (0, 0)
+        }
+    }
+    fn set_location(&mut self, x: u32, y: u32) {
+        if self.len() > 0 {
+            self.widgets[0].set_location(x, y);
+        }
+    }
+    fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage {
+        for l in &mut self.widgets {
+            let msg = l.contains(x, y, event);
+            match &msg {
+                Damage::None => {},
+                _ => {
+                    return msg
+                }
+            }
+        }
+        Damage::None
+    }
+}
+
+impl Widget for List { }
+
+impl Drawable for List {
     fn set_content(&mut self, content: Content) {
         self.content = content;
     }
@@ -64,13 +93,6 @@ impl Drawable for List {
             w.draw(canvas, x, y);
         }
     }
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
-        let (mut rx, mut ry) = (self.margin / 2, self.margin / 2);
-        for l in &mut self.widgets {
-            l.contains(x, y, event);
-        }
-        false
-    }
 }
 
 impl Container for List {
@@ -78,8 +100,7 @@ impl Container for List {
         self.widgets.len() as u32
     }
     // Appends an object at the end of a Container
-    fn add(&mut self, object: impl Drawable + 'static) -> Result<(), Error> {
-        let mut list_element = ListBox::new(object);
+    fn add(&mut self, mut object: impl Widget + 'static) -> Result<(), Error> {
         let last_element = self.widgets.last();
         if let Some(w) = last_element {
             let (mut x, mut y) = w.get_location();
@@ -91,21 +112,23 @@ impl Container for List {
                     y += ((2 * w.get_height()) + self.margin) / 2;
                 }
             }
-            list_element.set_location(x, y);
+            object.set_location(x, y);
         } else {
-            list_element.set_location(self.margin / 2, self.margin / 2);
+            object.set_location(self.margin / 2, self.margin / 2);
         }
-        self.widgets.push(list_element);
+        self.widgets.push(Box::new(object));
         Ok(())
     }
+    /*
     // Returns the list of child windows
-    fn get_child(&self) -> Vec<&Drawable> {
+    fn get_child(&self) -> Vec<&Inner> {
         let mut v = Vec::new();
         for w in &self.widgets {
             v.append(&mut w.get_child())
         }
         v
     }
+    */
 }
 
 impl List {
@@ -121,33 +144,26 @@ impl List {
     pub fn set_margin(&mut self, margin: u32) {
         self.margin = margin;
     }
-    pub fn set(&mut self, object: impl Drawable + 'static, index: u32) -> Result<(), Error> {
+    pub fn set(&mut self, mut object: impl Widget + 'static, index: u32) -> Result<(), Error> {
         if index > self.len() {
             Err(Error::Overflow("list", self.len()))
         } else {
             let (x, y) = self.widgets[index as usize].get_location();
-            let list_element = ListBox::new(object);
-            self.widgets[index as usize] = list_element;
+            object.set_location(x, y);
+            self.widgets[index as usize] = Box::new(object);
             Ok(())
         }
     }
-    pub fn get_listbox(&self, index: u32) -> Result<&ListBox, Error> {
+    /*
+    pub fn get_listbox(&self, index: u32) -> Result<&Inner, Error> {
         if index < self.len() {
             Ok(&self.widgets[index as usize])
         } else {
             Err(Error::Overflow("list", self.len()))
         }
     }
+    */
     pub fn set_orientation(&mut self, orientation: Orientation) {
         self.orientation = orientation;
-    }
-    pub fn to_surface(&self) -> Surface {
-        let mut surface = Surface::new(
-            self.get_width() + self.margin,
-            self.get_height() + self.margin,
-            Content::Empty,
-        );
-        self.draw(&mut surface, 0, 0);
-        surface
     }
 }

@@ -36,6 +36,7 @@ pub enum Anchor {
     Center,
 }
 
+#[derive(Clone, Debug)]
 pub enum Damage {
     Area {
         surface: Surface,
@@ -52,6 +53,7 @@ pub enum Damage {
         surface: Surface,
     },
     None,
+    Own,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -74,34 +76,41 @@ pub trait Canvas {
     fn damage(&mut self, event: Damage);
     fn get(&self, x: u32, y: u32) -> Content;
     fn set(&mut self, x: u32, y: u32, content: Content);
-    fn composite(&mut self, surface: &(impl Canvas + Drawable), x: u32, y: u32);
+    fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32);
 }
 
+// Make all containers hold Inner or rename it
+// Knowing a Drawable's position is essential for damage tracking
 pub trait Container {
     fn len(&self) -> u32;
-    fn get_child(&self) -> Vec<&Drawable>;
-    fn add(&mut self, object: impl Drawable + 'static) -> Result<(), Error>;
+    // fn get_child(&self) -> Vec<&(Drawable + Geometry)>;
+    fn add(&mut self, object: impl Widget + 'static) -> Result<(), Error>;
 }
 
 pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool;
+    fn get_location(&self) -> (u32, u32);
+    fn set_location(&mut self, x: u32, y: u32);
+    fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage;
 }
 
 pub trait Drawable {
     fn set_content(&mut self, content: Content);
-    fn get_width(&self) -> u32;
-    fn get_height(&self) -> u32;
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32);
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool;
 }
 
-/*
-pub trait ActionListener {
-    fn set_callback(&mut self, f: impl FnMut(&mut impl Drawable, Input) + 'static);
+pub trait Widget: Drawable + Geometry {}
+
+pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
+    let mut surface = Surface::new(
+        widget.get_width(),
+        widget.get_height(),
+        Content::Empty,
+    );
+    widget.draw(&mut surface, 0, 0);
+    surface
 }
-*/
 
 pub trait Transform {
     fn scale(&mut self, f: u32);

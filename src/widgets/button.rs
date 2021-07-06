@@ -1,48 +1,67 @@
 use crate::widgets::*;
-use std::ops::{Deref, DerefMut};
+use crate::widgets::inner::Inner;
 
-pub struct Button<D: Drawable> {
-    child: D,
-    callback: Box<dyn FnMut(&mut D, Input)>,
+pub struct Button {
+    inner: Inner,
+    callback: Box<dyn FnMut(&mut Inner, Input) -> Damage>,
 }
 
-impl<D: Drawable> Container for Button<D> {
+impl Container for Button {
     fn len(&self) -> u32 {
         1
     }
-    fn add(&mut self, object: impl Drawable + 'static) -> Result<(), Error> {
+    fn add(&mut self, _object: impl Widget + 'static) -> Result<(), Error> {
         Err(Error::Overflow("button", 1))
     }
-    fn get_child(&self) -> Vec<&Drawable> {
-        vec![&self.child]
+    /*
+    fn get_child(&self) -> Vec<&Inner> {
+        vec![&self.inner]
     }
+    */
 }
 
-impl<D: Drawable> Drawable for Button<D> {
-    fn set_content(&mut self, content: Content) {
-        self.child.set_content(content);
-    }
+impl Geometry for Button {
     fn get_width(&self) -> u32 {
-        self.child.get_width()
+        self.inner.get_width()
     }
     fn get_height(&self) -> u32 {
-        self.child.get_height()
+        self.inner.get_height()
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        self.child.draw(canvas, x, y)
+    fn get_location(&self) -> (u32, u32) {
+        self.inner.get_location()
     }
-    fn contains(&mut self, x: u32, y: u32, event: Input) -> bool {
-        if !self.child.contains(x, y, event) {
-            (self.callback)(&mut self.child, event);
+    fn set_location(&mut self, x: u32, y: u32) {
+        self.inner.set_location(x, y);
+    }
+    fn contains(&mut self, x: u32, y: u32, event: Input) -> Damage {
+        let (sx, sy) = self.inner.get_location();
+        if x > sx
+            && y > sy
+            && x < sx + self.inner.get_width()
+            && y < sy + self.inner.get_height()
+        {
+            (self.callback)(&mut self.inner, event)
+        } else {
+            Damage::None
         }
-        true
     }
 }
 
-impl<D: Drawable> Button<D> {
-    pub fn new(child: D, f: impl FnMut(&mut D, Input) + 'static) -> Button<D> {
+impl Drawable for Button {
+    fn set_content(&mut self, content: Content) {
+        self.inner.set_content(content);
+    }
+    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
+        self.inner.draw(canvas, x, y)
+    }
+}
+
+impl Widget for Button { }
+
+impl Button {
+    pub fn new(inner: impl Widget + 'static, f: impl FnMut(&mut Inner, Input) -> Damage + 'static) -> Button {
         Button {
-            child: child,
+            inner: Inner::new(inner),
             callback: Box::new(f),
         }
     }
