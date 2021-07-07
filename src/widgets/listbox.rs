@@ -5,7 +5,6 @@ pub struct ListBox {
     content: Content,
     margin: u32,
     orientation: Orientation,
-    capacity: Option<u32>,
     widgets: Vec<Inner>,
 }
 
@@ -86,8 +85,8 @@ impl Container for ListBox {
     fn len(&self) -> u32 {
         self.widgets.len() as u32
     }
-    // Appends an object at the end of a Container
-    fn add(&mut self, mut object: impl Widget + 'static) -> Result<(), Error> {
+    // Appends an widget at the end of a Container
+    fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         let last_element = self.widgets.last();
         let (x, y) = if let Some(w) = last_element {
             let (mut x, mut y) = w.get_location();
@@ -103,7 +102,7 @@ impl Container for ListBox {
         } else {
             (self.margin / 2, self.margin / 2)
         };
-        self.widgets.push(Inner::new_at(object, x, y));
+        self.widgets.push(Inner::new_at(widget, x, y));
         Ok(())
     }
     fn get_location(&self) -> (u32, u32) {
@@ -118,8 +117,8 @@ impl Container for ListBox {
             self.widgets[0].set_location(x, y);
         }
     }
-    fn put(&mut self, object: Inner) -> Result<(), Error> {
-        self.widgets.push(object);
+    fn put(&mut self, widget: Inner) -> Result<(), Error> {
+        self.widgets.push(widget);
         Ok(())
     }
     /*
@@ -135,10 +134,9 @@ impl Container for ListBox {
 }
 
 impl ListBox {
-    pub fn new(orientation: Orientation, capacity: Option<u32>) -> Self {
+    pub fn new(orientation: Orientation) -> Self {
         ListBox {
             content: Content::Empty,
-            capacity,
             widgets: Vec::new(),
             margin: 0,
             orientation,

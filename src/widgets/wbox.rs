@@ -33,18 +33,18 @@ impl Geometry for Wbox {
         self.head.get_height()
     }
     fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+        // let (fx, fy) = self.head.get_location();
         let msg = self.head.contains(widget_x, widget_y, x, y, event);
         match &msg {
             Damage::None => {
                 if let Some(tail) = self.tail.as_mut() {
                     let (rx, ry) = tail.get_location();
-                    tail.deref_mut()
-                        .contains(widget_x + rx, widget_y + ry, x, y, event)
+                    tail.contains(widget_x + rx, widget_y + ry, x, y, event)
                 } else {
                     Damage::None
                 }
             }
-            _ => Damage::None,
+            _ => msg,
         }
     }
 }
@@ -59,12 +59,12 @@ impl Container for Wbox {
             0
         }
     }
-    // Appends an object at the end of a Container
-    fn add(&mut self, object: impl Widget + 'static) -> Result<(), Error> {
+    // Appends an widget at the end of a Container
+    fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
-            tail.deref_mut().add(object)
+            tail.deref_mut().add(widget)
         } else {
-            self.tail = Some(Box::new(Wbox::new(object)));
+            self.tail = Some(Box::new(Wbox::new(widget)));
             Ok(())
         }
     }
@@ -74,12 +74,12 @@ impl Container for Wbox {
     fn set_location(&mut self, x: u32, y: u32) {
         self.head.set_location(x, y);
     }
-    fn put(&mut self, object: Inner) -> Result<(), Error> {
+    fn put(&mut self, widget: Inner) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
-            tail.deref_mut().put(object)
+            tail.deref_mut().put(widget)
         } else {
             self.tail = Some(Box::new(Wbox {
-                head: object,
+                head: widget,
                 content: Content::Empty,
                 tail: None,
             }));
@@ -123,11 +123,11 @@ impl Wbox {
     pub fn set_anchor(&mut self, x: u32, y: u32) {
         self.head.set_location(x, y);
     }
-    pub fn center(&mut self, object: impl Widget + 'static) -> Result<(), Error> {
+    pub fn center(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
-            tail.deref_mut().center(object)
+            tail.deref_mut().center(widget)
         } else {
-            anchor(self, object, Anchor::Center, 0)
+            anchor(self, widget, Anchor::Center, 0)
         }
     }
     pub fn set_location(&mut self, x: u32, y: u32) {

@@ -11,8 +11,8 @@ impl Container for Inner {
     fn len(&self) -> u32 {
         1
     }
-    fn add(&mut self, _object: impl Drawable + 'static) -> Result<(), Error> {
-        Err(Error::Overflow("listbox", 1))
+    fn add(&mut self, _widget: impl Drawable + 'static) -> Result<(), Error> {
+        Err(Error::Overflow("inner", 1))
     }
     fn get_location(&self) -> (u32, u32) {
         (self.x, self.y)
@@ -21,8 +21,8 @@ impl Container for Inner {
         self.x = x;
         self.y = y;
     }
-    fn put(&mut self, object: Inner) -> Result<(), Error> {
-        Err(Error::Overflow("inner", 0))
+    fn put(&mut self, _widget: Inner) -> Result<(), Error> {
+        Err(Error::Overflow("inner", 1))
     }
     /*
     fn get_child(&self) -> Vec<&Inner> {
@@ -40,10 +40,10 @@ impl Geometry for Inner {
         self.child.get_height()
     }
     fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
-        if x > self.x
-            && y > self.y
-            && x < self.x + self.child.get_width()
-            && y < self.y + self.child.get_height()
+        if x > widget_x
+            && y > widget_y
+            && x < widget_x + self.child.get_width()
+            && y < widget_y + self.child.get_height()
         {
             self.child.contains(widget_x, widget_y, x, y, event)
         } else {

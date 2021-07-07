@@ -1,14 +1,19 @@
 pub mod button;
 pub mod inner;
 pub mod listbox;
+pub mod revealer;
 pub mod wbox;
 
 use crate::snui::*;
 pub use button::Button;
+pub use revealer::Revealer;
 pub use inner::Inner;
 pub use listbox::ListBox;
 pub use wbox::Wbox;
 
+/*
+ * The most basic widget one can create. It's the basis of everything else.
+ */
 #[derive(Copy, Clone, Debug)]
 pub struct Rectangle {
     width: u32,
@@ -87,7 +92,7 @@ impl Rectangle {
     }
 }
 
-// A minimal implementation of a canvas objects can use to draw themselves
+// A minimal implementation of a canvas widgets can use to draw themselves
 #[derive(Clone, Debug)]
 pub struct Surface {
     width: u32,
@@ -102,7 +107,14 @@ impl Geometry for Surface {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Input,
+    ) -> Damage {
         Damage::None
     }
 }

@@ -70,7 +70,9 @@ pub enum Input {
     None,
 }
 
-// API to manipulate the Canvas
+/*
+ * Canvas is a trait for types that hold a pixmap.
+ */
 pub trait Canvas {
     fn display(&mut self);
     fn damage(&mut self, event: Damage);
@@ -79,13 +81,16 @@ pub trait Canvas {
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32);
 }
 
-// Make all containers hold Inner or rename it
-// Knowing a Drawable's position is essential for damage tracking
+/*
+ * A Container is well.. a widget container.
+ * How widgets are contained within the boundaries of it is up to the impelmentation.
+ * NOTE: For consistency it's highly recommended to hold widgets within the geometry of a container
+ */
 pub trait Container {
     fn len(&self) -> u32;
     // fn get_child(&self) -> Vec<&(Drawable + Geometry)>;
-    fn add(&mut self, object: impl Widget + 'static) -> Result<(), Error>;
-    fn put(&mut self, object: Inner) -> Result<(), Error>;
+    fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
+    fn put(&mut self, widget: Inner) -> Result<(), Error>;
     fn get_location(&self) -> (u32, u32);
     fn set_location(&mut self, x: u32, y: u32);
 }
@@ -96,6 +101,9 @@ pub trait Geometry {
     fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage;
 }
 
+/*
+ * A trait for types that be drawn on a Canvas.
+ */
 pub trait Drawable {
     fn set_content(&mut self, content: Content);
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32);
