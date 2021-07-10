@@ -7,6 +7,26 @@ pub struct Inner {
     child: Box<dyn Widget>,
 }
 
+impl Geometry for Inner {
+    fn get_width(&self) -> u32 {
+        self.child.get_width()
+    }
+    fn get_height(&self) -> u32 {
+        self.child.get_height()
+    }
+    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+        if x > widget_x
+            && y > widget_y
+            && x < widget_x + self.child.get_width()
+            && y < widget_y + self.child.get_height()
+        {
+            self.child.contains(widget_x, widget_y, x, y, event)
+        } else {
+            Damage::None
+        }
+    }
+}
+
 impl Container for Inner {
     fn len(&self) -> u32 {
         1
@@ -30,26 +50,6 @@ impl Container for Inner {
         Vec::new()
     }
     */
-}
-
-impl Geometry for Inner {
-    fn get_width(&self) -> u32 {
-        self.child.get_width()
-    }
-    fn get_height(&self) -> u32 {
-        self.child.get_height()
-    }
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
-        if x > widget_x
-            && y > widget_y
-            && x < widget_x + self.child.get_width()
-            && y < widget_y + self.child.get_height()
-        {
-            self.child.contains(widget_x, widget_y, x, y, event)
-        } else {
-            Damage::None
-        }
-    }
 }
 
 impl Drawable for Inner {

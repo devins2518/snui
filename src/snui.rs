@@ -11,6 +11,7 @@ pub enum Orientation {
 pub enum Content {
     Empty,
     Transparent,
+    Byte(u8),
     Pixel(u32),
     Char(char),
 }
@@ -112,7 +113,7 @@ pub trait Drawable {
 pub trait Widget: Drawable + Geometry {}
 
 pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
-    let mut surface = Surface::new(widget.get_width(), widget.get_height(), Content::Empty);
+    let mut surface = Surface::new(widget.get_width(), widget.get_height());
     widget.draw(&mut surface, 0, 0);
     surface
 }

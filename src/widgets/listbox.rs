@@ -118,8 +118,7 @@ impl Container for ListBox {
         }
     }
     fn put(&mut self, widget: Inner) -> Result<(), Error> {
-        self.widgets.push(widget);
-        Ok(())
+        Err(Error::Message("widgets cannot be put in \"listbox\""))
     }
     /*
     // Returns the list of child windows

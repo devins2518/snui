@@ -10,11 +10,13 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 pub trait LayerSurface {
     // fn get_widget(&self) -> &Widget;
     fn get_surface(&self) -> &Main<WlSurface>;
-    fn set_size(&mut self, x: u32, y: u32);
+    fn set_size(&mut self, width: u32, height: u32);
 }
 
 pub fn assign_layer_surface<S>(layer_surface: &Main<ZwlrLayerSurfaceV1>)
 where
+    // Certaines surface peuvent ne pas etre des Canvas
+    // Mettre display dans l'implementation de LayerSurface
     S: 'static + LayerSurface + Canvas,
 {
     layer_surface.quick_assign(move |layer_surface, event, mut shell| {

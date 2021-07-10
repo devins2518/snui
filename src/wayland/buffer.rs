@@ -2,15 +2,56 @@ use crate::snui::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use std::convert::TryInto;
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
+use std::io::{Write, Seek, SeekFrom, BufWriter};
+use smithay_client_toolkit::shm::MemPool;
 use wayland_client::Main;
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
 
-pub struct Buffer<'b> {
-    width: u32,
-    height: u32,
-    wl_buffer: WlBuffer,
-    canvas: &'b mut [u8],
+// A Pool is attached to whatever client with a surface
+// The client requests a buffer and is given the type Buffer
+// which holds a WlBuffer which references the Buffer in the MemPool
+// along with it's offset and size.
+//
+// When a buffer has to be drawn in the MemPool, a Buffer is passed.
+// The Pool checks if the Buffer fits and then draws the buf if it is.
+
+// Points to where a buffer is set in the MemPool
+#[derive(Clone, Debug)]
+pub struct Buffer {
+    pub wl_buffer: WlBuffer,
+    offset: i32,
+    width: i32,
+    height: i32,
+}
+
+impl Buffer {
+    fn new(offset: i32, width: i32, height: i32, wl_buffer: WlBuffer) -> Self {
+        Buffer {
+            wl_buffer,
+            offset,
+            width,
+            height
+        }
+    }
+    fn contains(&self, index: i32) -> bool {
+        index < self.width * self.height
+    }
+    pub fn size(&self) -> i32 {
+        self.width * self.height
+    }
+    pub fn attach(&self, surface: &Main<WlSurface>) {
+        surface.attach(Some(&self.wl_buffer), 0, 0)
+    }
+}
+
+pub struct Pool {
+    width: i32,
+    height: i32,
+    stride: i32,
+    format: Format,
+    buffers: Vec<Buffer>,
+    pub mempool: MemPool,
 }
 
 fn set_pixel(buffer: &mut [u8], mut start: u32, pixel: u32) {
@@ -20,12 +61,12 @@ fn set_pixel(buffer: &mut [u8], mut start: u32, pixel: u32) {
     }
 }
 
-impl<'b> Geometry for Buffer<'b> {
+impl Geometry for Pool {
     fn get_width(&self) -> u32 {
-        self.width
+        self.width as u32
     }
     fn get_height(&self) -> u32 {
-        self.height
+        self.height as u32
     }
     fn contains(
         &mut self,
@@ -39,85 +80,66 @@ impl<'b> Geometry for Buffer<'b> {
     }
 }
 
-impl<'b> Canvas for Buffer<'b> {
-    fn display(&mut self) {}
-    fn damage(&mut self, event: Damage) {
-        match event {
-            Damage::All { surface } => {
-                self.composite(&surface, 0, 0);
-            }
-            Damage::Area { surface, x, y } => {
-                self.composite(&surface, x, y);
-            }
-            Damage::Destroy {
-                x,
-                y,
-                width,
-                height,
-            } => {
-                for x in x..x + width {
-                    for y in y..y + height {
-                        self.set(x, y, Content::Transparent);
-                    }
+impl Pool {
+    pub fn new(width: i32, height: i32, stride: i32, mut mempool: MemPool) -> Pool {
+        mempool.resize((width*height*stride) as usize);
+        Pool {
+            format: Format::Argb8888,
+            stride,
+            width,
+            buffers: Vec::new(),
+            height,
+            mempool,
+        }
+    }
+    pub fn size(&self) -> i32 {
+        self.width * self.height * self.stride
+    }
+    // Create a new Buffer from the MemPool
+    pub fn new_buffer(&mut self, width: i32, height: i32) -> Buffer {
+        let offset = if let Some(buf) = self.buffers.last() {
+            buf.offset + buf.size()
+        } else {
+            0
+        };
+        let buffer = self.mempool.buffer(offset, width.abs(), height.abs(), width*4, self.format);
+        Buffer::new(offset, width, height, buffer)
+    }
+    pub fn composite(&mut self, x: i32, y: i32, buffer: &Buffer, buf: &[u8]) -> Result<(), Error> {
+        if buffer.size() <= self.width * self.height {
+            let mut i = 0;
+            let width = self.width * 4;
+            let mut index = buffer.offset + (x + (y * self.width)) * 4;
+            if buffer.contains(index) {
+                let mut writer = BufWriter::new(&mut self.mempool);
+                while (i+width as usize) < buf.len() {
+                    writer.seek(SeekFrom::Start(index as u64)).unwrap();
+                    writer.write_all(&buf[i..(i+width as usize) as usize]).unwrap();
+                    writer.flush().unwrap();
+                    index += width;
+                    i += width as usize;
                 }
             }
-            _ => {}
-        }
-    }
-    fn get(&self, x: u32, y: u32) -> Content {
-        let index = ((x + (y * self.get_width())) * 4) as usize;
-        let buf = self.canvas[index..index + 4]
-            .try_into()
-            .expect("slice with incorrect length");
-        let pixel = u32::from_ne_bytes(buf);
-        Content::Pixel(pixel)
-    }
-    fn set(&mut self, x: u32, y: u32, content: Content) {
-        let index = (x + (y * self.get_width())) * 4;
-        if ((x * y) as usize) < self.canvas.len() {
-            match content {
-                Content::Pixel(p) => set_pixel(self.canvas, index, p),
-                Content::Transparent => set_pixel(self.canvas, index, TRANSPARENT),
-                _ => {}
-            }
-        }
-    }
-    fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
-        let width = if x + surface.get_width() <= self.width {
-            surface.get_width()
-        } else if self.width > x {
-            self.width - x
+            Ok(())
         } else {
-            0
-        };
-        let height = if y + surface.get_height() <= self.height {
-            surface.get_height()
-        } else if self.height > y {
-            self.height - y
-        } else {
-            0
-        };
-        for dx in 0..width {
-            for dy in 0..height {
-                let content = surface.get(dx, dy);
-                self.set(dx, dy, content);
-            }
+            Err(Error::Dimension("buffer", buffer.width as u32, buffer.height as u32))
         }
     }
-}
-
-impl<'b> Buffer<'b> {
-    pub fn new(width: i32, height: i32, stride: i32, mempool: &mut AutoMemPool) -> Buffer {
-        let format = Format::Argb8888;
-        let buffer = mempool.buffer(width, height, stride, format).unwrap();
-        Buffer {
-            width: width as u32,
-            height: height as u32,
-            wl_buffer: buffer.1,
-            canvas: buffer.0,
+    pub fn fill(&mut self) {
+        let mut writer = BufWriter::new(&mut self.mempool);
+        let pixel: u32 = 0xFF_D0_00_00;
+        for _ in 0..(self.width*self.height) {
+            writer.write_all(&pixel.to_ne_bytes()).unwrap();
         }
+        writer.flush().unwrap();
     }
-    pub fn attach(&mut self, surface: &Main<WlSurface>, x: i32, y: i32) {
-        surface.attach(Some(&self.wl_buffer), x, y);
+    pub fn debug(&self) {
+        print!("width: {}\n", self.width);
+        print!("height: {}\n", self.height);
+    }
+    pub fn resize(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = width;
+        self.mempool.resize((width*height*4) as usize);
     }
 }
