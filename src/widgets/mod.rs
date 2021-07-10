@@ -1,4 +1,5 @@
 pub mod button;
+pub mod image;
 pub mod inner;
 pub mod listbox;
 pub mod node;
