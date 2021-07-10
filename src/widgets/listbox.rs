@@ -2,7 +2,7 @@ use crate::snui::*;
 use crate::widgets::{Inner, Rectangle, Surface};
 
 pub struct ListBox {
-    content: Content,
+    background: Content,
     margin: u32,
     orientation: Orientation,
     widgets: Vec<Inner>,
@@ -68,11 +68,11 @@ impl Widget for ListBox {}
 
 impl Drawable for ListBox {
     fn set_content(&mut self, content: Content) {
-        self.content = content;
+        self.background = content;
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
         let mut bg = Rectangle::new(self.get_width(), self.get_height());
-        bg.set_content(self.content);
+        bg.set_content(self.background);
         bg.draw(canvas, x, y);
         for w in &self.widgets {
             let (x, y) = w.get_location();
@@ -105,38 +105,19 @@ impl Container for ListBox {
         self.widgets.push(Inner::new_at(widget, x, y));
         Ok(())
     }
-    fn get_location(&self) -> (u32, u32) {
-        if self.len() > 0 {
-            self.widgets[0].get_location()
-        } else {
-            (0, 0)
-        }
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        if self.len() > 0 {
-            self.widgets[0].set_location(x, y);
-        }
-    }
     fn put(&mut self, widget: Inner) -> Result<(), Error> {
         self.widgets.push(widget);
         Ok(())
     }
-    /*
-    // Returns the list of child windows
-    fn get_child(&self) -> Vec<&Inner> {
-        let mut v = Vec::new();
-        for w in &self.widgets {
-            v.append(&mut w.get_child())
-        }
-        v
+    fn get_child(&self) -> Result<&dyn Widget,Error> {
+        Err(Error::Message("get_child is not valid on \"listbox\""))
     }
-    */
 }
 
 impl ListBox {
     pub fn new(orientation: Orientation) -> Self {
         ListBox {
-            content: Content::Empty,
+            background: Content::Empty,
             widgets: Vec::new(),
             margin: 0,
             orientation,
@@ -145,15 +126,9 @@ impl ListBox {
     pub fn set_margin(&mut self, margin: u32) {
         self.margin = margin;
     }
-    /*
-    pub fn get_listbox(&self, index: u32) -> Result<&Inner, Error> {
-        if index < self.len() {
-            Ok(&self.widgets[index as usize])
-        } else {
-            Err(Error::Overflow("list", self.len()))
-        }
+    pub fn widgets(&self) -> &Vec<Inner> {
+        &self.widgets
     }
-    */
     pub fn set_orientation(&mut self, orientation: Orientation) {
         self.orientation = orientation;
     }

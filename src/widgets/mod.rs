@@ -1,8 +1,9 @@
-pub mod button;
+pub mod wbox;
 pub mod inner;
+pub mod button;
 pub mod listbox;
 pub mod revealer;
-pub mod wbox;
+pub mod node;
 
 use crate::snui::*;
 pub use button::Button;
@@ -10,6 +11,7 @@ pub use revealer::Revealer;
 pub use inner::Inner;
 pub use listbox::ListBox;
 pub use wbox::Wbox;
+pub use node::Node;
 
 /*
  * The most basic widget one can create. It's the basis of everything else.
@@ -80,6 +82,14 @@ impl Rectangle {
             width,
             height,
             empty: true,
+        }
+    }
+    pub fn colored(width: u32, height: u32, content: Content) -> Rectangle {
+        Rectangle {
+            content,
+            width,
+            height,
+            empty: false,
         }
     }
     pub fn square(size: u32, content: Content) -> Rectangle {
@@ -185,7 +195,7 @@ impl Canvas for Surface {
     }
     fn set(&mut self, x: u32, y: u32, content: Content) {
         if ((x * y) as usize) < self.canvas.len() {
-            let y = self.height - 1 - y;
+            // let y = self.height - 1 - y;
             let index = x + (y * self.get_width());
             self.canvas[index as usize] = content;
         }
@@ -209,6 +219,20 @@ impl Surface {
             canvas,
         }
     }
+}
+
+pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
+    let mut surface = Surface::new(widget.get_width(), widget.get_height(), Content::Empty);
+    widget.draw(&mut surface, 0, 0);
+    surface
+}
+
+pub fn border<W: Widget + 'static>(widget: W, gap: u32, background: Content) -> Node {
+    let width = widget.get_width() + 2 * gap;
+    let height = widget.get_height() + 2 * gap;
+    let mut bg = Node::new(Rectangle::colored(width, height, background));
+    anchor(&mut bg, widget, Anchor::Center, 0).unwrap();
+    bg
 }
 
 pub fn anchor<W: 'static, C>(
