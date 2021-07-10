@@ -27,15 +27,8 @@ impl Geometry for Image {
     fn get_height(&self) -> u32 {
         self.image.height()
     }
-    fn get_location(&self) -> (u32, u32) {
-        (self.x, self.y)
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        self.x = x;
-        self.y = y;
-    }
     // TODO
-    fn contains(&mut self, _x: u32, _y: u32, _event: Input) -> Damage {
+    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
         Damage::None
     }
 }

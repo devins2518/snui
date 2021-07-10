@@ -196,8 +196,8 @@ impl Surface {
     pub fn empty(width: u32, height: u32) -> Surface {
         let canvas = vec![Content::Empty; (width * height) as usize];
         Surface {
-            width: width,
-            height: height,
+            width,
+            height,
             canvas,
         }
     }
