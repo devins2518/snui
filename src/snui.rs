@@ -89,7 +89,7 @@ pub trait Canvas {
  */
 pub trait Container {
     fn len(&self) -> u32;
-    fn get_child(&self) -> Result<&dyn Widget,Error>;
+    fn get_child(&self) -> Result<&dyn Widget, Error>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
     fn put(&mut self, widget: Inner) -> Result<(), Error>;
 }
