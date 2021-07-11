@@ -37,7 +37,7 @@ impl Container for Inner {
     fn put(&mut self, _widget: Inner) -> Result<(), Error> {
         Err(Error::Overflow("inner", 1))
     }
-    fn get_child(&self) -> Result<&dyn Widget,Error> {
+    fn get_child(&self) -> Result<&dyn Widget, Error> {
         Ok(&*self.child)
     }
 }

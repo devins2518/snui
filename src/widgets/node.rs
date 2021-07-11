@@ -78,7 +78,7 @@ impl Container for Node {
             Ok(())
         }
     }
-    fn get_child(&self) -> Result<&dyn Widget,Error> {
+    fn get_child(&self) -> Result<&dyn Widget, Error> {
         if let Some(widget) = self.tail.as_ref() {
             Ok(&**widget)
         } else {

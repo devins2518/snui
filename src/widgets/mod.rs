@@ -1,17 +1,18 @@
-pub mod wbox;
-pub mod inner;
 pub mod button;
+pub mod image;
+pub mod inner;
 pub mod listbox;
-pub mod revealer;
 pub mod node;
+pub mod revealer;
+pub mod wbox;
 
 use crate::snui::*;
 pub use button::Button;
-pub use revealer::Revealer;
 pub use inner::Inner;
 pub use listbox::ListBox;
-pub use wbox::Wbox;
 pub use node::Node;
+pub use revealer::Revealer;
+pub use wbox::Wbox;
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
 
@@ -195,8 +196,8 @@ impl Surface {
     pub fn empty(width: u32, height: u32) -> Surface {
         let canvas = vec![Content::Empty; (width * height) as usize];
         Surface {
-            width: width,
-            height: height,
+            width,
+            height,
             canvas,
         }
     }
