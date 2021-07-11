@@ -36,9 +36,14 @@ impl Geometry for Image {
 impl Drawable for Image {
     fn set_content(&mut self, content: Content) {
         match content {
-            Content::Empty | Content::Transparent => {
+            Content::Empty => {
                 self.image =
                     ImageBuffer::from_pixel(self.get_width(), self.get_height(), Rgba([0, 0, 0, 0]))
+            }
+            Content::Transparent => {
+                for pixel in self.image.pixels_mut() {
+                    pixel.0[3] = 0;
+                }
             }
             Content::Pixel(pixel) => {
                 let arr = pixel.to_ne_bytes();
