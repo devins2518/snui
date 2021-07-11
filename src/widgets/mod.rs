@@ -20,8 +20,7 @@ pub use node::Node;
 pub struct Rectangle {
     width: u32,
     height: u32,
-    content: Content,
-    pub empty: bool,
+    color: Content,
 }
 
 impl Geometry for Rectangle {
@@ -45,21 +44,12 @@ impl Geometry for Rectangle {
 
 impl Drawable for Rectangle {
     fn set_content(&mut self, content: Content) {
-        self.content = content;
+        self.color = content;
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
         for dx in 0..self.get_width() {
             for dy in 0..self.get_height() {
-                if self.empty
-                    && (dx == 0
-                        || dy == 0
-                        || dx == self.get_width() - 1
-                        || dy == self.get_height() - 1)
-                {
-                    canvas.set(x + dx, y + dy, self.content);
-                } else {
-                    canvas.set(x + dx, y + dy, self.content);
-                }
+                canvas.set(x + dx, y + dy, self.color);
             }
         }
     }
@@ -70,34 +60,30 @@ impl Widget for Rectangle {}
 impl Rectangle {
     pub fn new(width: u32, height: u32) -> Rectangle {
         Rectangle {
-            content: Content::Empty,
+            color: Content::Empty,
             width,
             height,
-            empty: false,
         }
     }
     pub fn empty(width: u32, height: u32) -> Rectangle {
         Rectangle {
-            content: Content::Empty,
+            color: Content::Empty,
             width,
             height,
-            empty: true,
         }
     }
-    pub fn colored(width: u32, height: u32, content: Content) -> Rectangle {
+    pub fn colored(width: u32, height: u32, color: Content) -> Rectangle {
         Rectangle {
-            content,
+            color,
             width,
             height,
-            empty: false,
         }
     }
-    pub fn square(size: u32, content: Content) -> Rectangle {
+    pub fn square(size: u32, color: Content) -> Rectangle {
         Rectangle {
-            content,
+            color,
             width: size,
             height: size,
-            empty: false,
         }
     }
 }
