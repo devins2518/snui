@@ -8,16 +8,16 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 };
 
 pub trait LayerSurface {
-    // fn get_widget(&self) -> &Widget;
+    fn display(&mut self);
     fn get_surface(&self) -> &Main<WlSurface>;
     fn resize(&mut self, width: u32, height: u32);
 }
 
-pub fn assign_layer_surface<S>(layer_surface: &Main<ZwlrLayerSurfaceV1>)
+pub fn assign_layer_surface<A>(layer_surface: &Main<ZwlrLayerSurfaceV1>)
 where
     // Certaines surface peuvent ne pas etre des Canvas
     // Mettre display dans l'implementation de LayerSurface
-    S: 'static + LayerSurface + Canvas,
+    A: 'static + LayerSurface + Canvas,
 {
     layer_surface.quick_assign(move |layer_surface, event, mut app| {
         match event {
@@ -26,7 +26,7 @@ where
                 width,
                 height,
             } => {
-                let app = app.get::<S>().unwrap();
+                let app = app.get::<A>().unwrap();
                 app.resize(width, height);
                 layer_surface.ack_configure(serial);
                 layer_surface.set_size(width, height);
@@ -38,7 +38,7 @@ where
                 app.get_surface().commit();
             }
             zwlr_layer_surface_v1::Event::Closed => {
-                let app = app.get::<S>().unwrap();
+                let app = app.get::<A>().unwrap();
                 layer_surface.destroy();
                 app.get_surface().destroy();
             }
@@ -47,11 +47,11 @@ where
     });
 }
 
-pub fn assign_pointer<G: 'static + Geometry + Canvas>(pointer: &Main<wl_pointer::WlPointer>) {
+pub fn assign_pointer<A: 'static + Geometry + Canvas>(pointer: &Main<wl_pointer::WlPointer>) {
     let mut input = Input::None;
     let (mut x, mut y) = (0, 0);
     pointer.quick_assign(move |pointer, event, mut app| {
-        let app = app.get::<G>().unwrap();
+        let app = app.get::<A>().unwrap();
         match event {
             wl_pointer::Event::Enter {
                 serial,

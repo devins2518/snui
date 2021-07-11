@@ -2,10 +2,10 @@ use crate::snui::*;
 use crate::widgets::{Inner, Rectangle, Surface};
 
 pub struct ListBox {
-    background: Content,
     margin: u32,
-    orientation: Orientation,
     widgets: Vec<Inner>,
+    background: Content,
+    orientation: Orientation,
 }
 
 impl Geometry for ListBox {
@@ -105,7 +105,7 @@ impl Container for ListBox {
         self.widgets.push(Inner::new_at(widget, x, y));
         Ok(())
     }
-    fn put(&mut self, widget: Inner) -> Result<(), Error> {
+    fn put(&mut self, _widget: Inner) -> Result<(), Error> {
         Err(Error::Message("widgets cannot be put in \"listbox\""))
     }
     fn get_child(&self) -> Result<&dyn Widget,Error> {

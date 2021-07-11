@@ -13,7 +13,7 @@ pub use listbox::ListBox;
 pub use wbox::Wbox;
 pub use node::Node;
 
-const TRANSPARENT: u32 = 0x00_00_00_00;
+const PI: f64 = 3.14159265358979;
 
 /*
  * The most basic widget one can create. It's the basis of everything else.
@@ -22,6 +22,7 @@ const TRANSPARENT: u32 = 0x00_00_00_00;
 pub struct Rectangle {
     width: u32,
     height: u32,
+    radius: u32,
     color: Content,
 }
 
@@ -65,6 +66,7 @@ impl Rectangle {
             color: Content::Empty,
             width,
             height,
+            radius: 0,
         }
     }
     pub fn empty(width: u32, height: u32) -> Rectangle {
@@ -72,6 +74,7 @@ impl Rectangle {
             color: Content::Empty,
             width,
             height,
+            radius: 0,
         }
     }
     pub fn colored(width: u32, height: u32, color: Content) -> Rectangle {
@@ -79,6 +82,7 @@ impl Rectangle {
             color,
             width,
             height,
+            radius: 0,
         }
     }
     pub fn square(size: u32, color: Content) -> Rectangle {
@@ -86,11 +90,11 @@ impl Rectangle {
             color,
             width: size,
             height: size,
+            radius: 0,
         }
     }
 }
 
-// A minimal implementation of a canvas widgets can use to draw themselves
 // A minimal implementation of a canvas widgets can use to draw themselves
 #[derive(Clone, Debug)]
 pub struct Surface {
@@ -132,7 +136,6 @@ impl Drawable for Surface {
 }
 
 impl Canvas for Surface {
-    fn display(&mut self) {}
     fn get(&self, x: u32, y: u32) -> Content {
         let index = x + (y * self.get_width());
         self.canvas[index as usize]

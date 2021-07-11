@@ -75,7 +75,6 @@ pub enum Input {
  * Canvas is a trait for types that hold a pixmap.
  */
 pub trait Canvas {
-    fn display(&mut self);
     fn damage(&mut self, event: Damage);
     fn get(&self, x: u32, y: u32) -> Content;
     fn set(&mut self, x: u32, y: u32, content: Content);

@@ -40,7 +40,6 @@ impl<'b> Geometry for Buffer<'b> {
 }
 
 impl<'b> Canvas for Buffer<'b> {
-    fn display(&mut self) {}
     fn damage(&mut self, event: Damage) {
         match event {
             Damage::All { surface } => {

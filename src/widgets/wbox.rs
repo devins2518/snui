@@ -10,7 +10,6 @@ impl Container for Wbox {
     fn len(&self) -> u32 {
         self.widgets.len() as u32
     }
-    // fn get_child(&self) -> Vec<&(Drawable + Geometry)>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         self.widgets.push(Inner::new(widget));
         Ok(())
@@ -19,7 +18,7 @@ impl Container for Wbox {
         self.widgets.push(widget);
         Ok(())
     }
-    fn get_child(&self) -> Result<&Widget,Error> {
+    fn get_child(&self) -> Result<&dyn Widget,Error> {
         Err(Error::Message("get_child is not valid on \"wbox\""))
     }
 }
