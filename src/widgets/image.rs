@@ -1,4 +1,5 @@
 use crate::snui::*;
+use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{ImageBuffer, Rgba};
 use std::error::Error;
@@ -17,6 +18,23 @@ impl Image {
         let image = dyn_image.to_rgba8();
 
         Ok(Self { image, x: 0, y: 0 })
+    }
+
+    pub fn new_with_size(image: &Path, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
+        let dyn_image = ImageReader::open(image)?.decode()?;
+        dyn_image.resize(width, height, FilterType::Triangle);
+
+        let image = dyn_image.to_rgba8();
+
+        Ok(Self { image, x: 0, y: 0 })
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.image = imageops::resize(&self.image, width, height, FilterType::Triangle);
+    }
+
+    pub fn thumbnail(&self, width: u32, height: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+        imageops::thumbnail(&self.image, width, height)
     }
 }
 
