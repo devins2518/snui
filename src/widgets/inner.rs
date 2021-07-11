@@ -34,22 +34,12 @@ impl Container for Inner {
     fn add(&mut self, _widget: impl Drawable + 'static) -> Result<(), Error> {
         Err(Error::Overflow("inner", 1))
     }
-    fn get_location(&self) -> (u32, u32) {
-        (self.x, self.y)
-    }
-    fn set_location(&mut self, x: u32, y: u32) {
-        self.x = x;
-        self.y = y;
-    }
     fn put(&mut self, _widget: Inner) -> Result<(), Error> {
         Err(Error::Overflow("inner", 1))
     }
-    /*
-    fn get_child(&self) -> Vec<&Inner> {
-        //vec![&*self.child]
-        Vec::new()
+    fn get_child(&self) -> Result<&dyn Widget,Error> {
+        Ok(&*self.child)
     }
-    */
 }
 
 impl Drawable for Inner {
@@ -77,5 +67,12 @@ impl Inner {
             y,
             child: Box::new(child),
         }
+    }
+    pub fn get_location(&self) -> (u32, u32) {
+        (self.x, self.y)
+    }
+    pub fn set_location(&mut self, x: u32, y: u32) {
+        self.x = x;
+        self.y = y;
     }
 }

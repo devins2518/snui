@@ -1,8 +1,9 @@
-pub mod button;
+pub mod wbox;
 pub mod inner;
+pub mod button;
 pub mod listbox;
 pub mod revealer;
-pub mod wbox;
+pub mod node;
 
 use crate::snui::*;
 pub use button::Button;
@@ -10,6 +11,7 @@ pub use revealer::Revealer;
 pub use inner::Inner;
 pub use listbox::ListBox;
 pub use wbox::Wbox;
+pub use node::Node;
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
 
@@ -20,8 +22,7 @@ const TRANSPARENT: u32 = 0x00_00_00_00;
 pub struct Rectangle {
     width: u32,
     height: u32,
-    content: Content,
-    pub empty: bool,
+    color: Content,
 }
 
 impl Geometry for Rectangle {
@@ -45,21 +46,12 @@ impl Geometry for Rectangle {
 
 impl Drawable for Rectangle {
     fn set_content(&mut self, content: Content) {
-        self.content = content;
+        self.color = content;
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
         for dx in 0..self.get_width() {
             for dy in 0..self.get_height() {
-                if self.empty
-                    && (dx == 0
-                        || dy == 0
-                        || dx == self.get_width() - 1
-                        || dy == self.get_height() - 1)
-                {
-                    canvas.set(x + dx, y + dy, self.content);
-                } else {
-                    canvas.set(x + dx, y + dy, self.content);
-                }
+                canvas.set(x + dx, y + dy, self.color);
             }
         }
     }
@@ -70,26 +62,30 @@ impl Widget for Rectangle {}
 impl Rectangle {
     pub fn new(width: u32, height: u32) -> Rectangle {
         Rectangle {
-            content: Content::Empty,
+            color: Content::Empty,
             width,
             height,
-            empty: false,
         }
     }
     pub fn empty(width: u32, height: u32) -> Rectangle {
         Rectangle {
-            content: Content::Empty,
+            color: Content::Empty,
             width,
             height,
-            empty: true,
         }
     }
-    pub fn square(size: u32, content: Content) -> Rectangle {
+    pub fn colored(width: u32, height: u32, color: Content) -> Rectangle {
         Rectangle {
-            content,
+            color,
+            width,
+            height,
+        }
+    }
+    pub fn square(size: u32, color: Content) -> Rectangle {
+        Rectangle {
+            color,
             width: size,
             height: size,
-            empty: false,
         }
     }
 }
@@ -207,6 +203,20 @@ impl Surface {
     pub fn get_buf(&mut self) -> &mut [u8] {
         &mut self.canvas
     }
+}
+
+pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
+    let mut surface = Surface::new(widget.get_width(), widget.get_height(), Content::Empty);
+    widget.draw(&mut surface, 0, 0);
+    surface
+}
+
+pub fn border<W: Widget + 'static>(widget: W, gap: u32, background: Content) -> Node {
+    let width = widget.get_width() + 2 * gap;
+    let height = widget.get_height() + 2 * gap;
+    let mut bg = Node::new(Rectangle::colored(width, height, background));
+    anchor(&mut bg, widget, Anchor::Center, 0).unwrap();
+    bg
 }
 
 pub fn anchor<W: 'static, C>(

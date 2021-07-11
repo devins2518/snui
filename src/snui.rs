@@ -89,11 +89,9 @@ pub trait Canvas {
  */
 pub trait Container {
     fn len(&self) -> u32;
-    // fn get_child(&self) -> Vec<&(Drawable + Geometry)>;
+    fn get_child(&self) -> Result<&dyn Widget,Error>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
     fn put(&mut self, widget: Inner) -> Result<(), Error>;
-    fn get_location(&self) -> (u32, u32);
-    fn set_location(&mut self, x: u32, y: u32);
 }
 
 pub trait Geometry {
