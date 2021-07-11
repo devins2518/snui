@@ -108,7 +108,7 @@ impl Container for ListBox {
     fn put(&mut self, _widget: Inner) -> Result<(), Error> {
         Err(Error::Message("widgets cannot be put in \"listbox\""))
     }
-    fn get_child(&self) -> Result<&dyn Widget,Error> {
+    fn get_child(&self) -> Result<&dyn Widget, Error> {
         Err(Error::Message("get_child is not valid on \"listbox\""))
     }
 }

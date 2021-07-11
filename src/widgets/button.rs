@@ -39,7 +39,7 @@ impl<W: Widget> Widget for Button<W> {}
 impl<W: Widget> Button<W> {
     pub fn new(widget: W, f: impl FnMut(&mut W, u32, u32, Input) -> Damage + 'static) -> Button<W> {
         Button {
-            widget: widget,
+            widget,
             callback: Box::new(f),
         }
     }

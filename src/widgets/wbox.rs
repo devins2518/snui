@@ -62,7 +62,7 @@ impl Wbox {
     pub fn new(background: Rectangle) -> Wbox {
         Wbox {
             background,
-            widgets: Vec::new()
+            widgets: Vec::new(),
         }
     }
     pub fn insert(&mut self, widget: impl Widget + 'static, x: u32, y: u32) {
