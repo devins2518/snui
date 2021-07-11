@@ -10,11 +10,7 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 pub trait LayerSurface {
     // fn get_widget(&self) -> &Widget;
     fn get_surface(&self) -> &Main<WlSurface>;
-<<<<<<< HEAD
-    fn set_size(&mut self, width: u32, height: u32);
-=======
     fn resize(&mut self, width: u32, height: u32);
->>>>>>> automempool
 }
 
 pub fn assign_layer_surface<S>(layer_surface: &Main<ZwlrLayerSurfaceV1>)

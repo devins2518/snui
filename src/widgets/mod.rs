@@ -91,11 +91,12 @@ impl Rectangle {
 }
 
 // A minimal implementation of a canvas widgets can use to draw themselves
+// A minimal implementation of a canvas widgets can use to draw themselves
 #[derive(Clone, Debug)]
 pub struct Surface {
     width: u32,
     height: u32,
-    canvas: Vec<u8>,
+    canvas: Vec<Content>,
 }
 
 impl Geometry for Surface {
@@ -117,11 +118,24 @@ impl Geometry for Surface {
     }
 }
 
+impl Widget for Surface {}
+
+impl Drawable for Surface {
+    fn set_content(&mut self, content: Content) {
+        for c in &mut self.canvas {
+            *c = content;
+        }
+    }
+    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
+        canvas.composite(self, x, y);
+    }
+}
+
 impl Canvas for Surface {
     fn display(&mut self) {}
     fn get(&self, x: u32, y: u32) -> Content {
         let index = x + (y * self.get_width());
-        Content::Byte(self.canvas[index as usize])
+        self.canvas[index as usize]
     }
     fn damage(&mut self, event: Damage) {
         match event {
@@ -170,43 +184,33 @@ impl Canvas for Surface {
     }
     fn set(&mut self, x: u32, y: u32, content: Content) {
         if ((x * y) as usize) < self.canvas.len() {
-            match content {
-                Content::Pixel(pixel) => {
-                    self.set_pixel(x, y, pixel);
-                }
-                Content::Byte(byte) => {
-                    let index = x + (y * self.get_width());
-                    self.canvas[index as usize] = byte;
-                }
-                _ => {}
-            }
+            // let y = self.height - 1 - y;
+            let index = x + (y * self.get_width());
+            self.canvas[index as usize] = content;
         }
     }
 }
 
 impl Surface {
-    pub fn new(width: u32, height: u32) -> Surface {
-        let canvas = vec![0; (width * height * 4) as usize];
+    pub fn empty(width: u32, height: u32) -> Surface {
+        let canvas = vec![Content::Empty; (width * height) as usize];
         Surface {
             width: width,
             height: height,
             canvas,
         }
     }
-    fn set_pixel(&mut self, x: u32, y: u32, pixel: u32) {
-        let mut index = ((x + (y * self.get_width())) * 4) as usize;
-        for byte in &pixel.to_ne_bytes() {
-            self.canvas[index as usize] = *byte;
-            index += 1;
+    pub fn new(width: u32, height: u32, content: Content) -> Surface {
+        let canvas = vec![content; (width * height) as usize];
+        Surface {
+            width,
+            height,
+            canvas,
         }
     }
-    pub fn get_buf(&mut self) -> &mut [u8] {
-        &mut self.canvas
-    }
 }
-
 pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
-    let mut surface = Surface::new(widget.get_width(), widget.get_height(), Content::Empty);
+    let mut surface = Surface::empty(widget.get_width(), widget.get_height());
     widget.draw(&mut surface, 0, 0);
     surface
 }

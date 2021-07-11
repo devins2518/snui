@@ -30,11 +30,11 @@ pub enum Anchor {
     Right,
     Top,
     Bottom,
-    TopRight,
+    Center,
     TopLeft,
+    TopRight,
     BottomRight,
     BottomLeft,
-    Center,
 }
 
 #[derive(Clone, Debug)]
@@ -109,12 +109,6 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {}
-
-pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
-    let mut surface = Surface::new(widget.get_width(), widget.get_height());
-    widget.draw(&mut surface, 0, 0);
-    surface
-}
 
 pub trait Transform {
     fn scale(&mut self, f: u32);
