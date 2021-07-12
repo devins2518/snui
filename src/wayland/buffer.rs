@@ -56,11 +56,8 @@ impl<'b> Canvas for Buffer<'b> {
                 width,
                 height,
             } => {
-                for x in x..x + width {
-                    for y in y..y + height {
-                        self.set(x, y, Content::Transparent);
-                    }
-                }
+                self.canvas.write_all(&TRANSPARENT.to_ne_bytes());
+                self.canvas.flush().unwrap();
             }
             _ => {}
         }

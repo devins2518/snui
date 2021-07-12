@@ -41,6 +41,23 @@ impl Image {
     pub fn size(&self) -> usize {
         (self.image.width() * self.image.height() * 4) as usize
     }
+    pub fn render<C>(&self, canvas: &mut C, x: u32, y: u32)
+    where
+        C: Canvas + Geometry,
+    {
+        let mut i = 0;
+        let image_buf = self.image.as_raw();
+        let img_width = (self.get_width() * 4) as usize;
+        let surface_width = (canvas.get_width() * 4) as usize;
+        let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
+        while i < image_buf.len() && index < canvas.size() {
+            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+img_width]);
+            writer.write(&image_buf[i..i+img_width]).unwrap();
+            writer.flush().unwrap();
+            i += img_width;
+            index += surface_width;
+        }
+    }
 }
 
 impl Geometry for Image {
@@ -77,18 +94,7 @@ impl Drawable for Image {
     }
 
     fn draw(&self, canvas: &mut super::Surface, x: u32, y: u32) {
-        let mut i = 0;
-        let image_buf = self.image.as_raw();
-        let img_width = (self.get_width() * 4) as usize;
-        let surface_width = (canvas.get_width() * 4) as usize;
-        let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
-        while i < image_buf.len() && index < canvas.size() {
-            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+img_width]);
-            writer.write(&image_buf[i..i+img_width]).unwrap();
-            writer.flush().unwrap();
-            i += img_width;
-            index += surface_width;
-        }
+        self.render(canvas, x, y);
     }
 }
 

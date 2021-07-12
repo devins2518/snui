@@ -32,7 +32,7 @@ where
     C: Canvas + Geometry,
     S: Canvas + Geometry
 {
-        let mut i = 0;
+    let mut i = 0;
     let buf = buffer.get_buf();
     let width = buffer.get_width() as usize * 4;
     let buf_width = (canvas.get_width() *  4) as usize;
@@ -166,6 +166,7 @@ impl Drawable for Surface {
             }
             _ => {}
         }
+        self.canvas.flush().unwrap();
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
         canvas.composite(self, x, y);
@@ -190,11 +191,8 @@ impl Canvas for Surface {
                 width,
                 height,
             } => {
-                for x in 0..x + width {
-                    for y in 0..y + height {
-                        self.set(x, y, Content::Empty);
-                    }
-                }
+                self.canvas.write_all(&TRANSPARENT.to_ne_bytes());
+                self.canvas.flush().unwrap();
             }
             _ => {}
         }
