@@ -7,14 +7,25 @@ pub mod revealer;
 pub mod wbox;
 
 use crate::snui::*;
+use std::convert::TryInto;
+use std::io::{Write, Seek, SeekFrom, BufWriter};
 pub use button::Button;
 pub use inner::Inner;
 pub use listbox::ListBox;
 pub use node::Node;
 pub use revealer::Revealer;
+pub use self::image::Image;
 pub use wbox::Wbox;
 
-const PI: f64 = 3.14159265358979;
+const TRANSPARENT: u32 = 0x00_00_00_00;
+// const PI: f64 = 3.14159265358979;
+
+fn set_pixel(buffer: &mut [u8], mut start: u32, pixel: u32) {
+    for byte in &pixel.to_ne_bytes() {
+        buffer[start as usize] = *byte;
+        start += 1;
+    }
+}
 
 /*
  * The most basic widget one can create. It's the basis of everything else.
@@ -101,7 +112,7 @@ impl Rectangle {
 pub struct Surface {
     width: u32,
     height: u32,
-    canvas: Vec<Content>,
+    canvas: Vec<u8>,
 }
 
 impl Geometry for Surface {
@@ -127,8 +138,17 @@ impl Widget for Surface {}
 
 impl Drawable for Surface {
     fn set_content(&mut self, content: Content) {
-        for c in &mut self.canvas {
-            *c = content;
+        match content {
+            Content::Byte(byte) => {
+                self.canvas = vec![byte; (self.width*self.height*4) as usize]
+            }
+            Content::Pixel(pixel) => {
+                self.canvas.write_all(&pixel.to_ne_bytes());
+            }
+            Content::Transparent => {
+                self.canvas.write_all(&TRANSPARENT.to_ne_bytes());
+            }
+            _ => {}
         }
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
@@ -138,8 +158,12 @@ impl Drawable for Surface {
 
 impl Canvas for Surface {
     fn get(&self, x: u32, y: u32) -> Content {
-        let index = x + (y * self.get_width());
-        self.canvas[index as usize]
+        let index = ((x + (y * self.get_width())) * 4) as usize;
+        let buf = self.canvas[index..index + 4]
+            .try_into()
+            .expect("slice with incorrect length");
+        let pixel = u32::from_ne_bytes(buf);
+        Content::Pixel(pixel)
     }
     fn damage(&mut self, event: Damage) {
         match event {
@@ -189,28 +213,57 @@ impl Canvas for Surface {
     fn set(&mut self, x: u32, y: u32, content: Content) {
         if ((x * y) as usize) < self.canvas.len() {
             // let y = self.height - 1 - y;
-            let index = x + (y * self.get_width());
-            self.canvas[index as usize] = content;
+            let mut index = ((x + (y * self.get_width())) * 4) as usize;
+            match content {
+                Content::Byte(byte) => {
+                    self.canvas[index as usize] = byte;
+                }
+                Content::Pixel(pixel) => {
+                    for byte in &pixel.to_ne_bytes() {
+                        self.canvas[index as usize] = *byte;
+                        index += 1;
+                    }
+                }
+                _ => {}
+            }
         }
+    }
+    fn get_buf(&self) -> &[u8] {
+        &self.canvas
     }
 }
 
 impl Surface {
     pub fn empty(width: u32, height: u32) -> Surface {
-        let canvas = vec![Content::Empty; (width * height) as usize];
+        let canvas = vec![0; (width * height * 4) as usize];
         Surface {
             width,
             height,
             canvas,
         }
     }
-    pub fn new(width: u32, height: u32, content: Content) -> Surface {
-        let canvas = vec![content; (width * height) as usize];
-        Surface {
+    pub fn new(width: u32, height: u32, content: Content) -> Result<Surface, Error> {
+        let canvas = match content {
+            Content::Byte(byte) => {
+                vec![byte; (width * height * 4) as usize]
+            }
+            Content::Pixel(pixel) => {
+                let mut vec = Vec::new();
+                let mut writer = BufWriter::new(vec);
+                writer.write_all(&pixel.to_ne_bytes());
+                writer.flush().unwrap();
+                writer.into_inner().unwrap()
+            }
+            _ => return Err(Error::Null)
+        };
+        Ok(Surface {
             width,
             height,
             canvas,
-        }
+        })
+    }
+    fn get_mut_buf(&mut self) -> &mut [u8] {
+        &mut self.canvas
     }
 }
 pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {

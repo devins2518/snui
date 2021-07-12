@@ -1,5 +1,6 @@
 use crate::snui::*;
 use image::imageops::{self, FilterType};
+use std::io::{Write, Seek, SeekFrom, BufWriter};
 use image::io::Reader as ImageReader;
 use image::{ImageBuffer, Rgba};
 use std::error::Error;
@@ -7,8 +8,6 @@ use std::path::Path;
 
 pub struct Image {
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,
-    x: u32,
-    y: u32,
 }
 
 impl Image {
@@ -17,7 +16,7 @@ impl Image {
 
         let image = dyn_image.to_rgba8();
 
-        Ok(Self { image, x: 0, y: 0 })
+        Ok(Self { image })
     }
 
     pub fn new_with_size(image: &Path, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
@@ -26,15 +25,20 @@ impl Image {
 
         let image = dyn_image.to_rgba8();
 
-        Ok(Self { image, x: 0, y: 0 })
+        Ok(Self { image })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         self.image = imageops::resize(&self.image, width, height, FilterType::Triangle);
     }
 
-    pub fn thumbnail(&self, width: u32, height: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-        imageops::thumbnail(&self.image, width, height)
+    pub fn thumbnail(&self, width: u32, height: u32) -> Image {
+        Image {
+            image: imageops::thumbnail(&self.image, width, height),
+        }
+    }
+    pub fn size(&self) -> usize {
+        (self.image.width() * self.image.height() * 4) as usize
     }
 }
 
@@ -46,7 +50,7 @@ impl Geometry for Image {
         self.image.height()
     }
     // TODO
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+    fn contains(&mut self, _widget_x: u32, _widget_y: u32, _x: u32, _y: u32, _event: Input) -> Damage {
         Damage::None
     }
 }
@@ -72,9 +76,18 @@ impl Drawable for Image {
     }
 
     fn draw(&self, canvas: &mut super::Surface, x: u32, y: u32) {
-        for (dx, dy, pixel) in self.image.enumerate_pixels() {
-            let pixel = u32::from_ne_bytes(pixel.0);
-            canvas.set(x + dx, y + dy, Content::Pixel(pixel));
+        let mut i = 0;
+        let image_buf = self.image.as_raw();
+        let img_width = (self.get_width() * 4) as usize;
+        let canvas_size = canvas.get_width() * canvas.get_height();
+        let surface_width = (canvas.get_width() * 4) as usize;
+        let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
+        while i < self.size() || index < canvas_size as usize {
+            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+surface_width]);
+            writer.write(&image_buf[i..i+img_width]).unwrap();
+            writer.flush().unwrap();
+            i += img_width;
+            index += surface_width;
         }
     }
 }

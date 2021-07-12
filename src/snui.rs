@@ -79,6 +79,7 @@ pub trait Canvas {
     fn get(&self, x: u32, y: u32) -> Content;
     fn set(&mut self, x: u32, y: u32, content: Content);
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32);
+    fn get_buf(&self) -> &[u8];
 }
 
 /*

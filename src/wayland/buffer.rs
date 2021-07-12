@@ -1,6 +1,7 @@
 use crate::snui::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use std::convert::TryInto;
+use std::io::{Write, Seek, SeekFrom, BufWriter};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 use wayland_client::Main;
 
@@ -81,7 +82,11 @@ impl<'b> Canvas for Buffer<'b> {
             }
         }
     }
+    fn get_buf(&self) -> &[u8] {
+        &self.canvas
+    }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
+        /*
         let width = if x + surface.get_width() <= self.width {
             surface.get_width()
         } else if self.width > x {
@@ -96,12 +101,18 @@ impl<'b> Canvas for Buffer<'b> {
         } else {
             0
         };
+        */
+        println!("{} {}", x, y);
+        self.canvas.write_all(&surface.get_buf());
+        self.canvas.flush().unwrap();
+        /*
         for dx in 0..width {
             for dy in 0..height {
                 let content = surface.get(dx, dy);
                 self.set(dx, dy, content);
             }
         }
+        */
     }
 }
 
