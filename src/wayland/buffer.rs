@@ -1,4 +1,5 @@
 use crate::snui::*;
+use crate::widgets::render;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use std::convert::TryInto;
 use std::io::{Write, Seek, SeekFrom, BufWriter};
@@ -62,24 +63,6 @@ impl<'b> Canvas for Buffer<'b> {
                 }
             }
             _ => {}
-        }
-    }
-    fn get(&self, x: u32, y: u32) -> Content {
-        let index = ((x + (y * self.get_width())) * 4) as usize;
-        let buf = self.canvas[index..index + 4]
-            .try_into()
-            .expect("slice with incorrect length");
-        let pixel = u32::from_ne_bytes(buf);
-        Content::Pixel(pixel)
-    }
-    fn set(&mut self, x: u32, y: u32, content: Content) {
-        let index = (x + (y * self.get_width())) * 4;
-        if ((x * y) as usize) < self.canvas.len() {
-            match content {
-                Content::Pixel(p) => set_pixel(self.canvas, index, p),
-                Content::Transparent => set_pixel(self.canvas, index, TRANSPARENT),
-                _ => {}
-            }
         }
     }
     fn get_buf(&self) -> &[u8] {

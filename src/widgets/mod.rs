@@ -27,20 +27,22 @@ fn set_pixel(buffer: &mut [u8], mut start: u32, pixel: u32) {
     }
 }
 
-fn render<S>(buffer: &[u8], canvas: &mut S, width: u32, x: u32, y: u32)
+pub fn render<C,S>(canvas: &mut C, buffer: &S, x: u32, y: u32)
 where
+    C: Canvas + Geometry,
     S: Canvas + Geometry
 {
-    let mut i = 0;
-    let width = (width * 4) as usize;
-    let canvas_width = (canvas.get_width() * 4) as usize;
-    let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
-    while i < buffer.len() && index < canvas.size() {
+        let mut i = 0;
+    let buf = buffer.get_buf();
+    let width = buffer.get_width() as usize * 4;
+    let buf_width = (canvas.get_width() *  4) as usize;
+    let mut index = ((x + (y * buffer.get_width())) * 4) as usize;
+    while i < buffer.size() && index < canvas.size() {
         let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+width]);
-        writer.write(&buffer[i..i+width]).unwrap();
+        writer.write(&buf[i..i+width]).unwrap();
         writer.flush().unwrap();
         i += width;
-        index += canvas_width;
+        index += buf_width;
     }
 }
 
@@ -79,11 +81,8 @@ impl Drawable for Rectangle {
         self.color = content;
     }
     fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        for dx in 0..self.get_width() {
-            for dy in 0..self.get_height() {
-                canvas.set(x + dx, y + dy, self.color);
-            }
-        }
+        let surface = Surface::new(self.width,self.height,self.color).unwrap();
+        render(canvas, &surface, x, y);
     }
 }
 
@@ -177,14 +176,6 @@ impl Canvas for Surface {
     fn size(&self) -> usize {
         (self.width * self.height * 4) as usize
     }
-    fn get(&self, x: u32, y: u32) -> Content {
-        let index = ((x + (y * self.get_width())) * 4) as usize;
-        let buf = self.canvas[index..index + 4]
-            .try_into()
-            .expect("slice with incorrect length");
-        let pixel = u32::from_ne_bytes(buf);
-        Content::Pixel(pixel)
-    }
     fn damage(&mut self, event: Damage) {
         match event {
             Damage::All { surface } => {
@@ -209,43 +200,7 @@ impl Canvas for Surface {
         }
     }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
-        let width = if x + surface.get_width() <= self.width {
-            surface.get_width()
-        } else if self.width > x {
-            self.width - x
-        } else {
-            0
-        };
-        let height = if y + surface.get_height() <= self.height {
-            surface.get_height()
-        } else if self.height > y {
-            self.height - y
-        } else {
-            0
-        };
-        for dx in 0..width {
-            for dy in 0..height {
-                let content = surface.get(dx, dy);
-                self.set(x + dx, y + dy, content);
-            }
-        }
-    }
-    fn set(&mut self, x: u32, y: u32, content: Content) {
-        if ((x * y) as usize) < self.canvas.len() {
-            let mut index = ((x + (y * self.get_width())) * 4) as usize;
-            match content {
-                Content::Byte(byte) => {
-                    self.canvas[index as usize] = byte;
-                }
-                Content::Pixel(pixel) => {
-                    for byte in &pixel.to_ne_bytes() {
-                        self.canvas[index as usize] = *byte;
-                        index += 1;
-                    }
-                }
-                _ => {}
-            }
-        }
+        render(self, surface, x, y);
     }
     fn get_buf(&self) -> &[u8] {
         &self.canvas
@@ -272,7 +227,9 @@ impl Surface {
             Content::Pixel(pixel) => {
                 let mut vec = Vec::new();
                 let mut writer = BufWriter::new(vec);
-                writer.write_all(&pixel.to_ne_bytes());
+                for _ in 0..width*height {
+                    writer.write_all(&pixel.to_ne_bytes());
+                }
                 writer.flush().unwrap();
                 writer.into_inner().unwrap()
             }

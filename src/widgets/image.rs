@@ -1,4 +1,5 @@
 use crate::snui::*;
+use crate::widgets::render;
 use image::imageops::{self, FilterType};
 use std::io::{Write, Seek, SeekFrom, BufWriter};
 use image::io::Reader as ImageReader;
