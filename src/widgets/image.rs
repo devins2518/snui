@@ -2,19 +2,19 @@ use crate::snui::*;
 use image::imageops::{self, FilterType};
 use std::io::{Write, Seek, SeekFrom, BufWriter};
 use image::io::Reader as ImageReader;
-use image::{ImageBuffer, Rgba};
+use image::{ImageBuffer, Rgba, Bgra};
 use std::error::Error;
 use std::path::Path;
 
 pub struct Image {
-    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
+    image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }
 
 impl Image {
     pub fn new(image: &Path) -> Result<Self, Box<dyn Error>> {
         let dyn_image = ImageReader::open(image)?.decode()?;
 
-        let image = dyn_image.to_rgba8();
+        let image = dyn_image.to_bgra8();
 
         Ok(Self { image })
     }
@@ -23,7 +23,7 @@ impl Image {
         let dyn_image = ImageReader::open(image)?.decode()?;
         dyn_image.resize(width, height, FilterType::Triangle);
 
-        let image = dyn_image.to_rgba8();
+        let image = dyn_image.to_bgra8();
 
         Ok(Self { image })
     }
@@ -60,7 +60,7 @@ impl Drawable for Image {
         match content {
             Content::Empty => {
                 self.image =
-                    ImageBuffer::from_pixel(self.get_width(), self.get_height(), Rgba([0, 0, 0, 0]))
+                    ImageBuffer::from_pixel(self.get_width(), self.get_height(), Bgra([0, 0, 0, 0]))
             }
             Content::Transparent => {
                 for pixel in self.image.pixels_mut() {
@@ -69,7 +69,7 @@ impl Drawable for Image {
             }
             Content::Pixel(pixel) => {
                 let arr = pixel.to_ne_bytes();
-                self.image = ImageBuffer::from_pixel(self.get_width(), self.get_height(), Rgba(arr))
+                self.image = ImageBuffer::from_pixel(self.get_width(), self.get_height(), Bgra(arr))
             }
             _ => eprintln!("Attempted to perform illegal operation on image!"),
         }
@@ -79,11 +79,10 @@ impl Drawable for Image {
         let mut i = 0;
         let image_buf = self.image.as_raw();
         let img_width = (self.get_width() * 4) as usize;
-        let canvas_size = canvas.get_width() * canvas.get_height();
         let surface_width = (canvas.get_width() * 4) as usize;
         let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
-        while i < self.size() || index < canvas_size as usize {
-            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+surface_width]);
+        while i < image_buf.len() && index < canvas.size() {
+            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+img_width]);
             writer.write(&image_buf[i..i+img_width]).unwrap();
             writer.flush().unwrap();
             i += img_width;

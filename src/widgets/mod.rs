@@ -27,6 +27,23 @@ fn set_pixel(buffer: &mut [u8], mut start: u32, pixel: u32) {
     }
 }
 
+fn render<S>(buffer: &[u8], canvas: &mut S, width: u32, x: u32, y: u32)
+where
+    S: Canvas + Geometry
+{
+    let mut i = 0;
+    let width = (width * 4) as usize;
+    let canvas_width = (canvas.get_width() * 4) as usize;
+    let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
+    while i < buffer.len() && index < canvas.size() {
+        let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+width]);
+        writer.write(&buffer[i..i+width]).unwrap();
+        writer.flush().unwrap();
+        i += width;
+        index += canvas_width;
+    }
+}
+
 /*
  * The most basic widget one can create. It's the basis of everything else.
  */
@@ -157,6 +174,9 @@ impl Drawable for Surface {
 }
 
 impl Canvas for Surface {
+    fn size(&self) -> usize {
+        (self.width * self.height * 4) as usize
+    }
     fn get(&self, x: u32, y: u32) -> Content {
         let index = ((x + (y * self.get_width())) * 4) as usize;
         let buf = self.canvas[index..index + 4]
@@ -212,7 +232,6 @@ impl Canvas for Surface {
     }
     fn set(&mut self, x: u32, y: u32, content: Content) {
         if ((x * y) as usize) < self.canvas.len() {
-            // let y = self.height - 1 - y;
             let mut index = ((x + (y * self.get_width())) * 4) as usize;
             match content {
                 Content::Byte(byte) => {
@@ -230,6 +249,9 @@ impl Canvas for Surface {
     }
     fn get_buf(&self) -> &[u8] {
         &self.canvas
+    }
+    fn get_mut_buf(&mut self) -> &mut [u8] {
+        &mut self.canvas
     }
 }
 
@@ -261,9 +283,6 @@ impl Surface {
             height,
             canvas,
         })
-    }
-    fn get_mut_buf(&mut self) -> &mut [u8] {
-        &mut self.canvas
     }
 }
 pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {

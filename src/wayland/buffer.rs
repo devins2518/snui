@@ -85,34 +85,25 @@ impl<'b> Canvas for Buffer<'b> {
     fn get_buf(&self) -> &[u8] {
         &self.canvas
     }
+    fn get_mut_buf(&mut self) -> &mut [u8] {
+        &mut self.canvas
+    }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
-        /*
-        let width = if x + surface.get_width() <= self.width {
-            surface.get_width()
-        } else if self.width > x {
-            self.width - x
-        } else {
-            0
-        };
-        let height = if y + surface.get_height() <= self.height {
-            surface.get_height()
-        } else if self.height > y {
-            self.height - y
-        } else {
-            0
-        };
-        */
-        println!("{} {}", x, y);
-        self.canvas.write_all(&surface.get_buf());
-        self.canvas.flush().unwrap();
-        /*
-        for dx in 0..width {
-            for dy in 0..height {
-                let content = surface.get(dx, dy);
-                self.set(dx, dy, content);
-            }
+        let mut i = 0;
+        let buf = surface.get_buf();
+        let width = surface.get_width() as usize * 4;
+        let buf_width = (self.width * 4) as usize;
+        let mut index = ((x + (y * surface.get_width())) * 4) as usize;
+        while i < surface.size() && index < self.canvas.len() {
+            let mut writer = BufWriter::new(&mut self.canvas[index..index+buf_width]);
+            writer.write(&buf[i..i+width]).unwrap();
+            writer.flush().unwrap();
+            i += width;
+            index += buf_width;
         }
-        */
+    }
+    fn size(&self) -> usize {
+        (self.width * self.height * 4) as usize
     }
 }
 
