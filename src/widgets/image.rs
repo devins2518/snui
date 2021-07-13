@@ -51,7 +51,10 @@ impl Image {
         let surface_width = (canvas.get_width() * 4) as usize;
         let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
         while i < image_buf.len() && index < canvas.size() {
-            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+img_width]);
+            let slice = if canvas.size() - index < surface_width {
+                canvas.size() - index
+            } else { img_width };
+            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+slice]);
             writer.write(&image_buf[i..i+img_width]).unwrap();
             writer.flush().unwrap();
             i += img_width;

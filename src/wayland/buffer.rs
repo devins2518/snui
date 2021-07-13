@@ -66,11 +66,14 @@ impl<'b> Canvas for Buffer<'b> {
         let buf = surface.get_buf();
         let buf_width = (self.width * 4) as usize;
         let width = surface.get_width() as usize * 4;
-        let slice = if width > buf_width {
+        let mut slice = if width > buf_width {
             buf_width
         } else { width };
-        let mut index = ((x + (y * surface.get_width())) * 4) as usize;
+        let mut index = ((x + (y * self.get_width())) * 4) as usize;
         while i < surface.size() && index < self.canvas.len() {
+            if self.size() - index < buf_width {
+                slice = self.size() - index;
+            }
             let mut writer = BufWriter::new(&mut self.canvas[index..index+slice]);
             writer.write(&buf[i..i+slice]).unwrap();
             writer.flush().unwrap();
