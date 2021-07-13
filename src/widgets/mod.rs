@@ -20,13 +20,6 @@ pub use wbox::Wbox;
 const TRANSPARENT: u32 = 0x00_00_00_00;
 // const PI: f64 = 3.14159265358979;
 
-fn set_pixel(buffer: &mut [u8], mut start: u32, pixel: u32) {
-    for byte in &pixel.to_ne_bytes() {
-        buffer[start as usize] = *byte;
-        start += 1;
-    }
-}
-
 pub fn render<C,S>(canvas: &mut C, buffer: &S, x: u32, y: u32)
 where
     C: Canvas + Geometry,
@@ -159,10 +152,10 @@ impl Drawable for Surface {
                 self.canvas = vec![byte; (self.width*self.height*4) as usize]
             }
             Content::Pixel(pixel) => {
-                self.canvas.write_all(&pixel.to_ne_bytes());
+                self.canvas.write_all(&pixel.to_ne_bytes()).unwrap();
             }
             Content::Transparent => {
-                self.canvas.write_all(&TRANSPARENT.to_ne_bytes());
+                self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
             }
             _ => {}
         }
@@ -191,7 +184,7 @@ impl Canvas for Surface {
                 width,
                 height,
             } => {
-                self.canvas.write_all(&TRANSPARENT.to_ne_bytes());
+                self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
                 self.canvas.flush().unwrap();
             }
             _ => {}
@@ -223,10 +216,10 @@ impl Surface {
                 vec![byte; (width * height * 4) as usize]
             }
             Content::Pixel(pixel) => {
-                let mut vec = Vec::new();
+                let vec = Vec::new();
                 let mut writer = BufWriter::new(vec);
                 for _ in 0..width*height {
-                    writer.write_all(&pixel.to_ne_bytes());
+                    writer.write_all(&pixel.to_ne_bytes()).unwrap();
                 }
                 writer.flush().unwrap();
                 writer.into_inner().unwrap()

@@ -15,13 +15,6 @@ pub struct Buffer<'b> {
     canvas: &'b mut [u8],
 }
 
-fn set_pixel(buffer: &mut [u8], mut start: u32, pixel: u32) {
-    for byte in &pixel.to_ne_bytes() {
-        buffer[start as usize] = *byte;
-        start += 1;
-    }
-}
-
 impl<'b> Geometry for Buffer<'b> {
     fn get_width(&self) -> u32 {
         self.width
@@ -56,7 +49,7 @@ impl<'b> Canvas for Buffer<'b> {
                 width,
                 height,
             } => {
-                self.canvas.write_all(&TRANSPARENT.to_ne_bytes());
+                self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
                 self.canvas.flush().unwrap();
             }
             _ => {}
@@ -71,12 +64,15 @@ impl<'b> Canvas for Buffer<'b> {
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
         let mut i = 0;
         let buf = surface.get_buf();
-        let width = surface.get_width() as usize * 4;
         let buf_width = (self.width * 4) as usize;
+        let width = surface.get_width() as usize * 4;
+        let slice = if width > buf_width {
+            buf_width
+        } else { width };
         let mut index = ((x + (y * surface.get_width())) * 4) as usize;
         while i < surface.size() && index < self.canvas.len() {
-            let mut writer = BufWriter::new(&mut self.canvas[index..index+buf_width]);
-            writer.write(&buf[i..i+width]).unwrap();
+            let mut writer = BufWriter::new(&mut self.canvas[index..index+slice]);
+            writer.write(&buf[i..i+slice]).unwrap();
             writer.flush().unwrap();
             i += width;
             index += buf_width;
