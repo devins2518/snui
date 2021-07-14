@@ -12,11 +12,12 @@ impl Drawable for Node {
     fn set_content(&mut self, content: Content) {
         self.head.set_content(content);
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        self.head.draw(canvas, x, y);
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        self.head.draw(canvas, width, x, y);
         if let Some(tail) = &self.tail {
             tail.deref().draw(
                 canvas,
+                width,
                 x + tail.head.get_location().0,
                 y + tail.head.get_location().1,
             );
@@ -32,7 +33,6 @@ impl Geometry for Node {
         self.head.get_height()
     }
     fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
-        // let (fx, fy) = self.head.get_location();
         let msg = self.head.contains(widget_x, widget_y, x, y, event);
         match &msg {
             Damage::None => {

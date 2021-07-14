@@ -1,5 +1,4 @@
 use crate::snui::*;
-use crate::widgets::*;
 
 pub struct Inner {
     x: u32,
@@ -46,8 +45,9 @@ impl Drawable for Inner {
     fn set_content(&mut self, content: Content) {
         self.child.set_content(content);
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        self.child.draw(canvas, x, y);
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        // println!("inner: {} x {}", x, y);
+        self.child.draw(canvas, width, x, y);
     }
 }
 

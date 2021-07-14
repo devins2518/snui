@@ -37,22 +37,12 @@ pub enum Anchor {
     BottomLeft,
 }
 
+// Make Damage hold a slice instead of a surface
 #[derive(Clone, Debug)]
 pub enum Damage {
-    Area {
-        surface: Surface,
-        x: u32,
-        y: u32,
-    },
-    Destroy {
-        x: u32,
-        y: u32,
-        width: u32,
-        height: u32,
-    },
-    All {
-        surface: Surface,
-    },
+    Area { surface: Surface, x: u32, y: u32 },
+    Destroy,
+    All { surface: Surface },
     None,
     Own,
 }
@@ -108,7 +98,7 @@ pub trait Geometry {
  */
 pub trait Drawable {
     fn set_content(&mut self, content: Content);
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32);
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
 pub trait Widget: Drawable + Geometry {}

@@ -47,15 +47,17 @@ where
     });
 }
 
+// TO-DO
+// Utilize all the stuff I have disabled
 pub fn assign_pointer<A: 'static + Geometry + Canvas>(pointer: &Main<wl_pointer::WlPointer>) {
     let mut input = Input::None;
     let (mut x, mut y) = (0, 0);
-    pointer.quick_assign(move |pointer, event, mut app| {
+    pointer.quick_assign(move |_, event, mut app| {
         let app = app.get::<A>().unwrap();
         match event {
             wl_pointer::Event::Enter {
-                serial,
-                surface,
+                serial: _,
+                surface: _,
                 surface_x,
                 surface_y,
             } => {
@@ -64,7 +66,7 @@ pub fn assign_pointer<A: 'static + Geometry + Canvas>(pointer: &Main<wl_pointer:
                 input = Input::Enter;
             }
             wl_pointer::Event::Motion {
-                time,
+                time: _,
                 surface_x,
                 surface_y,
             } => {
@@ -73,7 +75,7 @@ pub fn assign_pointer<A: 'static + Geometry + Canvas>(pointer: &Main<wl_pointer:
                 input = Input::Hover;
             }
             wl_pointer::Event::Button {
-                serial,
+                serial: _,
                 time,
                 button,
                 state,

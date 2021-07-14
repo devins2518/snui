@@ -1,5 +1,5 @@
 use crate::snui::*;
-use crate::widgets::{Inner, Rectangle, Surface};
+use crate::widgets::{Inner, Rectangle};
 
 pub struct Wbox {
     background: Rectangle,
@@ -18,7 +18,7 @@ impl Container for Wbox {
         self.widgets.push(widget);
         Ok(())
     }
-    fn get_child(&self) -> Result<&dyn Widget,Error> {
+    fn get_child(&self) -> Result<&dyn Widget, Error> {
         Err(Error::Message("get_child is not valid on \"wbox\""))
     }
 }
@@ -49,11 +49,11 @@ impl Drawable for Wbox {
     fn set_content(&mut self, content: Content) {
         self.background.set_content(content);
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        self.background.draw(canvas, x, y);
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        self.background.draw(canvas, width, x, y);
         for w in &self.widgets {
             let (x, y) = w.get_location();
-            w.draw(canvas, x, y);
+            w.draw(canvas, width, x, y);
         }
     }
 }

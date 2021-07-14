@@ -1,8 +1,6 @@
 use crate::snui::*;
-use crate::widgets::render;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
-use std::convert::TryInto;
-use std::io::{Write, Seek, SeekFrom, BufWriter};
+use std::io::{BufWriter, Write};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 use wayland_client::Main;
 
@@ -43,13 +41,10 @@ impl<'b> Canvas for Buffer<'b> {
             Damage::Area { surface, x, y } => {
                 self.composite(&surface, x, y);
             }
-            Damage::Destroy {
-                x,
-                y,
-                width,
-                height,
-            } => {
-                self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
+            Damage::Destroy => {
+                for _ in 0..self.size() {
+                    self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
+                }
                 self.canvas.flush().unwrap();
             }
             _ => {}
@@ -66,16 +61,14 @@ impl<'b> Canvas for Buffer<'b> {
         let buf = surface.get_buf();
         let buf_width = (self.width * 4) as usize;
         let width = surface.get_width() as usize * 4;
-        let mut slice = if width > buf_width {
-            buf_width
-        } else { width };
+        let mut slice = if width > buf_width { buf_width } else { width };
         let mut index = ((x + (y * self.get_width())) * 4) as usize;
         while i < surface.size() && index < self.canvas.len() {
             if self.size() - index < buf_width {
                 slice = self.size() - index;
             }
-            let mut writer = BufWriter::new(&mut self.canvas[index..index+slice]);
-            writer.write(&buf[i..i+slice]).unwrap();
+            let mut writer = BufWriter::new(&mut self.canvas[index..index + slice]);
+            writer.write(&buf[i..i + slice]).unwrap();
             writer.flush().unwrap();
             i += width;
             index += buf_width;

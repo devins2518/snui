@@ -6,36 +6,42 @@ pub mod node;
 pub mod revealer;
 pub mod wbox;
 
+pub use self::image::Image;
 use crate::snui::*;
-use std::convert::TryInto;
-use std::io::{Write, Seek, SeekFrom, BufWriter};
 pub use button::Button;
 pub use inner::Inner;
 pub use listbox::ListBox;
 pub use node::Node;
 pub use revealer::Revealer;
-pub use self::image::Image;
+use std::io::{BufWriter, Write};
 pub use wbox::Wbox;
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
 // const PI: f64 = 3.14159265358979;
 
-pub fn render<C,S>(canvas: &mut C, buffer: &S, x: u32, y: u32)
+// Canvas is drawn on
+// Buffer is drawn from
+// width -> width of the canvas
+pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32)
 where
-    C: Canvas + Geometry,
-    S: Canvas + Geometry
+    S: Canvas + Geometry,
 {
     let mut i = 0;
     let buf = buffer.get_buf();
-    let width = buffer.get_width() as usize * 4;
-    let buf_width = (canvas.get_width() *  4) as usize;
-    let mut index = ((x + (y * buffer.get_width())) * 4) as usize;
-    while i < buffer.size() && index < canvas.size() {
-        let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+width]);
-        writer.write(&buf[i..i+width]).unwrap();
+    let buf_width = buffer.get_width() as usize * 4;
+    let mut index = ((x + (y * width as u32)) * 4) as usize;
+    width *= 4;
+    while i < buffer.size() && index < canvas.len() {
+        let slice = if canvas.len() - index < width {
+            canvas.len() - index
+        } else {
+            buf_width
+        };
+        let mut writer = BufWriter::new(&mut canvas[index..index + slice]);
+        writer.write(&buf[i..i + buf_width]).unwrap();
         writer.flush().unwrap();
-        i += width;
-        index += buf_width;
+        i += buf_width;
+        index += width;
     }
 }
 
@@ -73,9 +79,9 @@ impl Drawable for Rectangle {
     fn set_content(&mut self, content: Content) {
         self.color = content;
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        let surface = Surface::new(self.width,self.height,self.color).unwrap();
-        render(canvas, &surface, x, y);
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        let surface = Surface::new(self.width, self.height, self.color).unwrap();
+        render(canvas, &surface, width as usize, x, y);
     }
 }
 
@@ -149,7 +155,7 @@ impl Drawable for Surface {
     fn set_content(&mut self, content: Content) {
         match content {
             Content::Byte(byte) => {
-                self.canvas = vec![byte; (self.width*self.height*4) as usize]
+                self.canvas = vec![byte; (self.width * self.height * 4) as usize]
             }
             Content::Pixel(pixel) => {
                 self.canvas.write_all(&pixel.to_ne_bytes()).unwrap();
@@ -161,8 +167,8 @@ impl Drawable for Surface {
         }
         self.canvas.flush().unwrap();
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        canvas.composite(self, x, y);
+    fn draw(&self, canvas: &mut [u8], _width: u32, x: u32, y: u32) {
+        render(canvas, self, self.get_width() as usize, x, y);
     }
 }
 
@@ -178,20 +184,18 @@ impl Canvas for Surface {
             Damage::Area { surface, x, y } => {
                 self.composite(&surface, x, y);
             }
-            Damage::Destroy {
-                x,
-                y,
-                width,
-                height,
-            } => {
-                self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
+            Damage::Destroy => {
+                for _ in 0..self.size() {
+                    self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
+                }
                 self.canvas.flush().unwrap();
             }
             _ => {}
         }
     }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
-        render(self, surface, x, y);
+        let width = self.get_width();
+        render(self.get_mut_buf(), surface, width as usize, x, y);
     }
     fn get_buf(&self) -> &[u8] {
         &self.canvas
@@ -218,13 +222,13 @@ impl Surface {
             Content::Pixel(pixel) => {
                 let vec = Vec::new();
                 let mut writer = BufWriter::new(vec);
-                for _ in 0..width*height {
+                for _ in 0..width * height {
                     writer.write_all(&pixel.to_ne_bytes()).unwrap();
                 }
                 writer.flush().unwrap();
                 writer.into_inner().unwrap()
             }
-            _ => return Err(Error::Null)
+            _ => return Err(Error::Null),
         };
         Ok(Surface {
             width,
@@ -235,7 +239,8 @@ impl Surface {
 }
 pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
     let mut surface = Surface::empty(widget.get_width(), widget.get_height());
-    widget.draw(&mut surface, 0, 0);
+    let width = surface.get_width();
+    widget.draw(surface.get_mut_buf(), width, 0, 0);
     surface
 }
 

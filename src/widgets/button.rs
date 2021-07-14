@@ -29,8 +29,8 @@ impl<W: Widget> Drawable for Button<W> {
     fn set_content(&mut self, content: Content) {
         self.widget.set_content(content);
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
-        self.widget.draw(canvas, x, y)
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        self.widget.draw(canvas, width, x, y)
     }
 }
 

@@ -14,11 +14,11 @@ impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
             self.normal.set_content(content);
         }
     }
-    fn draw(&self, canvas: &mut Surface, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         if self.state {
-            self.reveal.draw(canvas, x, y)
+            self.reveal.draw(canvas, width, x, y)
         } else {
-            self.normal.draw(canvas, x, y)
+            self.normal.draw(canvas, width, x, y)
         }
     }
 }

@@ -1,10 +1,9 @@
 use crate::snui::*;
-use crate::widgets::render;
 use image::imageops::{self, FilterType};
-use std::io::{Write, Seek, SeekFrom, BufWriter};
 use image::io::Reader as ImageReader;
-use image::{ImageBuffer, Rgba, Bgra};
+use image::{Bgra, ImageBuffer};
 use std::error::Error;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 pub struct Image {
@@ -41,24 +40,23 @@ impl Image {
     pub fn size(&self) -> usize {
         (self.image.width() * self.image.height() * 4) as usize
     }
-    pub fn render<C>(&self, canvas: &mut C, x: u32, y: u32)
-    where
-        C: Canvas + Geometry,
-    {
+    pub fn render(&self, canvas: &mut [u8], mut width: usize, x: u32, y: u32) {
+        width *= 4;
         let mut i = 0;
         let image_buf = self.image.as_raw();
         let img_width = (self.get_width() * 4) as usize;
-        let surface_width = (canvas.get_width() * 4) as usize;
-        let mut index = ((x + (y * canvas.get_width())) * 4) as usize;
-        while i < image_buf.len() && index < canvas.size() {
-            let slice = if canvas.size() - index < surface_width {
-                canvas.size() - index
-            } else { img_width };
-            let mut writer = BufWriter::new(&mut canvas.get_mut_buf()[index..index+slice]);
-            writer.write(&image_buf[i..i+img_width]).unwrap();
+        let mut index = ((x + (y * width as u32)) * 4) as usize;
+        while i < image_buf.len() && index < canvas.len() {
+            let slice = if canvas.len() - index < width {
+                canvas.len() - index
+            } else {
+                img_width
+            };
+            let mut writer = BufWriter::new(&mut canvas[index..index + slice]);
+            writer.write(&image_buf[i..i + img_width]).unwrap();
             writer.flush().unwrap();
             i += img_width;
-            index += surface_width;
+            index += width;
         }
     }
 }
@@ -71,7 +69,14 @@ impl Geometry for Image {
         self.image.height()
     }
     // TODO
-    fn contains(&mut self, _widget_x: u32, _widget_y: u32, _x: u32, _y: u32, _event: Input) -> Damage {
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Input,
+    ) -> Damage {
         Damage::None
     }
 }
@@ -96,8 +101,9 @@ impl Drawable for Image {
         }
     }
 
-    fn draw(&self, canvas: &mut super::Surface, x: u32, y: u32) {
-        self.render(canvas, x, y);
+    // pub fn render<S>(canvas: &mut [u8], buffer: &S, width: usize, x: u32, y: u32)
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        self.render(canvas, width as usize, x, y);
     }
 }
 
