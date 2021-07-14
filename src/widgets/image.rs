@@ -22,9 +22,9 @@ impl Image {
 
     pub fn new_with_size(image: &Path, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
         let dyn_image = ImageReader::open(image)?.decode()?;
-        dyn_image.resize(width, height, FilterType::Triangle);
+        let scaled_image = dyn_image.resize_to_fill(width, height, FilterType::Triangle);
 
-        let image = dyn_image.to_bgra8();
+        let image = scaled_image.to_bgra8();
 
         Ok(Self { image })
     }
