@@ -7,7 +7,7 @@ pub mod revealer;
 pub mod wbox;
 
 pub use self::image::Image;
-use crate::snui::*;
+use crate::*;
 pub use button::Button;
 pub use inner::Inner;
 pub use listbox::ListBox;
@@ -17,6 +17,7 @@ use std::io::{BufWriter, Write};
 pub use wbox::Wbox;
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
+// For rounded corners eventually
 // const PI: f64 = 3.14159265358979;
 
 // Canvas is drawn on
@@ -35,7 +36,7 @@ where
         let slice = if canvas.len() - index < width {
             canvas.len() - index
         } else {
-            buf_width
+            width
         };
         let mut writer = BufWriter::new(&mut canvas[index..index + slice]);
         writer.write(&buf[i..i + buf_width]).unwrap();
@@ -80,8 +81,9 @@ impl Drawable for Rectangle {
         self.color = content;
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        let surface = Surface::new(self.width, self.height, self.color).unwrap();
-        render(canvas, &surface, width as usize, x, y);
+        if let Ok(surface) = Surface::new(self.width, self.height, self.color) {
+            render(canvas, &surface, width as usize, x, y);
+        }
     }
 }
 
@@ -175,23 +177,6 @@ impl Drawable for Surface {
 impl Canvas for Surface {
     fn size(&self) -> usize {
         (self.width * self.height * 4) as usize
-    }
-    fn damage(&mut self, event: Damage) {
-        match event {
-            Damage::All { surface } => {
-                self.composite(&surface, 0, 0);
-            }
-            Damage::Area { surface, x, y } => {
-                self.composite(&surface, x, y);
-            }
-            Damage::Destroy => {
-                for _ in 0..self.size() {
-                    self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
-                }
-                self.canvas.flush().unwrap();
-            }
-            _ => {}
-        }
     }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
         let width = self.get_width();

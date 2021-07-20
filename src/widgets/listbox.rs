@@ -1,4 +1,4 @@
-use crate::snui::*;
+use crate::*;
 use crate::widgets::{Inner, Rectangle};
 
 pub struct ListBox {

@@ -1,4 +1,4 @@
-use crate::snui::*;
+use crate::*;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
@@ -41,11 +41,11 @@ impl Image {
         (self.image.width() * self.image.height() * 4) as usize
     }
     pub fn render(&self, canvas: &mut [u8], mut width: usize, x: u32, y: u32) {
-        width *= 4;
         let mut i = 0;
         let image_buf = self.image.as_raw();
         let img_width = (self.get_width() * 4) as usize;
         let mut index = ((x + (y * width as u32)) * 4) as usize;
+        width *= 4;
         while i < image_buf.len() && index < canvas.len() {
             let slice = if canvas.len() - index < width {
                 canvas.len() - index
@@ -101,7 +101,6 @@ impl Drawable for Image {
         }
     }
 
-    // pub fn render<S>(canvas: &mut [u8], buffer: &S, width: usize, x: u32, y: u32)
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         self.render(canvas, width as usize, x, y);
     }

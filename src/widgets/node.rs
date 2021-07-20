@@ -1,4 +1,4 @@
-use crate::snui::*;
+use crate::*;
 use crate::widgets::*;
 use std::ops::{Deref, DerefMut};
 

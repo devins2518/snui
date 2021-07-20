@@ -1,4 +1,4 @@
-use crate::snui::*;
+use crate::*;
 
 pub struct Inner {
     x: u32,
