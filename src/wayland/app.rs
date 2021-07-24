@@ -59,8 +59,21 @@ impl Geometry for Application {
     fn get_height(&self) -> u32 {
         self.widget.get_height()
     }
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
-        self.widget.contains(widget_x, widget_y, x, y, event)
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
+        let width = self.get_width();
+        let height = self.get_height();
+        let res = self.widget.contains(widget_x, widget_y, x, y, event);
+        if let Some(widget) = res.widget {
+            let mut buffer = Buffer::new(
+                width as i32,
+                height as i32,
+                (4 * height) as i32,
+                &mut self.mempool,
+            );
+            widget.draw(buffer.get_mut_buf(), width, res.x, res.y);
+            self.buffer = Some(buffer.get_wl_buffer());
+        }
+        Damage::none()
     }
 }
 
@@ -214,21 +227,8 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Canvas + LayerSurface>(
             // Dispatching the event to widgets
             if let Some(ev) = input {
                 let widget = &mut app[index];
-                match widget.contains(0, 0, x, y, ev) {
-                    Damage::Area { surface, x, y } => {
-                        widget.composite(&surface, x, y);
-                        widget.show();
-                    }
-                    Damage::Destroy => {
-                        let size = widget.size();
-                        let mut writer = BufWriter::new(widget.get_mut_buf());
-                        for _ in 0..size {
-                            writer.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
-                        }
-                        writer.flush().unwrap()
-                    }
-                    _ => {}
-                }
+                widget.contains(0, 0, x, y, ev);
+                widget.show();
                 input = None;
             }
         }

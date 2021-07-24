@@ -40,13 +40,32 @@ pub enum Anchor {
     BottomLeft,
 }
 
-// Make Damage hold a slice instead of a surface
-#[derive(Clone, Debug)]
-pub enum Damage {
-    Area { surface: Surface, x: u32, y: u32 },
-    Destroy,
-    None,
-    All,
+// TO-DO return to Enum , check performace
+#[derive(Clone)]
+pub struct Damage<'d> {
+    pub widget: Option<Box<&'d dyn Widget>>,
+    pub x: u32,
+    pub y: u32,
+}
+
+impl<'d> Damage<'d> {
+    pub fn is_some(&self) -> bool {
+        self.widget.is_some()
+    }
+    pub fn none() -> Damage<'d> {
+        Damage {
+            widget: None,
+            x: 0,
+            y: 0,
+        }
+    }
+    pub fn new(widget: &'d dyn Widget, x: u32, y: u32) -> Damage<'d> {
+        Damage {
+            widget: Some(Box::new(widget)),
+            x,
+            y
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -90,7 +109,7 @@ pub trait Container {
 pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage;
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d>;
 }
 
 /*

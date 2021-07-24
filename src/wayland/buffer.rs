@@ -17,15 +17,15 @@ impl<'b> Geometry for Buffer<'b> {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn contains(
-        &mut self,
+    fn contains<'d>(
+        &'d mut self,
         _widget_x: u32,
         _widget_y: u32,
         _x: u32,
         _y: u32,
         _event: Input,
-    ) -> Damage {
-        Damage::None
+    ) -> Damage<'d> {
+        Damage::none()
     }
 }
 

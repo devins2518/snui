@@ -33,18 +33,17 @@ impl Geometry for Node {
     fn get_height(&self) -> u32 {
         self.head.get_height()
     }
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
-        let msg = self.head.contains(widget_x, widget_y, x, y, event);
-        match &msg {
-            Damage::None => {
-                if let Some(tail) = self.tail.as_mut() {
-                    let (rx, ry) = tail.get_location();
-                    tail.contains(widget_x + rx, widget_y + ry, x, y, event)
-                } else {
-                    Damage::None
-                }
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
+        let ev = self.head.contains(widget_x, widget_y, x, y, event);
+        if ev.is_some() {
+            if let Some(tail) = self.tail.as_mut() {
+                let (rx, ry) = tail.get_location();
+                tail.contains(widget_x + rx, widget_y + ry, x, y, event)
+            } else {
+                Damage::none()
             }
-            _ => msg,
+        } else {
+            ev
         }
     }
 }

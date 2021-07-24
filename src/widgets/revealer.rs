@@ -39,7 +39,7 @@ impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
             self.normal.get_height()
         }
     }
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
         if self.state {
             self.reveal.contains(widget_x, widget_y, x, y, event)
         } else {

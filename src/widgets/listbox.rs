@@ -52,16 +52,15 @@ impl Geometry for ListBox {
             }
         }
     }
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
         for l in &mut self.widgets {
             let (rx, ry) = l.get_location();
-            let msg = l.contains(widget_x + rx, widget_y + ry, x, y, event);
-            match &msg {
-                Damage::None => {}
-                _ => return msg,
+            let ev = l.contains(widget_x + rx, widget_y + ry, x, y, event);
+            if ev.is_some() {
+                return ev
             }
         }
-        Damage::None
+        Damage::none()
     }
 }
 

@@ -15,7 +15,7 @@ impl Geometry for Inner {
     fn get_height(&self) -> u32 {
         self.child.as_ref().get_height()
     }
-    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
         if x > widget_x
             && y > widget_y
             && x < widget_x + self.get_width()
@@ -23,7 +23,7 @@ impl Geometry for Inner {
         {
             Rc::get_mut(&mut self.child).unwrap().contains(widget_x, widget_y, x, y, event)
         } else {
-            Damage::None
+            Damage::none()
         }
     }
 }
