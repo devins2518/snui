@@ -41,6 +41,7 @@ pub enum Anchor {
 }
 
 // TO-DO return to Enum , check performace
+// I'm experiency noticeable latency on debug
 #[derive(Clone)]
 pub struct Damage<'d> {
     pub widget: Option<Box<&'d dyn Widget>>,

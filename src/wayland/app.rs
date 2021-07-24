@@ -11,11 +11,8 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
-const TRANSPARENT: u32 = 0x00_00_00_00;
-
 pub struct Application {
-    widget: Box<dyn Widget>,
-    pixmap: [u8; 0],
+    pub widget: Box<dyn Widget>,
     surface: WlSurface,
     mempool: AutoMemPool,
     buffer: Option<WlBuffer>,
@@ -31,7 +28,6 @@ impl Application {
         layer_surface.set_size(widget.get_width(), widget.get_height());
         surface.commit();
         Application {
-            pixmap: [],
             widget: Box::new(widget),
             surface,
             buffer: None,
@@ -97,28 +93,6 @@ impl LayerSurface for Application {
     }
 }
 
-impl Canvas for Application {
-    fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
-        let mut buffer = Buffer::new(
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
-            (4 * self.widget.get_width()) as i32,
-            &mut self.mempool,
-        );
-        buffer.composite(surface, x, y);
-        self.buffer = Some(buffer.get_wl_buffer());
-    }
-    fn get_buf(&self) -> &[u8] {
-        &self.pixmap
-    }
-    fn get_mut_buf(&mut self) -> &mut [u8] {
-        &mut self.pixmap
-    }
-    fn size(&self) -> usize {
-        (self.get_width() * self.get_height() * 4) as usize
-    }
-}
-
 pub trait LayerSurface {
     fn get_surface(&self) -> &WlSurface;
     fn resize(&mut self, width: u32, height: u32);
@@ -127,7 +101,7 @@ pub trait LayerSurface {
 
 pub fn assign_layer_surface<A>(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>)
 where
-    A: 'static + LayerSurface + Canvas,
+    A: 'static + LayerSurface,
 {
     let surface_handle = surface.clone();
     layer_surface.quick_assign(move |layer_surface, event, mut app| {
@@ -161,7 +135,7 @@ where
     });
 }
 
-pub fn quick_assign_pointer<A: 'static + Geometry + Canvas + LayerSurface>(
+pub fn quick_assign_pointer<A: 'static + Geometry + LayerSurface>(
     pointer: &Main<wl_pointer::WlPointer>, mut widget_index: Option<usize>
 ) {
     let mut input = None;
