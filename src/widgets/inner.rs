@@ -23,7 +23,7 @@ impl Geometry for Inner {
         {
             Rc::get_mut(&mut self.child).unwrap().contains(widget_x, widget_y, x, y, event)
         } else {
-            Damage::none()
+            Damage::None
         }
     }
 }

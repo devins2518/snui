@@ -78,7 +78,7 @@ impl Geometry for Image {
         _y: u32,
         _event: Input,
     ) -> Damage<'d> {
-        Damage::none()
+        Damage::None
     }
 }
 

@@ -43,26 +43,25 @@ pub enum Anchor {
 // TO-DO return to Enum , check performace
 // I'm experiency noticeable latency on debug
 #[derive(Clone)]
-pub struct Damage<'d> {
-    pub widget: Option<Box<&'d dyn Widget>>,
-    pub x: u32,
-    pub y: u32,
+pub enum Damage<'d> {
+    None,
+    Widget {
+        widget: Box<&'d dyn Widget>,
+        x: u32,
+        y: u32,
+    }
 }
 
 impl<'d> Damage<'d> {
     pub fn is_some(&self) -> bool {
-        self.widget.is_some()
-    }
-    pub fn none() -> Damage<'d> {
-        Damage {
-            widget: None,
-            x: 0,
-            y: 0,
+        match self {
+            Damage::None => false,
+            _ => true
         }
     }
     pub fn new(widget: &'d dyn Widget, x: u32, y: u32) -> Damage<'d> {
-        Damage {
-            widget: Some(Box::new(widget)),
+        Damage::Widget {
+            widget: Box::new(widget),
             x,
             y
         }

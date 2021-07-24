@@ -23,10 +23,10 @@ impl<W: Widget + Clone> Geometry for Button<W> {
             if Rc::get_mut(&mut self.callback).unwrap()(&mut self.widget, event) {
                 Damage::new(&self.widget, widget_x, widget_y)
             } else {
-                Damage::none()
+                Damage::None
             }
         } else {
-            Damage::none()
+            Damage::None
         }
     }
 }

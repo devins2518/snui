@@ -41,7 +41,7 @@ impl Geometry for Wbox {
                 return ev
             }
         }
-        Damage::none()
+        Damage::None
     }
 }
 

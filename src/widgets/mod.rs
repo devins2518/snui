@@ -74,7 +74,7 @@ impl Geometry for Rectangle {
         _y: u32,
         _event: Input,
     ) -> Damage<'d> {
-        Damage::none()
+        Damage::None
     }
 }
 
@@ -152,7 +152,7 @@ impl Geometry for Surface {
         _y: u32,
         _event: Input,
     ) -> Damage<'d> {
-        Damage::none()
+        Damage::None
     }
 }
 

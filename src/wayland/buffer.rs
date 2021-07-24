@@ -25,7 +25,7 @@ impl<'b> Geometry for Buffer<'b> {
         _y: u32,
         _event: Input,
     ) -> Damage<'d> {
-        Damage::none()
+        Damage::None
     }
 }
 

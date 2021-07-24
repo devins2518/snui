@@ -59,17 +59,17 @@ impl Geometry for Application {
         let width = self.get_width();
         let height = self.get_height();
         let res = self.widget.contains(widget_x, widget_y, x, y, event);
-        if let Some(widget) = res.widget {
+        if let Damage::Widget{ widget, x, y } = res {
             let mut buffer = Buffer::new(
                 width as i32,
                 height as i32,
                 (4 * height) as i32,
                 &mut self.mempool,
             );
-            widget.draw(buffer.get_mut_buf(), width, res.x, res.y);
+            widget.draw(buffer.get_mut_buf(), width, x, y);
             self.buffer = Some(buffer.get_wl_buffer());
         }
-        Damage::none()
+        Damage::None
     }
 }
 

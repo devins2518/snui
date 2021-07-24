@@ -40,7 +40,7 @@ impl Geometry for Node {
                 let (rx, ry) = tail.get_location();
                 tail.contains(widget_x + rx, widget_y + ry, x, y, event)
             } else {
-                Damage::none()
+                Damage::None
             }
         } else {
             ev

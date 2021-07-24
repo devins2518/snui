@@ -60,7 +60,7 @@ impl Geometry for ListBox {
                 return ev
             }
         }
-        Damage::none()
+        Damage::None
     }
 }
 
