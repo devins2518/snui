@@ -3,6 +3,7 @@ use crate::widgets::*;
 use std::ops::{Deref, DerefMut};
 
 // that can unfold it's inner content
+#[derive(Clone)]
 pub struct Node {
     head: Inner,
     tail: Option<Box<Self>>,

@@ -1,5 +1,6 @@
 use crate::widgets::*;
 
+#[derive(Clone)]
 pub struct Revealer<N: Widget, R: Widget> {
     state: bool,
     normal: N,

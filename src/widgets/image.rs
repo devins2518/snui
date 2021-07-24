@@ -6,6 +6,7 @@ use std::error::Error;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
+#[derive(Clone)]
 pub struct Image {
     image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }

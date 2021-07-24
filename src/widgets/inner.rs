@@ -1,25 +1,27 @@
 use crate::*;
+use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct Inner {
     x: u32,
     y: u32,
-    child: Box<dyn Widget>,
+    child: Rc<dyn Widget>,
 }
 
 impl Geometry for Inner {
     fn get_width(&self) -> u32 {
-        self.child.get_width()
+        self.child.as_ref().get_width()
     }
     fn get_height(&self) -> u32 {
-        self.child.get_height()
+        self.child.as_ref().get_height()
     }
     fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
         if x > widget_x
             && y > widget_y
-            && x < widget_x + self.child.get_width()
-            && y < widget_y + self.child.get_height()
+            && x < widget_x + self.get_width()
+            && y < widget_y + self.get_height()
         {
-            self.child.contains(widget_x, widget_y, x, y, event)
+            Rc::get_mut(&mut self.child).unwrap().contains(widget_x, widget_y, x, y, event)
         } else {
             Damage::None
         }
@@ -43,10 +45,9 @@ impl Container for Inner {
 
 impl Drawable for Inner {
     fn set_content(&mut self, content: Content) {
-        self.child.set_content(content);
+        Rc::get_mut(&mut self.child).unwrap().set_content(content)
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        // println!("inner: {} x {}", x, y);
         self.child.draw(canvas, width, x, y);
     }
 }
@@ -58,14 +59,14 @@ impl Inner {
         Inner {
             x: 0,
             y: 0,
-            child: Box::new(child),
+            child: Rc::new(child),
         }
     }
     pub fn new_at(child: impl Widget + 'static, x: u32, y: u32) -> Inner {
         Inner {
             x,
             y,
-            child: Box::new(child),
+            child: Rc::new(child),
         }
     }
     pub fn get_location(&self) -> (u32, u32) {

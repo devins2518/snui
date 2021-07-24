@@ -1,6 +1,7 @@
 use crate::*;
 use crate::widgets::{Inner, Rectangle};
 
+#[derive(Clone)]
 pub struct ListBox {
     margin: u32,
     widgets: Vec<Inner>,

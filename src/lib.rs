@@ -101,7 +101,9 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
-pub trait Widget: Drawable + Geometry {}
+pub trait Widget: Drawable + Geometry {
+    // fn name(&self) -> String;
+}
 
 pub trait Transform {
     fn scale(&mut self, f: u32);

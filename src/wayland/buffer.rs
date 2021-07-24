@@ -2,7 +2,6 @@ use crate::*;
 use crate::widgets::render;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
-use wayland_client::Main;
 
 pub struct Buffer<'b> {
     width: u32,
@@ -57,7 +56,10 @@ impl<'b> Buffer<'b> {
             canvas: buffer.0,
         }
     }
-    pub fn attach(&mut self, surface: &Main<WlSurface>, x: i32, y: i32) {
+    pub fn attach(&mut self, surface: &WlSurface, x: i32, y: i32) {
         surface.attach(Some(&self.wl_buffer), x, y);
+    }
+    pub fn get_wl_buffer(self) -> WlBuffer {
+        self.wl_buffer
     }
 }

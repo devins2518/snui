@@ -122,6 +122,9 @@ impl Rectangle {
             radius: 0,
         }
     }
+    pub fn set_radius(&mut self, radius: u32) {
+        self.radius = radius;
+    }
 }
 
 // A minimal implementation of a canvas widgets can use to draw themselves
