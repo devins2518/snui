@@ -1,6 +1,5 @@
 use crate::*;
 use crate::wayland::buffer::*;
-use std::io::{BufWriter, Write};
 use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_surface::WlSurface;

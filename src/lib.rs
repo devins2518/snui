@@ -1,7 +1,7 @@
 pub mod wayland;
 pub mod widgets;
 
-use crate::widgets::{Inner, Surface};
+use crate::widgets::Inner;
 
 // This NEEDS to be documentated at some point
 #[derive(Copy, Clone, Debug)]
@@ -132,15 +132,15 @@ impl Error {
     pub fn debug(&self) {
         match self {
             Error::Dimension(name, w, h) => {
-                println!(
+                eprintln!(
                     "requested dimension {}x{} is too large for \"{}\"",
                     w, h, name
                 )
             }
             Error::Overflow(name, capacity) => {
-                println!("\"{}\" reached its full capacity: {}", name, capacity);
+                eprintln!("\"{}\" reached its full capacity: {}", name, capacity);
             }
-            Error::Message(msg) => println!("{}", msg),
+            Error::Message(msg) => eprintln!("{}", msg),
             _ => {}
         }
     }
