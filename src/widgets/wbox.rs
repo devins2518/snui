@@ -57,8 +57,8 @@ impl<W: Widget> Drawable for Wbox<W> {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         self.background.draw(canvas, width, x, y);
         for w in &self.widgets {
-            let (x, y) = w.get_location();
-            w.draw(canvas, width, x, y);
+            let (dx, dy) = w.get_location();
+            w.draw(canvas, width, x + dx, y + dy);
         }
     }
 }

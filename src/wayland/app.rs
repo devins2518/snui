@@ -1,5 +1,5 @@
 use crate::*;
-use crate::wayland::buffer::*;
+use crate::wayland::Buffer;
 use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_surface::WlSurface;
@@ -45,7 +45,7 @@ impl Application {
         buffer.attach(&self.surface, 0, 0);
         self.buffer = Some(buffer.get_wl_buffer());
     }
-    pub fn hide(&mut self) {
+    fn hide(&mut self) {
         self.buffer = None;
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         self.surface.damage(
@@ -55,6 +55,9 @@ impl Application {
             self.widget.get_height() as i32,
         );
         self.surface.commit();
+    }
+    fn destroy(&self) {
+        self.surface.destroy();
     }
 }
 
@@ -69,15 +72,27 @@ impl Geometry for Application {
         let width = self.get_width();
         let height = self.get_height();
         let res = self.widget.contains(widget_x, widget_y, x, y, event);
-        if let Damage::Widget{ widget, x, y } = res {
-            let mut buffer = Buffer::new(
-                width as i32,
-                height as i32,
-                (4 * width) as i32,
-                &mut self.mempool,
-            );
-            widget.draw(buffer.get_mut_buf(), width, x, y);
-            self.buffer = Some(buffer.get_wl_buffer());
+        match res {
+            Damage::Widget{
+                widget, x, y
+            } => {
+                let mut buffer = Buffer::new(
+                    width as i32,
+                    height as i32,
+                    (4 * width) as i32,
+                    &mut self.mempool,
+                );
+                widget.draw(buffer.get_mut_buf(), width, x, y);
+                self.buffer = Some(buffer.get_wl_buffer());
+                self.show();
+            }
+            Damage::Hide => self.hide(),
+            Damage::Destroy => {
+                // self.hide();
+                self.destroy();
+                std::process::exit(0);
+            }
+            Damage::None => {}
         }
         Damage::None
     }
@@ -212,7 +227,6 @@ pub fn quick_assign_pointer<A: 'static + Geometry + LayerSurface>(
             if let Some(ev) = input {
                 let widget = &mut app[index];
                 widget.contains(0, 0, x, y, ev);
-                widget.show();
                 input = None;
             }
         }

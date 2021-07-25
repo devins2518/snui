@@ -41,12 +41,21 @@ pub enum Anchor {
 #[derive(Clone)]
 pub enum Damage<'d> {
     None,
+    Hide,
     Destroy,
     Widget {
         widget: Box<&'d dyn Widget>,
         x: u32,
         y: u32,
     }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum State {
+    Hide,
+    Show,
+    Close,
+    Same
 }
 
 impl<'d> Damage<'d> {

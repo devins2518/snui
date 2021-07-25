@@ -280,19 +280,19 @@ where
             Anchor::Center => {}
             Anchor::TopRight => {
                 x = container.get_width() - widget.get_width() - margin;
-                y = container.get_height() - widget.get_height() - margin;
+                y = margin;
             }
             Anchor::TopLeft => {
                 x = margin;
-                y = container.get_height() - widget.get_height() - margin;
+                y = margin;
             }
             Anchor::BottomRight => {
                 x = container.get_width() - widget.get_width() - margin;
-                y = margin;
+                y = container.get_height() - widget.get_height() - margin;
             }
             Anchor::BottomLeft => {
                 x = margin;
-                y = margin;
+                y = container.get_height() - widget.get_height() - margin;
             }
         }
         container.put(Inner::new_at(widget, x, y))

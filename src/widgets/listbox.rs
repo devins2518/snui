@@ -53,9 +53,10 @@ impl Geometry for ListBox {
         }
     }
     fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
+        // println!("{} {}", x, y);
         for l in &mut self.widgets {
-            let (rx, ry) = l.get_location();
-            let ev = l.contains(widget_x + rx, widget_y + ry, x, y, event);
+            let (dx, dy) = l.get_location();
+            let ev = l.contains(widget_x + dx, widget_y + dy, x, y, event);
             if ev.is_some() {
                 return ev
             }
@@ -75,8 +76,8 @@ impl Drawable for ListBox {
         bg.set_content(self.background);
         bg.draw(canvas, width, x, y);
         for w in &self.widgets {
-            let (x, y) = w.get_location();
-            w.draw(canvas, width, x, y);
+            let (dx, dy) = w.get_location();
+            w.draw(canvas, width, x+dx, y+dy);
         }
     }
 }

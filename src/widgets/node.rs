@@ -36,7 +36,7 @@ impl Geometry for Node {
     }
     fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
         let ev = self.head.contains(widget_x, widget_y, x, y, event);
-        if ev.is_some() {
+        if !ev.is_some() {
             if let Some(tail) = self.tail.as_mut() {
                 let (rx, ry) = tail.get_location();
                 Rc::get_mut(tail).unwrap().contains(widget_x + rx, widget_y + ry, x, y, event)
