@@ -33,7 +33,7 @@ impl Application {
             mempool,
         }
     }
-    pub fn render(&mut self) {
+    fn render(&mut self) {
         let width = self.widget.get_width();
         let mut buffer = Buffer::new(
             self.widget.get_width() as i32,
@@ -44,6 +44,17 @@ impl Application {
         self.widget.draw(buffer.get_mut_buf(), width, 0, 0);
         buffer.attach(&self.surface, 0, 0);
         self.buffer = Some(buffer.get_wl_buffer());
+    }
+    pub fn hide(&mut self) {
+        self.buffer = None;
+        self.surface.attach(self.buffer.as_ref(), 0, 0);
+        self.surface.damage(
+            0,
+            0,
+            self.widget.get_width() as i32,
+            self.widget.get_height() as i32,
+        );
+        self.surface.commit();
     }
 }
 
@@ -62,7 +73,7 @@ impl Geometry for Application {
             let mut buffer = Buffer::new(
                 width as i32,
                 height as i32,
-                (4 * height) as i32,
+                (4 * width) as i32,
                 &mut self.mempool,
             );
             widget.draw(buffer.get_mut_buf(), width, x, y);

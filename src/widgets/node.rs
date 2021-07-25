@@ -1,12 +1,12 @@
 use crate::*;
+use std::rc::Rc;
 use crate::widgets::*;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref};
 
-// that can unfold it's inner content
 #[derive(Clone)]
 pub struct Node {
     head: Inner,
-    tail: Option<Box<Self>>,
+    tail: Option<Rc<Self>>,
 }
 
 impl Drawable for Node {
@@ -16,11 +16,12 @@ impl Drawable for Node {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         self.head.draw(canvas, width, x, y);
         if let Some(tail) = &self.tail {
+            let (dx, dy) = tail.head.get_location();
             tail.deref().draw(
                 canvas,
                 width,
-                x + tail.head.get_location().0,
-                y + tail.head.get_location().1,
+                x + dx,
+                y + dy,
             );
         }
     }
@@ -38,7 +39,7 @@ impl Geometry for Node {
         if ev.is_some() {
             if let Some(tail) = self.tail.as_mut() {
                 let (rx, ry) = tail.get_location();
-                tail.contains(widget_x + rx, widget_y + ry, x, y, event)
+                Rc::get_mut(tail).unwrap().contains(widget_x + rx, widget_y + ry, x, y, event)
             } else {
                 Damage::None
             }
@@ -58,20 +59,19 @@ impl Container for Node {
             0
         }
     }
-    // Appends an widget at the end of a Container
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
-            tail.deref_mut().add(widget)
+            Rc::get_mut(tail).unwrap().add(widget)
         } else {
-            self.tail = Some(Box::new(Node::new(widget)));
+            self.tail = Some(Rc::new(Node::new(widget)));
             Ok(())
         }
     }
     fn put(&mut self, widget: Inner) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
-            tail.deref_mut().put(widget)
+            Rc::get_mut(tail).unwrap().put(widget)
         } else {
-            self.tail = Some(Box::new(Node {
+            self.tail = Some(Rc::new(Node {
                 head: widget,
                 tail: None,
             }));
@@ -102,9 +102,9 @@ impl Node {
     }
     pub fn push(&mut self, node: Node) {
         if let Some(tail) = &mut self.tail {
-            tail.deref_mut().push(node)
+            Rc::get_mut(tail).unwrap().push(node)
         } else {
-            self.tail = Some(Box::new(node));
+            self.tail = Some(Rc::new(node));
         }
     }
     pub fn set_anchor(&mut self, x: u32, y: u32) {
@@ -112,7 +112,7 @@ impl Node {
     }
     pub fn center(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         if let Some(tail) = &mut self.tail {
-            tail.deref_mut().center(widget)
+            Rc::get_mut(tail).unwrap().center(widget)
         } else {
             anchor(self, widget, Anchor::Center, 0)
         }

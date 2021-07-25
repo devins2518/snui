@@ -3,7 +3,6 @@ pub mod widgets;
 
 use crate::widgets::Inner;
 
-// This NEEDS to be documentated at some point
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
     Vertical,
@@ -16,10 +15,9 @@ pub enum Content {
     Transparent,
     Byte(u8),
     Pixel(u32),
-    Char(char),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Error {
     Null,
     Overflow(&'static str, u32),
@@ -40,11 +38,10 @@ pub enum Anchor {
     BottomLeft,
 }
 
-// TO-DO return to Enum , check performace
-// I'm experiency noticeable latency on debug
 #[derive(Clone)]
 pub enum Damage<'d> {
     None,
+    Destroy,
     Widget {
         widget: Box<&'d dyn Widget>,
         x: u32,
@@ -104,6 +101,7 @@ pub trait Container {
     fn get_child(&self) -> Result<&dyn Widget, Error>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
     fn put(&mut self, widget: Inner) -> Result<(), Error>;
+    // fn insert(&mut self, widget: impl Widget + 'static, index: usize) -> Result<(), Error>;
 }
 
 pub trait Geometry {
