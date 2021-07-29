@@ -10,6 +10,15 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
+pub trait Shell {
+    fn get_surface(&self) -> &WlSurface;
+    fn resize(&mut self, width: u32, height: u32);
+    fn render(&mut self);
+    fn hide(&mut self);
+    fn show(&mut self);
+    fn destroy(&self);
+}
+
 pub struct Application {
     pub widget: Box<dyn Widget>,
     surface: WlSurface,
@@ -32,32 +41,6 @@ impl Application {
             buffer: None,
             mempool,
         }
-    }
-    fn render(&mut self) {
-        let width = self.widget.get_width();
-        let mut buffer = Buffer::new(
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
-            (4 * self.widget.get_width()) as i32,
-            &mut self.mempool,
-        );
-        self.widget.draw(buffer.get_mut_buf(), width, 0, 0);
-        buffer.attach(&self.surface, 0, 0);
-        self.buffer = Some(buffer.get_wl_buffer());
-    }
-    fn hide(&mut self) {
-        self.buffer = None;
-        self.surface.attach(self.buffer.as_ref(), 0, 0);
-        self.surface.damage(
-            0,
-            0,
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
-        );
-        self.surface.commit();
-    }
-    fn destroy(&self) {
-        self.surface.destroy();
     }
 }
 
@@ -88,7 +71,6 @@ impl Geometry for Application {
             }
             Damage::Hide => self.hide(),
             Damage::Destroy => {
-                // self.hide();
                 self.destroy();
                 std::process::exit(0);
             }
@@ -98,7 +80,7 @@ impl Geometry for Application {
     }
 }
 
-impl LayerSurface for Application {
+impl Shell for Application {
     fn get_surface(&self) -> &WlSurface {
         &self.surface
     }
@@ -116,17 +98,37 @@ impl LayerSurface for Application {
         );
         self.surface.commit();
     }
-}
-
-pub trait LayerSurface {
-    fn get_surface(&self) -> &WlSurface;
-    fn resize(&mut self, width: u32, height: u32);
-    fn show(&mut self);
+    fn render(&mut self) {
+        let width = self.widget.get_width();
+        let mut buffer = Buffer::new(
+            self.widget.get_width() as i32,
+            self.widget.get_height() as i32,
+            (4 * self.widget.get_width()) as i32,
+            &mut self.mempool,
+        );
+        self.widget.draw(buffer.get_mut_buf(), width, 0, 0);
+        buffer.attach(&self.surface, 0, 0);
+        self.buffer = Some(buffer.get_wl_buffer());
+    }
+    fn hide(&mut self) {
+        self.buffer = None;
+        self.surface.attach(self.buffer.as_ref(), 0, 0);
+        self.surface.damage(
+            0,
+            0,
+            self.widget.get_width() as i32,
+            self.widget.get_height() as i32,
+        );
+        self.surface.commit();
+    }
+    fn destroy(&self) {
+        self.surface.destroy();
+    }
 }
 
 pub fn assign_layer_surface<A>(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>)
 where
-    A: 'static + LayerSurface,
+    A: 'static + Shell,
 {
     let surface_handle = surface.clone();
     layer_surface.quick_assign(move |layer_surface, event, mut app| {
@@ -160,12 +162,11 @@ where
     });
 }
 
-pub fn quick_assign_pointer<A: 'static + Geometry + LayerSurface>(
+pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
     pointer: &Main<wl_pointer::WlPointer>, mut widget_index: Option<usize>
 ) {
     let mut input = None;
     let (mut x, mut y) = (0, 0);
-    let fixed = widget_index.is_some();
     pointer.quick_assign(move |_, event, mut app| {
         let app = app.get::<Vec<A>>().unwrap();
         match event {
@@ -175,12 +176,10 @@ pub fn quick_assign_pointer<A: 'static + Geometry + LayerSurface>(
                 surface_x,
                 surface_y,
             } => {
-                if !fixed {
-                    for (i, app_w) in app.iter().enumerate() {
-                        if surface.eq(app_w.get_surface()) {
-                            widget_index = Some(i);
-                            break;
-                        }
+                for (i, app_w) in app.iter().enumerate() {
+                    if surface.eq(app_w.get_surface()) {
+                        widget_index = Some(i);
+                        break;
                     }
                 }
                 x = surface_x as u32;
@@ -191,9 +190,7 @@ pub fn quick_assign_pointer<A: 'static + Geometry + LayerSurface>(
                 serial: _,
                 surface: _,
             } => {
-                if !fixed {
-                    widget_index = None;
-                }
+                widget_index = None;
             }
             wl_pointer::Event::Motion {
                 time: _,
@@ -213,11 +210,7 @@ pub fn quick_assign_pointer<A: 'static + Geometry + LayerSurface>(
                 input = Some(Input::MouseClick {
                     time,
                     button,
-                    pressed: match state {
-                        ButtonState::Released => false,
-                        ButtonState::Pressed => true,
-                        _ => false,
-                    },
+                    pressed: state == ButtonState::Pressed,
                 });
             }
             _ => {}

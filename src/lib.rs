@@ -1,5 +1,6 @@
 pub mod wayland;
 pub mod widgets;
+pub mod font;
 
 use crate::widgets::Inner;
 

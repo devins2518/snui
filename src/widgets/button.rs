@@ -1,11 +1,11 @@
 use std::rc::Rc;
-use crate::State;
 use crate::widgets::*;
+use std::ops::Deref;
 
 #[derive(Clone)]
 pub struct Button<W: Widget + Clone> {
     widget: W,
-    callback: Rc<dyn FnMut(&mut W, Input) -> State>,
+    callback: Rc<dyn Fn(&mut W, u32, u32, Input) -> Damage>,
 }
 
 impl<W: Widget + Clone> Geometry for Button<W> {
@@ -18,15 +18,10 @@ impl<W: Widget + Clone> Geometry for Button<W> {
     fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
         if x > widget_x
             && y > widget_y
-            && x < widget_x + self.widget.get_width()
-            && y < widget_y + self.widget.get_height()
+            && x < widget_x + self.get_width()
+            && y < widget_y + self.get_height()
         {
-            match Rc::get_mut(&mut self.callback).unwrap()(&mut self.widget, event) {
-                State::Hide => Damage::Hide,
-                State::Close => Damage::Destroy,
-                State::Show => Damage::new(&self.widget, widget_x, widget_y),
-                State::Same => Damage::None,
-            }
+            self.callback.deref()(&mut self.widget, x, y, event)
         } else {
             Damage::None
         }
@@ -45,9 +40,9 @@ impl<W: Widget + Clone> Drawable for Button<W> {
 impl<W: Widget + Clone> Widget for Button<W> {}
 
 impl<W: Widget + Clone> Button<W> {
-    pub fn new(widget: W, f: impl FnMut(&mut W, Input) -> State + 'static) -> Button<W> {
+    pub fn new(widget: W, f: impl Fn(&mut W, u32, u32, Input) -> Damage + 'static) -> Button<W> {
         Button {
-            widget,
+            widget: widget,
             callback: Rc::new(f),
         }
     }

@@ -13,7 +13,7 @@ pub use inner::Inner;
 pub use listbox::ListBox;
 pub use node::Node;
 pub use revealer::Revealer;
-use std::io::{BufWriter, Write};
+use std::io::{Write};
 pub use wbox::Wbox;
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
@@ -27,24 +27,23 @@ pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32
 where
     S: Canvas + Geometry,
 {
-    let mut i = 0;
     let buf = buffer.get_buf();
     let buf_width = buffer.get_width() as usize * 4;
     let mut index = ((x + (y * width as u32)) * 4) as usize;
     width *= 4;
-    while i < buffer.size() && index < canvas.len() {
-        let slice = if canvas.len() - index < width {
-            canvas.len() - index
+    for i in (0..buf.len()).into_iter().step_by(buf_width) {
+        if index >= canvas.len() {
+            break;
         } else {
-            width
-        };
-        if buf_width <= slice {
-            let mut writer = BufWriter::new(&mut canvas[index..index + slice]);
-            writer.write(&buf[i..i + buf_width]).unwrap();
+            let mut writer = &mut canvas[index..];
+            if i + buf_width < buf.len() {
+                writer.write(&buf[i..i + buf_width]).unwrap();
+            } else {
+                writer.write(&buf[i..]).unwrap();
+            }
             writer.flush().unwrap();
+            index += width;
         }
-        i += buf_width;
-        index += width;
     }
 }
 
@@ -83,24 +82,9 @@ impl Drawable for Rectangle {
         self.color = content;
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        if let Content::Pixel(color) = self.color {
-            let mut i = 0;
-            let mut index = ((x + (y * width as u32)) * 4) as usize;
-            let width = (width * 4) as usize;
-            while i < self.width * self.height * 4 && index < canvas.len() {
-                let slice = if canvas.len() - index < width {
-                    canvas.len() - index
-                } else {
-                    width
-                };
-                let mut writer = BufWriter::new(&mut canvas[index..index + slice]);
-                for _ in 0..self.width {
-                    writer.write_all(&color.to_ne_bytes()).unwrap();
-                }
-                writer.flush().unwrap();
-                i += self.width*4;
-                index += width;
-            }
+        let surface = Surface::new(self.width, self.height, self.color);
+        if let Ok(rectangle) = surface {
+            render(canvas, &rectangle, width as usize, x, y);
         }
     }
 }
@@ -226,13 +210,12 @@ impl Surface {
                 vec![byte; (width * height * 4) as usize]
             }
             Content::Pixel(pixel) => {
-                let vec = Vec::new();
-                let mut writer = BufWriter::new(vec);
+                let mut vec = Vec::new();
                 for _ in 0..width * height {
-                    writer.write_all(&pixel.to_ne_bytes()).unwrap();
+                    vec.write_all(&pixel.to_ne_bytes()).unwrap();
                 }
-                writer.flush().unwrap();
-                writer.into_inner().unwrap()
+                vec.flush().unwrap();
+                vec
             }
             _ => return Err(Error::Null),
         };
@@ -241,6 +224,13 @@ impl Surface {
             height,
             canvas,
         })
+    }
+    pub fn from(canvas: Vec<u8>, width: u32, height: u32) -> Surface {
+        Surface {
+            canvas,
+            width,
+            height
+        }
     }
 }
 pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {

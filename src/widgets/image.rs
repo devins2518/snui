@@ -1,9 +1,9 @@
 use crate::*;
+use crate::widgets::render;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
 use std::error::Error;
-use std::io::{BufWriter, Write};
 use std::path::Path;
 
 #[derive(Clone)]
@@ -41,25 +41,6 @@ impl Image {
     pub fn size(&self) -> usize {
         (self.image.width() * self.image.height() * 4) as usize
     }
-    pub fn render(&self, canvas: &mut [u8], mut width: usize, x: u32, y: u32) {
-        let mut i = 0;
-        let image_buf = self.image.as_raw();
-        let img_width = (self.get_width() * 4) as usize;
-        let mut index = ((x + (y * width as u32)) * 4) as usize;
-        width *= 4;
-        while i < image_buf.len() && index < canvas.len() {
-            let slice = if canvas.len() - index < width {
-                canvas.len() - index
-            } else {
-                img_width
-            };
-            let mut writer = BufWriter::new(&mut canvas[index..index + slice]);
-            writer.write(&image_buf[i..i + img_width]).unwrap();
-            writer.flush().unwrap();
-            i += img_width;
-            index += width;
-        }
-    }
 }
 
 impl Geometry for Image {
@@ -83,27 +64,29 @@ impl Geometry for Image {
 }
 
 impl Drawable for Image {
-    fn set_content(&mut self, content: Content) {
-        match content {
-            Content::Empty => {
-                self.image =
-                    ImageBuffer::from_pixel(self.get_width(), self.get_height(), Bgra([0, 0, 0, 0]))
-            }
-            Content::Transparent => {
-                for pixel in self.image.pixels_mut() {
-                    pixel.0[3] = 0;
-                }
-            }
-            Content::Pixel(pixel) => {
-                let arr = pixel.to_ne_bytes();
-                self.image = ImageBuffer::from_pixel(self.get_width(), self.get_height(), Bgra(arr))
-            }
-            _ => eprintln!("Attempted to perform illegal operation on image!"),
-        }
+    fn set_content(&mut self, _content: Content) {
+    	eprintln!("Attempted to perform illegal operation on image!");
     }
 
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        self.render(canvas, width as usize, x, y);
+        render(canvas, self, width as usize, x, y);
+    }
+}
+
+impl Canvas for Image {
+    fn size(&self) -> usize {
+        let size = self.get_width() * self.get_height() * 4;
+        size as usize
+    }
+    fn get_buf(&self) -> &[u8] {
+        self.image.as_raw()
+    }
+    fn get_mut_buf(&mut self) -> &mut [u8] {
+        self.image.iter_mut().into_slice()
+    }
+    fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
+        let width = self.get_width();
+        render(self.get_mut_buf(), surface, width as usize, x, y);
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::*;
-use crate::widgets::Inner;
+use crate::widgets::{anchor, Inner};
 
 #[derive(Clone)]
 pub struct Wbox<W: Widget> {
@@ -73,6 +73,9 @@ impl<W: Widget> Wbox<W> {
     pub fn insert(&mut self, widget: impl Widget + 'static, x: u32, y: u32) {
         let inner = Inner::new_at(widget, x, y);
         self.put(inner).unwrap();
+    }
+    pub fn center(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
+        anchor(self, widget, Anchor::Center, 0)
     }
     pub fn widgets(&self) -> &Vec<Inner> {
         &self.widgets

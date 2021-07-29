@@ -64,3 +64,5 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
         }
     }
 }
+
+impl<N: Widget, R: Widget> Widget for Revealer<N, R> {}
