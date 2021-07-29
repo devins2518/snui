@@ -82,9 +82,24 @@ impl Drawable for Rectangle {
         self.color = content;
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        let surface = Surface::new(self.width, self.height, self.color);
-        if let Ok(rectangle) = surface {
-            render(canvas, &rectangle, width as usize, x, y);
+        if let Content::Pixel(color) = self.color {
+            let buf = color.to_ne_bytes();
+
+            let size = self.width * self.height;
+
+            let mut index = ((x + (y * width as u32)) * 4) as usize;
+            for _ in (0..buf.len() * size as usize).into_iter().step_by(4 * self.width as usize) {
+                if index >= canvas.len() {
+                    break;
+                } else {
+                    let mut writer = &mut canvas[index..];
+                    for _ in 0..self.width {
+                        writer.write_all(&buf).unwrap();
+                    }
+                    writer.flush().unwrap();
+                    index += width as usize * 4;
+                }
+            }
         }
     }
 }
