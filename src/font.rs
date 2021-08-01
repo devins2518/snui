@@ -1,33 +1,45 @@
 use std::io::{Write};
-use crate::widgets::{render, Surface, Wbox, Alignment, Rectangle, blend};
-use fontconfig::{Font, Fontconfig};
+use crate::widgets::blend;
+use fontconfig::Fontconfig;
 use std::fs::read;
+use fontdue::{
+    Font,
+    layout::{
+        CoordinateSystem,
+        GlyphRasterConfig,
+        TextStyle,
+        Layout
+    },
+};
+use std::rc::Rc;
+use std::cell::RefCell;
 use std::path::PathBuf;
 use crate::*;
 
 #[derive(Clone)]
 pub struct Label {
-    text: Wbox,
+    text: Rc<RefCell<Layout>>,
     font_path: PathBuf,
     font: fontdue::Font,
     font_size: f32,
+    length: usize,
     color: u32,
 }
 
 #[derive(Clone)]
 pub struct Glyph {
     color: u32,
-    glyph: char,
+    config: GlyphRasterConfig,
     bitmap: Vec<u8>,
     metrics: fontdue::Metrics,
 }
 
 impl Glyph {
-    fn new<'f>(glyph: char, font: &'f fontdue::Font, font_size: f32, color: u32) -> Glyph {
-        let (metrics, bitmap) = font.rasterize(glyph, font_size);
+    fn new<'f>(font: &'f Font, config: GlyphRasterConfig, color: u32) -> Glyph {
+        let (metrics, bitmap) = font.rasterize_config(config);
         Glyph {
-            glyph,
             color,
+            config,
             bitmap,
             metrics,
         }
@@ -54,7 +66,8 @@ impl Drawable for Glyph {
                         writer.write(&pixel).unwrap();
                     }
                     _ => if i < writer.len() {
-                        let p = blend(&writer[i..], &pixel, *t as i32);
+                        let mut p = [writer[0],writer[1],writer[2],writer[3]];
+                        p = blend(&pixel, &p, (255 - *t) as f32 / 255.0);
                         writer.write(&p).unwrap();
                     }
                 }
@@ -89,62 +102,29 @@ impl Label {
         let font = read(&font_path).unwrap();
         // Parse it into the font type.
         let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
-        let mut wbox = Wbox::new();
-        for c in text.chars() {
-            let glyph = Glyph::new(c, &font, font_size, color);
-            let _ = if c == ' ' {
-                wbox.add(Rectangle::empty(glyph.metrics.advance_width as u32, 0))
-            } else {
-                /*
-                let (dx, dy) = (
-                    glyph.metrics.xmin,
-                    glyph.metrics.ymin,
-                );
-                let (x, y) = (
-                    glyph.metrics.advance_width,
-                    glyph.metrics.advance_height,
-                );
-                */
-                let e = wbox.add(glyph);
-                /*
-                let width = wbox.get_width();
-                let g = wbox.widgets.last_mut().unwrap();
-                if dx > 0 {
-                    g.translate(dx.abs() as u32 + x as u32, 0);
-                }
-                if dy > 0 {
-                    g.translate(0, dy.abs() as u32 + y as u32);
-                }
-                */
-                e
-            };
-        }
-        wbox.justify(Alignment::End);
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.append(&[&font], &TextStyle::new(text, font_size, 0));
         Label {
+            length: text.len() - 1,
             font_path: font_path,
-            text: wbox,
+            text: Rc::new(RefCell::new(layout)),
             font,
             font_size,
             color: color,
-        }
-    }
-    pub fn write(&mut self, text: &'static str) {
-        let font = read(&self.font_path).unwrap();
-        // Parse it into the font type.
-        let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
-        self.text = Wbox::new();
-        for c in text.chars() {
-            self.text.add(Glyph::new(c, &font, self.font_size, self.color)).unwrap();
         }
     }
 }
 
 impl Geometry for Label {
     fn get_width(&self) -> u32 {
-        self.text.get_width()
+        if let Some(glyph) = self.text.as_ref().borrow_mut().glyphs().last() {
+            (glyph.x + glyph.width as f32) as u32
+        } else { 0 }
     }
     fn get_height(&self) -> u32 {
-        self.text.get_height()
+        if let Some(glyph) = self.text.as_ref().borrow_mut().glyphs().last() {
+            (glyph.y + glyph.height as f32) as u32
+        } else { 0 }
     }
     fn contains(&mut self, _widget_x: u32, _widget_y: u32, _x: u32, _y: u32, _event: Input) -> Damage {
         Damage::None
@@ -156,7 +136,10 @@ impl Drawable for Label {
         self.color = color;
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        self.text.draw(canvas, width, x, y);
+        for glyph_position in self.text.as_ref().borrow_mut().glyphs() {
+            let glyph = Glyph::new(&self.font, glyph_position.key, self.color);
+            glyph.draw(canvas, width, x + glyph_position.x as u32, y + glyph_position.y as u32);
+        }
     }
 }
 

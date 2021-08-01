@@ -5,7 +5,7 @@ use std::ops::Deref;
 #[derive(Clone)]
 pub struct Button<W: Widget + Clone> {
     widget: W,
-    callback: Rc<dyn Fn(&mut W, u32, u32, Input) -> Damage>,
+    callback: Rc<dyn Fn(&mut W, u32, u32, u32, u32, Input) -> Damage>,
 }
 
 impl<W: Widget + Clone> Geometry for Button<W> {
@@ -21,7 +21,7 @@ impl<W: Widget + Clone> Geometry for Button<W> {
             && x < widget_x + self.get_width()
             && y < widget_y + self.get_height()
         {
-            self.callback.deref()(&mut self.widget, x, y, event)
+            self.callback.deref()(&mut self.widget, widget_x, widget_y, x, y, event)
         } else {
             Damage::None
         }
@@ -40,7 +40,7 @@ impl<W: Widget + Clone> Drawable for Button<W> {
 impl<W: Widget + Clone> Widget for Button<W> {}
 
 impl<W: Widget + Clone> Button<W> {
-    pub fn new(widget: W, f: impl Fn(&mut W, u32, u32, Input) -> Damage + 'static) -> Button<W> {
+    pub fn new(widget: W, f: impl Fn(&mut W, u32, u32, u32, u32, Input) -> Damage + 'static) -> Button<W> {
         Button {
             widget: widget,
             callback: Rc::new(f),

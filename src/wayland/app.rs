@@ -67,7 +67,14 @@ impl Geometry for Application {
                 );
                 widget.draw(buffer.get_mut_buf(), width, x, y);
                 self.buffer = Some(buffer.get_wl_buffer());
-                self.show();
+                self.surface.attach(self.buffer.as_ref(), 0, 0);
+                self.surface.damage(
+                    0,
+                    0,
+                    widget.get_width() as i32,
+                    widget.get_height() as i32,
+                );
+                self.surface.commit();
             }
             Damage::Hide => self.hide(),
             Damage::Destroy => {
@@ -190,6 +197,7 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 serial: _,
                 surface: _,
             } => {
+                app[widget_index.unwrap()].contains(0, 0, x, y, Input::Leave);
                 widget_index = None;
             }
             wl_pointer::Event::Motion {

@@ -1,7 +1,6 @@
 use crate::*;
 use std::rc::Rc;
-use crate::widgets::Inner;
-use crate::font::Glyph;
+use crate::widgets::{Inner, Rectangle};
 
 #[derive(Clone)]
 pub enum Alignment {
@@ -153,6 +152,14 @@ impl Wbox {
             orientation: Orientation::Horizontal,
         }
     }
+    pub fn new_with_size(w: u32, h: u32) -> Self {
+        Wbox {
+            spacing: 0,
+            background: Some(Rc::new(Rectangle::empty(w, h))),
+            widgets: Vec::new(),
+            orientation: Orientation::Horizontal,
+        }
+    }
     pub fn new_orientation(orientation: Orientation) -> Self {
         Wbox {
             spacing: 0,
@@ -163,16 +170,6 @@ impl Wbox {
     }
     pub fn set_spacing(&mut self, spacing: u32) {
         self.spacing = spacing;
-    }
-    pub fn justify(&mut self, alignment: Alignment) {
-        let height = self.get_height();
-        for w in &mut self.widgets {
-            if w.get_height() < height {
-                let (x, mut y) = w.get_location();
-                y += height - y - w.get_height();
-                w.set_location(x, y);
-            }
-        }
     }
     pub fn set_orientation(&mut self, orientation: Orientation) {
         self.orientation = orientation;
