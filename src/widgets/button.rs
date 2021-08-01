@@ -29,8 +29,8 @@ impl<W: Widget + Clone> Geometry for Button<W> {
 }
 
 impl<W: Widget + Clone> Drawable for Button<W> {
-    fn set_content(&mut self, content: Content) {
-        self.widget.set_content(content);
+    fn set_color(&mut self, color: u32) {
+        self.widget.set_color(color);
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         self.widget.draw(canvas, width, x, y)

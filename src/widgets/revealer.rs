@@ -8,11 +8,11 @@ pub struct Revealer<N: Widget, R: Widget> {
 }
 
 impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
-    fn set_content(&mut self, content: Content) {
+    fn set_color(&mut self, color: u32) {
         if self.state {
-            self.reveal.set_content(content);
+            self.reveal.set_color(color);
         } else {
-            self.normal.set_content(content);
+            self.normal.set_color(color);
         }
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {

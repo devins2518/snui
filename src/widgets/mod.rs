@@ -1,7 +1,6 @@
 pub mod button;
 pub mod image;
 pub mod inner;
-pub mod listbox;
 pub mod node;
 pub mod revealer;
 pub mod wbox;
@@ -10,19 +9,15 @@ pub use self::image::Image;
 use crate::*;
 pub use button::Button;
 pub use inner::Inner;
-pub use listbox::ListBox;
 pub use node::Node;
 pub use revealer::Revealer;
-use std::io::{Write};
-pub use wbox::Wbox;
+use std::io::Write;
+pub use wbox::{Wbox, Alignment};
 
 const TRANSPARENT: u32 = 0x00_00_00_00;
 // For rounded corners eventually
 // const PI: f64 = 3.14159265358979;
 
-// Canvas is drawn on
-// Buffer is drawn from
-// width -> width of the canvas
 pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32)
 where
     S: Canvas + Geometry,
@@ -46,6 +41,24 @@ where
         }
     }
 }
+pub fn blend(pix_a: &[u8], pix_b: &[u8], t: i32) -> [u8; 4] {
+    let (r_a, g_a, b_a, a_a) = (
+        pix_a[0] as i32,
+        pix_a[1] as i32,
+        pix_a[2] as i32,
+        pix_a[3] as i32,
+    );
+    let (r_b, g_b, b_b) = (
+        pix_b[0] as i32,
+        pix_b[1] as i32,
+        pix_b[2] as i32,
+    );
+    let red   = (r_a * (255 - t) + r_b * t) / 255;
+    let green = (g_a * (255 - t) + g_b * t) / 255;
+    let blue  = (b_a * (255 - t) + b_b * t) / 255;
+    let alpha = 255 - ((255 - a_a) * (255 - t) / 255);
+    [red as u8, green as u8, blue as u8, alpha as u8]
+}
 
 /*
  * The most basic widget one can create. It's the basis of everything else.
@@ -55,7 +68,7 @@ pub struct Rectangle {
     width: u32,
     height: u32,
     radius: u32,
-    color: Content,
+    color: u32,
 }
 
 impl Geometry for Rectangle {
@@ -78,27 +91,23 @@ impl Geometry for Rectangle {
 }
 
 impl Drawable for Rectangle {
-    fn set_content(&mut self, content: Content) {
-        self.color = content;
+    fn set_color(&mut self, color: u32) {
+        self.color = color;
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        if let Content::Pixel(color) = self.color {
-            let buf = color.to_ne_bytes();
+        let buf = self.color.to_ne_bytes();
 
-            let size = self.width * self.height;
-
-            let mut index = ((x + (y * width as u32)) * 4) as usize;
-            for _ in (0..buf.len() * size as usize).into_iter().step_by(4 * self.width as usize) {
-                if index >= canvas.len() {
-                    break;
-                } else {
-                    let mut writer = &mut canvas[index..];
-                    for _ in 0..self.width {
-                        writer.write_all(&buf).unwrap();
-                    }
-                    writer.flush().unwrap();
-                    index += width as usize * 4;
+        let mut index = ((x + (y * width as u32)) * 4) as usize;
+        for _ in 0.. self.height {
+            if index >= canvas.len() {
+                break;
+            } else {
+                let mut writer = &mut canvas[index..];
+                for _ in 0..self.width {
+                    writer.write_all(&buf).unwrap();
                 }
+                writer.flush().unwrap();
+                index += width as usize * 4;
             }
         }
     }
@@ -107,23 +116,7 @@ impl Drawable for Rectangle {
 impl Widget for Rectangle {}
 
 impl Rectangle {
-    pub fn new(width: u32, height: u32) -> Rectangle {
-        Rectangle {
-            color: Content::Empty,
-            width,
-            height,
-            radius: 0,
-        }
-    }
-    pub fn empty(width: u32, height: u32) -> Rectangle {
-        Rectangle {
-            color: Content::Empty,
-            width,
-            height,
-            radius: 0,
-        }
-    }
-    pub fn colored(width: u32, height: u32, color: Content) -> Rectangle {
+    pub fn new(width: u32, height: u32, color: u32) -> Rectangle {
         Rectangle {
             color,
             width,
@@ -131,7 +124,15 @@ impl Rectangle {
             radius: 0,
         }
     }
-    pub fn square(size: u32, color: Content) -> Rectangle {
+    pub fn empty(width: u32, height: u32) -> Rectangle {
+        Rectangle {
+            color: 0,
+            width,
+            height,
+            radius: 0,
+        }
+    }
+    pub fn square(size: u32, color: u32) -> Rectangle {
         Rectangle {
             color,
             width: size,
@@ -174,19 +175,8 @@ impl Geometry for Surface {
 impl Widget for Surface {}
 
 impl Drawable for Surface {
-    fn set_content(&mut self, content: Content) {
-        match content {
-            Content::Byte(byte) => {
-                self.canvas = vec![byte; (self.width * self.height * 4) as usize]
-            }
-            Content::Pixel(pixel) => {
-                self.canvas.write_all(&pixel.to_ne_bytes()).unwrap();
-            }
-            Content::Transparent => {
-                self.canvas.write_all(&TRANSPARENT.to_ne_bytes()).unwrap();
-            }
-            _ => {}
-        }
+    fn set_color(&mut self, color: u32) {
+        self.canvas.write_all(&color.to_ne_bytes()).unwrap();
         self.canvas.flush().unwrap();
     }
     fn draw(&self, canvas: &mut [u8], _width: u32, x: u32, y: u32) {
@@ -219,20 +209,14 @@ impl Surface {
             canvas,
         }
     }
-    pub fn new(width: u32, height: u32, content: Content) -> Result<Surface, Error> {
-        let canvas = match content {
-            Content::Byte(byte) => {
-                vec![byte; (width * height * 4) as usize]
-            }
-            Content::Pixel(pixel) => {
+    pub fn new(width: u32, height: u32, color: u32) -> Result<Surface, Error> {
+        let canvas =  {
                 let mut vec = Vec::new();
                 for _ in 0..width * height {
-                    vec.write_all(&pixel.to_ne_bytes()).unwrap();
+                    vec.write_all(&color.to_ne_bytes()).unwrap();
                 }
                 vec.flush().unwrap();
                 vec
-            }
-            _ => return Err(Error::Null),
         };
         Ok(Surface {
             width,
@@ -255,10 +239,10 @@ pub fn to_surface(widget: &(impl Geometry + Drawable)) -> Surface {
     surface
 }
 
-pub fn border<W: Widget + 'static>(widget: W, gap: u32, background: Content) -> Node {
+pub fn border<W: Widget + 'static>(widget: W, gap: u32, background: u32) -> Node {
     let width = widget.get_width() + 2 * gap;
     let height = widget.get_height() + 2 * gap;
-    let mut bg = Node::new(Rectangle::colored(width, height, background));
+    let mut bg = Node::new(Rectangle::new(width, height, background));
     anchor(&mut bg, widget, Anchor::Center, 0).unwrap();
     bg
 }

@@ -44,8 +44,8 @@ impl Container for Inner {
 }
 
 impl Drawable for Inner {
-    fn set_content(&mut self, content: Content) {
-        Rc::get_mut(&mut self.child).unwrap().set_content(content)
+    fn set_color(&mut self, color: u32) {
+        Rc::get_mut(&mut self.child).unwrap().set_color(color)
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         self.child.draw(canvas, width, x, y);
@@ -75,5 +75,9 @@ impl Inner {
     pub fn set_location(&mut self, x: u32, y: u32) {
         self.x = x;
         self.y = y;
+    }
+    pub fn translate(&mut self, x: u32, y: u32) {
+        self.x += x;
+        self.y += y;
     }
 }

@@ -10,8 +10,8 @@ pub struct Node {
 }
 
 impl Drawable for Node {
-    fn set_content(&mut self, content: Content) {
-        self.head.set_content(content);
+    fn set_color(&mut self, color: u32) {
+        self.head.set_color(color);
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         self.head.draw(canvas, width, x, y);

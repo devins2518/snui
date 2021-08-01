@@ -11,14 +11,6 @@ pub enum Orientation {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum Content {
-    Empty,
-    Transparent,
-    Byte(u8),
-    Pixel(u32),
-}
-
-#[derive(Copy, Clone, Debug)]
 pub enum Error {
     Null,
     Overflow(&'static str, u32),
@@ -111,7 +103,6 @@ pub trait Container {
     fn get_child(&self) -> Result<&dyn Widget, Error>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
     fn put(&mut self, widget: Inner) -> Result<(), Error>;
-    // fn insert(&mut self, widget: impl Widget + 'static, index: usize) -> Result<(), Error>;
 }
 
 pub trait Geometry {
@@ -124,7 +115,7 @@ pub trait Geometry {
  * A trait for types that be drawn on a Canvas.
  */
 pub trait Drawable {
-    fn set_content(&mut self, content: Content);
+    fn set_color(&mut self, color: u32);
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 

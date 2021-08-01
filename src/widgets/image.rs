@@ -5,10 +5,11 @@ use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
 use std::error::Error;
 use std::path::Path;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Image {
-    image: ImageBuffer<Bgra<u8>, Vec<u8>>,
+    image: Rc<ImageBuffer<Bgra<u8>, Vec<u8>>>,
 }
 
 impl Image {
@@ -17,7 +18,7 @@ impl Image {
 
         let image = dyn_image.to_bgra8();
 
-        Ok(Self { image })
+        Ok(Self { image: Rc::new(image) })
     }
 
     pub fn new_with_size(image: &Path, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
@@ -26,16 +27,16 @@ impl Image {
 
         let image = scaled_image.to_bgra8();
 
-        Ok(Self { image })
+        Ok(Self { image: Rc::new(image) })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        self.image = imageops::resize(&self.image, width, height, FilterType::Triangle);
+        self.image = Rc::new(imageops::resize(self.image.as_ref(), width, height, FilterType::Triangle));
     }
 
     pub fn thumbnail(&self, width: u32, height: u32) -> Image {
         Image {
-            image: imageops::thumbnail(&self.image, width, height),
+            image: Rc::new(imageops::thumbnail(self.image.as_ref(), width, height)),
         }
     }
     pub fn size(&self) -> usize {
@@ -64,7 +65,7 @@ impl Geometry for Image {
 }
 
 impl Drawable for Image {
-    fn set_content(&mut self, _content: Content) {
+    fn set_color(&mut self, _color: u32) {
     	eprintln!("Attempted to perform illegal operation on image!");
     }
 
@@ -82,7 +83,7 @@ impl Canvas for Image {
         self.image.as_raw()
     }
     fn get_mut_buf(&mut self) -> &mut [u8] {
-        self.image.iter_mut().into_slice()
+        Rc::get_mut(&mut self.image).unwrap().iter_mut().into_slice()
     }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
         let width = self.get_width();
