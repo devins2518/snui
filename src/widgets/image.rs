@@ -92,5 +92,5 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut self, _action: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }

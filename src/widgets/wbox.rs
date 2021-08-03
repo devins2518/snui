@@ -204,12 +204,12 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
+    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
         let width = self.get_width();
         let height = self.get_height();
         for l in &mut self.widgets {
             let (dx, dy) = l.get_location(width, height).unwrap();
-            l.action(name, event_loop, widget_x + dx, widget_y + dy)
+            l.send_action(action, event_loop, widget_x + dx, widget_y + dy)
         }
     }
 }

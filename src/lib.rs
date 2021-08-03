@@ -126,7 +126,7 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32);
+    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32);
 }
 
 pub trait Transform {

@@ -96,7 +96,7 @@ impl Geometry for Glyph {
 }
 
 impl Widget for Glyph {
-    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }
 
 impl Label {
@@ -148,5 +148,5 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }

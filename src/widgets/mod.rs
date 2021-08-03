@@ -131,7 +131,7 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut self, _action: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }
 
 impl Rectangle {
@@ -221,8 +221,8 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
-        Rc::get_mut(&mut self.child).unwrap().action(name, event_loop, widget_x, widget_y);
+    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
+        Rc::get_mut(&mut self.child).unwrap().send_action(action, event_loop, widget_x, widget_y);
     }
 }
 
@@ -357,7 +357,7 @@ impl Canvas for Surface {
 }
 
 impl Widget for Surface {
-    fn action<'s>(&'s mut  self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut  self, _action: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }
 
 impl Surface {

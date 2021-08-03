@@ -158,7 +158,7 @@ impl Shell for Application {
         let mut event_loop = Vec::new();
         let width = self.get_width();
         let height = self.get_height();
-        self.widget.action(action, &mut event_loop, 0, 0);
+        self.widget.send_action(action, &mut event_loop, 0, 0);
         let mut damage = false;
         let mut buffer = Buffer::new(
             width as i32,

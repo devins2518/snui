@@ -147,16 +147,16 @@ impl Node {
 }
 
 impl Widget for Node {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
+    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
         let (width, height) = (
             self.head.get_width(),
             self.head.get_height(),
         );
         let (x, y) = self.head.coords();
-        self.head.action(name, event_loop, x+widget_x, y+widget_y);
+        self.head.send_action(action, event_loop, x+widget_x, y+widget_y);
         if let Some(tail) = &mut self.tail {
             let (x, y) = tail.as_ref().head.get_location(width, height).unwrap();
-            Rc::get_mut(tail).unwrap().action(name, event_loop, x+widget_x, y+widget_y)
+            Rc::get_mut(tail).unwrap().send_action(action, event_loop, x+widget_x, y+widget_y)
         }
     }
 }

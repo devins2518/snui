@@ -42,8 +42,8 @@ impl<W: Widget + Clone> Drawable for Button<W> {
 }
 
 impl<W: Widget + Clone> Widget for Button<W> {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
-        Rc::get_mut(&mut self.widget).unwrap().action(name, event_loop, widget_x, widget_y);
+    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
+        Rc::get_mut(&mut self.widget).unwrap().send_action(action, event_loop, widget_x, widget_y);
     }
 }
 
@@ -88,8 +88,8 @@ impl<W: Widget + Clone> Drawable for Actionnable<W> {
 }
 
 impl<W: Widget + Clone> Widget for Actionnable<W> {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
-        if name.eq(&self.name) {
+    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
+        if action.eq(&self.name) {
             self.callback.deref()(Rc::get_mut(&mut self.widget).unwrap(), event_loop, widget_x, widget_y);
         }
     }
