@@ -12,11 +12,10 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 
 pub trait Shell {
     fn get_surface(&self) -> &WlSurface;
-    fn resize(&mut self, width: u32, height: u32);
-    fn render(&mut self);
     fn hide(&mut self);
     fn show(&mut self);
     fn destroy(&self);
+    fn render(&mut self);
 }
 
 pub struct Application {
@@ -24,22 +23,90 @@ pub struct Application {
     surface: WlSurface,
     mempool: AutoMemPool,
     buffer: Option<WlBuffer>,
+    layer_surface: Option<Main<ZwlrLayerSurfaceV1>>,
+    // Add later
+    // xdg_shell : Option<Main<ZwlrLayerSurfaceV1>>,
 }
 
 impl Application {
     pub fn new(
         widget: impl Widget + 'static,
         surface: WlSurface,
-        layer_surface: &Main<ZwlrLayerSurfaceV1>,
         mempool: AutoMemPool,
     ) -> Application {
-        layer_surface.set_size(widget.get_width(), widget.get_height());
-        surface.commit();
         Application {
             widget: Box::new(widget),
             surface,
-            buffer: None,
             mempool,
+            buffer: None,
+            layer_surface: None,
+        }
+    }
+    pub fn attach_layer_surface(&mut self, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
+        layer_surface.set_size(self.get_width(), self.get_height());
+        self.surface.commit();
+        assign_layer_surface::<Self>(self.get_surface(), &layer_surface);
+        self.layer_surface = Some(layer_surface.clone());
+    }
+    pub fn dispatch(&mut self, action: Action) {
+        let mut event_loop = Vec::new();
+        let width = self.get_width();
+        let height = self.get_height();
+        self.widget.action(action, &mut event_loop, 0, 0);
+        let mut damage = false;
+        for ev in event_loop {
+            match ev {
+                Damage::Widget {
+                    widget, x, y
+                } => {
+                    damage = true;
+                    let mut buffer = Buffer::new(
+                        width as i32,
+                        height as i32,
+                        (4 * width) as i32,
+                        &mut self.mempool,
+                    );
+                    widget.draw(buffer.get_mut_buf(), width, x, y);
+                    self.buffer = Some(buffer.get_wl_buffer());
+                    self.surface.attach(self.buffer.as_ref(), 0, 0);
+                    self.surface.damage(
+                        x as i32,
+                        y as i32,
+                        widget.get_width() as i32,
+                        widget.get_height() as i32,
+                    );
+                }
+                Damage::Clone {
+                    widget, x, y
+                } => {
+                    damage = true;
+                    let mut buffer = Buffer::new(
+                        width as i32,
+                        height as i32,
+                        (4 * width) as i32,
+                        &mut self.mempool,
+                    );
+                    widget.draw(buffer.get_mut_buf(), width, x, y);
+                    self.buffer = Some(buffer.get_wl_buffer());
+                    self.surface.attach(self.buffer.as_ref(), 0, 0);
+                    self.surface.damage(
+                        x as i32,
+                        y as i32,
+                        widget.get_width() as i32,
+                        widget.get_height() as i32,
+                    );
+                }
+                Damage::Destroy => {
+                    self.destroy();
+                    std::process::exit(0);
+                }
+                _ => {
+                    damage = false;
+                }
+            }
+        }
+        if damage {
+            self.surface.commit();
         }
     }
 }
@@ -56,7 +123,7 @@ impl Geometry for Application {
         let height = self.get_height();
         let res = self.widget.contains(widget_x, widget_y, x, y, event);
         match res {
-            Damage::Widget{
+            Damage::Widget {
                 widget, x, y
             } => {
                 let mut buffer = Buffer::new(
@@ -69,8 +136,28 @@ impl Geometry for Application {
                 self.buffer = Some(buffer.get_wl_buffer());
                 self.surface.attach(self.buffer.as_ref(), 0, 0);
                 self.surface.damage(
-                    0,
-                    0,
+                    x as i32,
+                    y as i32,
+                    widget.get_width() as i32,
+                    widget.get_height() as i32,
+                );
+                self.surface.commit();
+            }
+            Damage::Clone {
+                widget, x, y
+            } => {
+                let mut buffer = Buffer::new(
+                    width as i32,
+                    height as i32,
+                    (4 * width) as i32,
+                    &mut self.mempool,
+                );
+                widget.draw(buffer.get_mut_buf(), width, x, y);
+                self.buffer = Some(buffer.get_wl_buffer());
+                self.surface.attach(self.buffer.as_ref(), 0, 0);
+                self.surface.damage(
+                    x as i32,
+                    y as i32,
                     widget.get_width() as i32,
                     widget.get_height() as i32,
                 );
@@ -85,17 +172,20 @@ impl Geometry for Application {
         }
         Damage::None
     }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        self.mempool.resize((width * height) as usize).unwrap();
+        if let Some(layer_surface) = &self.layer_surface {
+            layer_surface.set_size(self.get_width(), self.get_height());
+        }
+        Ok(())
+    }
 }
 
 impl Shell for Application {
     fn get_surface(&self) -> &WlSurface {
         &self.surface
     }
-    fn resize(&mut self, width: u32, height: u32) {
-        self.mempool.resize((width * height) as usize).unwrap();
-    }
     fn show(&mut self) {
-        self.render();
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         self.surface.damage(
             0,
@@ -103,6 +193,7 @@ impl Shell for Application {
             self.widget.get_width() as i32,
             self.widget.get_height() as i32,
         );
+        self.resize(self.widget.get_width(),self.widget.get_height()).unwrap();
         self.surface.commit();
     }
     fn render(&mut self) {
@@ -135,7 +226,7 @@ impl Shell for Application {
 
 pub fn assign_layer_surface<A>(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>)
 where
-    A: 'static + Shell,
+    A: 'static + Shell + Geometry,
 {
     let surface_handle = surface.clone();
     layer_surface.quick_assign(move |layer_surface, event, mut app| {
@@ -148,13 +239,14 @@ where
                         width,
                         height,
                     } => {
-                        widget.resize(width, height);
+                        widget.resize(width, height).unwrap();
                         layer_surface.ack_configure(serial);
                         layer_surface.set_size(width, height);
 
                         // The client should use commit to notify itself
                         // that it has been configured
                         // The client is also responsible for damage
+                        widget.render();
                         widget.show();
                         widget.get_surface().commit();
                     }

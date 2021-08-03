@@ -22,7 +22,6 @@ pub struct Label {
     font_path: PathBuf,
     font: fontdue::Font,
     font_size: f32,
-    length: usize,
     color: u32,
 }
 
@@ -91,9 +90,14 @@ impl Geometry for Glyph {
     fn contains(&mut self, _widget_x: u32, _widget_y: u32, _x: u32, _y: u32, _event: Input) -> Damage {
         Damage::None
     }
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
+        Err(Error::Dimension("\"label\" cannot be resized", self.get_width(), self.get_height()))
+    }
 }
 
-impl Widget for Glyph {}
+impl Widget for Glyph {
+    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage<'s>>, _widget_x: u32, _widget_y: u32) {}
+}
 
 impl Label {
     pub fn new<'f>(text: &'f str, font: &'f str, font_size: f32, color: u32) -> Label {
@@ -105,7 +109,6 @@ impl Label {
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.append(&[&font], &TextStyle::new(text, font_size, 0));
         Label {
-            length: text.len() - 1,
             font_path: font_path,
             text: Rc::new(RefCell::new(layout)),
             font,
@@ -122,9 +125,10 @@ impl Geometry for Label {
         } else { 0 }
     }
     fn get_height(&self) -> u32 {
-        if let Some(glyph) = self.text.as_ref().borrow_mut().glyphs().last() {
-            (glyph.y + glyph.height as f32) as u32
-        } else { 0 }
+        (self.text.as_ref().borrow().height() * self.text.as_ref().borrow().lines() as f32) as u32
+    }
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
+        Err(Error::Dimension("\"label\" cannot be resized", self.get_width(), self.get_height()))
     }
     fn contains(&mut self, _widget_x: u32, _widget_y: u32, _x: u32, _y: u32, _event: Input) -> Damage {
         Damage::None
@@ -143,4 +147,6 @@ impl Drawable for Label {
     }
 }
 
-impl Widget for Label {}
+impl Widget for Label {
+    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage<'s>>, _widget_x: u32, _widget_y: u32) {}
+}

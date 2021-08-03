@@ -29,6 +29,9 @@ impl<'b> Geometry for Buffer<'b> {
     ) -> Damage<'d> {
         Damage::None
     }
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
+        Err(Error::Dimension("\"buffer\" cannot be resized", self.get_width(), self.get_height()))
+    }
 }
 
 impl<'b> Canvas for Buffer<'b> {

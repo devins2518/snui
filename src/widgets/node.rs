@@ -47,9 +47,10 @@ impl Geometry for Node {
             ev
         }
     }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        self.head.resize(width, height)
+    }
 }
-
-impl Widget for Node {}
 
 impl Container for Node {
     fn len(&self) -> u32 {
@@ -83,6 +84,18 @@ impl Container for Node {
             Ok(&**widget)
         } else {
             Ok(&self.head)
+        }
+    }
+}
+
+impl Transform for Node {
+    fn scale(&mut self, f: f32) {
+        let e = self.head.resize((self.get_width() as f32 * f) as u32, (self.get_height() as f32 * f) as u32);
+        match e {
+            Ok(()) => if let Some(tail) = &mut self.tail {
+                Rc::get_mut(tail).unwrap().scale(f);
+            }
+            Err(e) => e.debug()
         }
     }
 }
@@ -122,5 +135,15 @@ impl Node {
     }
     pub fn set_location(&mut self, x: u32, y: u32) {
         self.head.set_location(x, y);
+    }
+}
+
+impl Widget for Node {
+    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage<'s>>, widget_x: u32, widget_y: u32) {
+        self.head.action(name, event_loop, widget_x, widget_y);
+        if let Some(tail) = &mut self.tail {
+            let (x, y) = tail.as_ref().get_location();
+            Rc::get_mut(tail).unwrap().action(name, event_loop, x+widget_x, y+widget_y);
+        }
     }
 }

@@ -15,6 +15,9 @@ impl Geometry for Inner {
     fn get_height(&self) -> u32 {
         self.child.as_ref().get_height()
     }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(),Error> {
+        Rc::get_mut(&mut self.child).unwrap().resize(width, height)
+    }
     fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
         if x > widget_x
             && y > widget_y
@@ -52,8 +55,6 @@ impl Drawable for Inner {
     }
 }
 
-impl Widget for Inner {}
-
 impl Inner {
     pub fn new(child: impl Widget + 'static) -> Inner {
         Inner {
@@ -80,4 +81,8 @@ impl Inner {
         self.x += x;
         self.y += y;
     }
+}
+
+impl Widget for Inner {
+    fn action<'s>(&mut self, name: Action, event_loop: &mut Vec<Damage, widget_x: u32, widget_y: u32>) {}
 }

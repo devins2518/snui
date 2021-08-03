@@ -31,7 +31,6 @@ pub enum Anchor {
     BottomLeft,
 }
 
-#[derive(Clone)]
 pub enum Damage<'d> {
     None,
     Hide,
@@ -40,15 +39,12 @@ pub enum Damage<'d> {
         widget: Box<&'d dyn Widget>,
         x: u32,
         y: u32,
+    },
+    Clone {
+        widget: Box<dyn Widget>,
+        x: u32,
+        y: u32,
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum State {
-    Hide,
-    Show,
-    Close,
-    Same
 }
 
 impl<'d> Damage<'d> {
@@ -65,11 +61,17 @@ impl<'d> Damage<'d> {
             y
         }
     }
+    pub fn clone(widget: impl Widget + 'static, x: u32, y: u32) -> Damage<'d> {
+        Damage::Clone {
+            widget: Box::new(widget),
+            x,
+            y
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum Input {
-    Key,
     MouseClick {
         time: u32,
         button: u32,
@@ -78,6 +80,21 @@ pub enum Input {
     Enter,
     Leave,
     Hover,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Action<'a> {
+    Name(&'a str),
+    Key(&'a str, u32),
+}
+
+impl<'a> Action<'a> {
+    pub fn eq(&self, value: &'a str) -> bool {
+        match &self {
+            Action::Name(name) => name.eq(&value),
+            Action::Key(name, _) => name.eq(&value),
+        }
+    }
 }
 
 /*
@@ -108,6 +125,7 @@ pub trait Container {
 pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
+    fn resize(&mut self, width: u32, height: u32) -> Result<(),Error>;
     fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d>;
 }
 
@@ -120,11 +138,11 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    // fn name(&self) -> String;
+    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage<'s>>, widget_x: u32, widget_y: u32);
 }
 
 pub trait Transform {
-    fn scale(&mut self, f: u32);
+    fn scale(&mut self, f: f32);
 }
 
 impl Error {

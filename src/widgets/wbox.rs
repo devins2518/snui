@@ -1,8 +1,9 @@
 use crate::*;
 use std::rc::Rc;
+use crate::widgets::anchor;
 use crate::widgets::{Inner, Rectangle};
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum Alignment {
     Start,
     Center,
@@ -15,6 +16,7 @@ pub struct Wbox {
     pub widgets: Vec<Inner>,
     background: Option<Rc<dyn Widget>>,
     orientation: Orientation,
+    alignment: Alignment,
 }
 
 impl Geometry for Wbox {
@@ -64,9 +66,14 @@ impl Geometry for Wbox {
         }
         Damage::None
     }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(),Error> {
+        if let Some(bg) = self.background.as_mut() {
+            Rc::get_mut(bg).unwrap().resize(width, height)
+        } else {
+            Ok(())
+        }
+    }
 }
-
-impl Widget for Wbox {}
 
 impl Drawable for Wbox {
     fn set_color(&mut self, color: u32) {
@@ -75,12 +82,20 @@ impl Drawable for Wbox {
         }
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        let sized;
         if let Some(bg) = &self.background {
+            sized = true;
             bg.draw(canvas, width, x, y);
-        }
+        } else { sized = false }
+        let sw = self.get_width();
+        let sh = self.get_width();
         for w in &self.widgets {
             let (dx, dy) = w.get_location();
-            w.draw(canvas, width, x+dx, y+dy);
+            if !sized
+            || (dx + w.get_width() < sw
+            || dy + w.get_height() < sh) {
+                w.draw(canvas, width, x+dx, y+dy);
+            }
         }
     }
 }
@@ -115,6 +130,7 @@ impl Container for Wbox {
             }
         } else {
             self.widgets.push(Inner::new_at(widget, x, y));
+            self.justify(self.alignment);
             Ok(())
         }
     }
@@ -134,6 +150,7 @@ impl Wbox {
             background: None,
             widgets: Vec::new(),
             orientation: Orientation::Horizontal,
+            alignment: Alignment::Center,
         }
     }
     pub fn new_with_spacing(spacing: u32) -> Self {
@@ -142,6 +159,7 @@ impl Wbox {
             background: None,
             widgets: Vec::new(),
             orientation: Orientation::Horizontal,
+            alignment: Alignment::Start,
         }
     }
     pub fn from(background: impl Widget + 'static) -> Self {
@@ -150,6 +168,7 @@ impl Wbox {
             background: Some(Rc::new(background)),
             widgets: Vec::new(),
             orientation: Orientation::Horizontal,
+            alignment: Alignment::Start,
         }
     }
     pub fn new_with_size(w: u32, h: u32) -> Self {
@@ -158,20 +177,90 @@ impl Wbox {
             background: Some(Rc::new(Rectangle::empty(w, h))),
             widgets: Vec::new(),
             orientation: Orientation::Horizontal,
+            alignment: Alignment::Start,
         }
     }
-    pub fn new_orientation(orientation: Orientation) -> Self {
+    pub fn new_with_orientation(orientation: Orientation) -> Self {
         Wbox {
             spacing: 0,
             background: None,
             widgets: Vec::new(),
+            alignment: Alignment::Start,
             orientation,
         }
+    }
+    pub fn justify(&mut self, alignment: Alignment) {
+        match alignment {
+            Alignment::Start => match self.orientation {
+                Orientation::Horizontal => {
+                    for w in &mut self.widgets {
+                        let (x, _) = w.get_location();
+                        w.set_location(x, 0);
+                    }
+                }
+                Orientation::Vertical => {
+                    for w in &mut self.widgets {
+                        let (_, y) = w.get_location();
+                        w.set_location(0, y);
+                    }
+                }
+            }
+            Alignment::Center => match self.orientation {
+                Orientation::Horizontal => {
+                    let height = self.get_height();
+                    for w in &mut self.widgets {
+                        let (x, _) = w.get_location();
+                        w.set_location(x, (height - w.get_height())/2);
+                    }
+                }
+                Orientation::Vertical => {
+                    let width = self.get_width();
+                    for w in &mut self.widgets {
+                        let (_, y) = w.get_location();
+                        w.set_location((width - w.get_width())/2, y);
+                    }
+                }
+            }
+            Alignment::End => match self.orientation {
+                Orientation::Horizontal => {
+                    let height = self.get_height();
+                    for w in &mut self.widgets {
+                        let (x, _) = w.get_location();
+                        w.set_location(x, height - w.get_height());
+                    }
+                }
+                Orientation::Vertical => {
+                    let width = self.get_width();
+                    for w in &mut self.widgets {
+                        let (_, y) = w.get_location();
+                        w.set_location(width - w.get_width(), y);
+                    }
+                }
+            }
+        }
+    }
+    pub fn center(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
+        anchor(self, widget, Anchor::Center, 0)
     }
     pub fn set_spacing(&mut self, spacing: u32) {
         self.spacing = spacing;
     }
+    pub fn set_background(&mut self, background: impl Widget + 'static) {
+        self.background = Some(Rc::new(background));
+    }
     pub fn set_orientation(&mut self, orientation: Orientation) {
         self.orientation = orientation;
+    }
+    pub fn set_alignment(&mut self, alignment: Alignment) {
+        self.alignment = alignment;
+    }
+}
+
+impl Widget for Wbox {
+    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage<'s>>, widget_x: u32, widget_y: u32) {
+        for l in &mut self.widgets {
+            let (dx, dy) = l.get_location();
+            l.action(name, event_loop, widget_x + dx, widget_y + dy)
+        }
     }
 }

@@ -3,7 +3,6 @@ use crate::widgets::render;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
-use std::error::Error;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -13,7 +12,7 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(image: &Path) -> Result<Self, Box<dyn Error>> {
+    pub fn new(image: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let dyn_image = ImageReader::open(image)?.decode()?;
 
         let image = dyn_image.to_bgra8();
@@ -21,7 +20,7 @@ impl Image {
         Ok(Self { image: Rc::new(image) })
     }
 
-    pub fn new_with_size(image: &Path, width: u32, height: u32) -> Result<Self, Box<dyn Error>> {
+    pub fn new_with_size(image: &Path, width: u32, height: u32) -> Result<Self, Box<dyn std::error::Error>> {
         let dyn_image = ImageReader::open(image)?.decode()?;
         let scaled_image = dyn_image.resize_to_fill(width, height, FilterType::Triangle);
 
@@ -30,15 +29,12 @@ impl Image {
         Ok(Self { image: Rc::new(image) })
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.image = Rc::new(imageops::resize(self.image.as_ref(), width, height, FilterType::Triangle));
-    }
-
     pub fn thumbnail(&self, width: u32, height: u32) -> Image {
         Image {
             image: Rc::new(imageops::thumbnail(self.image.as_ref(), width, height)),
         }
     }
+
     pub fn size(&self) -> usize {
         (self.image.width() * self.image.height() * 4) as usize
     }
@@ -50,6 +46,10 @@ impl Geometry for Image {
     }
     fn get_height(&self) -> u32 {
         self.image.height()
+    }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        self.image = Rc::new(imageops::resize(self.image.as_ref(), width, height, FilterType::Triangle));
+        Ok(())
     }
     // TODO
     fn contains<'d>(
@@ -91,4 +91,6 @@ impl Canvas for Image {
     }
 }
 
-impl Widget for Image {}
+impl Widget for Image {
+    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage<'s>>, _widget_x: u32, _widget_y: u32) {}
+}

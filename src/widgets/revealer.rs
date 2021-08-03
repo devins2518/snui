@@ -46,6 +46,13 @@ impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
             self.normal.contains(widget_x, widget_y, x, y, event)
         }
     }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(),Error> {
+        if self.state {
+            self.reveal.resize(width, height)
+        } else {
+            self.normal.resize(width, height)
+        }
+    }
 }
 
 impl<N: Widget, R: Widget> Revealer<N, R> {
@@ -65,4 +72,12 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
     }
 }
 
-impl<N: Widget, R: Widget> Widget for Revealer<N, R> {}
+impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
+    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage<'s>>, widget_x: u32, widget_y: u32) {
+        if self.state {
+            self.reveal.action(name, event_loop, widget_x, widget_y);
+        } else {
+            self.normal.action(name, event_loop, widget_x, widget_y);
+        }
+    }
+}
