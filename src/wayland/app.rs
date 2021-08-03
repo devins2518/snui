@@ -16,6 +16,8 @@ pub trait Shell {
     fn show(&mut self);
     fn destroy(&self);
     fn render(&mut self);
+    fn send_action(&mut self, action: Action);
+    fn send_input(&mut self, x: u32, y: u32, event: Input);
 }
 
 pub struct Application {
@@ -48,67 +50,6 @@ impl Application {
         assign_layer_surface::<Self>(self.get_surface(), &layer_surface);
         self.layer_surface = Some(layer_surface.clone());
     }
-    pub fn dispatch(&mut self, action: Action) {
-        let mut event_loop = Vec::new();
-        let width = self.get_width();
-        let height = self.get_height();
-        self.widget.action(action, &mut event_loop, 0, 0);
-        let mut damage = false;
-        for ev in event_loop {
-            match ev {
-                Damage::Widget {
-                    widget, x, y
-                } => {
-                    damage = true;
-                    let mut buffer = Buffer::new(
-                        width as i32,
-                        height as i32,
-                        (4 * width) as i32,
-                        &mut self.mempool,
-                    );
-                    widget.draw(buffer.get_mut_buf(), width, x, y);
-                    self.buffer = Some(buffer.get_wl_buffer());
-                    self.surface.attach(self.buffer.as_ref(), 0, 0);
-                    self.surface.damage(
-                        x as i32,
-                        y as i32,
-                        widget.get_width() as i32,
-                        widget.get_height() as i32,
-                    );
-                }
-                Damage::Clone {
-                    widget, x, y
-                } => {
-                    damage = true;
-                    let mut buffer = Buffer::new(
-                        width as i32,
-                        height as i32,
-                        (4 * width) as i32,
-                        &mut self.mempool,
-                    );
-                    widget.draw(buffer.get_mut_buf(), width, x, y);
-                    self.buffer = Some(buffer.get_wl_buffer());
-                    self.surface.attach(self.buffer.as_ref(), 0, 0);
-                    self.surface.damage(
-                        x as i32,
-                        y as i32,
-                        widget.get_width() as i32,
-                        widget.get_height() as i32,
-                    );
-                }
-                Damage::Destroy => {
-                    self.destroy();
-                    std::process::exit(0);
-                }
-                _ => {
-                    damage = false;
-                }
-            }
-        }
-        if damage {
-            self.surface.commit();
-        }
-    }
 }
 
 impl Geometry for Application {
@@ -118,66 +59,22 @@ impl Geometry for Application {
     fn get_height(&self) -> u32 {
         self.widget.get_height()
     }
-    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
-        let width = self.get_width();
-        let height = self.get_height();
-        let res = self.widget.contains(widget_x, widget_y, x, y, event);
-        match res {
-            Damage::Widget {
-                widget, x, y
-            } => {
-                let mut buffer = Buffer::new(
-                    width as i32,
-                    height as i32,
-                    (4 * width) as i32,
-                    &mut self.mempool,
-                );
-                widget.draw(buffer.get_mut_buf(), width, x, y);
-                self.buffer = Some(buffer.get_wl_buffer());
-                self.surface.attach(self.buffer.as_ref(), 0, 0);
-                self.surface.damage(
-                    x as i32,
-                    y as i32,
-                    widget.get_width() as i32,
-                    widget.get_height() as i32,
-                );
-                self.surface.commit();
-            }
-            Damage::Clone {
-                widget, x, y
-            } => {
-                let mut buffer = Buffer::new(
-                    width as i32,
-                    height as i32,
-                    (4 * width) as i32,
-                    &mut self.mempool,
-                );
-                widget.draw(buffer.get_mut_buf(), width, x, y);
-                self.buffer = Some(buffer.get_wl_buffer());
-                self.surface.attach(self.buffer.as_ref(), 0, 0);
-                self.surface.damage(
-                    x as i32,
-                    y as i32,
-                    widget.get_width() as i32,
-                    widget.get_height() as i32,
-                );
-                self.surface.commit();
-            }
-            Damage::Hide => self.hide(),
-            Damage::Destroy => {
-                self.destroy();
-                std::process::exit(0);
-            }
-            Damage::None => {}
-        }
-        Damage::None
-    }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         self.mempool.resize((width * height) as usize).unwrap();
         if let Some(layer_surface) = &self.layer_surface {
             layer_surface.set_size(self.get_width(), self.get_height());
         }
         Ok(())
+    }
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Input,
+    ) -> Damage {
+        Damage::None
     }
 }
 
@@ -221,6 +118,82 @@ impl Shell for Application {
     }
     fn destroy(&self) {
         self.surface.destroy();
+        if let Some(layer_surface) = &self.layer_surface {
+            layer_surface.destroy();
+        }
+    }
+    fn send_input(&mut self, x: u32, y: u32, event: Input) {
+        let width = self.get_width();
+        let height = self.get_height();
+        match self.widget.contains(0, 0, x, y, event) {
+            Damage::Widget {
+                widget, x, y
+            } => {
+                let mut buffer = Buffer::new(
+                    width as i32,
+                    height as i32,
+                    (4 * width) as i32,
+                    &mut self.mempool,
+                );
+                widget.draw(buffer.get_mut_buf(), width, x, y);
+                self.buffer = Some(buffer.get_wl_buffer());
+                self.surface.attach(self.buffer.as_ref(), 0, 0);
+                self.surface.damage(
+                    x as i32,
+                    y as i32,
+                    widget.get_width() as i32,
+                    widget.get_height() as i32,
+                );
+                self.surface.commit();
+            }
+            Damage::Hide => self.hide(),
+            Damage::Destroy => {
+                self.destroy();
+                std::process::exit(0);
+            }
+            Damage::None => {}
+        }
+    }
+    fn send_action(&mut self, action: Action) {
+        let mut event_loop = Vec::new();
+        let width = self.get_width();
+        let height = self.get_height();
+        self.widget.action(action, &mut event_loop, 0, 0);
+        let mut damage = false;
+        let mut buffer = Buffer::new(
+            width as i32,
+            height as i32,
+            (4 * width) as i32,
+            &mut self.mempool,
+        );
+        for ev in event_loop {
+            match ev {
+                Damage::Widget {
+                    widget, x, y
+                } => {
+                    damage = true;
+                    widget.draw(buffer.get_mut_buf(), width, x, y);
+                    self.surface.damage(
+                        x as i32,
+                        y as i32,
+                        widget.get_width() as i32,
+                        widget.get_height() as i32,
+                    );
+                }
+                Damage::Destroy => {
+                    self.destroy();
+                    std::process::exit(0);
+                }
+                _ => {
+                    damage = false;
+                }
+            }
+        }
+        self.buffer = Some(buffer.get_wl_buffer());
+        if damage {
+            self.surface.attach(self.buffer.as_ref(), 0, 0);
+            self.surface.commit();
+        }
     }
 }
 
@@ -319,7 +292,7 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
             // Dispatching the event to widgets
             if let Some(ev) = input {
                 let widget = &mut app[index];
-                widget.contains(0, 0, x, y, ev);
+                widget.send_input(x, y, ev);
                 input = None;
             }
         }

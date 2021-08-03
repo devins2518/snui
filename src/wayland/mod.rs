@@ -19,14 +19,14 @@ impl<'b> Geometry for Buffer<'b> {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn contains<'d>(
-        &'d mut self,
+    fn contains(
+        &mut self,
         _widget_x: u32,
         _widget_y: u32,
         _x: u32,
         _y: u32,
         _event: Input,
-    ) -> Damage<'d> {
+    ) -> Damage {
         Damage::None
     }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {

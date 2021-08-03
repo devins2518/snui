@@ -14,9 +14,13 @@ impl Drawable for Node {
         self.head.set_color(color);
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        let (wwidth, wheight) = (
+            self.head.get_width(),
+            self.head.get_height(),
+        );
         self.head.draw(canvas, width, x, y);
         if let Some(tail) = &self.tail {
-            let (dx, dy) = tail.head.get_location();
+            let (dx, dy) = tail.head.get_location(wwidth, wheight).unwrap();
             tail.deref().draw(
                 canvas,
                 width,
@@ -34,11 +38,15 @@ impl Geometry for Node {
     fn get_height(&self) -> u32 {
         self.head.get_height()
     }
-    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
+    fn contains(&mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+        let (width, height) = (
+            self.head.get_width(),
+            self.head.get_height(),
+        );
         let ev = self.head.contains(widget_x, widget_y, x, y, event);
         if !ev.is_some() {
             if let Some(tail) = self.tail.as_mut() {
-                let (rx, ry) = tail.get_location();
+                let (rx, ry) = tail.head.get_location(width, height).unwrap();
                 Rc::get_mut(tail).unwrap().contains(widget_x + rx, widget_y + ry, x, y, event)
             } else {
                 Damage::None
@@ -107,9 +115,9 @@ impl Node {
             tail: None,
         }
     }
-    pub fn new_at(head: impl Widget + 'static, x: u32, y: u32) -> Node {
+    pub fn new_at(head: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) -> Node {
         Node {
-            head: Inner::new_at(head, x, y),
+            head: Inner::new_at(head, anchor, x, y),
             tail: None,
         }
     }
@@ -127,11 +135,11 @@ impl Node {
         if let Some(tail) = &mut self.tail {
             Rc::get_mut(tail).unwrap().center(widget)
         } else {
-            anchor(self, widget, Anchor::Center, 0)
+            anchor(self, widget, Anchor::Center, 0, 0)
         }
     }
     pub fn get_location(&self) -> (u32, u32) {
-        self.head.get_location()
+        self.head.get_location(self.head.get_width(), self.head.get_height()).unwrap()
     }
     pub fn set_location(&mut self, x: u32, y: u32) {
         self.head.set_location(x, y);
@@ -139,11 +147,16 @@ impl Node {
 }
 
 impl Widget for Node {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage<'s>>, widget_x: u32, widget_y: u32) {
-        self.head.action(name, event_loop, widget_x, widget_y);
+    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
+        let (width, height) = (
+            self.head.get_width(),
+            self.head.get_height(),
+        );
+        let (x, y) = self.head.coords();
+        self.head.action(name, event_loop, x+widget_x, y+widget_y);
         if let Some(tail) = &mut self.tail {
-            let (x, y) = tail.as_ref().get_location();
-            Rc::get_mut(tail).unwrap().action(name, event_loop, x+widget_x, y+widget_y);
+            let (x, y) = tail.as_ref().head.get_location(width, height).unwrap();
+            Rc::get_mut(tail).unwrap().action(name, event_loop, x+widget_x, y+widget_y)
         }
     }
 }

@@ -52,14 +52,14 @@ impl Geometry for Image {
         Ok(())
     }
     // TODO
-    fn contains<'d>(
-        &'d mut self,
+    fn contains(
+        &mut self,
         _widget_x: u32,
         _widget_y: u32,
         _x: u32,
         _y: u32,
         _event: Input,
-    ) -> Damage<'d> {
+    ) -> Damage {
         Damage::None
     }
 }
@@ -92,5 +92,5 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage<'s>>, _widget_x: u32, _widget_y: u32) {}
+    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }

@@ -18,7 +18,7 @@ pub enum Error {
     Message(&'static str),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Anchor {
     Left,
     Right,
@@ -31,38 +31,26 @@ pub enum Anchor {
     BottomLeft,
 }
 
-pub enum Damage<'d> {
+pub enum Damage {
     None,
     Hide,
     Destroy,
     Widget {
-        widget: Box<&'d dyn Widget>,
-        x: u32,
-        y: u32,
-    },
-    Clone {
         widget: Box<dyn Widget>,
         x: u32,
         y: u32,
-    }
+    },
 }
 
-impl<'d> Damage<'d> {
+impl Damage {
     pub fn is_some(&self) -> bool {
         match self {
             Damage::None => false,
             _ => true
         }
     }
-    pub fn new(widget: &'d dyn Widget, x: u32, y: u32) -> Damage<'d> {
+    pub fn new<W: Widget + 'static>(widget: W, x: u32, y: u32) -> Damage {
         Damage::Widget {
-            widget: Box::new(widget),
-            x,
-            y
-        }
-    }
-    pub fn clone(widget: impl Widget + 'static, x: u32, y: u32) -> Damage<'d> {
-        Damage::Clone {
             widget: Box::new(widget),
             x,
             y
@@ -126,7 +114,7 @@ pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
     fn resize(&mut self, width: u32, height: u32) -> Result<(),Error>;
-    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d>;
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage;
 }
 
 /*
@@ -138,7 +126,7 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage<'s>>, widget_x: u32, widget_y: u32);
+    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32);
 }
 
 pub trait Transform {

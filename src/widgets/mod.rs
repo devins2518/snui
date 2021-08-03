@@ -90,14 +90,14 @@ impl Geometry for Rectangle {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn contains<'d>(
-        &'d mut self,
+    fn contains(
+        &mut self,
         _widget_x: u32,
         _widget_y: u32,
         _x: u32,
         _y: u32,
         _event: Input,
-    ) -> Damage<'d> {
+    ) -> Damage {
         Damage::None
     }
     fn resize(&mut self, width: u32, height: u32) -> Result<(),Error> {
@@ -131,7 +131,7 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage<'s>>, _widget_x: u32, _widget_y: u32) {}
+    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }
 
 impl Rectangle {
@@ -168,6 +168,8 @@ impl Rectangle {
 pub struct Inner {
     x: u32,
     y: u32,
+    mapped: bool,
+    anchor: Anchor,
     child: Rc<dyn Widget>,
 }
 
@@ -181,7 +183,7 @@ impl Geometry for Inner {
     fn resize(&mut self, width: u32, height: u32) -> Result<(),Error> {
         Rc::get_mut(&mut self.child).unwrap().resize(width, height)
     }
-    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage<'d> {
+    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
         if x > widget_x
             && y > widget_y
             && x < widget_x + self.get_width()
@@ -205,7 +207,7 @@ impl Container for Inner {
         Err(Error::Overflow("inner", 1))
     }
     fn get_child(&self) -> Result<&dyn Widget, Error> {
-        Ok(&*self.child)
+        Err(Error::Message("get_child is not valid on \"inner\""))
     }
 }
 
@@ -214,12 +216,12 @@ impl Drawable for Inner {
         Rc::get_mut(&mut self.child).unwrap().set_color(color)
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        self.child.draw(canvas, width, x, y);
+        self.child.as_ref().draw(canvas, width, x, y);
     }
 }
 
 impl Widget for Inner {
-    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage<'s>>, widget_x: u32, widget_y: u32) {
+    fn action<'s>(&'s mut self, name: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
         Rc::get_mut(&mut self.child).unwrap().action(name, event_loop, widget_x, widget_y);
     }
 }
@@ -229,18 +231,62 @@ impl Inner {
         Inner {
             x: 0,
             y: 0,
+            mapped: false,
+            anchor: Anchor::TopLeft,
             child: Rc::new(child),
         }
     }
-    pub fn new_at(child: impl Widget + 'static, x: u32, y: u32) -> Inner {
+    pub fn new_at(child: impl Widget + 'static, anchor: Anchor, x:  u32, y: u32) -> Inner {
         Inner {
             x,
             y,
+            anchor,
+            mapped: false,
             child: Rc::new(child),
         }
     }
-    pub fn get_location(&self) -> (u32, u32) {
+    pub fn get_anchor(&self) -> Anchor {
+        self.anchor
+    }
+    pub fn is_mapped(&self) -> bool {
+        self.mapped
+    }
+    pub fn map(&mut self) {
+        self.mapped = true;
+    }
+    pub fn unmap(&mut self) {
+        self.mapped = false;
+    }
+    pub fn coords(&self) -> (u32, u32) {
         (self.x, self.y)
+    }
+    pub fn get_location(&self, width: u32, height: u32) -> Result<(u32, u32), Error> {
+        Ok(match self.anchor {
+            Anchor::Left => (self.x, self.y),
+            Anchor::Right => (
+                width - self.get_width() - self.x,
+                (height - self.get_height() + self.y)/2
+            ),
+            Anchor::Top => ((width - self.get_width() + self.x)/2, self.y),
+            Anchor::Bottom => ((width - self.get_width() + self.x)/2, height - self.y - self.get_height()),
+            Anchor::Center => (
+                (width - self.get_width() + self.x)/2,
+                (height - self.get_height() + self.y)/2,
+            ),
+            Anchor::TopRight => (width - self.x - self.get_width(), self.y),
+            Anchor::TopLeft => (self.x, self.y),
+            Anchor::BottomRight => (
+                width - self.x - self.get_width(),
+                height - self.y - self.get_height()
+            ),
+            Anchor::BottomLeft => (
+                self.x,
+                height - self.y - self.get_height()
+            )
+        })
+    }
+    pub fn set_anchor(&mut self, anchor: Anchor) {
+        self.anchor = anchor;
     }
     pub fn set_location(&mut self, x: u32, y: u32) {
         self.x = x;
@@ -272,14 +318,14 @@ impl Geometry for Surface {
         self.height = height;
         Ok(())
     }
-    fn contains<'d>(
-        &'d mut self,
+    fn contains(
+        &mut self,
         _widget_x: u32,
         _widget_y: u32,
         _x: u32,
         _y: u32,
         _event: Input,
-    ) -> Damage<'d> {
+    ) -> Damage {
         Damage::None
     }
 }
@@ -311,7 +357,7 @@ impl Canvas for Surface {
 }
 
 impl Widget for Surface {
-    fn action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage<'s>>, _widget_x: u32, _widget_y: u32) {}
+    fn action<'s>(&'s mut  self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
 }
 
 impl Surface {
@@ -357,7 +403,7 @@ pub fn border<W: Widget + 'static>(widget: W, gap: u32, background: u32) -> Node
     let width = widget.get_width() + 2 * gap;
     let height = widget.get_height() + 2 * gap;
     let mut bg = Node::new(Rectangle::new(width, height, background));
-    anchor(&mut bg, widget, Anchor::Center, 0).unwrap();
+    anchor(&mut bg, widget, Anchor::Center, 0, 0).unwrap();
     bg
 }
 
@@ -365,7 +411,8 @@ pub fn anchor<W: 'static, C>(
     container: &mut C,
     widget: W,
     anchor: Anchor,
-    margin: u32,
+    x: u32,
+    y: u32,
 ) -> Result<(), Error>
 where
     W: Widget,
@@ -373,32 +420,7 @@ where
 {
     if container.get_width() >= widget.get_width() && container.get_height() >= widget.get_height()
     {
-        let mut x = (container.get_width() - widget.get_width()) / 2;
-        let mut y = (container.get_height() - widget.get_height()) / 2;
-        match anchor {
-            Anchor::Left => x = margin,
-            Anchor::Right => x = container.get_width() - widget.get_width() - margin,
-            Anchor::Top => y = margin,
-            Anchor::Bottom => y = container.get_height() - widget.get_height() - margin,
-            Anchor::Center => {}
-            Anchor::TopRight => {
-                x = container.get_width() - widget.get_width() - margin;
-                y = margin;
-            }
-            Anchor::TopLeft => {
-                x = margin;
-                y = margin;
-            }
-            Anchor::BottomRight => {
-                x = container.get_width() - widget.get_width() - margin;
-                y = container.get_height() - widget.get_height() - margin;
-            }
-            Anchor::BottomLeft => {
-                x = margin;
-                y = container.get_height() - widget.get_height() - margin;
-            }
-        }
-        container.put(Inner::new_at(widget, x, y))
+        container.put(Inner::new_at(widget, anchor, x, y))
     } else {
         Err(Error::Dimension(
             "anchor",
