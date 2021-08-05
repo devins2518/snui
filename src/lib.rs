@@ -31,25 +31,25 @@ pub enum Anchor {
     BottomLeft,
 }
 
-pub enum Damage {
+pub enum Damage<'d> {
     None,
     Hide,
     Destroy,
     Widget {
-        widget: Box<dyn Widget>,
+        widget: Box<&'d dyn Widget>,
         x: u32,
         y: u32,
     },
 }
 
-impl Damage {
+impl<'d> Damage<'d> {
     pub fn is_some(&self) -> bool {
         match self {
             Damage::None => false,
             _ => true
         }
     }
-    pub fn new<W: Widget + 'static>(widget: W, x: u32, y: u32) -> Damage {
+    pub fn new<W: Widget>(widget: &'d W, x: u32, y: u32) -> Damage {
         Damage::Widget {
             widget: Box::new(widget),
             x,
@@ -67,7 +67,6 @@ pub enum Input {
     },
     Enter,
     Leave,
-    Hover,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -126,7 +125,7 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32);
+    fn send_action<'s>(&'s mut self, action: Action);
 }
 
 pub trait Transform {

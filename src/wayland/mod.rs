@@ -51,7 +51,7 @@ impl<'b> Canvas for Buffer<'b> {
 }
 
 impl<'b> Buffer<'b> {
-    pub fn new(width: i32, height: i32, stride: i32, mempool: &mut AutoMemPool) -> Buffer {
+    pub fn new<'a>(width: i32, height: i32, stride: i32, mempool: &'a mut AutoMemPool) -> Buffer {
         let format = Format::Argb8888;
         let buffer = mempool.buffer(width, height, stride, format).unwrap();
         Buffer {
@@ -64,7 +64,7 @@ impl<'b> Buffer<'b> {
     pub fn attach(&mut self, surface: &WlSurface, x: i32, y: i32) {
         surface.attach(Some(&self.wl_buffer), x, y);
     }
-    pub fn get_wl_buffer(self) -> WlBuffer {
-        self.wl_buffer
+    pub fn get_wl_buffer(&self) -> Option<WlBuffer> {
+        Some(self.wl_buffer.clone())
     }
 }

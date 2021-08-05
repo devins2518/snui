@@ -25,7 +25,7 @@ pub struct Label {
     color: u32,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Glyph {
     color: u32,
     config: GlyphRasterConfig,
@@ -96,7 +96,7 @@ impl Geometry for Glyph {
 }
 
 impl Widget for Glyph {
-    fn send_action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut self, _action: Action) {}
 }
 
 impl Label {
@@ -120,9 +120,13 @@ impl Label {
 
 impl Geometry for Label {
     fn get_width(&self) -> u32 {
-        if let Some(glyph) = self.text.as_ref().borrow_mut().glyphs().last() {
-            (glyph.x + glyph.width as f32) as u32
-        } else { 0 }
+        let mut width = 0;
+        for glyph in self.text.as_ref().borrow_mut().glyphs() {
+            if glyph.x + glyph.width as f32 > width as f32 {
+                width = (glyph.x + glyph.width as f32) as u32;
+            }
+        }
+        width
     }
     fn get_height(&self) -> u32 {
         (self.text.as_ref().borrow().height() * self.text.as_ref().borrow().lines() as f32) as u32
@@ -148,5 +152,5 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn send_action<'s>(&'s mut self, _name: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut self, _action: Action) {}
 }

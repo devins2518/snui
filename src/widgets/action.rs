@@ -42,8 +42,8 @@ impl<W: Widget + Clone> Drawable for Button<W> {
 }
 
 impl<W: Widget + Clone> Widget for Button<W> {
-    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
-        Rc::get_mut(&mut self.widget).unwrap().send_action(action, event_loop, widget_x, widget_y);
+    fn send_action<'s>(&'s mut self, action: Action) {
+        Rc::get_mut(&mut self.widget).unwrap().send_action(action);
     }
 }
 
@@ -58,9 +58,8 @@ impl<W: Widget + Clone> Button<W> {
 
 #[derive(Clone)]
 pub struct Actionnable<W: Widget + Clone> {
-    name: String,
-    widget: Rc<W>,
-    callback: Rc<dyn Fn(&mut W, &mut Vec<Damage>, u32, u32)>,
+    pub widget: Rc<W>,
+    callback: Rc<dyn Fn(&mut W, Action)>,
 }
 
 impl<W: Widget + Clone> Geometry for Actionnable<W> {
@@ -88,17 +87,14 @@ impl<W: Widget + Clone> Drawable for Actionnable<W> {
 }
 
 impl<W: Widget + Clone> Widget for Actionnable<W> {
-    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
-        if action.eq(&self.name) {
-            self.callback.deref()(Rc::get_mut(&mut self.widget).unwrap(), event_loop, widget_x, widget_y);
-        }
+    fn send_action<'s>(&'s mut self, action: Action) {
+        self.callback.deref()(Rc::get_mut(&mut self.widget).unwrap(), action);
     }
 }
 
 impl<W: Widget + Clone> Actionnable<W> {
-    pub fn new<'s>(name: &'s str, widget: W, f: impl Fn(&mut W, &mut Vec<Damage>, u32, u32) + 'static) -> Self {
+    pub fn new(widget: W, f: impl Fn(&mut W, Action) + 'static) -> Self {
         Self {
-            name: name.to_owned(),
             widget: Rc::new(widget),
             callback: Rc::new(f),
         }

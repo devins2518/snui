@@ -16,7 +16,6 @@ pub trait Shell {
     fn show(&mut self);
     fn destroy(&self);
     fn render(&mut self);
-    fn send_action(&mut self, action: Action);
     fn send_input(&mut self, x: u32, y: u32, event: Input);
 }
 
@@ -50,6 +49,11 @@ impl Application {
         assign_layer_surface::<Self>(self.get_surface(), &layer_surface);
         self.layer_surface = Some(layer_surface.clone());
     }
+    pub fn send_action(&mut self, action: Action) {
+        self.widget.send_action(action);
+        self.render();
+        self.show();
+    }
 }
 
 impl Geometry for Application {
@@ -62,7 +66,7 @@ impl Geometry for Application {
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         self.mempool.resize((width * height) as usize).unwrap();
         if let Some(layer_surface) = &self.layer_surface {
-            layer_surface.set_size(self.get_width(), self.get_height());
+            layer_surface.set_size(width, height);
         }
         Ok(())
     }
@@ -90,10 +94,10 @@ impl Shell for Application {
             self.widget.get_width() as i32,
             self.widget.get_height() as i32,
         );
-        self.resize(self.widget.get_width(),self.widget.get_height()).unwrap();
         self.surface.commit();
     }
     fn render(&mut self) {
+        self.resize(self.widget.get_width(),self.widget.get_height()).unwrap();
         let width = self.widget.get_width();
         let mut buffer = Buffer::new(
             self.widget.get_width() as i32,
@@ -103,7 +107,7 @@ impl Shell for Application {
         );
         self.widget.draw(buffer.get_mut_buf(), width, 0, 0);
         buffer.attach(&self.surface, 0, 0);
-        self.buffer = Some(buffer.get_wl_buffer());
+        self.buffer = buffer.get_wl_buffer();
     }
     fn hide(&mut self) {
         self.buffer = None;
@@ -136,7 +140,7 @@ impl Shell for Application {
                     &mut self.mempool,
                 );
                 widget.draw(buffer.get_mut_buf(), width, x, y);
-                self.buffer = Some(buffer.get_wl_buffer());
+                self.buffer = buffer.get_wl_buffer();
                 self.surface.attach(self.buffer.as_ref(), 0, 0);
                 self.surface.damage(
                     x as i32,
@@ -151,48 +155,7 @@ impl Shell for Application {
                 self.destroy();
                 std::process::exit(0);
             }
-            Damage::None => {}
-        }
-    }
-    fn send_action(&mut self, action: Action) {
-        let mut event_loop = Vec::new();
-        let width = self.get_width();
-        let height = self.get_height();
-        self.widget.send_action(action, &mut event_loop, 0, 0);
-        let mut damage = false;
-        let mut buffer = Buffer::new(
-            width as i32,
-            height as i32,
-            (4 * width) as i32,
-            &mut self.mempool,
-        );
-        for ev in event_loop {
-            match ev {
-                Damage::Widget {
-                    widget, x, y
-                } => {
-                    damage = true;
-                    widget.draw(buffer.get_mut_buf(), width, x, y);
-                    self.surface.damage(
-                        x as i32,
-                        y as i32,
-                        widget.get_width() as i32,
-                        widget.get_height() as i32,
-                    );
-                }
-                Damage::Destroy => {
-                    self.destroy();
-                    std::process::exit(0);
-                }
-                _ => {
-                    damage = false;
-                }
-            }
-        }
-        self.buffer = Some(buffer.get_wl_buffer());
-        if damage {
-            self.surface.attach(self.buffer.as_ref(), 0, 0);
-            self.surface.commit();
+            _ => {}
         }
     }
 }
@@ -272,7 +235,6 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
             } => {
                 x = surface_x as u32;
                 y = surface_y as u32;
-                input = Some(Input::Hover);
             }
             wl_pointer::Event::Button {
                 serial: _,

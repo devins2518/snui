@@ -48,7 +48,9 @@ impl Geometry for Image {
         self.image.height()
     }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.image = Rc::new(imageops::resize(self.image.as_ref(), width, height, FilterType::Triangle));
+        if width != self.image.width() || height != self.image.height() {
+            self.image = Rc::new(imageops::resize(self.image.as_ref(), width, height, FilterType::Triangle));
+        }
         Ok(())
     }
     // TODO
@@ -92,5 +94,5 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn send_action<'s>(&'s mut self, _action: Action, _event_loop: &mut Vec<Damage>, _widget_x: u32, _widget_y: u32) {}
+    fn send_action<'s>(&'s mut self, _action: Action) {}
 }

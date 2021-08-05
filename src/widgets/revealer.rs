@@ -73,11 +73,11 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
-    fn send_action<'s>(&'s mut self, action: Action, event_loop: &mut Vec<Damage>, widget_x: u32, widget_y: u32) {
+    fn send_action<'s>(&'s mut self, action: Action) {
         if self.state {
-            self.reveal.send_action(action, event_loop, widget_x, widget_y);
+            self.reveal.send_action(action);
         } else {
-            self.normal.send_action(action, event_loop, widget_x, widget_y);
+            self.normal.send_action(action);
         }
     }
 }
