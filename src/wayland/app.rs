@@ -16,10 +16,12 @@ pub trait Shell {
     fn show(&mut self);
     fn destroy(&self);
     fn render(&mut self);
+    fn is_hidden(&self) -> bool;
     fn send_input(&mut self, x: u32, y: u32, event: Input);
 }
 
 pub struct Application {
+    hidden: bool,
     pub widget: Box<dyn Widget>,
     surface: WlSurface,
     mempool: AutoMemPool,
@@ -37,6 +39,7 @@ impl Application {
     ) -> Application {
         Application {
             widget: Box::new(widget),
+            hidden: false,
             surface,
             mempool,
             buffer: None,
@@ -83,10 +86,14 @@ impl Geometry for Application {
 }
 
 impl Shell for Application {
+    fn is_hidden(&self) -> bool {
+        self.hidden
+    }
     fn get_surface(&self) -> &WlSurface {
         &self.surface
     }
     fn show(&mut self) {
+        self.hidden = false;
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         self.surface.damage(
             0,
@@ -110,8 +117,8 @@ impl Shell for Application {
         self.buffer = buffer.get_wl_buffer();
     }
     fn hide(&mut self) {
-        self.buffer = None;
-        self.surface.attach(self.buffer.as_ref(), 0, 0);
+        self.hidden = true;
+        self.surface.attach(None, 0, 0);
         self.surface.damage(
             0,
             0,
@@ -182,9 +189,11 @@ where
                         // The client should use commit to notify itself
                         // that it has been configured
                         // The client is also responsible for damage
-                        widget.render();
-                        widget.show();
-                        widget.get_surface().commit();
+                        if !widget.is_hidden() {
+                            widget.render();
+                            widget.show();
+                            widget.get_surface().commit();
+                        }
                     }
                     zwlr_layer_surface_v1::Event::Closed => {
                         layer_surface.destroy();

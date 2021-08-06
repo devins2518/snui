@@ -4,9 +4,11 @@ use fontconfig::Fontconfig;
 use std::fs::read;
 use fontdue::{
     Font,
+    layout,
     layout::{
         CoordinateSystem,
         GlyphRasterConfig,
+        LayoutSettings,
         TextStyle,
         Layout
     },
@@ -32,6 +34,17 @@ pub struct Glyph {
     bitmap: Vec<u8>,
     metrics: fontdue::Metrics,
 }
+
+static DEFAULT: LayoutSettings = LayoutSettings {
+    x: 0.0,
+    y: 0.0,
+    max_width: None,
+    max_height: None,
+    horizontal_align: layout::HorizontalAlign::Left,
+    vertical_align: layout::VerticalAlign::Middle,
+    wrap_style: layout::WrapStyle::Word,
+    wrap_hard_breaks: false,
+};
 
 impl Glyph {
     fn new<'f>(font: &'f Font, config: GlyphRasterConfig, color: u32) -> Glyph {
@@ -115,6 +128,11 @@ impl Label {
             font_size,
             color: color,
         }
+    }
+    pub fn edit<'f>(&mut self, text: &'f str) {
+        let mut layout = self.text.as_ref().borrow_mut();
+        layout.reset(&DEFAULT);
+        layout.append(&[&self.font], &TextStyle::new(text, self.font_size, 0));
     }
 }
 

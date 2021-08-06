@@ -35,6 +35,7 @@ pub enum Damage<'d> {
     None,
     Hide,
     Destroy,
+    Action( Action<'d> ),
     Widget {
         widget: Box<&'d dyn Widget>,
         x: u32,
@@ -73,6 +74,7 @@ pub enum Input {
 pub enum Action<'a> {
     Name(&'a str),
     Key(&'a str, u32),
+    Data(&'a str, &'a dyn std::any::Any)
 }
 
 impl<'a> Action<'a> {
@@ -80,6 +82,14 @@ impl<'a> Action<'a> {
         match &self {
             Action::Name(name) => name.eq(&value),
             Action::Key(name, _) => name.eq(&value),
+            Action::Data(name, _) => name.eq(&value),
+        }
+    }
+    pub fn get<T: std::any::Any>(&self) -> Option<&T> {
+        match self {
+            Action::Name(_) => None,
+            Action::Key(_, _) => None,
+            Action::Data(_, value) => value.downcast_ref(),
         }
     }
 }

@@ -11,6 +11,7 @@ pub enum Alignment {
 #[derive(Clone)]
 pub struct Wbox {
     spacing: u32,
+    size: (u32, u32),
     pub widgets: Vec<Inner>,
     background: u32,
     orientation: Orientation,
@@ -19,34 +20,38 @@ pub struct Wbox {
 
 impl Geometry for Wbox {
     fn get_width(&self) -> u32 {
-        let mut x = 0;
         let mut width = 0;
         for w in &self.widgets {
             if w.is_mapped() {
                 let lwidth = w.get_width();
                 let (lx, _) = w.coords();
-                if lx + lwidth > x + width {
-                    x = lx;
-                    width = lwidth;
+                if lx + lwidth > width {
+                    width = lx + lwidth;
                 }
             }
         }
-        return x + width
+        if width < self.size.0 {
+            self.size.0
+        } else {
+            width
+        }
     }
     fn get_height(&self) -> u32 {
-        let mut y = 0;
         let mut height = 0;
         for w in &self.widgets {
             if w.is_mapped() {
                 let (_, ly) = w.coords();
                 let lheight = w.get_height();
-                if ly + lheight > y + height {
-                    y = ly;
-                    height = lheight;
+                if ly + lheight > height {
+                    height = ly + lheight;
                 }
             }
         }
-        return y + height
+        if height < self.size.1 {
+            self.size.1
+        } else {
+            height
+        }
     }
     fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
         let width = self.get_width();
@@ -60,7 +65,8 @@ impl Geometry for Wbox {
         }
         Damage::None
     }
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(),Error> {
+    fn resize(&mut self, width: u32, height: u32) -> Result<(),Error> {
+        self.size = (width, height);
         Ok(())
     }
 }
@@ -89,21 +95,23 @@ impl Container for Wbox {
         self.widgets.len() as u32
     }
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
-        let last_element = self.widgets.last();
-        let (x, y) = if let Some(w) = last_element {
-            let (mut x, mut y) = w.get_location(self.get_width(), self.get_height()).unwrap();
-            match self.orientation {
-                Orientation::Horizontal => {
-                    x += w.get_width() + self.spacing;
+        let (mut x, mut y) = (0, 0);
+        for w in self.widgets.iter().rev() {
+            if w.is_mapped() {
+                let (lx, ly) = w.get_location(self.get_width(), self.get_height()).unwrap();
+                x = lx;
+                y = ly;
+                match self.orientation {
+                    Orientation::Horizontal => {
+                        x += w.get_width() + self.spacing;
+                    }
+                    Orientation::Vertical => {
+                        y += w.get_height() + self.spacing;
+                    }
                 }
-                Orientation::Vertical => {
-                    y += w.get_height() + self.spacing;
-                }
+                break;
             }
-            (x, y)
-        } else {
-            (0, 0)
-        };
+        }
         let mut i = Inner::new_at(widget, self.anchor, x, y);
         i.map();
         self.widgets.push(i);
@@ -123,6 +131,7 @@ impl Wbox {
         Wbox {
             spacing: 0,
             orientation,
+            size: (0, 0),
             background: 0,
             widgets: Vec::new(),
             anchor: Anchor::TopLeft,
@@ -132,6 +141,7 @@ impl Wbox {
         Wbox {
             spacing,
             orientation,
+            size: (0, 0),
             background: 0,
             widgets: Vec::new(),
             anchor: Anchor::TopLeft,
@@ -140,10 +150,11 @@ impl Wbox {
     pub fn from(orientation: Orientation, background: u32) -> Self {
         Wbox {
             spacing: 0,
+            background,
             orientation,
+            size: (0, 0),
             widgets: Vec::new(),
             anchor: Anchor::TopLeft,
-            background,
         }
     }
     pub fn set_spacing(&mut self, spacing: u32) {
@@ -160,8 +171,8 @@ impl Wbox {
     pub fn reposition(&mut self) {
         let (mut x, mut y) = (0, 0);
         for w in &mut self.widgets {
-            w.set_location(x, y);
             if w.is_mapped() {
+                w.set_location(x, y);
                 match self.orientation {
                     Orientation::Horizontal => x += w.get_width() + self.spacing,
                     Orientation::Vertical   => y += w.get_height() + self.spacing,

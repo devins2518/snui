@@ -84,20 +84,22 @@ pub fn anchor<W: 'static, C>(
     anchor: Anchor,
     x: u32,
     y: u32,
-) -> Result<(), Error>
+)
 where
     W: Widget,
     C: Container + Geometry,
 {
     if container.get_width() >= widget.get_width() && container.get_height() >= widget.get_height()
     {
-        container.put(Inner::new_at(widget, anchor, x, y))
+        if let Err(e) = container.put(Inner::new_at(widget, anchor, x, y)) {
+            e.debug()
+        }
     } else {
-        Err(Error::Dimension(
+        Error::Dimension(
             "anchor",
             widget.get_width(),
             widget.get_height(),
-        ))
+        ).debug()
     }
 }
 

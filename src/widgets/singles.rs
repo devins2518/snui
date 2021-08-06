@@ -238,11 +238,21 @@ impl Geometry for Inner {
         Rc::get_mut(&mut self.widget).unwrap().resize(width, height)
     }
     fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
-        if x > widget_x
+        if self.entered
+        	&& x < widget_x + 10
+        	&& y < widget_x + 10
+        	&& x < widget_x + self.get_width() - 10
+        	&& y < widget_y + self.get_height() - 10
+    	{
+            self.entered = false;
+            Rc::get_mut(&mut self.widget).unwrap().contains(widget_x, widget_y, x, y, event)
+        } else if x > widget_x
             && y > widget_y
             && x < widget_x + self.get_width()
             && y < widget_y + self.get_height()
         {
+            self.entered = true;
+            // println!("{} {}", x, y);
             Rc::get_mut(&mut self.widget).unwrap().contains(widget_x, widget_y, x, y, event)
         } else {
             Damage::None
