@@ -1,72 +1,206 @@
+use crate::widgets::Rectangle;
 use crate::*;
-use crate::widgets::{Inner, Rectangle};
-
-#[derive(Copy, Clone)]
-pub enum Alignment {
-    Start,
-    Center,
-    End,
-}
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Wbox {
-    spacing: u32,
-    size: (u32, u32),
+    width: u32,
+    height: u32,
     pub widgets: Vec<Inner>,
     background: u32,
-    orientation: Orientation,
+}
+
+#[derive(Clone)]
+pub struct Inner {
+    x: u32,
+    y: u32,
+    mapped: bool,
+    entered: bool,
     anchor: Anchor,
+    widget: Rc<dyn Widget>,
+}
+
+impl Geometry for Inner {
+    fn get_width(&self) -> u32 {
+        self.widget.as_ref().get_width()
+    }
+    fn get_height(&self) -> u32 {
+        self.widget.as_ref().get_height()
+    }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        Rc::get_mut(&mut self.widget).unwrap().resize(width, height)
+    }
+    fn contains<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        x: u32,
+        y: u32,
+        event: Input,
+    ) -> Damage {
+        if self.entered
+            && x < widget_x + 10
+            && y < widget_x + 10
+            && x < widget_x + self.get_width() - 10
+            && y < widget_y + self.get_height() - 10
+        {
+            self.entered = false;
+            Rc::get_mut(&mut self.widget)
+                .unwrap()
+                .contains(widget_x, widget_y, x, y, event)
+        } else if x > widget_x
+            && y > widget_y
+            && x < widget_x + self.get_width()
+            && y < widget_y + self.get_height()
+        {
+            self.entered = true;
+            Rc::get_mut(&mut self.widget)
+                .unwrap()
+                .contains(widget_x, widget_y, x, y, event)
+        } else {
+            Damage::None
+        }
+    }
+}
+
+impl Container for Inner {
+    fn len(&self) -> u32 {
+        1
+    }
+    fn add(&mut self, _widget: impl Drawable + 'static) -> Result<(), Error> {
+        Err(Error::Overflow("inner", 1))
+    }
+    fn get_child(&self) -> Result<&dyn Widget, Error> {
+        Ok(self.widget.as_ref())
+    }
+}
+
+impl Drawable for Inner {
+    fn set_color(&mut self, color: u32) {
+        Rc::get_mut(&mut self.widget).unwrap().set_color(color)
+    }
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        self.widget.as_ref().draw(canvas, width, x, y);
+    }
+}
+
+impl Widget for Inner {
+    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
+        Rc::get_mut(&mut self.widget).unwrap().send_action(action)
+    }
+}
+
+impl Inner {
+    pub fn new(widget: impl Widget + 'static) -> Inner {
+        Inner {
+            x: 0,
+            y: 0,
+            mapped: true,
+            entered: false,
+            anchor: Anchor::TopLeft,
+            widget: Rc::new(widget),
+        }
+    }
+    pub fn new_at(widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) -> Inner {
+        Inner {
+            x,
+            y,
+            anchor,
+            mapped: true,
+            entered: false,
+            widget: Rc::new(widget),
+        }
+    }
+    pub fn get_anchor(&self) -> Anchor {
+        self.anchor
+    }
+    pub fn is_mapped(&self) -> bool {
+        self.mapped
+    }
+    pub fn map(&mut self) {
+        self.mapped = true;
+    }
+    pub fn unmap(&mut self) {
+        self.mapped = false;
+    }
+    pub fn coords(&self) -> (u32, u32) {
+        (self.x, self.y)
+    }
+    pub fn get_location(&self, width: u32, height: u32) -> Result<(u32, u32), Error> {
+        Ok(match self.anchor {
+            Anchor::Left => (self.x, (height - self.get_height() + self.y) / 2),
+            Anchor::Right => (
+                width - self.get_width() - self.x,
+                (height - self.get_height() + self.y) / 2,
+            ),
+            Anchor::Top => ((width - self.get_width() + self.x) / 2, self.y),
+            Anchor::Bottom => (
+                (width - self.get_width() + self.x) / 2,
+                height - self.y - self.get_height(),
+            ),
+            Anchor::Center => (
+                if width >= self.get_width() {
+                    (width - self.get_width() + self.x) / 2
+                } else {
+                    0
+                },
+                if height >= self.get_height() {
+                    (height - self.get_height() + self.y) / 2
+                } else {
+                    0
+                },
+            ),
+            Anchor::TopRight => (width - self.x - self.get_width(), self.y),
+            Anchor::TopLeft => (self.x, self.y),
+            Anchor::BottomRight => (
+                width - self.x - self.get_width(),
+                height - self.y - self.get_height(),
+            ),
+            Anchor::BottomLeft => (self.x, height - self.y - self.get_height()),
+        })
+    }
+    pub fn set_anchor(&mut self, anchor: Anchor) {
+        self.anchor = anchor;
+    }
+    pub fn set_location(&mut self, x: u32, y: u32) {
+        self.x = x;
+        self.y = y;
+    }
+    pub fn translate(&mut self, x: u32, y: u32) {
+        self.x += x;
+        self.y += y;
+    }
 }
 
 impl Geometry for Wbox {
     fn get_width(&self) -> u32 {
-        let mut width = 0;
-        for w in &self.widgets {
-            if w.is_mapped() {
-                let lwidth = w.get_width();
-                let (lx, _) = w.coords();
-                if lx + lwidth > width {
-                    width = lx + lwidth;
-                }
-            }
-        }
-        if width < self.size.0 {
-            self.size.0
-        } else {
-            width
-        }
+        self.width
     }
     fn get_height(&self) -> u32 {
-        let mut height = 0;
-        for w in &self.widgets {
-            if w.is_mapped() {
-                let (_, ly) = w.coords();
-                let lheight = w.get_height();
-                if ly + lheight > height {
-                    height = ly + lheight;
-                }
-            }
-        }
-        if height < self.size.1 {
-            self.size.1
-        } else {
-            height
-        }
+        self.height
     }
-    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+    fn contains<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        x: u32,
+        y: u32,
+        event: Input,
+    ) -> Damage {
         let width = self.get_width();
         let height = self.get_height();
         for l in &mut self.widgets {
             let (dx, dy) = l.get_location(width, height).unwrap();
             let ev = l.contains(widget_x + dx, widget_y + dy, x, y, event);
             if ev.is_some() {
-                return ev
+                return ev;
             }
         }
         Damage::None
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(),Error> {
-        self.size = (width, height);
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        self.width = width;
+        self.height = height;
         Ok(())
     }
 }
@@ -79,12 +213,12 @@ impl Drawable for Wbox {
         let sw = self.get_width();
         let sh = self.get_height();
         if self.background != 0 {
-            let rectangle =  Rectangle::new(sw, sh, self.background);
+            let rectangle = Rectangle::new(sw, sh, self.background);
             rectangle.draw(canvas, width, x, y);
         }
         for w in &self.widgets {
             if let Ok((dx, dy)) = w.get_location(sw, sh) {
-                w.draw(canvas, width, x+dx, y+dy);
+                w.draw(canvas, width, x + dx, y + dy);
             }
         }
     }
@@ -94,32 +228,8 @@ impl Container for Wbox {
     fn len(&self) -> u32 {
         self.widgets.len() as u32
     }
-    fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
-        let (mut x, mut y) = (0, 0);
-        for w in self.widgets.iter().rev() {
-            if w.is_mapped() {
-                let (lx, ly) = w.get_location(self.get_width(), self.get_height()).unwrap();
-                x = lx;
-                y = ly;
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        x += w.get_width() + self.spacing;
-                    }
-                    Orientation::Vertical => {
-                        y += w.get_height() + self.spacing;
-                    }
-                }
-                break;
-            }
-        }
-        let mut i = Inner::new_at(widget, self.anchor, x, y);
-        i.map();
-        self.widgets.push(i);
-        Ok(())
-    }
-    fn put(&mut self, widget: Inner) -> Result<(), Error> {
-        self.widgets.push(widget);
-        Ok(())
+    fn add(&mut self, _widget: impl Widget + 'static) -> Result<(), Error> {
+        Err(Error::Message("get_child is not valid on \"wbox\""))
     }
     fn get_child(&self) -> Result<&dyn Widget, Error> {
         Err(Error::Message("get_child is not valid on \"wbox\""))
@@ -127,77 +237,44 @@ impl Container for Wbox {
 }
 
 impl Wbox {
-    pub fn new(orientation: Orientation) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Wbox {
-            spacing: 0,
-            orientation,
-            size: (0, 0),
+            width,
+            height,
             background: 0,
             widgets: Vec::new(),
-            anchor: Anchor::TopLeft,
         }
     }
-    pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
-        Wbox {
-            spacing,
-            orientation,
-            size: (0, 0),
-            background: 0,
-            widgets: Vec::new(),
-            anchor: Anchor::TopLeft,
-        }
+
+    pub fn anchor(&mut self, widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) {
+        self.widgets.push(Inner::new_at(widget, anchor, x, y));
     }
-    pub fn from(orientation: Orientation, background: u32) -> Self {
-        Wbox {
-            spacing: 0,
-            background,
-            orientation,
-            size: (0, 0),
-            widgets: Vec::new(),
-            anchor: Anchor::TopLeft,
-        }
-    }
-    pub fn set_spacing(&mut self, spacing: u32) {
-        self.spacing = spacing;
-    }
-    pub fn set_anchor(&mut self, anchor: Anchor) {
-        self.anchor = anchor;
-        for w in &mut self.widgets {
-            if w.is_mapped() {
-                w.set_anchor(anchor);
-            }
-        }
-    }
-    pub fn reposition(&mut self) {
-        let (mut x, mut y) = (0, 0);
-        for w in &mut self.widgets {
-            if w.is_mapped() {
-                w.set_location(x, y);
-                match self.orientation {
-                    Orientation::Horizontal => x += w.get_width() + self.spacing,
-                    Orientation::Vertical   => y += w.get_height() + self.spacing,
-                }
-            }
-        }
-    }
+
     pub fn unmap(&mut self, i: usize) {
         if i < self.widgets.len() {
             self.widgets[i].unmap();
-            self.reposition();
         }
     }
     pub fn remap(&mut self, i: usize) {
         if i < self.widgets.len() {
             self.widgets[i].map();
-            self.reposition();
+        }
+    }
+    pub fn remap_all(&mut self) {
+        for w in &mut self.widgets {
+            w.map();
         }
     }
 }
 
 impl Widget for Wbox {
-    fn send_action<'s>(&'s mut self, action: Action) {
-        for l in &mut self.widgets {
-            l.send_action(action);
+    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
+        for w in &mut self.widgets {
+            let damage = w.send_action(action);
+            if damage.is_some() {
+                return Damage::new(self, 0, 0);
+            }
         }
+        Damage::None
     }
 }

@@ -1,7 +1,7 @@
 pub mod app;
 
-use crate::*;
 use crate::widgets::render;
+use crate::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 
@@ -30,7 +30,11 @@ impl<'b> Geometry for Buffer<'b> {
         Damage::None
     }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Err(Error::Dimension("\"buffer\" cannot be resized", self.get_width(), self.get_height()))
+        Err(Error::Dimension(
+            "\"buffer\" cannot be resized",
+            self.get_width(),
+            self.get_height(),
+        ))
     }
 }
 

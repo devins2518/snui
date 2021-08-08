@@ -1,21 +1,16 @@
 pub mod action;
+pub mod core;
 pub mod image;
-pub mod singles;
-pub mod revealer;
+pub mod layout;
 pub mod wbox;
 
-use crate::*;
-use std::io::Write;
-pub use singles::{
-    Inner, Border, Rectangle, Background
-};
-pub use revealer::Revealer;
+pub use self::core::{Background, Border, Rectangle, Revealer};
 pub use self::image::Image;
-pub use wbox::{Wbox, Alignment};
-pub use action::{Button, Actionnable};
-
-// For rounded corners eventually
-// const PI: f64 = 3.14159265358979;
+use crate::*;
+pub use action::{Actionnable, Button};
+pub use layout::{Alignment, Layout};
+use std::io::Write;
+pub use wbox::Wbox;
 
 pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32)
 where
@@ -31,7 +26,7 @@ where
             for pixel in buf.chunks(4) {
                 match pixel[3] {
                     0 => {
-                        let p = [writer[0],writer[1],writer[2],writer[3]];
+                        let p = [writer[0], writer[1], writer[2], writer[3]];
                         writer.write(&p).unwrap();
                     }
                     255 => {
@@ -39,7 +34,7 @@ where
                     }
                     _ => {
                         let t = pixel[3];
-                        let mut p = [writer[0],writer[1],writer[2],writer[3]];
+                        let mut p = [writer[0], writer[1], writer[2], writer[3]];
                         p = blend(&pixel, &p, (255 - t) as f32 / 255.0);
                         writer.write(&p).unwrap();
                     }
@@ -62,9 +57,9 @@ pub fn blend(pix_a: &[u8], pix_b: &[u8], t: f32) -> [u8; 4] {
         pix_b[2] as f32,
         pix_b[3] as f32,
     );
-    let red   = blend_f32(r_a, r_b, t);
+    let red = blend_f32(r_a, r_b, t);
     let green = blend_f32(g_a, g_b, t);
-    let blue  = blend_f32(b_a, b_b, t);
+    let blue = blend_f32(b_a, b_b, t);
     let alpha = blend_f32(a_a, a_b, t);
     [red as u8, green as u8, blue as u8, alpha as u8]
 }
@@ -73,11 +68,18 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
     a + ((b - a) * r)
 }
 
-pub fn boxed<W: Widget + Clone>(widget: W, padding: u32, border_size: u32, bg_color: u32, border_color: u32) -> Border<Background<Rectangle, W>> {
-	let bg = Background::new(widget, Rectangle::new(1,1, bg_color), padding);
-	Border::new(bg, border_size, border_color)
+pub fn boxed<W: Widget + Clone>(
+    widget: W,
+    padding: u32,
+    border_size: u32,
+    bg_color: u32,
+    border_color: u32,
+) -> Border<Background<Rectangle, W>> {
+    let bg = Background::new(widget, Rectangle::new(1, 1, bg_color), padding);
+    Border::new(bg, border_size, border_color)
 }
 
+/*
 pub fn anchor<W: 'static, C>(
     container: &mut C,
     widget: W,
@@ -102,4 +104,4 @@ where
         ).debug()
     }
 }
-
+*/

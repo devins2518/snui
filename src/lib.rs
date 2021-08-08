@@ -1,8 +1,6 @@
+pub mod font;
 pub mod wayland;
 pub mod widgets;
-pub mod font;
-
-use crate::widgets::Inner;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -33,9 +31,9 @@ pub enum Anchor {
 
 pub enum Damage<'d> {
     None,
-    Hide,
-    Destroy,
-    Action( Action<'d> ),
+    // Hide,
+    // Destroy,
+    Action(Action<'d>),
     Widget {
         widget: Box<&'d dyn Widget>,
         x: u32,
@@ -47,14 +45,24 @@ impl<'d> Damage<'d> {
     pub fn is_some(&self) -> bool {
         match self {
             Damage::None => false,
-            _ => true
+            _ => true,
         }
     }
     pub fn new<W: Widget>(widget: &'d W, x: u32, y: u32) -> Damage {
         Damage::Widget {
             widget: Box::new(widget),
             x,
-            y
+            y,
+        }
+    }
+    pub fn shift(self, dx: u32, dy: u32) -> Damage<'d> {
+        match self {
+            Damage::Widget { widget, x, y } => Damage::Widget {
+                widget: widget,
+                x: x + dx,
+                y: y + dy,
+            },
+            _ => self,
         }
     }
 }
@@ -74,7 +82,9 @@ pub enum Input {
 pub enum Action<'a> {
     Name(&'a str),
     Key(&'a str, u32),
-    Data(&'a str, &'a dyn std::any::Any)
+    Hide,
+    Destroy,
+    Data(&'a str, &'a dyn std::any::Any),
 }
 
 impl<'a> Action<'a> {
@@ -83,13 +93,13 @@ impl<'a> Action<'a> {
             Action::Name(name) => name.eq(&value),
             Action::Key(name, _) => name.eq(&value),
             Action::Data(name, _) => name.eq(&value),
+            _ => false,
         }
     }
     pub fn get<T: std::any::Any>(&self) -> Option<&T> {
         match self {
-            Action::Name(_) => None,
-            Action::Key(_, _) => None,
             Action::Data(_, value) => value.downcast_ref(),
+            _ => None,
         }
     }
 }
@@ -116,14 +126,21 @@ pub trait Container {
     }
     fn get_child(&self) -> Result<&dyn Widget, Error>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
-    fn put(&mut self, widget: Inner) -> Result<(), Error>;
+    // fn put(&mut self, widget: Inner) -> Result<(), Error>;
 }
 
 pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
-    fn resize(&mut self, width: u32, height: u32) -> Result<(),Error>;
-    fn contains<'d>(&'d mut self, widget_x: u32, widget_y: u32, x: u32, y: u32, event: Input) -> Damage;
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
+    fn contains<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        x: u32,
+        y: u32,
+        event: Input,
+    ) -> Damage;
 }
 
 /*
@@ -135,7 +152,7 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn send_action<'s>(&'s mut self, action: Action);
+    fn send_action<'s>(&'s mut self, action: Action) -> Damage;
 }
 
 pub trait Transform {

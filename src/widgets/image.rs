@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::render;
+use crate::*;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
@@ -17,16 +17,24 @@ impl Image {
 
         let image = dyn_image.to_bgra8();
 
-        Ok(Self { image: Rc::new(image) })
+        Ok(Self {
+            image: Rc::new(image),
+        })
     }
 
-    pub fn new_with_size(image: &Path, width: u32, height: u32) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new_with_size(
+        image: &Path,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let dyn_image = ImageReader::open(image)?.decode()?;
         let scaled_image = dyn_image.resize_to_fill(width, height, FilterType::Triangle);
 
         let image = scaled_image.to_bgra8();
 
-        Ok(Self { image: Rc::new(image) })
+        Ok(Self {
+            image: Rc::new(image),
+        })
     }
 
     pub fn thumbnail(&self, width: u32, height: u32) -> Image {
@@ -49,7 +57,12 @@ impl Geometry for Image {
     }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         if width != self.image.width() || height != self.image.height() {
-            self.image = Rc::new(imageops::resize(self.image.as_ref(), width, height, FilterType::Triangle));
+            self.image = Rc::new(imageops::resize(
+                self.image.as_ref(),
+                width,
+                height,
+                FilterType::Triangle,
+            ));
         }
         Ok(())
     }
@@ -68,7 +81,7 @@ impl Geometry for Image {
 
 impl Drawable for Image {
     fn set_color(&mut self, _color: u32) {
-    	eprintln!("Attempted to perform illegal operation on image!");
+        eprintln!("Attempted to perform illegal operation on image!");
     }
 
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
@@ -85,7 +98,10 @@ impl Canvas for Image {
         self.image.as_raw()
     }
     fn get_mut_buf(&mut self) -> &mut [u8] {
-        Rc::get_mut(&mut self.image).unwrap().iter_mut().into_slice()
+        Rc::get_mut(&mut self.image)
+            .unwrap()
+            .iter_mut()
+            .into_slice()
     }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
         let width = self.get_width();
@@ -94,5 +110,7 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn send_action<'s>(&'s mut self, _action: Action) {}
+    fn send_action<'s>(&'s mut self, _action: Action) -> Damage {
+        Damage::None
+    }
 }

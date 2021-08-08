@@ -1,22 +1,16 @@
-use std::io::{Write};
 use crate::widgets::blend;
-use fontconfig::Fontconfig;
-use std::fs::read;
-use fontdue::{
-    Font,
-    layout,
-    layout::{
-        CoordinateSystem,
-        GlyphRasterConfig,
-        LayoutSettings,
-        TextStyle,
-        Layout
-    },
-};
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::path::PathBuf;
 use crate::*;
+use fontconfig::Fontconfig;
+use fontdue::{
+    layout,
+    layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle},
+    Font,
+};
+use std::cell::RefCell;
+use std::fs::read;
+use std::io::Write;
+use std::path::PathBuf;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Label {
@@ -71,16 +65,18 @@ impl Drawable for Glyph {
                 let pixel = self.color.to_ne_bytes();
                 match t {
                     &0 => {
-                        let p = [writer[0],writer[1],writer[2],writer[3]];
+                        let p = [writer[0], writer[1], writer[2], writer[3]];
                         writer.write(&p).unwrap();
                     }
                     &255 => {
                         writer.write(&pixel).unwrap();
                     }
-                    _ => if i < writer.len() {
-                        let mut p = [writer[0],writer[1],writer[2],writer[3]];
-                        p = blend(&pixel, &p, (255 - *t) as f32 / 255.0);
-                        writer.write(&p).unwrap();
+                    _ => {
+                        if i < writer.len() {
+                            let mut p = [writer[0], writer[1], writer[2], writer[3]];
+                            p = blend(&pixel, &p, (255 - *t) as f32 / 255.0);
+                            writer.write(&p).unwrap();
+                        }
                     }
                 }
                 if (i + 1) % self.metrics.width == 0 {
@@ -100,16 +96,29 @@ impl Geometry for Glyph {
     fn get_height(&self) -> u32 {
         self.metrics.height as u32
     }
-    fn contains(&mut self, _widget_x: u32, _widget_y: u32, _x: u32, _y: u32, _event: Input) -> Damage {
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Input,
+    ) -> Damage {
         Damage::None
     }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Err(Error::Dimension("\"label\" cannot be resized", self.get_width(), self.get_height()))
+        Err(Error::Dimension(
+            "\"label\" cannot be resized",
+            self.get_width(),
+            self.get_height(),
+        ))
     }
 }
 
 impl Widget for Glyph {
-    fn send_action<'s>(&'s mut self, _action: Action) {}
+    fn send_action<'s>(&'s mut self, _action: Action) -> Damage {
+        Damage::None
+    }
 }
 
 impl Label {
@@ -150,9 +159,20 @@ impl Geometry for Label {
         (self.text.as_ref().borrow().height() * self.text.as_ref().borrow().lines() as f32) as u32
     }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Err(Error::Dimension("\"label\" cannot be resized", self.get_width(), self.get_height()))
+        Err(Error::Dimension(
+            "\"label\" cannot be resized",
+            self.get_width(),
+            self.get_height(),
+        ))
     }
-    fn contains(&mut self, _widget_x: u32, _widget_y: u32, _x: u32, _y: u32, _event: Input) -> Damage {
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Input,
+    ) -> Damage {
         Damage::None
     }
 }
@@ -164,11 +184,18 @@ impl Drawable for Label {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
         for glyph_position in self.text.as_ref().borrow_mut().glyphs() {
             let glyph = Glyph::new(&self.font, glyph_position.key, self.color);
-            glyph.draw(canvas, width, x + glyph_position.x as u32, y + glyph_position.y as u32);
+            glyph.draw(
+                canvas,
+                width,
+                x + glyph_position.x as u32,
+                y + glyph_position.y as u32,
+            );
         }
     }
 }
 
 impl Widget for Label {
-    fn send_action<'s>(&'s mut self, _action: Action) {}
+    fn send_action<'s>(&'s mut self, _action: Action) -> Damage {
+        Damage::None
+    }
 }
