@@ -127,37 +127,53 @@ impl Inner {
         (self.x, self.y)
     }
     pub fn get_location(&self, width: u32, height: u32) -> Result<(u32, u32), Error> {
-        Ok(match self.anchor {
-            Anchor::Left => (self.x, (height - self.get_height() + self.y) / 2),
-            Anchor::Right => (
-                width - self.get_width() - self.x,
-                (height - self.get_height() + self.y) / 2,
-            ),
-            Anchor::Top => ((width - self.get_width() + self.x) / 2, self.y),
-            Anchor::Bottom => (
-                (width - self.get_width() + self.x) / 2,
-                height - self.y - self.get_height(),
-            ),
-            Anchor::Center => (
-                if width >= self.get_width() {
-                    (width - self.get_width() + self.x) / 2
+        let widget_width = self.get_width();
+        let widget_height = self.get_height();
+        match self.anchor {
+            Anchor::Left => if height >= widget_height {
+                return Ok((self.x, (height - widget_height + self.y) / 2))
+            },
+            Anchor::Right => if height >= widget_height && width >= widget_height {
+                return Ok((
+                width - widget_width - self.x,
+                (height - widget_height + self.y) / 2,
+            ))},
+            Anchor::Top => if width >= widget_width {
+                return Ok(((width - widget_width + self.x) / 2, self.y))
+            },
+            Anchor::Bottom => if height > self.y + widget_height {
+                return Ok((
+                    (width - widget_width + self.x) / 2,
+                    height - self.y - widget_height,
+                ))
+            },
+            Anchor::Center => return Ok((
+                if width >= widget_width {
+                    (width - widget_width + self.x) / 2
                 } else {
                     0
                 },
-                if height >= self.get_height() {
-                    (height - self.get_height() + self.y) / 2
+                if height >= widget_height {
+                    (height - widget_height + self.y) / 2
                 } else {
                     0
                 },
-            ),
-            Anchor::TopRight => (width - self.x - self.get_width(), self.y),
-            Anchor::TopLeft => (self.x, self.y),
-            Anchor::BottomRight => (
-                width - self.x - self.get_width(),
-                height - self.y - self.get_height(),
-            ),
-            Anchor::BottomLeft => (self.x, height - self.y - self.get_height()),
-        })
+            )),
+            Anchor::TopRight => if width > self.x + widget_width {
+                return Ok((width - self.x - widget_width, self.y))
+            },
+            Anchor::TopLeft => return Ok((self.x, self.y)),
+            Anchor::BottomRight => if width > self.x + widget_width && height > self.y + widget_height {
+                return Ok((
+                    width - self.x - widget_width,
+                    height - self.y - widget_height,
+                ))
+            }
+            Anchor::BottomLeft => if height > self.y + widget_height {
+                return Ok((self.x, height - self.y - widget_height))
+            }
+        }
+        Err(Error::Dimension("wbox",widget_width, widget_height))
     }
     pub fn set_anchor(&mut self, anchor: Anchor) {
         self.anchor = anchor;
@@ -217,8 +233,11 @@ impl Drawable for Wbox {
             rectangle.draw(canvas, width, x, y);
         }
         for w in &self.widgets {
-            if let Ok((dx, dy)) = w.get_location(sw, sh) {
-                w.draw(canvas, width, x + dx, y + dy);
+            match w.get_location(sw, sh) {
+                Ok((dx, dy)) => {
+                    w.draw(canvas, width, x + dx, y + dy)
+                }
+                Err(e) => e.debug()
             }
         }
     }
@@ -255,12 +274,12 @@ impl Wbox {
             self.widgets[i].unmap();
         }
     }
-    pub fn remap(&mut self, i: usize) {
+    pub fn map(&mut self, i: usize) {
         if i < self.widgets.len() {
             self.widgets[i].map();
         }
     }
-    pub fn remap_all(&mut self) {
+    pub fn map_all(&mut self) {
         for w in &mut self.widgets {
             w.map();
         }
@@ -269,10 +288,13 @@ impl Wbox {
 
 impl Widget for Wbox {
     fn send_action<'s>(&'s mut self, action: Action) -> Damage {
+        let width = self.get_width();
+        let height = self.get_height();
         for w in &mut self.widgets {
+            let (dx, dy) = w.get_location(width, height).unwrap();
             let damage = w.send_action(action);
             if damage.is_some() {
-                return Damage::new(self, 0, 0);
+                return damage.shift(dx, dy);
             }
         }
         Damage::None

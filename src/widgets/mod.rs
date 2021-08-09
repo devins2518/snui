@@ -1,16 +1,15 @@
 pub mod action;
 pub mod core;
 pub mod image;
-pub mod layout;
-pub mod wbox;
+pub mod container;
 
 pub use self::core::{Background, Border, Rectangle, Revealer};
 pub use self::image::Image;
 use crate::*;
 pub use action::{Actionnable, Button};
-pub use layout::{Alignment, Layout};
+pub use container::{Alignment, Layout};
 use std::io::Write;
-pub use wbox::Wbox;
+pub use container::Wbox;
 
 pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32)
 where

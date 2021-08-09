@@ -91,10 +91,10 @@ pub struct Background<B: Widget, W: Widget + Clone> {
 
 impl<B: Widget, W: Widget + Clone> Geometry for Background<B, W> {
     fn get_width(&self) -> u32 {
-        self.widget.get_width() + self.padding.0 + self.padding.2
+        self.widget.get_width() + self.padding.1 + self.padding.3
     }
     fn get_height(&self) -> u32 {
-        self.widget.get_height() + self.padding.1 + self.padding.3
+        self.widget.get_height() + self.padding.0 + self.padding.2
     }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         self.widget.resize(width, height)
@@ -108,8 +108,8 @@ impl<B: Widget, W: Widget + Clone> Geometry for Background<B, W> {
         event: Input,
     ) -> Damage {
         self.widget.contains(
-            widget_x + self.padding.0,
-            widget_y + self.padding.3,
+            widget_x + self.padding.3,
+            widget_y + self.padding.0,
             x,
             y,
             event,
@@ -133,7 +133,7 @@ impl<B: Widget, W: Widget + Clone> Drawable for Background<B, W> {
         self.background.as_ref().borrow().draw(canvas, width, x, y);
 
         self.widget
-            .draw(canvas, width, x + self.padding.0, y + self.padding.3);
+            .draw(canvas, width, x + self.padding.3, y + self.padding.0);
     }
 }
 
@@ -142,7 +142,7 @@ impl<B: Widget, W: Widget + Clone> Widget for Background<B, W> {
         self.background.as_ref().borrow_mut().send_action(action);
         self.widget
             .send_action(action)
-            .shift(self.padding.0, self.padding.3)
+            .shift(self.padding.3, self.padding.0)
     }
 }
 

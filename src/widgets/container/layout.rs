@@ -12,7 +12,7 @@ pub enum Alignment {
 #[derive(Clone)]
 pub struct Element {
     mapped: bool,
-    widget: Rc<dyn Widget>,
+    pub widget: Rc<dyn Widget>,
 }
 
 impl Element {
@@ -36,23 +36,53 @@ pub struct Layout {
 impl Geometry for Layout {
     fn get_width(&self) -> u32 {
         let mut width = 0;
-        for w in &self.widgets {
-            if w.mapped {
-                let lwidth = w.widget.get_width();
-                width += lwidth + self.spacing;
+        match self.orientation {
+            Orientation::Horizontal => {
+                for w in &self.widgets {
+                    if w.mapped {
+                        let lwidth = w.widget.get_width();
+                        width += lwidth + self.spacing;
+                    }
+                }
+                width -= if !self.is_empty() { self.spacing } else { 0 };
+            }
+            Orientation::Vertical => {
+                for w in &self.widgets {
+                    if w.mapped {
+                        let lwidth = w.widget.get_width();
+                        if lwidth > width {
+                            width = lwidth;
+                        }
+                    }
+                }
             }
         }
-        width - if !self.is_empty() { self.spacing } else { 0 }
+        width
     }
     fn get_height(&self) -> u32 {
         let mut height = 0;
-        for w in &self.widgets {
-            if w.mapped {
-                let lheight = w.widget.get_height();
-                height += lheight + self.spacing;
+        match self.orientation {
+            Orientation::Horizontal => {
+                for w in &self.widgets {
+                    if w.mapped {
+                        let lheight = w.widget.get_height();
+                        if lheight > height {
+                            height = lheight;
+                        }
+                    }
+                }
+            }
+            Orientation::Vertical => {
+                for w in &self.widgets {
+                    if w.mapped {
+                        let lheight = w.widget.get_height();
+                        height += lheight + self.spacing;
+                    }
+                }
+                height -= if !self.is_empty() { self.spacing } else { 0 };
             }
         }
-        height - if !self.is_empty() { self.spacing } else { 0 }
+        height
     }
     fn contains<'d>(
         &'d mut self,
@@ -67,39 +97,39 @@ impl Geometry for Layout {
         let (mut dx, mut dy) = (0, 0);
         for w in &mut self.widgets {
             if w.mapped {
+                let widget_width = w.widget.get_width();
+                let widget_height = w.widget.get_height();
+                if x > widget_x + dx
+                    && y > widget_y + dy
+                {
+                    let ev = Rc::get_mut(&mut w.widget).unwrap().contains(
+                        widget_x + dx,
+                        widget_y + dy,
+                        x,
+                        y,
+                        event,
+                    );
+                    if ev.is_some() {
+                        return ev;
+                    }
+                }
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {
                             Alignment::Start => dy = 0,
-                            Alignment::Center => dy = (height - w.widget.get_height()) / 2,
-                            Alignment::End => dy = height - w.widget.get_height(),
+                            Alignment::Center => dy = (height - widget_height) / 2,
+                            Alignment::End => dy = height - widget_height,
                         }
-                        dx += w.widget.get_width() + self.spacing;
+                        dx += widget_width + self.spacing;
                     }
                     Orientation::Vertical => {
                         match self.alignment {
                             Alignment::Start => dx = 0,
-                            Alignment::Center => dx = (width - w.widget.get_width()) / 2,
-                            Alignment::End => dx = width - w.widget.get_width(),
+                            Alignment::Center => dx = (width - widget_width) / 2,
+                            Alignment::End => dx = height - widget_width,
                         }
-                        dy += w.widget.get_height() + self.spacing;
+                        dy += widget_height + self.spacing;
                     }
-                }
-            }
-            if x > widget_x
-                && y > widget_y
-                && x < widget_x + w.widget.get_width()
-                && y < widget_y + w.widget.get_height()
-            {
-                let ev = Rc::get_mut(&mut w.widget).unwrap().contains(
-                    widget_x + dx,
-                    widget_y + dy,
-                    x,
-                    y,
-                    event,
-                );
-                if ev.is_some() {
-                    return ev;
                 }
             }
         }
@@ -128,22 +158,23 @@ impl Drawable for Layout {
                     Orientation::Horizontal => {
                         match self.alignment {
                             Alignment::Start => dy = 0,
-                            Alignment::Center => dy = (sw - w.widget.get_height()) / 2,
+                            Alignment::Center => dy = (sh - w.widget.get_height()) / 2,
                             Alignment::End => dy = sh - w.widget.get_height(),
                         }
+                        w.widget.draw(canvas, width, x + dx, y + dy);
                         dx += w.widget.get_width() + self.spacing;
                     }
                     Orientation::Vertical => {
                         match self.alignment {
                             Alignment::Start => dx = 0,
-                            Alignment::Center => dx = (width - w.widget.get_width()) / 2,
-                            Alignment::End => dx = width - w.widget.get_width(),
+                            Alignment::Center => dx = (sw - w.widget.get_width()) / 2,
+                            Alignment::End => dx = sw - w.widget.get_width(),
                         }
+                        w.widget.draw(canvas, width, x + dx, y + dy);
                         dy += w.widget.get_height() + self.spacing;
                     }
                 }
             }
-            w.widget.draw(canvas, width, x + dx, y + dy);
         }
     }
 }
@@ -166,6 +197,24 @@ impl Layout {
         Layout {
             spacing: 0,
             orientation,
+            background: 0,
+            widgets: Vec::new(),
+            alignment: Alignment::Start,
+        }
+    }
+    pub fn horizontal(spacing: u32) -> Self {
+        Layout {
+            spacing,
+            orientation: Orientation::Horizontal,
+            background: 0,
+            widgets: Vec::new(),
+            alignment: Alignment::Start,
+        }
+    }
+    pub fn vertical(spacing: u32) -> Self {
+        Layout {
+            spacing,
+            orientation: Orientation::Vertical,
             background: 0,
             widgets: Vec::new(),
             alignment: Alignment::Start,

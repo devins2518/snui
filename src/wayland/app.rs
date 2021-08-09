@@ -52,6 +52,8 @@ impl Application {
         self.layer_surface = Some(layer_surface.clone());
     }
     pub fn send_action(&mut self, action: Action) {
+        let width = self.get_width();
+        let height = self.get_height();
         match action {
             Action::Destroy => {
                 self.destroy();
@@ -59,9 +61,30 @@ impl Application {
             }
             Action::Hide => self.hide(),
             _ => {
-                self.widget.send_action(action);
-                self.render();
-                self.show();
+                match self.widget.send_action(action) {
+                    Damage::Widget { widget, x, y } => {
+                        let mut buffer = Buffer::new(
+                            width as i32,
+                            height as i32,
+                            (4 * width) as i32,
+                            &mut self.mempool,
+                        );
+                        widget.draw(buffer.get_mut_buf(), width, x, y);
+                        self.buffer = buffer.get_wl_buffer();
+                        self.surface.attach(self.buffer.as_ref(), 0, 0);
+                        self.surface.damage(
+                            x as i32,
+                            y as i32,
+                            widget.get_width() as i32,
+                            widget.get_height() as i32,
+                        );
+                        self.surface.commit();
+                    }
+                    _ => {
+                        self.render();
+                        self.show();
+                    }
+                }
             }
         }
     }
@@ -102,6 +125,18 @@ impl Geometry for Application {
                     widget.get_height() as i32,
                 );
                 self.surface.commit();
+            }
+            Damage::Action( action ) => {
+                match action {
+                    Action::Destroy => {
+                        self.destroy();
+                        std::process::exit(0);
+                    }
+                    Action::Hide => {
+                        self.hide()
+                    }
+                    _ => {}
+                }
             }
             _ => {}
         }
