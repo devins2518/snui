@@ -1,6 +1,8 @@
-use crate::widgets::Rectangle;
 use crate::*;
 use std::rc::Rc;
+use crate::widgets::Rectangle;
+use crate::widgets::active::pointer;
+use crate::widgets::active::command::Command;
 
 #[derive(Clone)]
 pub struct Wbox {
@@ -36,7 +38,7 @@ impl Geometry for Inner {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: Input,
+        event: pointer::Event,
     ) -> Damage {
         if self.entered
             && x < widget_x + 10
@@ -85,8 +87,8 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
-    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
-        Rc::get_mut(&mut self.widget).unwrap().send_action(action)
+    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
+        Rc::get_mut(&mut self.widget).unwrap().send_command(command)
     }
 }
 
@@ -130,50 +132,67 @@ impl Inner {
         let widget_width = self.get_width();
         let widget_height = self.get_height();
         match self.anchor {
-            Anchor::Left => if height >= widget_height {
-                return Ok((self.x, (height - widget_height + self.y) / 2))
-            },
-            Anchor::Right => if height >= widget_height && width >= widget_height {
-                return Ok((
-                width - widget_width - self.x,
-                (height - widget_height + self.y) / 2,
-            ))},
-            Anchor::Top => if width >= widget_width {
-                return Ok(((width - widget_width + self.x) / 2, self.y))
-            },
-            Anchor::Bottom => if height > self.y + widget_height {
-                return Ok((
-                    (width - widget_width + self.x) / 2,
-                    height - self.y - widget_height,
-                ))
-            },
-            Anchor::Center => return Ok((
-                if width >= widget_width {
-                    (width - widget_width + self.x) / 2
-                } else {
-                    0
-                },
+            Anchor::Left => {
                 if height >= widget_height {
-                    (height - widget_height + self.y) / 2
-                } else {
-                    0
-                },
-            )),
-            Anchor::TopRight => if width > self.x + widget_width {
-                return Ok((width - self.x - widget_width, self.y))
-            },
-            Anchor::TopLeft => return Ok((self.x, self.y)),
-            Anchor::BottomRight => if width > self.x + widget_width && height > self.y + widget_height {
+                    return Ok((self.x, (height - widget_height + self.y) / 2));
+                }
+            }
+            Anchor::Right => {
+                if height >= widget_height && width >= widget_height {
+                    return Ok((
+                        width - widget_width - self.x,
+                        (height - widget_height + self.y) / 2,
+                    ));
+                }
+            }
+            Anchor::Top => {
+                if width >= widget_width {
+                    return Ok(((width - widget_width + self.x) / 2, self.y));
+                }
+            }
+            Anchor::Bottom => {
+                if height > self.y + widget_height {
+                    return Ok((
+                        (width - widget_width + self.x) / 2,
+                        height - self.y - widget_height,
+                    ));
+                }
+            }
+            Anchor::Center => {
                 return Ok((
-                    width - self.x - widget_width,
-                    height - self.y - widget_height,
+                    if width >= widget_width {
+                        (width - widget_width + self.x) / 2
+                    } else {
+                        0
+                    },
+                    if height >= widget_height {
+                        (height - widget_height + self.y) / 2
+                    } else {
+                        0
+                    },
                 ))
             }
-            Anchor::BottomLeft => if height > self.y + widget_height {
-                return Ok((self.x, height - self.y - widget_height))
+            Anchor::TopRight => {
+                if width > self.x + widget_width {
+                    return Ok((width - self.x - widget_width, self.y));
+                }
+            }
+            Anchor::TopLeft => return Ok((self.x, self.y)),
+            Anchor::BottomRight => {
+                if width > self.x + widget_width && height > self.y + widget_height {
+                    return Ok((
+                        width - self.x - widget_width,
+                        height - self.y - widget_height,
+                    ));
+                }
+            }
+            Anchor::BottomLeft => {
+                if height > self.y + widget_height {
+                    return Ok((self.x, height - self.y - widget_height));
+                }
             }
         }
-        Err(Error::Dimension("wbox",widget_width, widget_height))
+        Err(Error::Dimension("wbox", widget_width, widget_height))
     }
     pub fn set_anchor(&mut self, anchor: Anchor) {
         self.anchor = anchor;
@@ -201,7 +220,7 @@ impl Geometry for Wbox {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: Input,
+        event: pointer::Event,
     ) -> Damage {
         let width = self.get_width();
         let height = self.get_height();
@@ -235,9 +254,11 @@ impl Drawable for Wbox {
         for w in &self.widgets {
             match w.get_location(sw, sh) {
                 Ok((dx, dy)) => {
-                    w.draw(canvas, width, x + dx, y + dy)
+                    if w.is_mapped() && dx <= sw && dy <= sh {
+                        w.draw(canvas, width, x + dx, y + dy)
+                    }
                 }
-                Err(e) => e.debug()
+                Err(e) => e.debug(),
             }
         }
     }
@@ -287,12 +308,12 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
-    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
+    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
         let width = self.get_width();
         let height = self.get_height();
         for w in &mut self.widgets {
             let (dx, dy) = w.get_location(width, height).unwrap();
-            let damage = w.send_action(action);
+            let damage = w.send_command(command);
             if damage.is_some() {
                 return damage.shift(dx, dy);
             }

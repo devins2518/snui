@@ -1,4 +1,3 @@
-use crate::widgets::blend;
 use crate::*;
 use fontconfig::Fontconfig;
 use fontdue::{
@@ -6,6 +5,9 @@ use fontdue::{
     layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle},
     Font,
 };
+use crate::widgets::active::pointer;
+use crate::widgets::active::command::Command;
+use crate::widgets::blend;
 use std::cell::RefCell;
 use std::fs::read;
 use std::io::Write;
@@ -102,7 +104,7 @@ impl Geometry for Glyph {
         _widget_y: u32,
         _x: u32,
         _y: u32,
-        _event: Input,
+        _event: pointer::Event,
     ) -> Damage {
         Damage::None
     }
@@ -116,7 +118,7 @@ impl Geometry for Glyph {
 }
 
 impl Widget for Glyph {
-    fn send_action<'s>(&'s mut self, _action: Action) -> Damage {
+    fn send_command<'s>(&'s mut self, _command: Command) -> Damage {
         Damage::None
     }
 }
@@ -171,7 +173,7 @@ impl Geometry for Label {
         _widget_y: u32,
         _x: u32,
         _y: u32,
-        _event: Input,
+        _event: pointer::Event,
     ) -> Damage {
         Damage::None
     }
@@ -195,7 +197,7 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn send_action<'s>(&'s mut self, _action: Action) -> Damage {
+    fn send_command<'s>(&'s mut self, _command: Command) -> Damage {
         Damage::None
     }
 }

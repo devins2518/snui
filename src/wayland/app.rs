@@ -1,4 +1,5 @@
 use crate::wayland::Buffer;
+use crate::widgets::active::{command, pointer};
 use crate::*;
 use smithay_client_toolkit::shm::AutoMemPool;
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -51,41 +52,39 @@ impl Application {
         assign_layer_surface::<Self>(self.get_surface(), &layer_surface);
         self.layer_surface = Some(layer_surface.clone());
     }
-    pub fn send_action(&mut self, action: Action) {
+    pub fn send_command(&mut self, command: command::Command) {
         let width = self.get_width();
         let height = self.get_height();
-        match action {
-            Action::Destroy => {
+        match command {
+            command::Command::Destroy => {
                 self.destroy();
                 std::process::exit(0);
             }
-            Action::Hide => self.hide(),
-            _ => {
-                match self.widget.send_action(action) {
-                    Damage::Widget { widget, x, y } => {
-                        let mut buffer = Buffer::new(
-                            width as i32,
-                            height as i32,
-                            (4 * width) as i32,
-                            &mut self.mempool,
-                        );
-                        widget.draw(buffer.get_mut_buf(), width, x, y);
-                        self.buffer = buffer.get_wl_buffer();
-                        self.surface.attach(self.buffer.as_ref(), 0, 0);
-                        self.surface.damage(
-                            x as i32,
-                            y as i32,
-                            widget.get_width() as i32,
-                            widget.get_height() as i32,
-                        );
-                        self.surface.commit();
-                    }
-                    _ => {
-                        self.render();
-                        self.show();
-                    }
+            command::Command::Hide => self.hide(),
+            _ => match self.widget.send_command(command) {
+                Damage::Widget { widget, x, y } => {
+                    let mut buffer = Buffer::new(
+                        width as i32,
+                        height as i32,
+                        (4 * width) as i32,
+                        &mut self.mempool,
+                    );
+                    widget.draw(buffer.get_mut_buf(), width, x, y);
+                    self.buffer = buffer.get_wl_buffer();
+                    self.surface.attach(self.buffer.as_ref(), 0, 0);
+                    self.surface.damage(
+                        x as i32,
+                        y as i32,
+                        widget.get_width() as i32,
+                        widget.get_height() as i32,
+                    );
+                    self.surface.commit();
                 }
-            }
+                _ => {
+                    self.render();
+                    self.show();
+                }
+            },
         }
     }
 }
@@ -104,7 +103,14 @@ impl Geometry for Application {
         }
         Ok(())
     }
-    fn contains(&mut self, _widget_x: u32, _widget_y: u32, x: u32, y: u32, event: Input) -> Damage {
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        x: u32,
+        y: u32,
+        event: pointer::Event,
+    ) -> Damage {
         let width = self.get_width();
         let height = self.get_height();
         match self.widget.contains(0, 0, x, y, event) {
@@ -126,18 +132,14 @@ impl Geometry for Application {
                 );
                 self.surface.commit();
             }
-            Damage::Action( action ) => {
-                match action {
-                    Action::Destroy => {
-                        self.destroy();
-                        std::process::exit(0);
-                    }
-                    Action::Hide => {
-                        self.hide()
-                    }
-                    _ => {}
+            Damage::Command(command) => match command {
+                command::Command::Destroy => {
+                    self.destroy();
+                    std::process::exit(0);
                 }
-            }
+                command::Command::Hide => self.hide(),
+                _ => {}
+            },
             _ => {}
         }
         Damage::None
@@ -257,13 +259,13 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 }
                 x = surface_x as u32;
                 y = surface_y as u32;
-                input = Some(Input::Enter);
+                input = Some(pointer::Event::Enter);
             }
             wl_pointer::Event::Leave {
                 serial: _,
                 surface: _,
             } => {
-                app[widget_index.unwrap()].contains(0, 0, x, y, Input::Leave);
+                app[widget_index.unwrap()].contains(0, 0, x, y, pointer::Event::Leave);
                 widget_index = None;
             }
             wl_pointer::Event::Motion {
@@ -280,7 +282,7 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 button,
                 state,
             } => {
-                input = Some(Input::MouseClick {
+                input = Some(pointer::Event::MouseClick {
                     time,
                     button,
                     pressed: state == ButtonState::Pressed,

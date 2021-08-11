@@ -3,12 +3,6 @@ pub mod wayland;
 pub mod widgets;
 
 #[derive(Copy, Clone, Debug)]
-pub enum Orientation {
-    Vertical,
-    Horizontal,
-}
-
-#[derive(Copy, Clone, Debug)]
 pub enum Error {
     Null,
     Overflow(&'static str, u32),
@@ -33,7 +27,7 @@ pub enum Damage<'d> {
     None,
     // Hide,
     // Destroy,
-    Action(Action<'d>),
+    Command(widgets::active::command::Command<'d>),
     Widget {
         widget: Box<&'d dyn Widget>,
         x: u32,
@@ -67,43 +61,6 @@ impl<'d> Damage<'d> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum Input {
-    MouseClick {
-        time: u32,
-        button: u32,
-        pressed: bool,
-    },
-    Enter,
-    Leave,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Action<'a> {
-    Name(&'a str),
-    Key(&'a str, u32),
-    Hide,
-    Destroy,
-    Data(&'a str, &'a dyn std::any::Any),
-}
-
-impl<'a> Action<'a> {
-    pub fn eq(&self, value: &'a str) -> bool {
-        match &self {
-            Action::Name(name) => name.eq(&value),
-            Action::Key(name, _) => name.eq(&value),
-            Action::Data(name, _) => name.eq(&value),
-            _ => false,
-        }
-    }
-    pub fn get<T: std::any::Any>(&self) -> Option<&T> {
-        match self {
-            Action::Data(_, value) => value.downcast_ref(),
-            _ => None,
-        }
-    }
-}
-
 /*
  * Canvas is a trait for types that hold a pixmap.
  */
@@ -126,7 +83,6 @@ pub trait Container {
     }
     fn get_child(&self) -> Result<&dyn Widget, Error>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
-    // fn put(&mut self, widget: Inner) -> Result<(), Error>;
 }
 
 pub trait Geometry {
@@ -139,20 +95,21 @@ pub trait Geometry {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: Input,
+        event: widgets::active::pointer::Event,
     ) -> Damage;
 }
 
 /*
- * A trait for types that be drawn on a Canvas.
+ * A trait for types that can be drawn on a Canvas.
  */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
+    // width: the width of the canvas
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn send_action<'s>(&'s mut self, action: Action) -> Damage;
+    fn send_command<'s>(&'s mut self, command: widgets::active::command::Command) -> Damage;
 }
 
 pub trait Transform {

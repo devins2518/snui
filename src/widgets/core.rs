@@ -1,7 +1,9 @@
-use crate::widgets::*;
 use crate::*;
-use std::cell::RefCell;
 use std::rc::Rc;
+use crate::widgets::*;
+use std::cell::RefCell;
+use crate::widgets::active::pointer;
+use crate::widgets::active::command::Command;
 
 #[derive(Clone)]
 pub struct Border<W: Widget + Clone> {
@@ -26,7 +28,7 @@ impl<W: Widget + Clone> Geometry for Border<W> {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: Input,
+        event: pointer::Event,
     ) -> Damage {
         self.widget
             .contains(widget_x + self.size.0, widget_y + self.size.3, x, y, event)
@@ -62,9 +64,9 @@ impl<W: Widget + Clone> Drawable for Border<W> {
 }
 
 impl<W: Widget + Clone> Widget for Border<W> {
-    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
+    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
         self.widget
-            .send_action(action)
+            .send_command(command)
             .shift(self.size.0, self.size.3)
     }
 }
@@ -77,7 +79,7 @@ impl<W: Widget + Clone> Border<W> {
             size: (size, size, size, size),
         }
     }
-    fn set_border_size(&mut self, top: u32, right: u32, bottom: u32, left: u32) {
+    pub fn set_border_size(&mut self, top: u32, right: u32, bottom: u32, left: u32) {
         self.size = (top, right, bottom, left);
     }
 }
@@ -105,7 +107,7 @@ impl<B: Widget, W: Widget + Clone> Geometry for Background<B, W> {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: Input,
+        event: pointer::Event,
     ) -> Damage {
         self.widget.contains(
             widget_x + self.padding.3,
@@ -138,10 +140,10 @@ impl<B: Widget, W: Widget + Clone> Drawable for Background<B, W> {
 }
 
 impl<B: Widget, W: Widget + Clone> Widget for Background<B, W> {
-    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
-        self.background.as_ref().borrow_mut().send_action(action);
+    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
+        self.background.as_ref().borrow_mut().send_command(command);
         self.widget
-            .send_action(action)
+            .send_command(command)
             .shift(self.padding.3, self.padding.0)
     }
 }
@@ -161,7 +163,7 @@ impl<B: Widget, W: Widget + Clone> Background<B, W> {
             padding: (padding, padding, padding, padding),
         }
     }
-    fn set_padding(&mut self, top: u32, right: u32, bottom: u32, left: u32) {
+    pub fn set_padding(&mut self, top: u32, right: u32, bottom: u32, left: u32) {
         self.padding = (top, right, bottom, left);
     }
 }
@@ -190,7 +192,7 @@ impl Geometry for Rectangle {
         _widget_y: u32,
         _x: u32,
         _y: u32,
-        _event: Input,
+        _event: pointer::Event,
     ) -> Damage {
         Damage::None
     }
@@ -227,7 +229,7 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn send_action<'s>(&'s mut self, _action: Action) -> Damage {
+    fn send_command<'s>(&'s mut self, _command: Command) -> Damage {
         Damage::None
     }
 }
@@ -307,7 +309,7 @@ impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: Input,
+        event: pointer::Event,
     ) -> Damage {
         if self.state {
             self.reveal.contains(widget_x, widget_y, x, y, event)
@@ -342,11 +344,11 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
-    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
+    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
         if self.state {
-            self.reveal.send_action(action)
+            self.reveal.send_command(command)
         } else {
-            self.normal.send_action(action)
+            self.normal.send_command(command)
         }
     }
 }

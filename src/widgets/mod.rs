@@ -1,15 +1,19 @@
-pub mod action;
+pub mod active;
+pub mod container;
 pub mod core;
 pub mod image;
-pub mod container;
 
 pub use self::core::{Background, Border, Rectangle, Revealer};
 pub use self::image::Image;
 use crate::*;
-pub use action::{Actionnable, Button};
-pub use container::{Alignment, Layout};
+pub use active::{command::Actionnable, pointer::Button};
+pub use container::{
+    Wbox,
+    layout::{
+        Alignment, WidgetLayout
+    }
+};
 use std::io::Write;
-pub use container::Wbox;
 
 pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32)
 where
@@ -77,30 +81,3 @@ pub fn boxed<W: Widget + Clone>(
     let bg = Background::new(widget, Rectangle::new(1, 1, bg_color), padding);
     Border::new(bg, border_size, border_color)
 }
-
-/*
-pub fn anchor<W: 'static, C>(
-    container: &mut C,
-    widget: W,
-    anchor: Anchor,
-    x: u32,
-    y: u32,
-)
-where
-    W: Widget,
-    C: Container + Geometry,
-{
-    if container.get_width() >= widget.get_width() && container.get_height() >= widget.get_height()
-    {
-        if let Err(e) = container.put(Inner::new_at(widget, anchor, x, y)) {
-            e.debug()
-        }
-    } else {
-        Error::Dimension(
-            "anchor",
-            widget.get_width(),
-            widget.get_height(),
-        ).debug()
-    }
-}
-*/

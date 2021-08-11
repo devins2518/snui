@@ -1,7 +1,8 @@
 pub mod app;
 
-use crate::widgets::render;
 use crate::*;
+use crate::widgets::render;
+use crate::widgets::active::pointer;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 
@@ -25,7 +26,7 @@ impl<'b> Geometry for Buffer<'b> {
         _widget_y: u32,
         _x: u32,
         _y: u32,
-        _event: Input,
+        _event: pointer::Event,
     ) -> Damage {
         Damage::None
     }

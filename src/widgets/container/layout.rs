@@ -1,6 +1,14 @@
-use crate::widgets::Rectangle;
 use crate::*;
 use std::rc::Rc;
+use crate::widgets::Rectangle;
+use crate::widgets::active::pointer;
+use crate::widgets::active::command::Command;
+
+#[derive(Copy, Clone, Debug)]
+pub enum Orientation {
+    Vertical,
+    Horizontal,
+}
 
 #[derive(Copy, Clone)]
 pub enum Alignment {
@@ -25,7 +33,7 @@ impl Element {
 }
 
 #[derive(Clone)]
-pub struct Layout {
+pub struct WidgetLayout {
     spacing: u32,
     pub widgets: Vec<Element>,
     background: u32,
@@ -33,7 +41,7 @@ pub struct Layout {
     alignment: Alignment,
 }
 
-impl Geometry for Layout {
+impl Geometry for WidgetLayout {
     fn get_width(&self) -> u32 {
         let mut width = 0;
         match self.orientation {
@@ -90,7 +98,7 @@ impl Geometry for Layout {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: Input,
+        event: pointer::Event,
     ) -> Damage {
         let width = self.get_width();
         let height = self.get_height();
@@ -99,9 +107,7 @@ impl Geometry for Layout {
             if w.mapped {
                 let widget_width = w.widget.get_width();
                 let widget_height = w.widget.get_height();
-                if x > widget_x + dx
-                    && y > widget_y + dy
-                {
+                if x > widget_x + dx && y > widget_y + dy {
                     let ev = Rc::get_mut(&mut w.widget).unwrap().contains(
                         widget_x + dx,
                         widget_y + dy,
@@ -135,12 +141,12 @@ impl Geometry for Layout {
         }
         Damage::None
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         Ok(())
     }
 }
 
-impl Drawable for Layout {
+impl Drawable for WidgetLayout {
     fn set_color(&mut self, color: u32) {
         self.background = color;
     }
@@ -179,7 +185,7 @@ impl Drawable for Layout {
     }
 }
 
-impl Container for Layout {
+impl Container for WidgetLayout {
     fn len(&self) -> u32 {
         self.widgets.len() as u32
     }
@@ -192,9 +198,9 @@ impl Container for Layout {
     }
 }
 
-impl Layout {
+impl WidgetLayout {
     pub fn new(orientation: Orientation) -> Self {
-        Layout {
+        WidgetLayout {
             spacing: 0,
             orientation,
             background: 0,
@@ -203,7 +209,7 @@ impl Layout {
         }
     }
     pub fn horizontal(spacing: u32) -> Self {
-        Layout {
+        WidgetLayout {
             spacing,
             orientation: Orientation::Horizontal,
             background: 0,
@@ -212,7 +218,7 @@ impl Layout {
         }
     }
     pub fn vertical(spacing: u32) -> Self {
-        Layout {
+        WidgetLayout {
             spacing,
             orientation: Orientation::Vertical,
             background: 0,
@@ -221,7 +227,7 @@ impl Layout {
         }
     }
     pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
-        Layout {
+        WidgetLayout {
             spacing,
             orientation,
             background: 0,
@@ -230,7 +236,7 @@ impl Layout {
         }
     }
     pub fn from(orientation: Orientation, background: u32) -> Self {
-        Layout {
+        WidgetLayout {
             spacing: 0,
             background,
             orientation,
@@ -261,8 +267,8 @@ impl Layout {
     }
 }
 
-impl Widget for Layout {
-    fn send_action<'s>(&'s mut self, action: Action) -> Damage {
+impl Widget for WidgetLayout {
+    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
         let width = self.get_width();
         let height = self.get_height();
         let (mut dx, mut dy) = (0, 0);
@@ -287,7 +293,7 @@ impl Widget for Layout {
                     }
                 }
             }
-            let ev = Rc::get_mut(&mut w.widget).unwrap().send_action(action);
+            let ev = Rc::get_mut(&mut w.widget).unwrap().send_command(command);
             if ev.is_some() {
                 return ev.shift(dx, dy);
             }

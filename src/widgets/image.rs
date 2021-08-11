@@ -4,11 +4,11 @@ use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
 use std::path::Path;
-use std::rc::Rc;
+use crate::widgets::active::pointer;
 
 #[derive(Clone)]
 pub struct Image {
-    image: Rc<ImageBuffer<Bgra<u8>, Vec<u8>>>,
+    image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }
 
 impl Image {
@@ -17,9 +17,7 @@ impl Image {
 
         let image = dyn_image.to_bgra8();
 
-        Ok(Self {
-            image: Rc::new(image),
-        })
+        Ok(Self { image })
     }
 
     pub fn new_with_size(
@@ -32,14 +30,12 @@ impl Image {
 
         let image = scaled_image.to_bgra8();
 
-        Ok(Self {
-            image: Rc::new(image),
-        })
+        Ok(Self { image })
     }
 
     pub fn thumbnail(&self, width: u32, height: u32) -> Image {
         Image {
-            image: Rc::new(imageops::thumbnail(self.image.as_ref(), width, height)),
+            image: imageops::thumbnail(&self.image, width, height),
         }
     }
 
@@ -57,12 +53,7 @@ impl Geometry for Image {
     }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         if width != self.image.width() || height != self.image.height() {
-            self.image = Rc::new(imageops::resize(
-                self.image.as_ref(),
-                width,
-                height,
-                FilterType::Triangle,
-            ));
+            self.image = imageops::resize(&self.image, width, height, FilterType::Triangle);
         }
         Ok(())
     }
@@ -73,7 +64,7 @@ impl Geometry for Image {
         _widget_y: u32,
         _x: u32,
         _y: u32,
-        _event: Input,
+        _event: pointer::Event,
     ) -> Damage {
         Damage::None
     }
@@ -98,10 +89,7 @@ impl Canvas for Image {
         self.image.as_raw()
     }
     fn get_mut_buf(&mut self) -> &mut [u8] {
-        Rc::get_mut(&mut self.image)
-            .unwrap()
-            .iter_mut()
-            .into_slice()
+        self.image.iter_mut().into_slice()
     }
     fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
         let width = self.get_width();
@@ -110,7 +98,7 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn send_action<'s>(&'s mut self, _action: Action) -> Damage {
+    fn send_command<'s>(&'s mut self, _command: widgets::active::command::Command) -> Damage {
         Damage::None
     }
 }

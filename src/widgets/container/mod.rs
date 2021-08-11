@@ -1,5 +1,5 @@
-pub mod wbox;
 pub mod layout;
+pub mod wbox;
 
-pub use layout::{Alignment, Layout};
+pub use layout::{Alignment, WidgetLayout};
 pub use wbox::Wbox;
