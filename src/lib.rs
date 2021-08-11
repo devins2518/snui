@@ -2,6 +2,10 @@ pub mod font;
 pub mod wayland;
 pub mod widgets;
 
+pub use widgets::active::pointer;
+pub use widgets::active::command::Command;
+pub use widgets::container::layout::{Orientation, Alignment};
+
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
     Null,
@@ -25,14 +29,12 @@ pub enum Anchor {
 
 pub enum Damage<'d> {
     None,
-    // Hide,
-    // Destroy,
-    Command(widgets::active::command::Command<'d>),
     Widget {
         widget: Box<&'d dyn Widget>,
         x: u32,
         y: u32,
     },
+    Command(widgets::active::command::Command<'d>),
 }
 
 impl<'d> Damage<'d> {
@@ -109,7 +111,7 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn send_command<'s>(&'s mut self, command: widgets::active::command::Command) -> Damage;
+    fn send_command<'s>(&'s mut self, command: Command) -> Damage;
 }
 
 pub trait Transform {
