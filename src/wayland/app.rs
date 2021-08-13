@@ -4,6 +4,7 @@ use crate::*;
 use smithay_client_toolkit::shm::AutoMemPool;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_pointer;
+use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::Main;
@@ -52,6 +53,18 @@ impl Application {
         assign_layer_surface::<Self>(self.get_surface(), &layer_surface);
         self.layer_surface = Some(layer_surface.clone());
     }
+    pub fn get_buffer<'b>(&'b mut self) -> Buffer<'b> {
+        Buffer::new(
+            self.get_width() as i32,
+            self.get_height() as i32,
+            (4 * self.get_width()) as i32,
+            &mut self.mempool
+        )
+    }
+    // New version
+    // Widgets will be drawn on the buffer
+    // When the Application is shown is up to the user
+    // pub fn send_command(&mut self, command: command::Command, buffer: &mut Buffer);
     pub fn send_command(&mut self, command: command::Command) {
         let width = self.get_width();
         let height = self.get_height();
@@ -111,6 +124,7 @@ impl Geometry for Application {
         y: u32,
         event: pointer::Event,
     ) -> Damage {
+        let mut name = None;
         let width = self.get_width();
         let height = self.get_height();
         match self.widget.contains(0, 0, x, y, event) {
@@ -138,9 +152,13 @@ impl Geometry for Application {
                     std::process::exit(0);
                 }
                 command::Command::Hide => self.hide(),
+                command::Command::Name(value) => name = Some(value.to_owned()),
                 _ => {}
             },
             _ => {}
+        }
+        if let Some(name) = name {
+            self.send_command(Command::Name(&name));
         }
         Damage::None
     }
@@ -159,8 +177,8 @@ impl Shell for Application {
         self.surface.damage(
             0,
             0,
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
+            1 << 30,
+            1 << 30,
         );
         self.surface.commit();
     }
@@ -236,6 +254,15 @@ where
     });
 }
 
+/*
+pub fn quick_assign_keyboard<A: 'static + Shell>(
+    pointer: &Main<wl_keyboard::WlKeyboard>,
+) {
+    let mut key = None;
+    let mut widget_index = None;
+}
+*/
+
 pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
     pointer: &Main<wl_pointer::WlPointer>,
     mut widget_index: Option<usize>,
@@ -265,8 +292,10 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 serial: _,
                 surface: _,
             } => {
-                app[widget_index.unwrap()].contains(0, 0, x, y, pointer::Event::Leave);
-                widget_index = None;
+                if let Some(i) = widget_index {
+                    app[i].contains(0, 0, x, y, pointer::Event::Leave);
+                    widget_index = None;
+                }
             }
             wl_pointer::Event::Motion {
                 time: _,

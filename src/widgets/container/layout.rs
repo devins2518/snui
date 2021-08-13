@@ -100,40 +100,30 @@ impl Geometry for WidgetLayout {
         y: u32,
         event: pointer::Event,
     ) -> Damage {
-        let width = self.get_width();
-        let height = self.get_height();
         let (mut dx, mut dy) = (0, 0);
         for w in &mut self.widgets {
             if w.mapped {
                 let widget_width = w.widget.get_width();
                 let widget_height = w.widget.get_height();
                 if x > widget_x + dx && y > widget_y + dy {
-                    let ev = Rc::get_mut(&mut w.widget).unwrap().contains(
-                        widget_x + dx,
-                        widget_y + dy,
-                        x,
-                        y,
-                        event,
-                    );
-                    if ev.is_some() {
-                        return ev;
+                    if let Some(widget) = Rc::get_mut(&mut w.widget) {
+                        let ev = widget.contains(
+                            widget_x + dx,
+                            widget_y + dy,
+                            x,
+                            y,
+                            event,
+                        );
+                        if ev.is_some() {
+                            return ev;
+                        }
                     }
                 }
                 match self.orientation {
                     Orientation::Horizontal => {
-                        match self.alignment {
-                            Alignment::Start => dy = 0,
-                            Alignment::Center => dy = (height - widget_height) / 2,
-                            Alignment::End => dy = height - widget_height,
-                        }
                         dx += widget_width + self.spacing;
                     }
                     Orientation::Vertical => {
-                        match self.alignment {
-                            Alignment::Start => dx = 0,
-                            Alignment::Center => dx = (width - widget_width) / 2,
-                            Alignment::End => dx = height - widget_width,
-                        }
                         dy += widget_height + self.spacing;
                     }
                 }
@@ -186,8 +176,8 @@ impl Drawable for WidgetLayout {
 }
 
 impl Container for WidgetLayout {
-    fn len(&self) -> u32 {
-        self.widgets.len() as u32
+    fn len(&self) -> usize {
+        self.widgets.len()
     }
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         self.widgets.push(Element::new(widget));
@@ -249,6 +239,9 @@ impl WidgetLayout {
     }
     pub fn set_alignment(&mut self, alignment: Alignment) {
         self.alignment = alignment;
+    }
+    pub fn clear(&mut self) {
+        self.widgets = Vec::new();
     }
     pub fn unmap(&mut self, i: usize) {
         if i < self.widgets.len() {

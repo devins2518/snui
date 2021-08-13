@@ -79,7 +79,7 @@ pub trait Canvas {
  * NOTE: For consistency it's highly recommended to hold widgets within the geometry of a container
  */
 pub trait Container {
-    fn len(&self) -> u32;
+    fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -110,6 +110,12 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
+/*
+ * Draf
+ * 	x: Widget's horizontal offset, y: Widget's vertical offset
+ * 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec[Damage], x: 0, y: 0) -> Damage;
+ * 	Damage has a limited lifetimes, so once I've done the roundtrip, I must draw the damaged widget.
+ */
 pub trait Widget: Drawable + Geometry {
     fn send_command<'s>(&'s mut self, command: Command) -> Damage;
 }

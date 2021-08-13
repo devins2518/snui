@@ -140,9 +140,32 @@ impl Label {
             color: color,
         }
     }
+    pub fn new_with_size<'f>(text: &'f str, font: &'f str, font_size: f32, color: u32, width: f32) -> Label {
+        let fc = Fontconfig::new().unwrap();
+        let font_path = fc.find(font, None).unwrap().path;
+        let font = read(&font_path).unwrap();
+        // Parse it into the font type.
+        let mut layout_setting = DEFAULT;
+        layout_setting.max_width = Some(width);
+        let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.reset(&layout_setting);
+        layout.append(&[&font], &TextStyle::new(text, font_size, 0));
+        Label {
+            font_path: font_path,
+            text: Rc::new(RefCell::new(layout)),
+            font,
+            font_size,
+            color: color,
+        }
+    }
     pub fn edit<'f>(&mut self, text: &'f str) {
         let mut layout = self.text.as_ref().borrow_mut();
         layout.reset(&DEFAULT);
+        layout.append(&[&self.font], &TextStyle::new(text, self.font_size, 0));
+    }
+    pub fn write<'f>(&mut self, text: &'f str) {
+        let mut layout = self.text.as_ref().borrow_mut();
         layout.append(&[&self.font], &TextStyle::new(text, self.font_size, 0));
     }
 }
@@ -158,7 +181,7 @@ impl Geometry for Label {
         width
     }
     fn get_height(&self) -> u32 {
-        (self.text.as_ref().borrow().height() * self.text.as_ref().borrow().lines() as f32) as u32
+        (self.font_size * self.text.as_ref().borrow().lines() as f32) as u32
     }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         Err(Error::Dimension(

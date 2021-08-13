@@ -66,7 +66,7 @@ impl Geometry for Inner {
 }
 
 impl Container for Inner {
-    fn len(&self) -> u32 {
+    fn len(&self) -> usize {
         1
     }
     fn add(&mut self, _widget: impl Drawable + 'static) -> Result<(), Error> {
@@ -265,8 +265,8 @@ impl Drawable for Wbox {
 }
 
 impl Container for Wbox {
-    fn len(&self) -> u32 {
-        self.widgets.len() as u32
+    fn len(&self) -> usize {
+        self.widgets.len()
     }
     fn add(&mut self, _widget: impl Widget + 'static) -> Result<(), Error> {
         Err(Error::Message("get_child is not valid on \"wbox\""))
