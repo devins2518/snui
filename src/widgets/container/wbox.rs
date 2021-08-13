@@ -87,8 +87,8 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
-    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
-        Rc::get_mut(&mut self.widget).unwrap().send_command(command)
+ 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
+        Rc::get_mut(&mut self.widget).unwrap().send_command(command, damages, x, y);
     }
 }
 
@@ -308,16 +308,12 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
-    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
+ 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
         let width = self.get_width();
         let height = self.get_height();
         for w in &mut self.widgets {
             let (dx, dy) = w.get_location(width, height).unwrap();
-            let damage = w.send_command(command);
-            if damage.is_some() {
-                return damage.shift(dx, dy);
-            }
+            w.send_command(command, damages, x + dx, y + dy);
         }
-        Damage::None
     }
 }

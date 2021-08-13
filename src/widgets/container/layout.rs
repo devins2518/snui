@@ -237,7 +237,7 @@ impl WidgetLayout {
     pub fn set_spacing(&mut self, spacing: u32) {
         self.spacing = spacing;
     }
-    pub fn set_alignment(&mut self, alignment: Alignment) {
+    pub fn justify(&mut self, alignment: Alignment) {
         self.alignment = alignment;
     }
     pub fn clear(&mut self) {
@@ -261,36 +261,34 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
-    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
+ 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
         let width = self.get_width();
         let height = self.get_height();
         let (mut dx, mut dy) = (0, 0);
         for w in &mut self.widgets {
             if w.mapped {
+                let widget_width = w.widget.get_width();
+                let widget_height = w.widget.get_height();
+                Rc::get_mut(&mut w.widget).unwrap().send_command(command, damages, x + dx, y + dy);
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {
                             Alignment::Start => dy = 0,
-                            Alignment::Center => dy = (height - w.widget.get_height()) / 2,
-                            Alignment::End => dy = height - w.widget.get_height(),
+                            Alignment::Center => dy = (height - widget_height) / 2,
+                            Alignment::End => dy = height - widget_height,
                         }
-                        dx += w.widget.get_width() + self.spacing;
+                        dx += widget_width + self.spacing;
                     }
                     Orientation::Vertical => {
                         match self.alignment {
                             Alignment::Start => dx = 0,
-                            Alignment::Center => dx = (width - w.widget.get_width()) / 2,
-                            Alignment::End => dx = width - w.widget.get_width(),
+                            Alignment::Center => dx = (width - widget_width) / 2,
+                            Alignment::End => dx = width - widget_width,
                         }
-                        dy += w.widget.get_height() + self.spacing;
+                        dy += widget_width + self.spacing;
                     }
                 }
             }
-            let ev = Rc::get_mut(&mut w.widget).unwrap().send_command(command);
-            if ev.is_some() {
-                return ev.shift(dx, dy);
-            }
         }
-        Damage::None
     }
 }

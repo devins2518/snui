@@ -64,10 +64,9 @@ impl<W: Widget + Clone> Drawable for Border<W> {
 }
 
 impl<W: Widget + Clone> Widget for Border<W> {
-    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
+ 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
         self.widget
-            .send_command(command)
-            .shift(self.size.0, self.size.3)
+            .send_command(command, damages, x + self.size.0, y + self.size.3);
     }
 }
 
@@ -140,11 +139,10 @@ impl<B: Widget, W: Widget + Clone> Drawable for Background<B, W> {
 }
 
 impl<B: Widget, W: Widget + Clone> Widget for Background<B, W> {
-    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
-        self.background.as_ref().borrow_mut().send_command(command);
+ 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
+        // self.background.as_ref().borrow_mut().send_command(command, damages, x, y);
         self.widget
-            .send_command(command)
-            .shift(self.padding.3, self.padding.0)
+            .send_command(command, damages, x + self.padding.0, y + self.padding.3)
     }
 }
 
@@ -229,9 +227,7 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn send_command<'s>(&'s mut self, _command: Command) -> Damage {
-        Damage::None
-    }
+ 	fn send_command<'s>(&'s mut self, _command: Command, _damages: &mut Vec<Damage>, _x: u32, _y: u32) {}
 }
 
 impl Rectangle {
@@ -344,11 +340,11 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
-    fn send_command<'s>(&'s mut self, command: Command) -> Damage {
+ 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
         if self.state {
-            self.reveal.send_command(command)
+            self.reveal.send_command(command, damages, x, y)
         } else {
-            self.normal.send_command(command)
+            self.normal.send_command(command, damages, x, y)
         }
     }
 }

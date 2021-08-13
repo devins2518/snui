@@ -98,7 +98,5 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn send_command<'s>(&'s mut self, _command: widgets::active::command::Command) -> Damage {
-        Damage::None
-    }
+ 	fn send_command<'s>(&'s mut self, _command: Command, _damages: &mut Vec<Damage<'s>>, _x: u32, _y: u32) {}
 }

@@ -118,9 +118,7 @@ impl Geometry for Glyph {
 }
 
 impl Widget for Glyph {
-    fn send_command<'s>(&'s mut self, _command: Command) -> Damage {
-        Damage::None
-    }
+ 	fn send_command<'s>(&'s mut self, _command: Command, _damages: &mut Vec<Damage<'s>>, _x: u32, _y: u32) {}
 }
 
 impl Label {
@@ -220,7 +218,5 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn send_command<'s>(&'s mut self, _command: Command) -> Damage {
-        Damage::None
-    }
+ 	fn send_command<'s>(&'s mut self, _command: Command, _damages: &mut Vec<Damage<'s>>, _x: u32, _y: u32) {}
 }

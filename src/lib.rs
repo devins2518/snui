@@ -27,6 +27,13 @@ pub enum Anchor {
     BottomLeft,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct Key {
+    key: u32,
+    modifier: Option<u32>,
+    pressed: bool,
+}
+
 pub enum Damage<'d> {
     None,
     Widget {
@@ -117,7 +124,7 @@ pub trait Drawable {
  * 	Damage has a limited lifetimes, so once I've done the roundtrip, I must draw the damaged widget.
  */
 pub trait Widget: Drawable + Geometry {
-    fn send_command<'s>(&'s mut self, command: Command) -> Damage;
+ 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32);
 }
 
 pub trait Transform {
