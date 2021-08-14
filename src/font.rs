@@ -1,3 +1,6 @@
+use crate::widgets::active::command::Command;
+use crate::widgets::active::pointer;
+use crate::widgets::blend;
 use crate::*;
 use fontconfig::Fontconfig;
 use fontdue::{
@@ -5,9 +8,6 @@ use fontdue::{
     layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle},
     Font,
 };
-use crate::widgets::active::pointer;
-use crate::widgets::active::command::Command;
-use crate::widgets::blend;
 use std::cell::RefCell;
 use std::fs::read;
 use std::io::Write;
@@ -118,7 +118,14 @@ impl Geometry for Glyph {
 }
 
 impl Widget for Glyph {
- 	fn send_command<'s>(&'s mut self, _command: Command, _damages: &mut Vec<Damage<'s>>, _x: u32, _y: u32) {}
+    fn send_command<'s>(
+        &'s mut self,
+        _command: Command,
+        _damages: &mut Vec<Damage<'s>>,
+        _x: u32,
+        _y: u32,
+    ) {
+    }
 }
 
 impl Label {
@@ -138,7 +145,13 @@ impl Label {
             color: color,
         }
     }
-    pub fn new_with_size<'f>(text: &'f str, font: &'f str, font_size: f32, color: u32, width: f32) -> Label {
+    pub fn new_with_size<'f>(
+        text: &'f str,
+        font: &'f str,
+        font_size: f32,
+        color: u32,
+        width: f32,
+    ) -> Label {
         let fc = Fontconfig::new().unwrap();
         let font_path = fc.find(font, None).unwrap().path;
         let font = read(&font_path).unwrap();
@@ -218,5 +231,12 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
- 	fn send_command<'s>(&'s mut self, _command: Command, _damages: &mut Vec<Damage<'s>>, _x: u32, _y: u32) {}
+    fn send_command<'s>(
+        &'s mut self,
+        _command: Command,
+        _damages: &mut Vec<Damage<'s>>,
+        _x: u32,
+        _y: u32,
+    ) {
+    }
 }

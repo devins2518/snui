@@ -3,10 +3,10 @@ use crate::widgets::active::{command, pointer};
 use crate::*;
 use smithay_client_toolkit::shm::AutoMemPool;
 use wayland_client::protocol::wl_buffer::WlBuffer;
-use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_keyboard;
-use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_keyboard::KeyState;
+use wayland_client::protocol::wl_pointer;
+use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::Main;
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
@@ -116,12 +116,7 @@ impl Shell for Application {
     fn show(&mut self) {
         self.hidden = false;
         self.surface.attach(self.buffer.as_ref(), 0, 0);
-        self.surface.damage(
-            0,
-            0,
-            1 << 30,
-            1 << 30,
-        );
+        self.surface.damage(0, 0, 1 << 30, 1 << 30);
         self.surface.commit();
     }
     fn render(&mut self) {
@@ -169,13 +164,13 @@ impl Shell for Application {
                 width as i32,
                 height as i32,
                 (4 * width) as i32,
-                &mut self.mempool
+                &mut self.mempool,
             );
             let buf_width = buffer.get_width();
             self.buffer = buffer.get_wl_buffer();
             for damage in damages {
                 match damage {
-                    Damage::Widget{ widget, x, y } => {
+                    Damage::Widget { widget, x, y } => {
                         widget.draw(buffer.get_mut_buf(), buf_width, x, y);
                         self.surface.damage(
                             x as i32,
@@ -232,7 +227,7 @@ where
     });
 }
 
-pub fn quick_assign_keyboard<A: 'static + Shell>( keyboard: &Main<wl_keyboard::WlKeyboard> ) {
+pub fn quick_assign_keyboard<A: 'static + Shell>(keyboard: &Main<wl_keyboard::WlKeyboard>) {
     let mut kb_key = None;
     let mut widget_index = None;
     keyboard.quick_assign(move |_, event, mut app| {
@@ -242,8 +237,7 @@ pub fn quick_assign_keyboard<A: 'static + Shell>( keyboard: &Main<wl_keyboard::W
                 format: _,
                 fd: _,
                 size: _,
-            } => {
-            }
+            } => {}
             wl_keyboard::Event::Enter {
                 serial: _,
                 surface,
@@ -280,13 +274,8 @@ pub fn quick_assign_keyboard<A: 'static + Shell>( keyboard: &Main<wl_keyboard::W
                 mods_latched: _,
                 mods_locked: _,
                 group: _,
-            } => {
-            }
-            wl_keyboard::Event::RepeatInfo {
-                rate: _,
-                delay: _,
-            } => {
-            }
+            } => {}
+            wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {}
             _ => {}
         }
         if let Some(index) = widget_index {

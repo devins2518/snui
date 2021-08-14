@@ -1,8 +1,8 @@
+use crate::widgets::active::command::Command;
+use crate::widgets::active::pointer;
+use crate::widgets::Rectangle;
 use crate::*;
 use std::rc::Rc;
-use crate::widgets::Rectangle;
-use crate::widgets::active::pointer;
-use crate::widgets::active::command::Command;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -107,13 +107,7 @@ impl Geometry for WidgetLayout {
                 let widget_height = w.widget.get_height();
                 if x > widget_x + dx && y > widget_y + dy {
                     if let Some(widget) = Rc::get_mut(&mut w.widget) {
-                        let ev = widget.contains(
-                            widget_x + dx,
-                            widget_y + dy,
-                            x,
-                            y,
-                            event,
-                        );
+                        let ev = widget.contains(widget_x + dx, widget_y + dy, x, y, event);
                         if ev.is_some() {
                             return ev;
                         }
@@ -261,7 +255,13 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
- 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
+    fn send_command<'s>(
+        &'s mut self,
+        command: Command,
+        damages: &mut Vec<Damage<'s>>,
+        x: u32,
+        y: u32,
+    ) {
         let width = self.get_width();
         let height = self.get_height();
         let (mut dx, mut dy) = (0, 0);
@@ -269,7 +269,9 @@ impl Widget for WidgetLayout {
             if w.mapped {
                 let widget_width = w.widget.get_width();
                 let widget_height = w.widget.get_height();
-                Rc::get_mut(&mut w.widget).unwrap().send_command(command, damages, x + dx, y + dy);
+                Rc::get_mut(&mut w.widget)
+                    .unwrap()
+                    .send_command(command, damages, x + dx, y + dy);
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {

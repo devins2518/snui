@@ -1,8 +1,8 @@
 pub mod app;
 
-use crate::*;
-use crate::widgets::render;
 use crate::widgets::active::pointer;
+use crate::widgets::render;
+use crate::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 

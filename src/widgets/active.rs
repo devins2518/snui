@@ -61,7 +61,13 @@ pub mod pointer {
     }
 
     impl<W: Widget + Clone> Widget for Button<W> {
-     	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
+        fn send_command<'s>(
+            &'s mut self,
+            command: Command,
+            damages: &mut Vec<Damage<'s>>,
+            x: u32,
+            y: u32,
+        ) {
             self.widget.send_command(command, damages, x, y)
         }
     }
@@ -80,8 +86,8 @@ pub mod pointer {
 }
 
 pub mod command {
-    use active::pointer;
     use crate::widgets::*;
+    use active::pointer;
     use std::ops::Deref;
     use std::rc::Rc;
 
@@ -149,18 +155,21 @@ pub mod command {
     }
 
     impl<W: Widget + Clone> Widget for Actionnable<W> {
-     	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
-         	if self.callback.deref()(&mut self.widget, command) {
-             	damages.push(Damage::new(&self.widget, x, y));
-         	}
+        fn send_command<'s>(
+            &'s mut self,
+            command: Command,
+            damages: &mut Vec<Damage<'s>>,
+            x: u32,
+            y: u32,
+        ) {
+            if self.callback.deref()(&mut self.widget, command) {
+                damages.push(Damage::new(&self.widget, x, y));
+            }
         }
     }
 
     impl<W: Widget + Clone> Actionnable<W> {
-        pub fn new(
-            widget: W,
-            f: impl for<'a> Fn(&mut W, Command) -> bool + 'static,
-        ) -> Self {
+        pub fn new(widget: W, f: impl for<'a> Fn(&mut W, Command) -> bool + 'static) -> Self {
             Self {
                 widget: widget,
                 callback: Rc::new(f),

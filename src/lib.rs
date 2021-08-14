@@ -2,9 +2,9 @@ pub mod font;
 pub mod wayland;
 pub mod widgets;
 
-pub use widgets::active::pointer;
 pub use widgets::active::command::Command;
-pub use widgets::container::layout::{Orientation, Alignment};
+pub use widgets::active::pointer;
+pub use widgets::container::layout::{Alignment, Orientation};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
@@ -124,7 +124,13 @@ pub trait Drawable {
  * 	Damage has a limited lifetimes, so once I've done the roundtrip, I must draw the damaged widget.
  */
 pub trait Widget: Drawable + Geometry {
- 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32);
+    fn send_command<'s>(
+        &'s mut self,
+        command: Command,
+        damages: &mut Vec<Damage<'s>>,
+        x: u32,
+        y: u32,
+    );
 }
 
 pub trait Transform {

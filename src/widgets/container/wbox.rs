@@ -1,8 +1,8 @@
+use crate::widgets::active::command::Command;
+use crate::widgets::active::pointer;
+use crate::widgets::Rectangle;
 use crate::*;
 use std::rc::Rc;
-use crate::widgets::Rectangle;
-use crate::widgets::active::pointer;
-use crate::widgets::active::command::Command;
 
 #[derive(Clone)]
 pub struct Wbox {
@@ -87,8 +87,16 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
- 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
-        Rc::get_mut(&mut self.widget).unwrap().send_command(command, damages, x, y);
+    fn send_command<'s>(
+        &'s mut self,
+        command: Command,
+        damages: &mut Vec<Damage<'s>>,
+        x: u32,
+        y: u32,
+    ) {
+        Rc::get_mut(&mut self.widget)
+            .unwrap()
+            .send_command(command, damages, x, y);
     }
 }
 
@@ -308,7 +316,13 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
- 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec<Damage<'s>>, x: u32, y: u32) {
+    fn send_command<'s>(
+        &'s mut self,
+        command: Command,
+        damages: &mut Vec<Damage<'s>>,
+        x: u32,
+        y: u32,
+    ) {
         let width = self.get_width();
         let height = self.get_height();
         for w in &mut self.widgets {

@@ -1,10 +1,10 @@
+use crate::widgets::active::pointer;
 use crate::widgets::render;
 use crate::*;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
 use std::path::Path;
-use crate::widgets::active::pointer;
 
 #[derive(Clone)]
 pub struct Image {
@@ -98,5 +98,12 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
- 	fn send_command<'s>(&'s mut self, _command: Command, _damages: &mut Vec<Damage<'s>>, _x: u32, _y: u32) {}
+    fn send_command<'s>(
+        &'s mut self,
+        _command: Command,
+        _damages: &mut Vec<Damage<'s>>,
+        _x: u32,
+        _y: u32,
+    ) {
+    }
 }

@@ -8,10 +8,8 @@ pub use self::image::Image;
 use crate::*;
 pub use active::{command::Actionnable, pointer::Button};
 pub use container::{
+    layout::{Alignment, WidgetLayout},
     Wbox,
-    layout::{
-        Alignment, WidgetLayout
-    }
 };
 use std::io::Write;
 
