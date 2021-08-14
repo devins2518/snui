@@ -239,15 +239,15 @@ pub fn quick_assign_keyboard<A: 'static + Shell>( keyboard: &Main<wl_keyboard::W
         let app = app.get::<Vec<A>>().unwrap();
         match event {
             wl_keyboard::Event::Keymap {
-                format,
-                fd,
-                size,
+                format: _,
+                fd: _,
+                size: _,
             } => {
             }
             wl_keyboard::Event::Enter {
-                serial,
+                serial: _,
                 surface,
-                keys,
+                keys: _,
             } => {
                 for (i, app_w) in app.iter().enumerate() {
                     if surface.eq(app_w.get_surface()) {
@@ -257,14 +257,14 @@ pub fn quick_assign_keyboard<A: 'static + Shell>( keyboard: &Main<wl_keyboard::W
                 }
             }
             wl_keyboard::Event::Leave {
-                serial,
-                surface,
+                serial: _,
+                surface: _,
             } => {
                 widget_index = None;
             }
             wl_keyboard::Event::Key {
-                serial,
-                time,
+                serial: _,
+                time: _,
                 key,
                 state,
             } => {
@@ -275,16 +275,16 @@ pub fn quick_assign_keyboard<A: 'static + Shell>( keyboard: &Main<wl_keyboard::W
                 });
             }
             wl_keyboard::Event::Modifiers {
-                serial,
-                mods_depressed,
-                mods_latched,
-                mods_locked,
-                group,
+                serial: _,
+                mods_depressed: _,
+                mods_latched: _,
+                mods_locked: _,
+                group: _,
             } => {
             }
             wl_keyboard::Event::RepeatInfo {
-                rate,
-                delay,
+                rate: _,
+                delay: _,
             } => {
             }
             _ => {}
