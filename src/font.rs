@@ -121,7 +121,7 @@ impl Widget for Glyph {
     fn send_command<'s>(
         &'s mut self,
         _command: Command,
-        _damages: &mut Vec<Damage<'s>>,
+        _damage_queue: &mut Vec<Damage<'s>>,
         _x: u32,
         _y: u32,
     ) {
@@ -234,7 +234,7 @@ impl Widget for Label {
     fn send_command<'s>(
         &'s mut self,
         _command: Command,
-        _damages: &mut Vec<Damage<'s>>,
+        _damage_queue: &mut Vec<Damage<'s>>,
         _x: u32,
         _y: u32,
     ) {

@@ -64,11 +64,11 @@ pub mod pointer {
         fn send_command<'s>(
             &'s mut self,
             command: Command,
-            damages: &mut Vec<Damage<'s>>,
+            damage_queue: &mut Vec<Damage<'s>>,
             x: u32,
             y: u32,
         ) {
-            self.widget.send_command(command, damages, x, y)
+            self.widget.send_command(command, damage_queue, x, y)
         }
     }
 
@@ -158,12 +158,12 @@ pub mod command {
         fn send_command<'s>(
             &'s mut self,
             command: Command,
-            damages: &mut Vec<Damage<'s>>,
+            damage_queue: &mut Vec<Damage<'s>>,
             x: u32,
             y: u32,
         ) {
             if self.callback.deref()(&mut self.widget, command) {
-                damages.push(Damage::new(&self.widget, x, y));
+                damage_queue.push(Damage::new(&self.widget, x, y));
             }
         }
     }

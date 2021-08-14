@@ -157,9 +157,9 @@ impl Shell for Application {
     fn dispatch(&mut self, command: command::Command) {
         let width = self.get_width();
         let height = self.get_height();
-        let mut damages = Vec::new();
-        self.widget.send_command(command, &mut damages, 0, 0);
-        if damages.len() > 0 {
+        let mut damage_queue = Vec::new();
+        self.widget.send_command(command, &mut damage_queue, 0, 0);
+        if damage_queue.len() > 0 {
             let mut buffer = Buffer::new(
                 width as i32,
                 height as i32,
@@ -168,7 +168,7 @@ impl Shell for Application {
             );
             let buf_width = buffer.get_width();
             self.buffer = buffer.get_wl_buffer();
-            for damage in damages {
+            for damage in damage_queue {
                 match damage {
                     Damage::Widget { widget, x, y } => {
                         widget.draw(buffer.get_mut_buf(), buf_width, x, y);
@@ -213,7 +213,6 @@ where
                         if !widget.is_hidden() {
                             widget.render();
                             widget.show();
-                            widget.get_surface().commit();
                         }
                     }
                     zwlr_layer_surface_v1::Event::Closed => {

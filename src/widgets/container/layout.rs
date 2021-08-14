@@ -258,7 +258,7 @@ impl Widget for WidgetLayout {
     fn send_command<'s>(
         &'s mut self,
         command: Command,
-        damages: &mut Vec<Damage<'s>>,
+        damage_queue: &mut Vec<Damage<'s>>,
         x: u32,
         y: u32,
     ) {
@@ -271,7 +271,7 @@ impl Widget for WidgetLayout {
                 let widget_height = w.widget.get_height();
                 Rc::get_mut(&mut w.widget)
                     .unwrap()
-                    .send_command(command, damages, x + dx, y + dy);
+                    .send_command(command, damage_queue, x + dx, y + dy);
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {

@@ -113,21 +113,20 @@ pub trait Geometry {
  */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
-    // width: the width of the canvas
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
 /*
  * Draf
  * 	x: Widget's horizontal offset, y: Widget's vertical offset
- * 	fn send_command<'s>(&'s mut self, command: Command, damages: &mut Vec[Damage], x: 0, y: 0) -> Damage;
+ * 	fn send_command<'s>(&'s mut self, command: Command, damage_queue: &mut Vec[Damage], x: 0, y: 0) -> Damage;
  * 	Damage has a limited lifetimes, so once I've done the roundtrip, I must draw the damaged widget.
  */
 pub trait Widget: Drawable + Geometry {
     fn send_command<'s>(
         &'s mut self,
         command: Command,
-        damages: &mut Vec<Damage<'s>>,
+        damage_queue: &mut Vec<Damage<'s>>,
         x: u32,
         y: u32,
     );

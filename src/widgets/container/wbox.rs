@@ -90,13 +90,13 @@ impl Widget for Inner {
     fn send_command<'s>(
         &'s mut self,
         command: Command,
-        damages: &mut Vec<Damage<'s>>,
+        damage_queue: &mut Vec<Damage<'s>>,
         x: u32,
         y: u32,
     ) {
         Rc::get_mut(&mut self.widget)
             .unwrap()
-            .send_command(command, damages, x, y);
+            .send_command(command, damage_queue, x, y);
     }
 }
 
@@ -319,7 +319,7 @@ impl Widget for Wbox {
     fn send_command<'s>(
         &'s mut self,
         command: Command,
-        damages: &mut Vec<Damage<'s>>,
+        damage_queue: &mut Vec<Damage<'s>>,
         x: u32,
         y: u32,
     ) {
@@ -327,7 +327,7 @@ impl Widget for Wbox {
         let height = self.get_height();
         for w in &mut self.widgets {
             let (dx, dy) = w.get_location(width, height).unwrap();
-            w.send_command(command, damages, x + dx, y + dy);
+            w.send_command(command, damage_queue, x + dx, y + dy);
         }
     }
 }
