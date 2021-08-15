@@ -2,8 +2,6 @@ pub mod font;
 pub mod wayland;
 pub mod widgets;
 
-pub use widgets::active::command::Command;
-pub use widgets::active::pointer;
 pub use widgets::container::layout::{Alignment, Orientation};
 
 #[derive(Copy, Clone, Debug)]
@@ -34,6 +32,15 @@ pub struct Key {
     pressed: bool,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum Command<'a> {
+    Name(&'a str),
+    Key(&'a str, Key),
+    Hide,
+    Destroy,
+    Data(&'a str, &'a dyn std::any::Any),
+}
+
 pub enum Damage<'d> {
     None,
     Widget {
@@ -41,7 +48,7 @@ pub enum Damage<'d> {
         x: u32,
         y: u32,
     },
-    Command(widgets::active::command::Command<'d>),
+    Command(Command<'d>),
 }
 
 impl<'d> Damage<'d> {
@@ -68,6 +75,17 @@ impl<'d> Damage<'d> {
             _ => self,
         }
     }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Event {
+    MouseClick {
+        time: u32,
+        button: u32,
+        pressed: bool,
+    },
+    Enter,
+    Leave,
 }
 
 /*
@@ -104,7 +122,7 @@ pub trait Geometry {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: widgets::active::pointer::Event,
+        event: Event,
     ) -> Damage;
 }
 
@@ -122,7 +140,7 @@ pub trait Drawable {
  * 	fn send_command<'s>(&'s mut self, command: Command, damage_queue: &mut Vec[Damage], x: 0, y: 0) -> Damage;
  * 	Damage has a limited lifetimes, so once I've done the roundtrip, I must draw the damaged widget.
  */
-pub trait Widget: Drawable + Geometry {
+pub trait Widget: Drawable + Geometry + Send + Sync {
     fn send_command<'s>(
         &'s mut self,
         command: Command,

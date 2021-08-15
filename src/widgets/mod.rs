@@ -1,13 +1,13 @@
-pub mod active;
 pub mod container;
-pub mod core;
 pub mod image;
+pub mod button;
 
-pub use self::core::{Background, Border, Rectangle, Revealer};
-pub use self::image::Image;
 use crate::*;
-pub use active::{command::Actionnable, pointer::Button};
+pub use self::image::Image;
+pub use button::Button;
 pub use container::{
+    border::Border,
+    background::Background,
     layout::{Alignment, WidgetLayout},
     Wbox,
 };
@@ -69,7 +69,7 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
     a + ((b - a) * r)
 }
 
-pub fn boxed<W: Widget + Clone>(
+pub fn boxed<W: Widget>(
     widget: W,
     padding: u32,
     border_size: u32,
@@ -78,4 +78,193 @@ pub fn boxed<W: Widget + Clone>(
 ) -> Border<Background<Rectangle, W>> {
     let bg = Background::new(widget, Rectangle::new(1, 1, bg_color), padding);
     Border::new(bg, border_size, border_color)
+}
+
+/*
+* The most basic widget one can create. It's the basis of everything else.
+*/
+#[derive(Copy, Clone, Debug)]
+pub struct Rectangle {
+    width: u32,
+    height: u32,
+    color: u32,
+}
+
+impl Geometry for Rectangle {
+    fn get_width(&self) -> u32 {
+        self.width
+    }
+    fn get_height(&self) -> u32 {
+        self.height
+    }
+    fn contains(
+        &mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _x: u32,
+        _y: u32,
+        _event: Event,
+    ) -> Damage {
+        Damage::None
+    }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        self.width = width;
+        self.height = height;
+        Ok(())
+    }
+}
+
+impl Drawable for Rectangle {
+    fn set_color(&mut self, color: u32) {
+        self.color = color;
+    }
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        let buf = self.color.to_ne_bytes();
+
+        if self.color != 0 {
+            let mut index = ((x + (y * width as u32)) * 4) as usize;
+            for _ in 0..self.height {
+                if index >= canvas.len() {
+                    break;
+                } else {
+                    let mut writer = &mut canvas[index..];
+                    for _ in 0..self.width {
+                        writer.write_all(&buf).unwrap();
+                    }
+                    writer.flush().unwrap();
+                    index += width as usize * 4;
+                }
+            }
+        }
+    }
+}
+
+impl Widget for Rectangle {
+    fn send_command<'s>(
+        &'s mut self,
+        _command: Command,
+        _damage_queue: &mut Vec<Damage>,
+        _x: u32,
+        _y: u32,
+    ) {
+    }
+}
+
+impl Rectangle {
+    pub fn new(width: u32, height: u32, color: u32) -> Rectangle {
+        Rectangle {
+            color,
+            width,
+            height,
+        }
+    }
+    pub fn empty(width: u32, height: u32) -> Rectangle {
+        Rectangle {
+            color: 0,
+            width,
+            height,
+        }
+    }
+    pub fn square(size: u32, color: u32) -> Rectangle {
+        Rectangle {
+            color,
+            width: size,
+            height: size,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Revealer<N: Widget, R: Widget> {
+    state: bool,
+    normal: N,
+    reveal: R,
+}
+
+impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
+    fn set_color(&mut self, color: u32) {
+        if self.state {
+            self.reveal.set_color(color);
+        } else {
+            self.normal.set_color(color);
+        }
+    }
+    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+        if self.state {
+            self.reveal.draw(canvas, width, x, y)
+        } else {
+            self.normal.draw(canvas, width, x, y)
+        }
+    }
+}
+
+impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
+    fn get_width(&self) -> u32 {
+        if self.state {
+            self.reveal.get_width()
+        } else {
+            self.normal.get_width()
+        }
+    }
+    fn get_height(&self) -> u32 {
+        if self.state {
+            self.reveal.get_height()
+        } else {
+            self.normal.get_height()
+        }
+    }
+    fn contains<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        x: u32,
+        y: u32,
+        event: Event,
+    ) -> Damage {
+        if self.state {
+            self.reveal.contains(widget_x, widget_y, x, y, event)
+        } else {
+            self.normal.contains(widget_x, widget_y, x, y, event)
+        }
+    }
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        if self.state {
+            self.reveal.resize(width, height)
+        } else {
+            self.normal.resize(width, height)
+        }
+    }
+}
+
+impl<N: Widget, R: Widget> Revealer<N, R> {
+    pub fn new(normal: N, reveal: R) -> Revealer<N, R> {
+        Revealer {
+            state: false,
+            normal,
+            reveal,
+        }
+    }
+    pub fn toggle(&mut self) {
+        if self.state {
+            self.state = false
+        } else {
+            self.state = true
+        }
+    }
+}
+
+impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
+    fn send_command<'s>(
+        &'s mut self,
+        command: Command,
+        damage_queue: &mut Vec<Damage<'s>>,
+        x: u32,
+        y: u32,
+    ) {
+        if self.state {
+            self.reveal.send_command(command, damage_queue, x, y)
+        } else {
+            self.normal.send_command(command, damage_queue, x, y)
+        }
+    }
 }

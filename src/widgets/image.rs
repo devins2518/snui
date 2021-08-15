@@ -1,6 +1,5 @@
-use crate::widgets::active::pointer;
-use crate::widgets::render;
 use crate::*;
+use crate::widgets::render;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
@@ -64,7 +63,7 @@ impl Geometry for Image {
         _widget_y: u32,
         _x: u32,
         _y: u32,
-        _event: pointer::Event,
+        _event: Event,
     ) -> Damage {
         Damage::None
     }

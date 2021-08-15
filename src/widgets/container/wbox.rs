@@ -1,10 +1,6 @@
-use crate::widgets::active::command::Command;
-use crate::widgets::active::pointer;
-use crate::widgets::Rectangle;
 use crate::*;
-use std::rc::Rc;
+use crate::widgets::Rectangle;
 
-#[derive(Clone)]
 pub struct Wbox {
     width: u32,
     height: u32,
@@ -12,14 +8,13 @@ pub struct Wbox {
     background: u32,
 }
 
-#[derive(Clone)]
 pub struct Inner {
     x: u32,
     y: u32,
     mapped: bool,
-    entered: bool,
+    // entered: bool,
     anchor: Anchor,
-    widget: Rc<dyn Widget>,
+    widget: Box<dyn Widget>,
 }
 
 impl Geometry for Inner {
@@ -30,7 +25,7 @@ impl Geometry for Inner {
         self.widget.as_ref().get_height()
     }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        Rc::get_mut(&mut self.widget).unwrap().resize(width, height)
+        self.widget.resize(width, height)
     }
     fn contains<'d>(
         &'d mut self,
@@ -38,30 +33,9 @@ impl Geometry for Inner {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: pointer::Event,
+        event: Event,
     ) -> Damage {
-        if self.entered
-            && x < widget_x + 10
-            && y < widget_x + 10
-            && x < widget_x + self.get_width() - 10
-            && y < widget_y + self.get_height() - 10
-        {
-            self.entered = false;
-            Rc::get_mut(&mut self.widget)
-                .unwrap()
-                .contains(widget_x, widget_y, x, y, event)
-        } else if x > widget_x
-            && y > widget_y
-            && x < widget_x + self.get_width()
-            && y < widget_y + self.get_height()
-        {
-            self.entered = true;
-            Rc::get_mut(&mut self.widget)
-                .unwrap()
-                .contains(widget_x, widget_y, x, y, event)
-        } else {
-            Damage::None
-        }
+        self.widget.contains(widget_x, widget_y, x, y, event)
     }
 }
 
@@ -79,10 +53,10 @@ impl Container for Inner {
 
 impl Drawable for Inner {
     fn set_color(&mut self, color: u32) {
-        Rc::get_mut(&mut self.widget).unwrap().set_color(color)
+        self.widget.set_color(color)
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        self.widget.as_ref().draw(canvas, width, x, y);
+        self.widget.draw(canvas, width, x, y);
     }
 }
 
@@ -94,9 +68,7 @@ impl Widget for Inner {
         x: u32,
         y: u32,
     ) {
-        Rc::get_mut(&mut self.widget)
-            .unwrap()
-            .send_command(command, damage_queue, x, y);
+        self.widget.send_command(command, damage_queue, x, y);
     }
 }
 
@@ -106,9 +78,9 @@ impl Inner {
             x: 0,
             y: 0,
             mapped: true,
-            entered: false,
+            // entered: false,
             anchor: Anchor::TopLeft,
-            widget: Rc::new(widget),
+            widget: Box::new(widget),
         }
     }
     pub fn new_at(widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) -> Inner {
@@ -117,8 +89,8 @@ impl Inner {
             y,
             anchor,
             mapped: true,
-            entered: false,
-            widget: Rc::new(widget),
+            // entered: false,
+            widget: Box::new(widget),
         }
     }
     pub fn get_anchor(&self) -> Anchor {
@@ -228,7 +200,7 @@ impl Geometry for Wbox {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: pointer::Event,
+        event: Event,
     ) -> Damage {
         let width = self.get_width();
         let height = self.get_height();

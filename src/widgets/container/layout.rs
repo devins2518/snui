@@ -1,8 +1,5 @@
-use crate::widgets::active::command::Command;
-use crate::widgets::active::pointer;
-use crate::widgets::Rectangle;
 use crate::*;
-use std::rc::Rc;
+use crate::widgets::Rectangle;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -17,22 +14,20 @@ pub enum Alignment {
     End,
 }
 
-#[derive(Clone)]
 pub struct Element {
     mapped: bool,
-    pub widget: Rc<dyn Widget>,
+    pub widget: Box<dyn Widget>,
 }
 
 impl Element {
     fn new(widget: impl Widget + 'static) -> Element {
         Element {
             mapped: true,
-            widget: Rc::new(widget),
+            widget: Box::new(widget),
         }
     }
 }
 
-#[derive(Clone)]
 pub struct WidgetLayout {
     spacing: u32,
     pub widgets: Vec<Element>,
@@ -98,7 +93,7 @@ impl Geometry for WidgetLayout {
         widget_y: u32,
         x: u32,
         y: u32,
-        event: pointer::Event,
+        event: Event,
     ) -> Damage {
         let (mut dx, mut dy) = (0, 0);
         for w in &mut self.widgets {
@@ -106,11 +101,9 @@ impl Geometry for WidgetLayout {
                 let widget_width = w.widget.get_width();
                 let widget_height = w.widget.get_height();
                 if x > widget_x + dx && y > widget_y + dy {
-                    if let Some(widget) = Rc::get_mut(&mut w.widget) {
-                        let ev = widget.contains(widget_x + dx, widget_y + dy, x, y, event);
-                        if ev.is_some() {
-                            return ev;
-                        }
+                    let ev = w.widget.contains(widget_x + dx, widget_y + dy, x, y, event);
+                    if ev.is_some() {
+                        return ev;
                     }
                 }
                 match self.orientation {
@@ -269,9 +262,7 @@ impl Widget for WidgetLayout {
             if w.mapped {
                 let widget_width = w.widget.get_width();
                 let widget_height = w.widget.get_height();
-                Rc::get_mut(&mut w.widget)
-                    .unwrap()
-                    .send_command(command, damage_queue, x + dx, y + dy);
+                w.widget.send_command(command, damage_queue, x + dx, y + dy);
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {

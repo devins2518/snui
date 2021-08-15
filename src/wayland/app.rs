@@ -1,6 +1,5 @@
-use crate::wayland::Buffer;
-use crate::widgets::active::{command, pointer};
 use crate::*;
+use crate::wayland::Buffer;
 use smithay_client_toolkit::shm::AutoMemPool;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
@@ -20,7 +19,7 @@ pub trait Shell {
     fn destroy(&self);
     fn render(&mut self);
     fn is_hidden(&self) -> bool;
-    fn dispatch(&mut self, command: command::Command);
+    fn dispatch(&mut self, command: Command);
 }
 
 pub struct Application {
@@ -29,7 +28,7 @@ pub struct Application {
     surface: WlSurface,
     mempool: AutoMemPool,
     buffer: Option<WlBuffer>,
-    layer_surface: Option<Main<ZwlrLayerSurfaceV1>>,
+    layer_surface: Option<ZwlrLayerSurfaceV1>,
     // Add later
     // xdg_shell : Option<Main<ZwlrLayerSurfaceV1>>,
 }
@@ -53,7 +52,7 @@ impl Application {
         layer_surface.set_size(self.get_width(), self.get_height());
         self.surface.commit();
         assign_layer_surface::<Self>(self.get_surface(), &layer_surface);
-        self.layer_surface = Some(layer_surface.clone());
+        self.layer_surface = Some(layer_surface.detach());
     }
 }
 
@@ -77,7 +76,7 @@ impl Geometry for Application {
         _widget_y: u32,
         x: u32,
         y: u32,
-        event: pointer::Event,
+        event: Event,
     ) -> Damage {
         let width = self.get_width();
         let height = self.get_height();
@@ -150,11 +149,7 @@ impl Shell for Application {
             layer_surface.destroy();
         }
     }
-    // New version
-    // Widgets will be drawn on the buffer
-    // When the Application is shown is up to the user
-    // pub fn send_command(&mut self, command: command::Command, buffer: &mut Buffer);
-    fn dispatch(&mut self, command: command::Command) {
+    fn dispatch(&mut self, command: Command) {
         let width = self.get_width();
         let height = self.get_height();
         let mut damage_queue = Vec::new();
@@ -311,14 +306,14 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 }
                 x = surface_x as u32;
                 y = surface_y as u32;
-                input = Some(pointer::Event::Enter);
+                input = Some(Event::Enter);
             }
             wl_pointer::Event::Leave {
                 serial: _,
                 surface: _,
             } => {
                 if let Some(i) = widget_index {
-                    app[i].contains(0, 0, x, y, pointer::Event::Leave);
+                    app[i].contains(0, 0, x, y, Event::Leave);
                     widget_index = None;
                 }
             }
@@ -336,7 +331,7 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 button,
                 state,
             } => {
-                input = Some(pointer::Event::MouseClick {
+                input = Some(Event::MouseClick {
                     time,
                     button,
                     pressed: state == ButtonState::Pressed,
