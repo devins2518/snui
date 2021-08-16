@@ -14,6 +14,7 @@ pub struct Label {
     color: u32,
     width: u32,
     height: u32,
+    name: Option<String>,
     layout: Vec<Glyph>,
     font_path: PathBuf,
     font: fontdue::Font,
@@ -150,6 +151,7 @@ impl Label {
             Glyph::new(&font, glyph_position.key, color, glyph_position.x as u32, glyph_position.y as u32)
         }).collect();
         Label {
+            name: None,
             width: width as u32,
             height,
             fontdue_layout,
@@ -190,6 +192,7 @@ impl Label {
             Glyph::new(&font, glyph_position.key, color, glyph_position.x as u32, glyph_position.y as u32)
         }).collect();
         Label {
+            name: None,
             width: width as u32,
             height,
             fontdue_layout,
@@ -201,8 +204,19 @@ impl Label {
         }
     }
     pub fn edit<'f>(&mut self, text: &'f str) {
+        let mut width = 0;
+        let font = &self.font;
+        let color = self.color;
         self.fontdue_layout.reset(&DEFAULT);
         self.fontdue_layout.append(&[&self.font], &TextStyle::new(text, self.font_size, 0));
+        self.layout = self.fontdue_layout.glyphs().iter().map(|glyph_position| {
+            let delta = glyph_position.x as usize + glyph_position.width;
+            if delta > width {
+                width = delta;
+            }
+            Glyph::new(font, glyph_position.key, color, glyph_position.x as u32, glyph_position.y as u32)
+        }).collect();
+        self.width = width as u32;
     }
     pub fn write<'f>(&mut self, text: &'f str) {
         let font = &self.font;
@@ -219,7 +233,7 @@ impl Geometry for Label {
         self.width
     }
     fn get_height(&self) -> u32 {
-        self.height
+        (self.font_size * self.fontdue_layout.lines() as f32).ceil() as u32
     }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         Err(Error::Dimension(
@@ -254,10 +268,21 @@ impl Drawable for Label {
 impl Widget for Label {
     fn send_command<'s>(
         &'s mut self,
-        _command: Command,
-        _damage_queue: &mut Vec<Damage<'s>>,
-        _x: u32,
-        _y: u32,
+        command: Command,
+        damage_queue: &mut Vec<Damage<'s>>,
+        x: u32,
+        y: u32,
     ) {
+        if let Some(name) = &self.name {
+            if command.eq(name) {
+                match command {
+                    Command::Key(_, _) => { }
+                    _ => if let Some(text) = command.get::<String>() {
+                        self.edit(&text);
+                        damage_queue.push(Damage::new(self, x, y));
+                    }
+                }
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@ pub enum Action {
 }
 
 pub struct Button<W: Widget> {
-    widget: W,
+    pub widget: W,
     action: Action,
 }
 

@@ -176,9 +176,10 @@ impl Rectangle {
 
 #[derive(Clone)]
 pub struct Revealer<N: Widget, R: Widget> {
-    state: bool,
     normal: N,
     reveal: R,
+    state: bool,
+    name: Option<String>,
 }
 
 impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
@@ -242,7 +243,11 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
             state: false,
             normal,
             reveal,
+            name: None
         }
+    }
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.name = name;
     }
     pub fn toggle(&mut self) {
         if self.state {
@@ -261,10 +266,17 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
         x: u32,
         y: u32,
     ) {
-        if self.state {
-            self.reveal.send_command(command, damage_queue, x, y)
-        } else {
-            self.normal.send_command(command, damage_queue, x, y)
+        match &self.name {
+            Some(name) => if command.eq(name) {
+                self.toggle()
+            }
+            None => {
+                if self.state {
+                    self.reveal.send_command(command, damage_queue, x, y)
+                } else {
+                    self.normal.send_command(command, damage_queue, x, y)
+                }
+            }
         }
     }
 }

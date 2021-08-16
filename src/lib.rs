@@ -41,6 +41,23 @@ pub enum Command<'a> {
     Data(&'a str, &'a dyn std::any::Any),
 }
 
+impl<'a> Command<'a> {
+    pub fn eq(&self, value: &'a str) -> bool {
+        match &self {
+            Command::Name(name) => name.eq(&value),
+            Command::Key(name, _) => name.eq(&value),
+            Command::Data(name, _) => name.eq(&value),
+            _ => false,
+        }
+    }
+    pub fn get<T: std::any::Any>(&self) -> Option<&T> {
+        match self {
+            Command::Data(_, value) => value.downcast_ref(),
+            _ => None,
+        }
+    }
+}
+
 pub enum Damage<'d> {
     None,
     Widget {
@@ -134,12 +151,6 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
-/*
- * Draf
- * 	x: Widget's horizontal offset, y: Widget's vertical offset
- * 	fn send_command<'s>(&'s mut self, command: Command, damage_queue: &mut Vec[Damage], x: 0, y: 0) -> Damage;
- * 	Damage has a limited lifetimes, so once I've done the roundtrip, I must draw the damaged widget.
- */
 pub trait Widget: Drawable + Geometry + Send + Sync {
     fn send_command<'s>(
         &'s mut self,
