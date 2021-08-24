@@ -248,7 +248,7 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,
@@ -262,7 +262,7 @@ impl Widget for WidgetLayout {
             if w.mapped {
                 let widget_width = w.widget.get_width();
                 let widget_height = w.widget.get_height();
-                w.widget.send_command(command, damage_queue, x + dx, y + dy);
+                w.widget.dispatch(command, damage_queue, x + dx, y + dy);
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {

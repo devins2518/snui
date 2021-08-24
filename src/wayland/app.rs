@@ -153,7 +153,7 @@ impl Shell for Application {
         let width = self.get_width();
         let height = self.get_height();
         let mut damage_queue = Vec::new();
-        self.widget.send_command(command, &mut damage_queue, 0, 0);
+        self.widget.dispatch(command, &mut damage_queue, 0, 0);
         if damage_queue.len() > 0 {
             let mut buffer = Buffer::new(
                 width as i32,
@@ -188,34 +188,52 @@ where
     A: 'static + Shell + Geometry,
 {
     let surface_handle = surface.clone();
-    layer_surface.quick_assign(move |layer_surface, event, mut app| {
-        let app = app.get::<Vec<A>>().unwrap();
-        for widget in app.iter_mut() {
-            if widget.get_surface() == &surface_handle {
-                match event {
-                    zwlr_layer_surface_v1::Event::Configure {
-                        serial,
-                        width,
-                        height,
-                    } => {
-                        widget.resize(width, height).unwrap();
-                        layer_surface.ack_configure(serial);
-                        layer_surface.set_size(width, height);
+    layer_surface.quick_assign(move |layer_surface, event, mut applications| {
+        if let Some(applications) = applications.get::<Vec<A>>() {
+            for app in applications.iter_mut() {
+                if app.get_surface() == &surface_handle {
+                    match event {
+                        zwlr_layer_surface_v1::Event::Configure {
+                            serial,
+                            width,
+                            height,
+                        } => {
+                            app.resize(width, height).unwrap();
+                            layer_surface.ack_configure(serial);
+                            layer_surface.set_size(width, height);
 
-                        // The client should use commit to notify itself
-                        // that it has been configured
-                        // The client is also responsible for damage
-                        if !widget.is_hidden() {
-                            widget.render();
-                            widget.show();
+                            // The client should use commit to notify itself
+                            // that it has been configured
+                            // The client is also responsible for damage
+                            if !app.is_hidden() {
+                                app.render();
+                                app.show();
+                            }
                         }
+                        zwlr_layer_surface_v1::Event::Closed => {
+                            layer_surface.destroy();
+                            app.get_surface().destroy();
+                        }
+                        _ => {}
                     }
-                    zwlr_layer_surface_v1::Event::Closed => {
-                        layer_surface.destroy();
-                        widget.get_surface().destroy();
-                    }
-                    _ => {}
                 }
+            }
+        } else {
+            match event {
+                zwlr_layer_surface_v1::Event::Configure {
+                    serial,
+                    width,
+                    height,
+                } => {
+                    layer_surface.ack_configure(serial);
+                    layer_surface.set_size(width, height);
+                    surface_handle.commit();
+                }
+                zwlr_layer_surface_v1::Event::Closed => {
+                    surface_handle.destroy();
+                    layer_surface.destroy();
+                }
+                _ => {}
             }
         }
     });
@@ -224,60 +242,61 @@ where
 pub fn quick_assign_keyboard<A: 'static + Shell>(keyboard: &Main<wl_keyboard::WlKeyboard>) {
     let mut kb_key = None;
     let mut widget_index = None;
-    keyboard.quick_assign(move |_, event, mut app| {
-        let app = app.get::<Vec<A>>().unwrap();
-        match event {
-            wl_keyboard::Event::Keymap {
-                format: _,
-                fd: _,
-                size: _,
-            } => {}
-            wl_keyboard::Event::Enter {
-                serial: _,
-                surface,
-                keys: _,
-            } => {
-                for (i, app_w) in app.iter().enumerate() {
-                    if surface.eq(app_w.get_surface()) {
-                        widget_index = Some(i);
-                        break;
+    keyboard.quick_assign(move |_, event, mut applications| {
+        if let Some(applications) = applications.get::<Vec<A>>() {
+            match event {
+                wl_keyboard::Event::Keymap {
+                    format: _,
+                    fd: _,
+                    size: _,
+                } => {}
+                wl_keyboard::Event::Enter {
+                    serial: _,
+                    surface,
+                    keys: _,
+                } => {
+                    for (i, app_w) in applications.iter().enumerate() {
+                        if surface.eq(app_w.get_surface()) {
+                            widget_index = Some(i);
+                            break;
+                        }
                     }
                 }
-            }
-            wl_keyboard::Event::Leave {
-                serial: _,
-                surface: _,
-            } => {
-                widget_index = None;
-            }
-            wl_keyboard::Event::Key {
-                serial: _,
-                time: _,
-                key,
-                state,
-            } => {
-                kb_key = Some(Key {
+                wl_keyboard::Event::Leave {
+                    serial: _,
+                    surface: _,
+                } => {
+                    widget_index = None;
+                }
+                wl_keyboard::Event::Key {
+                    serial: _,
+                    time: _,
                     key,
-                    pressed: state == KeyState::Pressed,
-                    modifier: None,
-                });
+                    state,
+                } => {
+                    kb_key = Some(Key {
+                        key,
+                        pressed: state == KeyState::Pressed,
+                        modifier: None,
+                    });
+                }
+                wl_keyboard::Event::Modifiers {
+                    serial: _,
+                    mods_depressed: _,
+                    mods_latched: _,
+                    mods_locked: _,
+                    group: _,
+                } => {}
+                wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {}
+                _ => {}
             }
-            wl_keyboard::Event::Modifiers {
-                serial: _,
-                mods_depressed: _,
-                mods_latched: _,
-                mods_locked: _,
-                group: _,
-            } => {}
-            wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {}
-            _ => {}
-        }
-        if let Some(index) = widget_index {
-            // Dispatching the event to widgets
-            if let Some(ev) = kb_key {
-                let widget = &mut app[index];
-                widget.dispatch(Command::Key("keyboard", ev));
-                kb_key = None;
+            if let Some(index) = widget_index {
+                // Dispatching the event to widgets
+                if let Some(ev) = kb_key {
+                    let widget = &mut applications[index];
+                    widget.dispatch(Command::Key("keyboard", ev));
+                    kb_key = None;
+                }
             }
         }
     });
@@ -289,8 +308,8 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
 ) {
     let mut input = None;
     let (mut x, mut y) = (0, 0);
-    pointer.quick_assign(move |_, event, mut app| {
-        let app = app.get::<Vec<A>>().unwrap();
+    pointer.quick_assign(move |_, event, mut applications| {
+    if let Some(applications) = applications.get::<Vec<A>>() {
         match event {
             wl_pointer::Event::Enter {
                 serial: _,
@@ -298,8 +317,8 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 surface_x,
                 surface_y,
             } => {
-                for (i, app_w) in app.iter().enumerate() {
-                    if surface.eq(app_w.get_surface()) {
+                for (i, app) in applications.iter().enumerate() {
+                    if surface.eq(app.get_surface()) {
                         widget_index = Some(i);
                         break;
                     }
@@ -313,7 +332,7 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
                 surface: _,
             } => {
                 if let Some(i) = widget_index {
-                    app[i].contains(0, 0, x, y, Event::Leave);
+                    applications[i].contains(0, 0, x, y, Event::Leave);
                     widget_index = None;
                 }
             }
@@ -342,10 +361,12 @@ pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
         if let Some(index) = widget_index {
             // Dispatching the event to widgets
             if let Some(ev) = input {
-                let widget = &mut app[index];
+                let widget = &mut applications[index];
                 widget.contains(0, 0, x, y, ev);
                 input = None;
             }
         }
+    }
     });
 }
+

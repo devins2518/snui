@@ -97,7 +97,7 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         _command: Command,
         _damage_queue: &mut Vec<Damage<'s>>,

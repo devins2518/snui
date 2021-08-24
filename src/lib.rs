@@ -2,27 +2,12 @@ pub mod font;
 pub mod wayland;
 pub mod widgets;
 
-pub use widgets::container::layout::{Alignment, Orientation};
-
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
     Null,
     Overflow(&'static str, u32),
     Dimension(&'static str, u32, u32),
     Message(&'static str),
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Anchor {
-    Left,
-    Right,
-    Top,
-    Bottom,
-    Center,
-    TopLeft,
-    TopRight,
-    BottomRight,
-    BottomLeft,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -152,7 +137,7 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry + Send + Sync {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,

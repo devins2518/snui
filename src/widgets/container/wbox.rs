@@ -1,6 +1,19 @@
 use crate::*;
 use crate::widgets::Rectangle;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Anchor {
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Center,
+    TopLeft,
+    TopRight,
+    BottomRight,
+    BottomLeft,
+}
+
 pub struct Wbox {
     width: u32,
     height: u32,
@@ -61,14 +74,14 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,
         x: u32,
         y: u32,
     ) {
-        self.widget.send_command(command, damage_queue, x, y);
+        self.widget.dispatch(command, damage_queue, x, y);
     }
 }
 
@@ -249,7 +262,7 @@ impl Container for Wbox {
         self.widgets.len()
     }
     fn add(&mut self, _widget: impl Widget + 'static) -> Result<(), Error> {
-        Err(Error::Message("get_child is not valid on \"wbox\""))
+        Err(Error::Message("add is not valid on \"wbox\""))
     }
     fn get_child(&self) -> Result<&dyn Widget, Error> {
         Err(Error::Message("get_child is not valid on \"wbox\""))
@@ -275,6 +288,11 @@ impl Wbox {
             self.widgets[i].unmap();
         }
     }
+    pub fn unmap_all(&mut self) {
+        for w in &mut self.widgets {
+            w.unmap();
+        }
+    }
     pub fn map(&mut self, i: usize) {
         if i < self.widgets.len() {
             self.widgets[i].map();
@@ -288,7 +306,7 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,
@@ -299,7 +317,7 @@ impl Widget for Wbox {
         let height = self.get_height();
         for w in &mut self.widgets {
             let (dx, dy) = w.get_location(width, height).unwrap();
-            w.send_command(command, damage_queue, x + dx, y + dy);
+            w.dispatch(command, damage_queue, x + dx, y + dy);
         }
     }
 }

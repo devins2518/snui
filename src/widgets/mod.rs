@@ -8,7 +8,7 @@ pub use button::Button;
 pub use container::{
     border::Border,
     background::Background,
-    layout::{Alignment, WidgetLayout},
+    layout::WidgetLayout,
     Wbox,
 };
 use std::io::Write;
@@ -75,8 +75,8 @@ pub fn boxed<W: Widget>(
     border_size: u32,
     bg_color: u32,
     border_color: u32,
-) -> Border<Background<Rectangle, W>> {
-    let bg = Background::new(widget, Rectangle::new(1, 1, bg_color), padding);
+) -> Border<Background<W>> {
+    let bg = Background::new(widget, bg_color, padding);
     Border::new(bg, border_size, border_color)
 }
 
@@ -140,7 +140,7 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         _command: Command,
         _damage_queue: &mut Vec<Damage>,
@@ -259,7 +259,7 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,
@@ -272,9 +272,9 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
             }
             None => {
                 if self.state {
-                    self.reveal.send_command(command, damage_queue, x, y)
+                    self.reveal.dispatch(command, damage_queue, x, y)
                 } else {
-                    self.normal.send_command(command, damage_queue, x, y)
+                    self.normal.dispatch(command, damage_queue, x, y)
                 }
             }
         }

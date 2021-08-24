@@ -119,7 +119,7 @@ impl Geometry for Glyph {
 }
 
 impl Widget for Glyph {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         _command: Command,
         _damage_queue: &mut Vec<Damage<'s>>,
@@ -130,6 +130,9 @@ impl Widget for Glyph {
 }
 
 impl Label {
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.name = name;
+    }
     pub fn new<'f>(text: &'f str, font: &'f str, font_size: f32, color: u32) -> Label {
         let fc = Fontconfig::new().unwrap();
         let font_path = fc.find(font, None).unwrap().path;
@@ -266,7 +269,7 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,

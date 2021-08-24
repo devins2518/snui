@@ -76,14 +76,14 @@ impl<W: Widget> Drawable for Button<W> {
 }
 
 impl<W: Widget> Widget for Button<W> {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,
         x: u32,
         y: u32,
     ) {
-        self.widget.send_command(command, damage_queue, x, y)
+        self.widget.dispatch(command, damage_queue, x, y)
     }
 }
 

@@ -59,7 +59,7 @@ impl<W: Widget> Drawable for Border<W> {
 }
 
 impl<W: Widget> Widget for Border<W> {
-    fn send_command<'s>(
+    fn dispatch<'s>(
         &'s mut self,
         command: Command,
         damage_queue: &mut Vec<Damage<'s>>,
@@ -67,7 +67,7 @@ impl<W: Widget> Widget for Border<W> {
         y: u32,
     ) {
         self.widget
-            .send_command(command, damage_queue, x + self.size.0, y + self.size.3);
+            .dispatch(command, damage_queue, x + self.size.0, y + self.size.3);
     }
 }
 
