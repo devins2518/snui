@@ -18,63 +18,24 @@ pub struct Key {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum Command<'a> {
-    Name(&'a str),
-    Key(&'a str, Key),
-    Hide,
-    Destroy,
-    Data(&'a str, &'a dyn std::any::Any),
+pub enum Dispatch {
+    Pointer( u32, u32, Event ),
+    Keyboard( Key ),
+    Commit,
 }
 
-impl<'a> Command<'a> {
-    pub fn eq(&self, value: &'a str) -> bool {
-        match &self {
-            Command::Name(name) => name.eq(&value),
-            Command::Key(name, _) => name.eq(&value),
-            Command::Data(name, _) => name.eq(&value),
-            _ => false,
-        }
-    }
-    pub fn get<T: std::any::Any>(&self) -> Option<&T> {
-        match self {
-            Command::Data(_, value) => value.downcast_ref(),
-            _ => None,
-        }
-    }
-}
-
-pub enum Damage<'d> {
-    None,
-    Widget {
-        widget: Box<&'d dyn Widget>,
-        x: u32,
-        y: u32,
-    },
-    Command(Command<'d>),
+pub struct Damage<'d> {
+    widget: Box<&'d dyn Widget>,
+    x: u32,
+    y: u32,
 }
 
 impl<'d> Damage<'d> {
-    pub fn is_some(&self) -> bool {
-        match self {
-            Damage::None => false,
-            _ => true,
-        }
-    }
     pub fn new<W: Widget>(widget: &'d W, x: u32, y: u32) -> Damage {
-        Damage::Widget {
+        Damage {
             widget: Box::new(widget),
             x,
             y,
-        }
-    }
-    pub fn shift(self, dx: u32, dy: u32) -> Damage<'d> {
-        match self {
-            Damage::Widget { widget, x, y } => Damage::Widget {
-                widget: widget,
-                x: x + dx,
-                y: y + dy,
-            },
-            _ => self,
         }
     }
 }
@@ -118,14 +79,6 @@ pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
-    fn contains<'d>(
-        &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
-        x: u32,
-        y: u32,
-        event: Event,
-    ) -> Damage;
 }
 
 /*
@@ -136,14 +89,13 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
-pub trait Widget: Drawable + Geometry + Send + Sync {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    );
+pub trait Widget: Drawable + Geometry + Send {
+    fn roundtrip<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        dispatched: Dispatch,
+    ) -> Option<Damage>;
 }
 
 pub trait Transform {

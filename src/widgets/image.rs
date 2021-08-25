@@ -56,17 +56,6 @@ impl Geometry for Image {
         }
         Ok(())
     }
-    // TODO
-    fn contains(
-        &mut self,
-        _widget_x: u32,
-        _widget_y: u32,
-        _x: u32,
-        _y: u32,
-        _event: Event,
-    ) -> Damage {
-        Damage::None
-    }
 }
 
 impl Drawable for Image {
@@ -97,12 +86,12 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
-    fn dispatch<'s>(
-        &'s mut self,
-        _command: Command,
-        _damage_queue: &mut Vec<Damage<'s>>,
-        _x: u32,
-        _y: u32,
-    ) {
+    fn roundtrip<'d>(
+        &'d mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _dispatched: Dispatch,
+    ) -> Option<Damage> {
+        None
     }
 }

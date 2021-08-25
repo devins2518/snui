@@ -29,38 +29,6 @@ impl<W: Widget> Geometry for Button<W> {
     fn get_height(&self) -> u32 {
         self.widget.get_height()
     }
-    fn contains<'d>(
-        &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
-        x: u32,
-        y: u32,
-        event: Event,
-    ) -> Damage {
-        if x > widget_x
-            && y > widget_y
-            && x < widget_x + self.get_width()
-            && y < widget_y + self.get_height()
-        {
-            match event {
-                // I need to make a distinction between left-click, right-click and middle-click
-                Event::MouseClick { time:_, button:_, pressed } => {
-                    match &self.action {
-                        Action::Command( string ) => {
-                            if pressed {
-                                run_command(string);
-                            }
-                            Damage::None
-                        }
-                        Action::Dispatch( string ) => Damage::Command(Command::Name(string)),
-                    }
-                }
-                _ => Damage::None
-            }
-        } else {
-            Damage::None
-        }
-    }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         self.widget.resize(width, height)
     }
@@ -76,14 +44,37 @@ impl<W: Widget> Drawable for Button<W> {
 }
 
 impl<W: Widget> Widget for Button<W> {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    ) {
-        self.widget.dispatch(command, damage_queue, x, y)
+    fn roundtrip<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        dispatched: Dispatch,
+    ) -> Option<Damage> {
+        if let Dispatch::Pointer(x, y, pointer) = dispatched {
+            if x > widget_x
+                && y > widget_y
+                && x < widget_x + self.get_width()
+                && y < widget_y + self.get_height()
+            {
+                match pointer {
+                    // I need to make a distinction between left-click, right-click and middle-click
+                    Event::MouseClick { time:_, button:_, pressed } => {
+                        match &self.action {
+                            Action::Command( string ) => {
+                                if pressed {
+                                    run_command(string);
+                                }
+                                None
+                            }
+                            _ => None
+                        }
+                    }
+                    _ => None
+                }
+            } else {
+                None
+            }
+        } else { None }
     }
 }
 

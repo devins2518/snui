@@ -24,7 +24,7 @@ impl<W: Widget> Geometry for Border<W> {
         x: u32,
         y: u32,
         event: Event,
-    ) -> Damage {
+    ) -> Option<Damage> {
         self.widget
             .contains(widget_x + self.size.0, widget_y + self.size.3, x, y, event)
     }
@@ -58,18 +58,7 @@ impl<W: Widget> Drawable for Border<W> {
     }
 }
 
-impl<W: Widget> Widget for Border<W> {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    ) {
-        self.widget
-            .dispatch(command, damage_queue, x + self.size.0, y + self.size.3);
-    }
-}
+impl<W: Widget> Widget for Border<W> { }
 
 impl<W: Widget> Border<W> {
     pub fn new(widget: W, size: u32, color: u32) -> Self {

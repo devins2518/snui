@@ -8,15 +8,15 @@ use fontdue::{
 };
 use std::fs::read;
 use std::io::Write;
-use std::path::PathBuf;
+// use std::path::PathBuf;
 
 pub struct Label {
     color: u32,
     width: u32,
-    height: u32,
+    // height: u32,
     name: Option<String>,
     layout: Vec<Glyph>,
-    font_path: PathBuf,
+    // font_path: PathBuf,
     font: fontdue::Font,
     font_size: f32,
     fontdue_layout: Layout,
@@ -99,16 +99,6 @@ impl Geometry for Glyph {
     fn get_height(&self) -> u32 {
         self.metrics.height as u32
     }
-    fn contains(
-        &mut self,
-        _widget_x: u32,
-        _widget_y: u32,
-        _x: u32,
-        _y: u32,
-        _event: Event,
-    ) -> Damage {
-        Damage::None
-    }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         Err(Error::Dimension(
             "\"label\" cannot be resized",
@@ -119,13 +109,13 @@ impl Geometry for Glyph {
 }
 
 impl Widget for Glyph {
-    fn dispatch<'s>(
-        &'s mut self,
-        _command: Command,
-        _damage_queue: &mut Vec<Damage<'s>>,
-        _x: u32,
-        _y: u32,
-    ) {
+    fn roundtrip<'d>(
+        &'d mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _dispatched: Dispatch,
+    ) -> Option<Damage> {
+        None
     }
 }
 
@@ -143,7 +133,7 @@ impl Label {
         fontdue_layout.append(&[&font], &TextStyle::new(text, font_size, 0));
 
         let mut width = 0;
-        let height = (font_size * fontdue_layout.lines() as f32) as u32;
+        // let height = (font_size * fontdue_layout.lines() as f32) as u32;
 
         // Getting Glyphs from the Layout
         let layout: Vec<Glyph> = fontdue_layout.glyphs().iter().map(|glyph_position| {
@@ -156,9 +146,9 @@ impl Label {
         Label {
             name: None,
             width: width as u32,
-            height,
+            // height,
             fontdue_layout,
-            font_path: font_path,
+            // font_path: font_path,
             layout,
             font,
             font_size,
@@ -184,7 +174,7 @@ impl Label {
         fontdue_layout.append(&[&font], &TextStyle::new(text, font_size, 0));
 
         let mut width = 0;
-        let height = (font_size * fontdue_layout.lines() as f32) as u32;
+        // let height = (font_size * fontdue_layout.lines() as f32) as u32;
 
         // Getting Glyphs from the Layout
         let layout: Vec<Glyph> = fontdue_layout.glyphs().iter().map(|glyph_position| {
@@ -197,9 +187,9 @@ impl Label {
         Label {
             name: None,
             width: width as u32,
-            height,
+            // height,
             fontdue_layout,
-            font_path: font_path,
+            // font_path: font_path,
             layout,
             font,
             font_size,
@@ -245,16 +235,6 @@ impl Geometry for Label {
             self.get_height(),
         ))
     }
-    fn contains(
-        &mut self,
-        _widget_x: u32,
-        _widget_y: u32,
-        _x: u32,
-        _y: u32,
-        _event: Event,
-    ) -> Damage {
-        Damage::None
-    }
 }
 
 impl Drawable for Label {
@@ -269,23 +249,12 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    ) {
-        if let Some(name) = &self.name {
-            if command.eq(name) {
-                match command {
-                    Command::Key(_, _) => { }
-                    _ => if let Some(text) = command.get::<String>() {
-                        self.edit(&text);
-                        damage_queue.push(Damage::new(self, x, y));
-                    }
-                }
-            }
-        }
+    fn roundtrip<'d>(
+        &'d mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        _dispatched: Dispatch,
+    ) -> Option<Damage> {
+        None
     }
 }

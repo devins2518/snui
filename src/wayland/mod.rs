@@ -19,16 +19,6 @@ impl<'b> Geometry for Buffer<'b> {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn contains(
-        &mut self,
-        _widget_x: u32,
-        _widget_y: u32,
-        _x: u32,
-        _y: u32,
-        _event: Event,
-    ) -> Damage {
-        Damage::None
-    }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         Err(Error::Dimension(
             "\"buffer\" cannot be resized",

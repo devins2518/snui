@@ -24,7 +24,7 @@ impl<W: Widget> Geometry for Background< W> {
         x: u32,
         y: u32,
         event: Event,
-    ) -> Damage {
+    ) -> Option<Damage> {
         self.widget.contains(
             widget_x + self.padding.3,
             widget_y + self.padding.0,
@@ -47,18 +47,7 @@ impl<W: Widget> Drawable for Background<W> {
     }
 }
 
-impl<W: Widget> Widget for Background<W> {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    ) {
-        self.widget
-            .dispatch(command, damage_queue, x + self.padding.0, y + self.padding.3)
-    }
-}
+impl<W: Widget> Widget for Background<W> { }
 
 impl<W: Widget> Background<W> {
     pub fn new(widget: W, color: u32, padding: u32) -> Background<W> {

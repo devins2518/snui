@@ -87,37 +87,6 @@ impl Geometry for WidgetLayout {
         }
         height
     }
-    fn contains<'d>(
-        &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
-        x: u32,
-        y: u32,
-        event: Event,
-    ) -> Damage {
-        let (mut dx, mut dy) = (0, 0);
-        for w in &mut self.widgets {
-            if w.mapped {
-                let widget_width = w.widget.get_width();
-                let widget_height = w.widget.get_height();
-                if x > widget_x + dx && y > widget_y + dy {
-                    let ev = w.widget.contains(widget_x + dx, widget_y + dy, x, y, event);
-                    if ev.is_some() {
-                        return ev;
-                    }
-                }
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        dx += widget_width + self.spacing;
-                    }
-                    Orientation::Vertical => {
-                        dy += widget_height + self.spacing;
-                    }
-                }
-            }
-        }
-        Damage::None
-    }
     fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         Ok(())
     }
@@ -248,40 +217,31 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    ) {
-        let width = self.get_width();
-        let height = self.get_height();
+    fn roundtrip<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        dispatched: Dispatch,
+    ) -> Option<Damage> {
         let (mut dx, mut dy) = (0, 0);
         for w in &mut self.widgets {
             if w.mapped {
                 let widget_width = w.widget.get_width();
                 let widget_height = w.widget.get_height();
-                w.widget.dispatch(command, damage_queue, x + dx, y + dy);
+                let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatched);
+                if ev.is_some() {
+                    return ev;
+                }
                 match self.orientation {
                     Orientation::Horizontal => {
-                        match self.alignment {
-                            Alignment::Start => dy = 0,
-                            Alignment::Center => dy = (height - widget_height) / 2,
-                            Alignment::End => dy = height - widget_height,
-                        }
                         dx += widget_width + self.spacing;
                     }
                     Orientation::Vertical => {
-                        match self.alignment {
-                            Alignment::Start => dx = 0,
-                            Alignment::Center => dx = (width - widget_width) / 2,
-                            Alignment::End => dx = width - widget_width,
-                        }
-                        dy += widget_width + self.spacing;
+                        dy += widget_height + self.spacing;
                     }
                 }
             }
         }
+        None
     }
 }

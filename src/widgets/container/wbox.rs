@@ -40,16 +40,6 @@ impl Geometry for Inner {
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         self.widget.resize(width, height)
     }
-    fn contains<'d>(
-        &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
-        x: u32,
-        y: u32,
-        event: Event,
-    ) -> Damage {
-        self.widget.contains(widget_x, widget_y, x, y, event)
-    }
 }
 
 impl Container for Inner {
@@ -74,14 +64,13 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    ) {
-        self.widget.dispatch(command, damage_queue, x, y);
+    fn roundtrip<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        dispatched: Dispatch,
+    ) -> Option<Damage> {
+        self.widget.roundtrip(widget_x, widget_y, dispatched)
     }
 }
 
@@ -207,25 +196,6 @@ impl Geometry for Wbox {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn contains<'d>(
-        &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
-        x: u32,
-        y: u32,
-        event: Event,
-    ) -> Damage {
-        let width = self.get_width();
-        let height = self.get_height();
-        for l in &mut self.widgets {
-            let (dx, dy) = l.get_location(width, height).unwrap();
-            let ev = l.contains(widget_x + dx, widget_y + dy, x, y, event);
-            if ev.is_some() {
-                return ev;
-            }
-        }
-        Damage::None
-    }
     fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
         self.width = width;
         self.height = height;
@@ -306,18 +276,21 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
-    fn dispatch<'s>(
-        &'s mut self,
-        command: Command,
-        damage_queue: &mut Vec<Damage<'s>>,
-        x: u32,
-        y: u32,
-    ) {
+    fn roundtrip<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        dispatched: Dispatch,
+    ) -> Option<Damage> {
         let width = self.get_width();
         let height = self.get_height();
-        for w in &mut self.widgets {
-            let (dx, dy) = w.get_location(width, height).unwrap();
-            w.dispatch(command, damage_queue, x + dx, y + dy);
+        for l in &mut self.widgets {
+            let (dx, dy) = l.get_location(width, height).unwrap();
+            let ev = l.roundtrip(widget_x + dx, widget_y + dy, dispatched);
+            if ev.is_some() {
+                return ev;
+            }
         }
+        None
     }
 }

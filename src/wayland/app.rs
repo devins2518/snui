@@ -1,107 +1,96 @@
 use crate::*;
+use std::thread;
 use crate::wayland::Buffer;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::{Sender, Receiver};
 use smithay_client_toolkit::shm::AutoMemPool;
+use wayland_client::{Display, Attached, Main};
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_keyboard::KeyState;
 use wayland_client::protocol::wl_pointer;
+use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::Main;
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
+use wayland_client::QueueToken;
 
 pub trait Shell {
-    fn get_surface(&self) -> &WlSurface;
     fn hide(&mut self);
     fn show(&mut self);
     fn destroy(&self);
-    fn render(&mut self);
+    fn render(&mut self, mempool: &mut AutoMemPool);
     fn is_hidden(&self) -> bool;
-    fn dispatch(&mut self, command: Command);
+    fn get_surface(&self) -> &WlSurface;
+    // This should be use to send keyboard input only
 }
 
 pub struct Application {
+    shm: WlShm,
     hidden: bool,
-    pub widget: Box<dyn Widget>,
     surface: WlSurface,
-    mempool: AutoMemPool,
     buffer: Option<WlBuffer>,
+    pub widget: Box<dyn Widget>,
+    receiver: Receiver<Dispatch>,
     layer_surface: Option<ZwlrLayerSurfaceV1>,
     // Add later
-    // xdg_shell : Option<Main<ZwlrLayerSurfaceV1>>,
+    // xdg_shell : Option<Main<XdgSurface>>,
 }
 
 impl Application {
     pub fn new(
         widget: impl Widget + 'static,
         surface: WlSurface,
-        mempool: AutoMemPool,
-    ) -> Application {
-        Application {
-            widget: Box::new(widget),
-            hidden: false,
+        shm: WlShm,
+    ) -> (Application, Sender<Dispatch>) {
+        let (sender, receiver) = channel();
+        (Application {
+            shm,
             surface,
-            mempool,
+            receiver,
             buffer: None,
+            hidden: false,
             layer_surface: None,
-        }
+            widget: Box::new(widget),
+        }, sender)
     }
     pub fn attach_layer_surface(&mut self, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
-        layer_surface.set_size(self.get_width(), self.get_height());
+        layer_surface.set_size(self.widget.get_width(), self.widget.get_height());
         self.surface.commit();
-        assign_layer_surface::<Self>(self.get_surface(), &layer_surface);
+        assign_layer_surface(self.get_surface(), &layer_surface);
         self.layer_surface = Some(layer_surface.detach());
     }
-}
+    pub fn run(mut self, display: Display) {
+        thread::spawn(move || {
+            let event_queue = display.create_event_queue();
+            let attached = self.shm.as_ref().attach(event_queue.token());
+            let mut mempool = AutoMemPool::new(attached).unwrap();
+            self.render(&mut mempool);
 
-impl Geometry for Application {
-    fn get_width(&self) -> u32 {
-        self.widget.get_width()
-    }
-    fn get_height(&self) -> u32 {
-        self.widget.get_height()
-    }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.mempool.resize((width * height) as usize).unwrap();
-        if let Some(layer_surface) = &self.layer_surface {
-            layer_surface.set_size(width, height);
-        }
-        Ok(())
-    }
-    fn contains(
-        &mut self,
-        _widget_x: u32,
-        _widget_y: u32,
-        x: u32,
-        y: u32,
-        event: Event,
-    ) -> Damage {
-        let width = self.get_width();
-        let height = self.get_height();
-        match self.widget.contains(0, 0, x, y, event) {
-            Damage::Widget { widget, x, y } => {
-                let mut buffer = Buffer::new(
-                    width as i32,
-                    height as i32,
-                    (4 * width) as i32,
-                    &mut self.mempool,
-                );
-                widget.draw(buffer.get_mut_buf(), width, x, y);
-                self.buffer = buffer.get_wl_buffer();
-                self.surface.attach(self.buffer.as_ref(), 0, 0);
-                self.surface.damage(
-                    x as i32,
-                    y as i32,
-                    widget.get_width() as i32,
-                    widget.get_height() as i32,
-                );
-                self.surface.commit();
+            loop {
+                let width = self.widget.get_width();
+                let height = self.widget.get_height();
+                if let Ok(dispatch) = self.receiver.recv() {
+                    if let Dispatch::Commit = dispatch {
+                        self.render(&mut mempool);
+                    } else {
+                        if let Some(damage) = self.widget.roundtrip(0, 0, dispatch) {
+                            let mut buffer = Buffer::new(
+                                width as i32,
+                                height as i32,
+                                (4 * width) as i32,
+                                &mut mempool,
+                            );
+                            damage.widget.draw(buffer.get_mut_buf(), width, damage.x, damage.y);
+                            buffer.attach(&self.surface, 0, 0);
+                            self.buffer = buffer.get_wl_buffer();
+                        }
+                    }
+                }
             }
-            _ => {}
-        }
-        Damage::None
+        });
     }
 }
 
@@ -118,19 +107,19 @@ impl Shell for Application {
         self.surface.damage(0, 0, 1 << 30, 1 << 30);
         self.surface.commit();
     }
-    fn render(&mut self) {
-        self.resize(self.widget.get_width(), self.widget.get_height())
-            .unwrap();
+    fn render(&mut self, mempool: &mut AutoMemPool) {
         let width = self.widget.get_width();
-        let mut buffer = Buffer::new(
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
-            (4 * self.widget.get_width()) as i32,
-            &mut self.mempool,
-        );
-        self.widget.draw(buffer.get_mut_buf(), width, 0, 0);
-        buffer.attach(&self.surface, 0, 0);
-        self.buffer = buffer.get_wl_buffer();
+        if mempool.resize((width * self.widget.get_height()) as usize * 4).is_ok() {
+            let mut buffer = Buffer::new(
+                self.widget.get_width() as i32,
+                self.widget.get_height() as i32,
+                (4 * self.widget.get_width()) as i32,
+                mempool,
+            );
+            self.widget.draw(buffer.get_mut_buf(), width, 0, 0);
+            buffer.attach(&self.surface, 0, 0);
+            self.buffer = buffer.get_wl_buffer();
+        }
     }
     fn hide(&mut self) {
         self.hidden = true;
@@ -149,101 +138,36 @@ impl Shell for Application {
             layer_surface.destroy();
         }
     }
-    fn dispatch(&mut self, command: Command) {
-        let width = self.get_width();
-        let height = self.get_height();
-        let mut damage_queue = Vec::new();
-        self.widget.dispatch(command, &mut damage_queue, 0, 0);
-        if damage_queue.len() > 0 {
-            let mut buffer = Buffer::new(
-                width as i32,
-                height as i32,
-                (4 * width) as i32,
-                &mut self.mempool,
-            );
-            let buf_width = buffer.get_width();
-            self.buffer = buffer.get_wl_buffer();
-            for damage in damage_queue {
-                match damage {
-                    Damage::Widget { widget, x, y } => {
-                        widget.draw(buffer.get_mut_buf(), buf_width, x, y);
-                        self.surface.damage(
-                            x as i32,
-                            y as i32,
-                            widget.get_width() as i32,
-                            widget.get_height() as i32,
-                        );
-                    }
-                    _ => {}
-                }
-            }
-            self.surface.attach(self.buffer.as_ref(), 0, 0);
-            self.surface.commit();
-        }
-    }
 }
 
-pub fn assign_layer_surface<A>(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>)
-where
-    A: 'static + Shell + Geometry,
+pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>)
 {
     let surface_handle = surface.clone();
-    layer_surface.quick_assign(move |layer_surface, event, mut applications| {
-        if let Some(applications) = applications.get::<Vec<A>>() {
-            for app in applications.iter_mut() {
-                if app.get_surface() == &surface_handle {
-                    match event {
-                        zwlr_layer_surface_v1::Event::Configure {
-                            serial,
-                            width,
-                            height,
-                        } => {
-                            app.resize(width, height).unwrap();
-                            layer_surface.ack_configure(serial);
-                            layer_surface.set_size(width, height);
-
-                            // The client should use commit to notify itself
-                            // that it has been configured
-                            // The client is also responsible for damage
-                            if !app.is_hidden() {
-                                app.render();
-                                app.show();
-                            }
-                        }
-                        zwlr_layer_surface_v1::Event::Closed => {
-                            layer_surface.destroy();
-                            app.get_surface().destroy();
-                        }
-                        _ => {}
-                    }
-                }
+    layer_surface.quick_assign(move |layer_surface, event, _| {
+        match event {
+            zwlr_layer_surface_v1::Event::Configure {
+                serial,
+                width,
+                height,
+            } => {
+                layer_surface.ack_configure(serial);
+                layer_surface.set_size(width, height);
+                surface_handle.commit();
             }
-        } else {
-            match event {
-                zwlr_layer_surface_v1::Event::Configure {
-                    serial,
-                    width,
-                    height,
-                } => {
-                    layer_surface.ack_configure(serial);
-                    layer_surface.set_size(width, height);
-                    surface_handle.commit();
-                }
-                zwlr_layer_surface_v1::Event::Closed => {
-                    surface_handle.destroy();
-                    layer_surface.destroy();
-                }
-                _ => {}
+            zwlr_layer_surface_v1::Event::Closed => {
+                surface_handle.destroy();
+                layer_surface.destroy();
             }
+            _ => {}
         }
     });
 }
 
-pub fn quick_assign_keyboard<A: 'static + Shell>(keyboard: &Main<wl_keyboard::WlKeyboard>) {
+pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
+    let mut sender = None;
     let mut kb_key = None;
-    let mut widget_index = None;
-    keyboard.quick_assign(move |_, event, mut applications| {
-        if let Some(applications) = applications.get::<Vec<A>>() {
+    keyboard.quick_assign(move |_, event, mut hashmap| {
+        if let Some(hashmap) = hashmap.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
             match event {
                 wl_keyboard::Event::Keymap {
                     format: _,
@@ -255,9 +179,9 @@ pub fn quick_assign_keyboard<A: 'static + Shell>(keyboard: &Main<wl_keyboard::Wl
                     surface,
                     keys: _,
                 } => {
-                    for (i, app_w) in applications.iter().enumerate() {
-                        if surface.eq(app_w.get_surface()) {
-                            widget_index = Some(i);
+                    for app in hashmap {
+                        if surface.eq(&app.0) {
+                            sender = Some(app.1.clone());
                             break;
                         }
                     }
@@ -266,7 +190,7 @@ pub fn quick_assign_keyboard<A: 'static + Shell>(keyboard: &Main<wl_keyboard::Wl
                     serial: _,
                     surface: _,
                 } => {
-                    widget_index = None;
+                    sender = None;
                 }
                 wl_keyboard::Event::Key {
                     serial: _,
@@ -290,83 +214,79 @@ pub fn quick_assign_keyboard<A: 'static + Shell>(keyboard: &Main<wl_keyboard::Wl
                 wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {}
                 _ => {}
             }
-            if let Some(index) = widget_index {
-                // Dispatching the event to widgets
-                if let Some(ev) = kb_key {
-                    let widget = &mut applications[index];
-                    widget.dispatch(Command::Key("keyboard", ev));
-                    kb_key = None;
+            // Dispatching the event to widgets
+            if let Some(ev) = kb_key {
+                if let Some(sender) = &sender {
+                    if sender.send(Dispatch::Keyboard(ev)).is_ok() {
+                        kb_key = None;
+                    }
                 }
             }
         }
     });
 }
 
-pub fn quick_assign_pointer<A: 'static + Geometry + Shell>(
+pub fn quick_assign_pointer(
     pointer: &Main<wl_pointer::WlPointer>,
-    mut widget_index: Option<usize>,
 ) {
     let mut input = None;
+    let mut sender = None;
     let (mut x, mut y) = (0, 0);
-    pointer.quick_assign(move |_, event, mut applications| {
-    if let Some(applications) = applications.get::<Vec<A>>() {
-        match event {
-            wl_pointer::Event::Enter {
-                serial: _,
-                surface,
-                surface_x,
-                surface_y,
-            } => {
-                for (i, app) in applications.iter().enumerate() {
-                    if surface.eq(app.get_surface()) {
-                        widget_index = Some(i);
-                        break;
+    pointer.quick_assign(move |_, event, mut hashmap| {
+        if let Some(hashmap) = hashmap.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
+            match event {
+                wl_pointer::Event::Enter {
+                    serial: _,
+                    surface,
+                    surface_x,
+                    surface_y,
+                } => {
+                    for app in hashmap {
+                        if surface.eq(&app.0) {
+                            sender = Some(app.1.clone());
+                            break;
+                        }
                     }
+                    x = surface_x as u32;
+                    y = surface_y as u32;
+                    input = Some(Event::Enter);
                 }
-                x = surface_x as u32;
-                y = surface_y as u32;
-                input = Some(Event::Enter);
-            }
-            wl_pointer::Event::Leave {
-                serial: _,
-                surface: _,
-            } => {
-                if let Some(i) = widget_index {
-                    applications[i].contains(0, 0, x, y, Event::Leave);
-                    widget_index = None;
+                wl_pointer::Event::Leave {
+                    serial: _,
+                    surface: _,
+                } => {
+                    sender = None;
                 }
-            }
-            wl_pointer::Event::Motion {
-                time: _,
-                surface_x,
-                surface_y,
-            } => {
-                x = surface_x as u32;
-                y = surface_y as u32;
-            }
-            wl_pointer::Event::Button {
-                serial: _,
-                time,
-                button,
-                state,
-            } => {
-                input = Some(Event::MouseClick {
+                wl_pointer::Event::Motion {
+                    time: _,
+                    surface_x,
+                    surface_y,
+                } => {
+                    x = surface_x as u32;
+                    y = surface_y as u32;
+                }
+                wl_pointer::Event::Button {
+                    serial: _,
                     time,
                     button,
-                    pressed: state == ButtonState::Pressed,
-                });
+                    state,
+                } => {
+                    input = Some(Event::MouseClick {
+                        time,
+                        button,
+                        pressed: state == ButtonState::Pressed,
+                    });
+                }
+                _ => {}
             }
-            _ => {}
-        }
-        if let Some(index) = widget_index {
-            // Dispatching the event to widgets
             if let Some(ev) = input {
-                let widget = &mut applications[index];
-                widget.contains(0, 0, x, y, ev);
-                input = None;
+                if let Some(sender) = &sender {
+                    if sender.send(Dispatch::Pointer(x, y, ev)).is_ok() {
+                        input = None;
+                    }
+                }
             }
         }
-    }
     });
 }
 
