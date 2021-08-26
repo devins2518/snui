@@ -1,9 +1,9 @@
 use crate::wayland::Buffer;
 use crate::*;
-use std::thread;
+use smithay_client_toolkit::shm::AutoMemPool;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
-use smithay_client_toolkit::shm::AutoMemPool;
+use std::thread;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_keyboard::KeyState;
@@ -69,7 +69,12 @@ impl Application {
             let attached = self.shm.as_ref().attach(event_queue.token());
             let mut mempool = AutoMemPool::new(attached).unwrap();
             self.render(&mut mempool);
-            self.surface.damage(0, 0, self.widget.get_width() as i32, self.widget.get_height() as i32);
+            self.surface.damage(
+                0,
+                0,
+                self.widget.get_width() as i32,
+                self.widget.get_height() as i32,
+            );
             self.widget.roundtrip(0, 0, &Dispatch::Commit);
 
             loop {
@@ -118,7 +123,12 @@ impl Shell for Application {
     fn show(&mut self) {
         self.hidden = false;
         self.surface.attach(self.buffer.as_ref(), 0, 0);
-        self.surface.damage(0, 0, self.widget.get_width() as i32, self.widget.get_height() as i32);
+        self.surface.damage(
+            0,
+            0,
+            self.widget.get_width() as i32,
+            self.widget.get_height() as i32,
+        );
         self.surface.commit();
     }
     fn render(&mut self, mempool: &mut AutoMemPool) {
