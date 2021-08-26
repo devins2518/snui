@@ -1,8 +1,8 @@
 use crate::*;
 
 pub enum Action {
-    Command( String ),
-    Dispatch( String ),
+    Command(String),
+    Dispatch(String),
 }
 
 pub struct Button<W: Widget> {
@@ -12,10 +12,7 @@ pub struct Button<W: Widget> {
 
 impl<W: Widget> Button<W> {
     pub fn new(widget: W, action: Action) -> Self {
-        Button {
-            widget,
-            action
-        }
+        Button { widget, action }
     }
     pub fn change(&mut self, action: Action) {
         self.action = action;
@@ -39,42 +36,51 @@ impl<W: Widget> Drawable for Button<W> {
         self.widget.set_color(color);
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        self.widget.draw(canvas, width, x, y)
+        if self.damaged() {
+            self.widget.draw(canvas, width, x, y)
+        }
     }
 }
 
 impl<W: Widget> Widget for Button<W> {
+    fn damaged(&self) -> bool {
+        self.widget.damaged()
+    }
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Pointer(x, y, pointer) = dispatched {
-            if x > widget_x
-                && y > widget_y
-                && x < widget_x + self.get_width()
-                && y < widget_y + self.get_height()
+            if *x > widget_x
+                && *y > widget_y
+                && *x < widget_x + self.get_width()
+                && *y < widget_y + self.get_height()
             {
                 match pointer {
                     // I need to make a distinction between left-click, right-click and middle-click
-                    Event::MouseClick { time:_, button:_, pressed } => {
-                        match &self.action {
-                            Action::Command( string ) => {
-                                if pressed {
-                                    run_command(string);
-                                }
-                                None
+                    Event::MouseClick {
+                        time: _,
+                        button: _,
+                        pressed,
+                    } => match &self.action {
+                        Action::Command(string) => {
+                            if *pressed {
+                                run_command(string);
                             }
-                            _ => None
+                            None
                         }
-                    }
-                    _ => None
+                        _ => None,
+                    },
+                    _ => None,
                 }
             } else {
                 None
             }
-        } else { None }
+        } else {
+            None
+        }
     }
 }
 

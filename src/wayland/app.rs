@@ -1,21 +1,20 @@
+use crate::wayland::Buffer;
 use crate::*;
 use std::thread;
-use crate::wayland::Buffer;
 use std::sync::mpsc::channel;
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Receiver, Sender};
 use smithay_client_toolkit::shm::AutoMemPool;
-use wayland_client::{Display, Attached, Main};
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_keyboard::KeyState;
 use wayland_client::protocol::wl_pointer;
-use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_pointer::ButtonState;
+use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
+use wayland_client::{Display, Main};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
-use wayland_client::QueueToken;
 
 pub trait Shell {
     fn hide(&mut self);
@@ -24,7 +23,6 @@ pub trait Shell {
     fn render(&mut self, mempool: &mut AutoMemPool);
     fn is_hidden(&self) -> bool;
     fn get_surface(&self) -> &WlSurface;
-    // This should be use to send keyboard input only
 }
 
 pub struct Application {
@@ -46,15 +44,18 @@ impl Application {
         shm: WlShm,
     ) -> (Application, Sender<Dispatch>) {
         let (sender, receiver) = channel();
-        (Application {
-            shm,
-            surface,
-            receiver,
-            buffer: None,
-            hidden: false,
-            layer_surface: None,
-            widget: Box::new(widget),
-        }, sender)
+        (
+            Application {
+                shm,
+                surface,
+                receiver,
+                buffer: None,
+                hidden: false,
+                layer_surface: None,
+                widget: Box::new(widget),
+            },
+            sender,
+        )
     }
     pub fn attach_layer_surface(&mut self, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
         layer_surface.set_size(self.widget.get_width(), self.widget.get_height());
@@ -68,6 +69,8 @@ impl Application {
             let attached = self.shm.as_ref().attach(event_queue.token());
             let mut mempool = AutoMemPool::new(attached).unwrap();
             self.render(&mut mempool);
+            self.surface.damage(0, 0, self.widget.get_width() as i32, self.widget.get_height() as i32);
+            self.widget.roundtrip(0, 0, &Dispatch::Commit);
 
             loop {
                 let width = self.widget.get_width();
@@ -75,17 +78,28 @@ impl Application {
                 if let Ok(dispatch) = self.receiver.recv() {
                     if let Dispatch::Commit = dispatch {
                         self.render(&mut mempool);
+                        self.show();
+                        self.widget.roundtrip(0, 0, &dispatch);
                     } else {
-                        if let Some(damage) = self.widget.roundtrip(0, 0, dispatch) {
+                        if let Some(damage) = self.widget.roundtrip(0, 0, &dispatch) {
                             let mut buffer = Buffer::new(
                                 width as i32,
                                 height as i32,
                                 (4 * width) as i32,
                                 &mut mempool,
                             );
-                            damage.widget.draw(buffer.get_mut_buf(), width, damage.x, damage.y);
+                            damage
+                                .widget
+                                .draw(buffer.get_mut_buf(), width, damage.x, damage.y);
                             buffer.attach(&self.surface, 0, 0);
+                            self.surface.damage(
+                                damage.x as i32,
+                                damage.y as i32,
+                                damage.widget.get_width() as i32,
+                                damage.widget.get_height() as i32,
+                            );
                             self.buffer = buffer.get_wl_buffer();
+                            self.surface.commit();
                         }
                     }
                 }
@@ -104,12 +118,15 @@ impl Shell for Application {
     fn show(&mut self) {
         self.hidden = false;
         self.surface.attach(self.buffer.as_ref(), 0, 0);
-        self.surface.damage(0, 0, 1 << 30, 1 << 30);
+        self.surface.damage(0, 0, self.widget.get_width() as i32, self.widget.get_height() as i32);
         self.surface.commit();
     }
     fn render(&mut self, mempool: &mut AutoMemPool) {
         let width = self.widget.get_width();
-        if mempool.resize((width * self.widget.get_height()) as usize * 4).is_ok() {
+        if mempool
+            .resize((width * self.widget.get_height()) as usize * 4)
+            .is_ok()
+        {
             let mut buffer = Buffer::new(
                 self.widget.get_width() as i32,
                 self.widget.get_height() as i32,
@@ -140,26 +157,23 @@ impl Shell for Application {
     }
 }
 
-pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>)
-{
+pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
     let surface_handle = surface.clone();
-    layer_surface.quick_assign(move |layer_surface, event, _| {
-        match event {
-            zwlr_layer_surface_v1::Event::Configure {
-                serial,
-                width,
-                height,
-            } => {
-                layer_surface.ack_configure(serial);
-                layer_surface.set_size(width, height);
-                surface_handle.commit();
-            }
-            zwlr_layer_surface_v1::Event::Closed => {
-                surface_handle.destroy();
-                layer_surface.destroy();
-            }
-            _ => {}
+    layer_surface.quick_assign(move |layer_surface, event, _| match event {
+        zwlr_layer_surface_v1::Event::Configure {
+            serial,
+            width,
+            height,
+        } => {
+            layer_surface.ack_configure(serial);
+            layer_surface.set_size(width, height);
+            surface_handle.commit();
         }
+        zwlr_layer_surface_v1::Event::Closed => {
+            surface_handle.destroy();
+            layer_surface.destroy();
+        }
+        _ => {}
     });
 }
 
@@ -226,9 +240,7 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
     });
 }
 
-pub fn quick_assign_pointer(
-    pointer: &Main<wl_pointer::WlPointer>,
-) {
+pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
     let mut input = None;
     let mut sender = None;
     let (mut x, mut y) = (0, 0);
@@ -289,4 +301,3 @@ pub fn quick_assign_pointer(
         }
     });
 }
-

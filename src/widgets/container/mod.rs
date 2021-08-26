@@ -1,16 +1,17 @@
-pub mod wbox;
 pub mod layout;
 pub mod revealer;
-use crate::*;
+pub mod wbox;
 use crate::widgets::*;
+use crate::*;
 
-pub use wbox::Wbox;
-pub use revealer::Revealer;
 pub use layout::{Alignment, WidgetLayout};
+pub use revealer::Revealer;
+pub use wbox::Wbox;
 
 pub struct Border<W: Widget> {
     pub widget: W,
     color: u32,
+    damaged: bool,
     size: (u32, u32, u32, u32),
 }
 
@@ -55,11 +56,14 @@ impl<W: Widget> Drawable for Border<W> {
 }
 
 impl<W: Widget> Widget for Border<W> {
+    fn damaged(&self) -> bool {
+        self.damaged
+    }
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
         self.widget
             .roundtrip(widget_x + self.size.0, widget_y + self.size.3, dispatched)
@@ -71,6 +75,7 @@ impl<W: Widget> Border<W> {
         Self {
             widget,
             color,
+            damaged: true,
             size: (size, size, size, size),
         }
     }
@@ -81,11 +86,12 @@ impl<W: Widget> Border<W> {
 
 pub struct Background<W: Widget> {
     pub widget: W,
+    damaged: bool,
     pub background: u32,
     padding: (u32, u32, u32, u32),
 }
 
-impl<W: Widget> Geometry for Background< W> {
+impl<W: Widget> Geometry for Background<W> {
     fn get_width(&self) -> u32 {
         self.widget.get_width() + self.padding.1 + self.padding.3
     }
@@ -102,7 +108,8 @@ impl<W: Widget> Drawable for Background<W> {
         self.background = color;
     }
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        Rectangle::new(self.get_width(), self.get_height(), self.background).draw(canvas, width, x, y);
+        Rectangle::new(self.get_width(), self.get_height(), self.background)
+            .draw(canvas, width, x, y);
 
         self.widget
             .draw(canvas, width, x + self.padding.3, y + self.padding.0);
@@ -110,11 +117,14 @@ impl<W: Widget> Drawable for Background<W> {
 }
 
 impl<W: Widget> Widget for Background<W> {
+    fn damaged(&self) -> bool {
+        self.damaged
+    }
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
         self.widget.roundtrip(
             widget_x + self.padding.3,
@@ -128,6 +138,7 @@ impl<W: Widget> Background<W> {
     pub fn new(widget: W, color: u32, padding: u32) -> Background<W> {
         Background {
             widget: widget,
+            damaged: true,
             background: color,
             padding: (padding, padding, padding, padding),
         }

@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::Rectangle;
+use crate::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Anchor {
@@ -64,11 +64,14 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
+    fn damaged(&self) -> bool {
+        self.mapped
+    }
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
         self.widget.roundtrip(widget_x, widget_y, dispatched)
     }
@@ -276,11 +279,14 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
+    fn damaged(&self) -> bool {
+        self.background != 0
+    }
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
         let width = self.get_width();
         let height = self.get_height();

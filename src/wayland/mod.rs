@@ -1,10 +1,11 @@
 pub mod app;
 
-use crate::*;
 use crate::widgets::render;
+use crate::*;
 use smithay_client_toolkit::shm::{AutoMemPool, Format};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 
+//TO-DO Use MemPool instead of AutoMemPool
 pub struct Buffer<'b> {
     width: u32,
     height: u32,

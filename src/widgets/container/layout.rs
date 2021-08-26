@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::Rectangle;
+use crate::*;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -157,19 +157,19 @@ impl WidgetLayout {
     pub fn horizontal(spacing: u32) -> Self {
         WidgetLayout {
             spacing,
-            orientation: Orientation::Horizontal,
             background: 0,
             widgets: Vec::new(),
             alignment: Alignment::Start,
+            orientation: Orientation::Horizontal,
         }
     }
     pub fn vertical(spacing: u32) -> Self {
         WidgetLayout {
             spacing,
-            orientation: Orientation::Vertical,
             background: 0,
             widgets: Vec::new(),
             alignment: Alignment::Start,
+            orientation: Orientation::Vertical,
         }
     }
     pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
@@ -217,11 +217,14 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
+    fn damaged(&self) -> bool {
+        self.background != 0
+    }
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
         let (mut dx, mut dy) = (0, 0);
         for w in &mut self.widgets {

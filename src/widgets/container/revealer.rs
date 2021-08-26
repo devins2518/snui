@@ -55,32 +55,40 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
             state: false,
             normal,
             reveal,
-            name: None
+            name: None,
         }
     }
     pub fn set_name(&mut self, name: Option<String>) {
         self.name = name;
     }
     pub fn toggle(&mut self) {
-        if self.state {
-            self.state = false
-        } else {
-            self.state = true
-        }
+        self.state = self.state == false;
     }
 }
 
 impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
+    fn damaged(&self) -> bool {
+        if self.state {
+            self.reveal.damaged()
+        } else {
+            self.normal.damaged()
+        }
+    }
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
-        if self.state {
-            self.reveal.roundtrip(widget_x, widget_y, dispatched)
+        if let Dispatch::Commit = dispatched {
+            self.toggle();
+            None
         } else {
-            self.normal.roundtrip(widget_x, widget_y, dispatched)
+            if self.state {
+                self.reveal.roundtrip(widget_x, widget_y, dispatched)
+            } else {
+                self.normal.roundtrip(widget_x, widget_y, dispatched)
+            }
         }
     }
 }

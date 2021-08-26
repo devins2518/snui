@@ -17,10 +17,11 @@ pub struct Key {
     pressed: bool,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug)]
 pub enum Dispatch {
-    Pointer( u32, u32, Event ),
-    Keyboard( Key ),
+    Data(String, Box<dyn std::any::Any + Send + Sync>),
+    Pointer(u32, u32, Event),
+    Keyboard(Key),
     Commit,
 }
 
@@ -90,11 +91,12 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry + Send {
+    fn damaged(&self) -> bool;
     fn roundtrip<'d>(
         &'d mut self,
         widget_x: u32,
         widget_y: u32,
-        dispatched: Dispatch,
+        dispatched: &Dispatch,
     ) -> Option<Damage>;
 }
 

@@ -1,16 +1,11 @@
+pub mod button;
 pub mod container;
 pub mod image;
-pub mod button;
 
-use crate::*;
 pub use self::image::Image;
+use crate::*;
 pub use button::Button;
-pub use container::{
-    Border,
-    Background,
-    layout::WidgetLayout,
-    Wbox,
-};
+pub use container::{layout::WidgetLayout, Background, Border, Wbox};
 use std::io::Write;
 
 pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32)
@@ -85,6 +80,7 @@ pub struct Rectangle {
     width: u32,
     height: u32,
     color: u32,
+    damaged: bool,
 }
 
 impl Geometry for Rectangle {
@@ -129,11 +125,17 @@ impl Drawable for Rectangle {
 impl Widget for Rectangle {
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
-        dispatched: Dispatch,
+        _widget_x: u32,
+        _widget_y: u32,
+        dispatched: &Dispatch,
     ) -> Option<Damage> {
+        if let Dispatch::Commit = dispatched {
+            self.damaged = self.damaged == false;
+        }
         None
+    }
+    fn damaged(&self) -> bool {
+        self.damaged
     }
 }
 
@@ -143,6 +145,7 @@ impl Rectangle {
             color,
             width,
             height,
+            damaged: true,
         }
     }
     pub fn empty(width: u32, height: u32) -> Rectangle {
@@ -150,6 +153,7 @@ impl Rectangle {
             color: 0,
             width,
             height,
+            damaged: true,
         }
     }
     pub fn square(size: u32, color: u32) -> Rectangle {
@@ -157,6 +161,7 @@ impl Rectangle {
             color,
             width: size,
             height: size,
+            damaged: true,
         }
     }
 }

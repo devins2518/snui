@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::render;
+use crate::*;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
@@ -7,6 +7,7 @@ use std::path::Path;
 
 #[derive(Clone)]
 pub struct Image {
+    pub damaged: bool,
     image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }
 
@@ -16,7 +17,10 @@ impl Image {
 
         let image = dyn_image.to_bgra8();
 
-        Ok(Self { image })
+        Ok(Self {
+            damaged: true,
+            image,
+        })
     }
 
     pub fn new_with_size(
@@ -29,11 +33,15 @@ impl Image {
 
         let image = scaled_image.to_bgra8();
 
-        Ok(Self { image })
+        Ok(Self {
+            damaged: true,
+            image,
+        })
     }
 
     pub fn thumbnail(&self, width: u32, height: u32) -> Image {
         Image {
+            damaged: true,
             image: imageops::thumbnail(&self.image, width, height),
         }
     }
@@ -86,11 +94,14 @@ impl Canvas for Image {
 }
 
 impl Widget for Image {
+    fn damaged(&self) -> bool {
+        self.damaged
+    }
     fn roundtrip<'d>(
         &'d mut self,
         _widget_x: u32,
         _widget_y: u32,
-        _dispatched: Dispatch,
+        _dispatched: &Dispatch,
     ) -> Option<Damage> {
         None
     }
