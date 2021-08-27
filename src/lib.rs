@@ -20,7 +20,7 @@ pub struct Key {
 #[derive(Debug)]
 pub enum Dispatch {
     Data(String, Box<dyn std::any::Any + Send + Sync>),
-    Pointer(u32, u32, Event),
+    Pointer(u32, u32, Pointer),
     Keyboard(Key),
     Commit,
 }
@@ -42,7 +42,7 @@ impl<'d> Damage<'d> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum Event {
+pub enum Pointer {
     MouseClick {
         time: u32,
         button: u32,

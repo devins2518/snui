@@ -271,7 +271,7 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                     }
                     x = surface_x as u32;
                     y = surface_y as u32;
-                    input = Some(Event::Enter);
+                    input = Some(Pointer::Enter);
                 }
                 wl_pointer::Event::Leave {
                     serial: _,
@@ -293,7 +293,7 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                     button,
                     state,
                 } => {
-                    input = Some(Event::MouseClick {
+                    input = Some(Pointer::MouseClick {
                         time,
                         button,
                         pressed: state == ButtonState::Pressed,

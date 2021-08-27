@@ -60,7 +60,7 @@ impl<W: Widget> Widget for Button<W> {
             {
                 match pointer {
                     // I need to make a distinction between left-click, right-click and middle-click
-                    Event::MouseClick {
+                    Pointer::MouseClick {
                         time: _,
                         button: _,
                         pressed,
