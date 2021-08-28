@@ -1,21 +1,16 @@
 use crate::*;
 
-pub enum Action {
-    Command(String),
-    Dispatch(String),
-}
-
 pub struct Button<W: Widget> {
     pub widget: W,
-    action: Action,
+    command: String,
 }
 
 impl<W: Widget> Button<W> {
-    pub fn new(widget: W, action: Action) -> Self {
-        Button { widget, action }
+    pub fn new(widget: W, command: String) -> Self {
+        Button { widget, command }
     }
-    pub fn change(&mut self, action: Action) {
-        self.action = action;
+    pub fn change(&mut self, command: String) {
+        self.command = command;
     }
 }
 
@@ -64,15 +59,12 @@ impl<W: Widget> Widget for Button<W> {
                         time: _,
                         button: _,
                         pressed,
-                    } => match &self.action {
-                        Action::Command(string) => {
-                            if *pressed {
-                                run_command(string);
-                            }
-                            None
+                    } => {
+                        if *pressed {
+                            run_command(&self.command);
                         }
-                        _ => None,
-                    },
+                        None
+                    }
                     _ => None,
                 }
             } else {

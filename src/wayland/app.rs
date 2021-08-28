@@ -255,57 +255,59 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
     let mut sender = None;
     let (mut x, mut y) = (0, 0);
     pointer.quick_assign(move |_, event, mut hashmap| {
-        if let Some(hashmap) = hashmap.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
-            match event {
-                wl_pointer::Event::Enter {
-                    serial: _,
-                    surface,
-                    surface_x,
-                    surface_y,
-                } => {
+        match event {
+            wl_pointer::Event::Enter {
+                serial: _,
+                surface,
+                surface_x,
+                surface_y,
+            } => {
+                if let Some(hashmap) = hashmap.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
                     for app in hashmap {
                         if surface.eq(&app.0) {
                             sender = Some(app.1.clone());
                             break;
                         }
                     }
-                    x = surface_x as u32;
-                    y = surface_y as u32;
-                    input = Some(Pointer::Enter);
+                } else if let Some(focused) = hashmap.get::<Sender<Dispatch>>() {
+                    sender = Some(focused.clone());
                 }
-                wl_pointer::Event::Leave {
-                    serial: _,
-                    surface: _,
-                } => {
-                    sender = None;
-                }
-                wl_pointer::Event::Motion {
-                    time: _,
-                    surface_x,
-                    surface_y,
-                } => {
-                    x = surface_x as u32;
-                    y = surface_y as u32;
-                }
-                wl_pointer::Event::Button {
-                    serial: _,
+                x = surface_x as u32;
+                y = surface_y as u32;
+                input = Some(Pointer::Enter);
+            }
+            wl_pointer::Event::Leave {
+                serial: _,
+                surface: _,
+            } => {
+                sender = None;
+            }
+            wl_pointer::Event::Motion {
+                time: _,
+                surface_x,
+                surface_y,
+            } => {
+                x = surface_x as u32;
+                y = surface_y as u32;
+            }
+            wl_pointer::Event::Button {
+                serial: _,
+                time,
+                button,
+                state,
+            } => {
+                input = Some(Pointer::MouseClick {
                     time,
                     button,
-                    state,
-                } => {
-                    input = Some(Pointer::MouseClick {
-                        time,
-                        button,
-                        pressed: state == ButtonState::Pressed,
-                    });
-                }
-                _ => {}
+                    pressed: state == ButtonState::Pressed,
+                });
             }
-            if let Some(ev) = input {
-                if let Some(sender) = &sender {
-                    if sender.send(Dispatch::Pointer(x, y, ev)).is_ok() {
-                        input = None;
-                    }
+            _ => {}
+        }
+        if let Some(ev) = input {
+            if let Some(sender) = &sender {
+                if sender.send(Dispatch::Pointer(x, y, ev)).is_ok() {
+                    input = None;
                 }
             }
         }

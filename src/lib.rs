@@ -19,7 +19,7 @@ pub struct Key {
 
 #[derive(Debug)]
 pub enum Dispatch {
-    Data(String, Box<dyn std::any::Any + Send + Sync>),
+    Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
     Pointer(u32, u32, Pointer),
     Keyboard(Key),
     Commit,
@@ -90,7 +90,7 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
 }
 
-pub trait Widget: Drawable + Geometry + Send {
+pub trait Widget: Drawable + Geometry + Send + Sync {
     fn damaged(&self) -> bool;
     fn roundtrip<'d>(
         &'d mut self,
