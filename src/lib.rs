@@ -55,11 +55,10 @@ pub enum Pointer {
 /*
  * Canvas is a trait for types that hold a pixmap.
  */
-pub trait Canvas {
-    fn size(&self) -> usize;
-    fn get_buf(&self) -> &[u8];
-    fn get_mut_buf(&mut self) -> &mut [u8];
-    fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32);
+pub struct Canvas<'c> {
+    backend: &'c dyn std::io::Write,
+    width: u32,
+    height: u32,
 }
 
 /*
@@ -87,7 +86,7 @@ pub trait Geometry {
  */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32);
+    fn draw(&self, canvas: Canvas, x: u32, y: u32);
 }
 
 pub trait Widget: Drawable + Geometry + Send + Sync {

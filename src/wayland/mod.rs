@@ -2,8 +2,10 @@ pub mod app;
 
 use crate::widgets::render;
 use crate::*;
-use smithay_client_toolkit::shm::{AutoMemPool, Format};
+use smithay_client_toolkit::shm::{AutoMemPool, MemPool, DoubleMemPool, Format};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
+
+const FORMAT:Format = Format::Argb8888;
 
 //TO-DO Use MemPool instead of AutoMemPool
 pub struct Buffer<'b> {
@@ -47,8 +49,7 @@ impl<'b> Canvas for Buffer<'b> {
 
 impl<'b> Buffer<'b> {
     pub fn new<'a>(width: i32, height: i32, stride: i32, mempool: &'a mut AutoMemPool) -> Buffer {
-        let format = Format::Argb8888;
-        let buffer = mempool.buffer(width, height, stride, format).unwrap();
+        let buffer = mempool.buffer(width, height, stride, FORMAT).unwrap();
         Buffer {
             width: width as u32,
             height: height as u32,

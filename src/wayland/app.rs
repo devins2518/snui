@@ -3,7 +3,6 @@ use crate::*;
 use smithay_client_toolkit::shm::AutoMemPool;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
-use std::thread;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_keyboard::KeyState;
@@ -25,24 +24,24 @@ pub trait Shell {
     fn get_surface(&self) -> &WlSurface;
 }
 
-pub struct Application {
+pub struct Application<W: Widget> {
     shm: WlShm,
     hidden: bool,
-    surface: WlSurface,
-    buffer: Option<WlBuffer>,
-    pub widget: Box<dyn Widget>,
     receiver: Receiver<Dispatch>,
-    layer_surface: Option<ZwlrLayerSurfaceV1>,
+    pub widget: W,
+    pub surface: WlSurface,
+    pub buffer: Option<WlBuffer>,
+    pub layer_surface: Option<ZwlrLayerSurfaceV1>,
     // Add later
     // xdg_shell : Option<Main<XdgSurface>>,
 }
 
-impl Application {
+impl<W: Widget> Application<W> {
     pub fn new(
-        widget: impl Widget + 'static,
+        widget: W,
         surface: WlSurface,
         shm: WlShm,
-    ) -> (Application, Sender<Dispatch>) {
+    ) -> (Application<W>, Sender<Dispatch>) {
         let (sender, receiver) = channel();
         (
             Application {
@@ -52,7 +51,7 @@ impl Application {
                 buffer: None,
                 hidden: false,
                 layer_surface: None,
-                widget: Box::new(widget),
+                widget,
             },
             sender,
         )
@@ -63,64 +62,32 @@ impl Application {
         assign_layer_surface(self.get_surface(), &layer_surface);
         self.layer_surface = Some(layer_surface.detach());
     }
-    pub fn run(mut self, display: Display) {
-        thread::spawn(move || {
-            let event_queue = display.create_event_queue();
-            let attached = self.shm.as_ref().attach(event_queue.token());
-            let mut mempool = AutoMemPool::new(attached).unwrap();
-            self.render(&mut mempool);
-            self.surface.damage(
-                0,
-                0,
-                self.widget.get_width() as i32,
-                self.widget.get_height() as i32,
-            );
-            self.widget.roundtrip(0, 0, &Dispatch::Commit);
+    pub fn run(mut self, display: Display, mut cb: impl FnMut(&mut Self, &mut AutoMemPool, Dispatch)) {
+        let event_queue = display.create_event_queue();
+        let attached = self.shm.as_ref().attach(event_queue.token());
+        let mut mempool = AutoMemPool::new(attached).unwrap();
+        self.render(&mut mempool);
+        self.surface.damage(
+            0,
+            0,
+            self.widget.get_width() as i32,
+            self.widget.get_height() as i32,
+        );
+        self.widget.roundtrip(0, 0, &Dispatch::Commit);
 
-            loop {
-                let width = self.widget.get_width();
-                let height = self.widget.get_height();
-                if let Ok(dispatch) = self.receiver.recv() {
-                    if let Dispatch::Commit = dispatch {
-                        self.render(&mut mempool);
-                        self.show();
-                        self.widget.roundtrip(0, 0, &dispatch);
-                    } else {
-                        if let Some(damage) = self.widget.roundtrip(0, 0, &dispatch) {
-                            let mut buffer = Buffer::new(
-                                width as i32,
-                                height as i32,
-                                (4 * width) as i32,
-                                &mut mempool,
-                            );
-                            damage
-                                .widget
-                                .draw(buffer.get_mut_buf(), width, damage.x, damage.y);
-                            buffer.attach(&self.surface, 0, 0);
-                            self.surface.damage(
-                                damage.x as i32,
-                                damage.y as i32,
-                                damage.widget.get_width() as i32,
-                                damage.widget.get_height() as i32,
-                            );
-                            self.buffer = buffer.get_wl_buffer();
-                            self.surface.commit();
-                        }
-                    }
-                }
+        loop {
+            if let Ok(dispatch) = self.receiver.recv() {
+                cb(&mut self, &mut mempool, dispatch);
             }
-        });
+        }
     }
-}
-
-impl Shell for Application {
-    fn is_hidden(&self) -> bool {
+    pub fn is_hidden(&self) -> bool {
         self.hidden
     }
-    fn get_surface(&self) -> &WlSurface {
+    pub fn get_surface(&self) -> &WlSurface {
         &self.surface
     }
-    fn show(&mut self) {
+    pub fn show(&mut self) {
         self.hidden = false;
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         self.surface.damage(
@@ -131,7 +98,7 @@ impl Shell for Application {
         );
         self.surface.commit();
     }
-    fn render(&mut self, mempool: &mut AutoMemPool) {
+    pub fn render(&mut self, mempool: &mut AutoMemPool) {
         let width = self.widget.get_width();
         if mempool
             .resize((width * self.widget.get_height()) as usize * 4)
@@ -148,7 +115,7 @@ impl Shell for Application {
             self.buffer = buffer.get_wl_buffer();
         }
     }
-    fn hide(&mut self) {
+    pub fn hide(&mut self) {
         self.hidden = true;
         self.surface.attach(None, 0, 0);
         self.surface.damage(
@@ -159,7 +126,7 @@ impl Shell for Application {
         );
         self.surface.commit();
     }
-    fn destroy(&self) {
+    pub fn destroy(&self) {
         self.surface.destroy();
         if let Some(layer_surface) = &self.layer_surface {
             layer_surface.destroy();
