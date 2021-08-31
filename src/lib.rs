@@ -1,6 +1,7 @@
 pub mod font;
 pub mod wayland;
 pub mod widgets;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
@@ -26,9 +27,9 @@ pub enum Dispatch {
 }
 
 pub struct Damage<'d> {
-    widget: Box<&'d dyn Widget>,
-    x: u32,
-    y: u32,
+    pub widget: Box<&'d dyn Widget>,
+    pub x: u32,
+    pub y: u32,
 }
 
 impl<'d> Damage<'d> {
@@ -55,10 +56,37 @@ pub enum Pointer {
 /*
  * Canvas is a trait for types that hold a pixmap.
  */
+#[derive(Debug)]
 pub struct Canvas<'c> {
-    backend: &'c dyn std::io::Write,
-    width: u32,
-    height: u32,
+    slice: &'c mut [u8],
+    pub width: u32,
+    pub height: u32,
+}
+
+impl<'c> Canvas<'c> {
+    fn new(slice: &'c mut [u8], width: u32, height: u32) -> Self {
+        Self {
+            slice,
+            width,
+            height,
+        }
+    }
+    fn size(&self) -> usize {
+        self.slice.len()
+    }
+}
+
+impl<'c> Deref for Canvas<'c> {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.slice
+    }
+}
+
+impl<'c> DerefMut for Canvas<'c> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.slice
+    }
 }
 
 /*
@@ -86,7 +114,7 @@ pub trait Geometry {
  */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
-    fn draw(&self, canvas: Canvas, x: u32, y: u32);
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32);
 }
 
 pub trait Widget: Drawable + Geometry + Send + Sync {

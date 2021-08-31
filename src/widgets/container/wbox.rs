@@ -58,8 +58,8 @@ impl Drawable for Inner {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color)
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        self.widget.draw(canvas, width, x, y);
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        self.widget.draw(canvas, x, y);
     }
 }
 
@@ -210,18 +210,18 @@ impl Drawable for Wbox {
     fn set_color(&mut self, color: u32) {
         self.background = color;
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let sw = self.get_width();
         let sh = self.get_height();
         if self.background != 0 {
             let rectangle = Rectangle::new(sw, sh, self.background);
-            rectangle.draw(canvas, width, x, y);
+            rectangle.draw(canvas, x, y);
         }
         for w in &self.widgets {
             match w.get_location(sw, sh) {
                 Ok((dx, dy)) => {
                     if w.is_mapped() && dx <= sw && dy <= sh {
-                        w.draw(canvas, width, x + dx, y + dy)
+                        w.draw(canvas, x + dx, y + dy)
                     }
                 }
                 Err(e) => e.debug(),

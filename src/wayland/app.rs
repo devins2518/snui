@@ -1,6 +1,6 @@
 use crate::wayland::Buffer;
 use crate::*;
-use smithay_client_toolkit::shm::AutoMemPool;
+use smithay_client_toolkit::shm::{AutoMemPool, MemPool, DoubleMemPool, Format};
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -10,7 +10,7 @@ use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::{Display, Main};
+use wayland_client::{Display, Main, EventQueue};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
@@ -62,22 +62,26 @@ impl<W: Widget> Application<W> {
         assign_layer_surface(self.get_surface(), &layer_surface);
         self.layer_surface = Some(layer_surface.detach());
     }
-    pub fn run(mut self, display: Display, mut cb: impl FnMut(&mut Self, &mut AutoMemPool, Dispatch)) {
-        let event_queue = display.create_event_queue();
+    pub fn run(mut self, display: Display, mut cb: impl FnMut(&mut Self, &mut EventQueue, &mut MemPool, Dispatch)) {
+        let mut event_queue = display.create_event_queue();
         let attached = self.shm.as_ref().attach(event_queue.token());
-        let mut mempool = AutoMemPool::new(attached).unwrap();
-        self.render(&mut mempool);
-        self.surface.damage(
-            0,
-            0,
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
-        );
-        self.widget.roundtrip(0, 0, &Dispatch::Commit);
+        let mut mempool= DoubleMemPool::new(attached, |_| {}).unwrap();
+        if let Some(mut pool) = mempool.pool() {
+            self.render(&mut pool);
+            self.surface.damage(
+                0,
+                0,
+                self.widget.get_width() as i32,
+                self.widget.get_height() as i32,
+            );
+            self.widget.roundtrip(0, 0, &Dispatch::Commit);
+        }
 
         loop {
             if let Ok(dispatch) = self.receiver.recv() {
-                cb(&mut self, &mut mempool, dispatch);
+                if let Some(mut pool) = mempool.pool() {
+                    cb(&mut self, &mut event_queue, &mut pool, dispatch);
+                }
             }
         }
     }
@@ -98,21 +102,15 @@ impl<W: Widget> Application<W> {
         );
         self.surface.commit();
     }
-    pub fn render(&mut self, mempool: &mut AutoMemPool) {
-        let width = self.widget.get_width();
-        if mempool
-            .resize((width * self.widget.get_height()) as usize * 4)
-            .is_ok()
-        {
-            let mut buffer = Buffer::new(
-                self.widget.get_width() as i32,
-                self.widget.get_height() as i32,
-                (4 * self.widget.get_width()) as i32,
-                mempool,
-            );
-            self.widget.draw(buffer.get_mut_buf(), width, 0, 0);
-            buffer.attach(&self.surface, 0, 0);
-            self.buffer = buffer.get_wl_buffer();
+    pub fn render(&mut self, mempool: &mut MemPool) {
+        if let Ok(mut buf) = Buffer::new(
+            self.widget.get_width(),
+            self.widget.get_height(),
+            mempool,
+        ) {
+            self.widget.draw(&mut buf.canvas, 0, 0);
+            buf.attach(&self.surface, 0, 0);
+            self.buffer = buf.get();
         }
     }
     pub fn hide(&mut self) {

@@ -8,13 +8,11 @@ pub use button::Button;
 pub use container::{layout::WidgetLayout, Background, Border, Wbox};
 use std::io::Write;
 
-pub fn render<S>(canvas: &mut [u8], buffer: &S, mut width: usize, x: u32, y: u32)
-where
-    S: Canvas + Geometry,
+pub fn render(canvas: &mut Canvas, buffer: &[u8], x: u32, y: u32)
 {
-    let mut index = ((x + (y * width as u32)) * 4) as usize;
-    width *= 4;
-    for buf in buffer.get_buf().chunks(buffer.get_width() as usize * 4) {
+    let stride = canvas.width as usize * 4;
+    let mut index = ((x + (y * canvas.width as u32)) * 4) as usize;
+    for buf in buffer.chunks(stride) {
         if index >= canvas.len() {
             break;
         } else {
@@ -36,7 +34,7 @@ where
                     }
                 }
             }
-            index += width;
+            index += stride;
         }
     }
 }
@@ -101,11 +99,12 @@ impl Drawable for Rectangle {
     fn set_color(&mut self, color: u32) {
         self.color = color;
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let buf = self.color.to_ne_bytes();
+        let stride = canvas.width as usize * 4;
 
         if self.color != 0 {
-            let mut index = ((x + (y * width as u32)) * 4) as usize;
+            let mut index = ((x + (y * canvas.width as u32)) * 4) as usize;
             for _ in 0..self.height {
                 if index >= canvas.len() {
                     break;
@@ -115,7 +114,7 @@ impl Drawable for Rectangle {
                         writer.write_all(&buf).unwrap();
                     }
                     writer.flush().unwrap();
-                    index += width as usize * 4;
+                    index += stride;
                 }
             }
         }

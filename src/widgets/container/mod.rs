@@ -31,27 +31,25 @@ impl<W: Widget> Drawable for Border<W> {
     fn set_color(&mut self, color: u32) {
         self.color = color;
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let bwidth = self.get_width();
         let bheight = self.get_height();
 
-        Rectangle::new(bwidth, self.size.0, self.color).draw(canvas, width, x, y);
+        Rectangle::new(bwidth, self.size.0, self.color).draw(canvas, x, y);
         Rectangle::new(bwidth, self.size.2, self.color).draw(
             canvas,
-            width,
             x,
             y + bheight - self.size.2,
         );
         Rectangle::new(self.size.1, bheight, self.color).draw(
             canvas,
-            width,
             x + bwidth - self.size.1,
             y,
         );
-        Rectangle::new(self.size.3, bheight, self.color).draw(canvas, width, x, y);
+        Rectangle::new(self.size.3, bheight, self.color).draw(canvas, x, y);
 
         self.widget
-            .draw(canvas, width, x + self.size.0, y + self.size.3);
+            .draw(canvas, x + self.size.0, y + self.size.3);
     }
 }
 
@@ -107,12 +105,12 @@ impl<W: Widget> Drawable for Background<W> {
     fn set_color(&mut self, color: u32) {
         self.background = color;
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         Rectangle::new(self.get_width(), self.get_height(), self.background)
-            .draw(canvas, width, x, y);
+            .draw(canvas, x, y);
 
         self.widget
-            .draw(canvas, width, x + self.padding.3, y + self.padding.0);
+            .draw(canvas, x + self.padding.3, y + self.padding.0);
     }
 }
 

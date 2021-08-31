@@ -60,10 +60,11 @@ impl Drawable for Glyph {
     fn set_color(&mut self, color: u32) {
         self.color = color;
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        let size = canvas.len();
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        let size = canvas.size();
+        let stride = canvas.width as usize * 4;
         let mut index =
-            (((x + self.position.0) + ((y + self.position.1) * width as u32)) * 4) as usize;
+            (((x + self.position.0) + ((y + self.position.1) * canvas.width as u32)) * 4) as usize;
         if index < size {
             let mut writer = &mut canvas[index..];
             for (i, t) in self.bitmap.iter().enumerate() {
@@ -85,7 +86,7 @@ impl Drawable for Glyph {
                     }
                 }
                 if (i + 1) % self.metrics.width == 0 {
-                    index += width as usize * 4;
+                    index += stride;
                     writer.flush().unwrap();
                     writer = &mut canvas[index..];
                 }
@@ -278,9 +279,9 @@ impl Drawable for Label {
     fn set_color(&mut self, color: u32) {
         self.color = color;
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         for glyph in &self.layout {
-            glyph.draw(canvas, width, x, y);
+            glyph.draw(canvas, x, y);
         }
     }
 }

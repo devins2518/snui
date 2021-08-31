@@ -1,18 +1,16 @@
 pub mod app;
 
-use crate::widgets::render;
 use crate::*;
-use smithay_client_toolkit::shm::{AutoMemPool, MemPool, DoubleMemPool, Format};
+use smithay_client_toolkit::shm::{MemPool, Format};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 
 const FORMAT:Format = Format::Argb8888;
 
-//TO-DO Use MemPool instead of AutoMemPool
 pub struct Buffer<'b> {
     width: u32,
     height: u32,
-    wl_buffer: WlBuffer,
-    canvas: &'b mut [u8],
+    wlbuffer: WlBuffer,
+    pub canvas: Canvas<'b>,
 }
 
 impl<'b> Geometry for Buffer<'b> {
@@ -31,36 +29,27 @@ impl<'b> Geometry for Buffer<'b> {
     }
 }
 
-impl<'b> Canvas for Buffer<'b> {
-    fn get_buf(&self) -> &[u8] {
-        &self.canvas
-    }
-    fn get_mut_buf(&mut self) -> &mut [u8] {
-        &mut self.canvas
-    }
-    fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
-        let width = self.get_width();
-        render(self.get_mut_buf(), surface, width as usize, x, y);
-    }
-    fn size(&self) -> usize {
-        (self.width * self.height * 4) as usize
-    }
-}
-
 impl<'b> Buffer<'b> {
-    pub fn new<'a>(width: i32, height: i32, stride: i32, mempool: &'a mut AutoMemPool) -> Buffer {
-        let buffer = mempool.buffer(width, height, stride, FORMAT).unwrap();
-        Buffer {
-            width: width as u32,
-            height: height as u32,
-            wl_buffer: buffer.1,
-            canvas: buffer.0,
+    pub fn new<'a>(width: u32, height: u32, mempool: &'a mut MemPool) -> Result<Buffer, ()> {
+        let stride = width * 4;
+        if mempool.resize((stride * height) as usize).is_ok() {
+            let buffer = mempool.buffer(0, width as i32, height as i32, stride as i32, FORMAT);
+            Ok(
+                Buffer {
+                    width: width,
+                    height: height,
+                    wlbuffer: buffer,
+                    canvas: Canvas::new(mempool.mmap(), width as u32, height as u32),
+                }
+            )
+        } else {
+            Err(())
         }
     }
     pub fn attach(&mut self, surface: &WlSurface, x: i32, y: i32) {
-        surface.attach(Some(&self.wl_buffer), x, y);
+        surface.attach(Some(&self.wlbuffer), x, y);
     }
-    pub fn get_wl_buffer(&self) -> Option<WlBuffer> {
-        Some(self.wl_buffer.clone())
+    pub fn get(&self) -> Option<WlBuffer> {
+        Some(self.wlbuffer.clone())
     }
 }

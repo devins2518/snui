@@ -30,9 +30,9 @@ impl<W: Widget> Drawable for Button<W> {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color);
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         if self.damaged() {
-            self.widget.draw(canvas, width, x, y)
+            self.widget.draw(canvas, x, y)
         }
     }
 }

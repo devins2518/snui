@@ -96,12 +96,12 @@ impl Drawable for WidgetLayout {
     fn set_color(&mut self, color: u32) {
         self.background = color;
     }
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let sw = self.get_width();
         let sh = self.get_height();
         if self.background != 0 {
             let rectangle = Rectangle::new(sw, sh, self.background);
-            rectangle.draw(canvas, width, x, y);
+            rectangle.draw(canvas, x, y);
         }
         let (mut dx, mut dy) = (0, 0);
         for w in &self.widgets {
@@ -113,7 +113,7 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dy = (sh - w.widget.get_height()) / 2,
                             Alignment::End => dy = sh - w.widget.get_height(),
                         }
-                        w.widget.draw(canvas, width, x + dx, y + dy);
+                        w.widget.draw(canvas, x + dx, y + dy);
                         dx += w.widget.get_width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -122,7 +122,7 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dx = (sw - w.widget.get_width()) / 2,
                             Alignment::End => dx = sw - w.widget.get_width(),
                         }
-                        w.widget.draw(canvas, width, x + dx, y + dy);
+                        w.widget.draw(canvas, x + dx, y + dy);
                         dy += w.widget.get_height() + self.spacing;
                     }
                 }

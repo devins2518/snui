@@ -71,25 +71,8 @@ impl Drawable for Image {
         eprintln!("Attempted to perform illegal operation on image!");
     }
 
-    fn draw(&self, canvas: &mut [u8], width: u32, x: u32, y: u32) {
-        render(canvas, self, width as usize, x, y);
-    }
-}
-
-impl Canvas for Image {
-    fn size(&self) -> usize {
-        let size = self.get_width() * self.get_height() * 4;
-        size as usize
-    }
-    fn get_buf(&self) -> &[u8] {
-        self.image.as_raw()
-    }
-    fn get_mut_buf(&mut self) -> &mut [u8] {
-        self.image.iter_mut().into_slice()
-    }
-    fn composite(&mut self, surface: &(impl Canvas + Geometry), x: u32, y: u32) {
-        let width = self.get_width();
-        render(self.get_mut_buf(), surface, width as usize, x, y);
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        render(canvas, self.image.as_raw(), x, y);
     }
 }
 
