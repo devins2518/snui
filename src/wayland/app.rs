@@ -1,6 +1,5 @@
 use crate::wayland::Buffer;
 use crate::*;
-use smithay_client_toolkit::shm::{AutoMemPool, MemPool, DoubleMemPool, Format};
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -11,18 +10,10 @@ use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::{Display, Main, EventQueue};
+use smithay_client_toolkit::shm::{MemPool, DoubleMemPool};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
-
-pub trait Shell {
-    fn hide(&mut self);
-    fn show(&mut self);
-    fn destroy(&self);
-    fn render(&mut self, mempool: &mut AutoMemPool);
-    fn is_hidden(&self) -> bool;
-    fn get_surface(&self) -> &WlSurface;
-}
 
 pub struct Application<W: Widget> {
     shm: WlShm,
@@ -91,7 +82,7 @@ impl<W: Widget> Application<W> {
     pub fn get_surface(&self) -> &WlSurface {
         &self.surface
     }
-    pub fn show(&mut self) {
+    pub fn show(&mut self, event_queue: &mut EventQueue) {
         self.hidden = false;
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         self.surface.damage(
@@ -101,6 +92,9 @@ impl<W: Widget> Application<W> {
             self.widget.get_height() as i32,
         );
         self.surface.commit();
+        event_queue
+            .sync_roundtrip(&mut (), |_, _, _| unreachable!())
+            .unwrap();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
         if let Ok(mut buf) = Buffer::new(

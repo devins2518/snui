@@ -49,6 +49,13 @@ impl Image {
     pub fn size(&self) -> usize {
         (self.image.width() * self.image.height() * 4) as usize
     }
+
+    pub fn resize(&mut self, width: u32, height: u32) -> Self {
+        Self {
+            damaged: true,
+            image: imageops::resize(&self.image, width, height, FilterType::Triangle)
+        }
+    }
 }
 
 impl Geometry for Image {
@@ -58,10 +65,7 @@ impl Geometry for Image {
     fn get_height(&self) -> u32 {
         self.image.height()
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        if width != self.image.width() || height != self.image.height() {
-            self.image = imageops::resize(&self.image, width, height, FilterType::Triangle);
-        }
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -72,7 +76,7 @@ impl Drawable for Image {
     }
 
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        render(canvas, self.image.as_raw(), x, y);
+        render(canvas, self.image.as_raw(), self.image.width(), x, y);
     }
 }
 

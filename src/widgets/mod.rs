@@ -8,11 +8,11 @@ pub use button::Button;
 pub use container::{layout::WidgetLayout, Background, Border, Wbox};
 use std::io::Write;
 
-pub fn render(canvas: &mut Canvas, buffer: &[u8], x: u32, y: u32)
+pub fn render(canvas: &mut Canvas, buffer: &[u8], width: u32, x: u32, y: u32)
 {
     let stride = canvas.width as usize * 4;
     let mut index = ((x + (y * canvas.width as u32)) * 4) as usize;
-    for buf in buffer.chunks(stride) {
+    for buf in buffer.chunks(width as usize * 4) {
         if index >= canvas.len() {
             break;
         } else {

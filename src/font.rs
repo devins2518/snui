@@ -1,26 +1,22 @@
 use crate::widgets::blend;
 use crate::*;
-use fontconfig::Fontconfig;
 use fontdue::{
     layout,
     layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle},
     Font,
 };
+use std::path::Path;
 use std::fs::read;
 use std::io::Write;
+use std::sync::{Arc, Mutex};
 // use std::path::PathBuf;
 
 pub struct Label {
     color: u32,
-    width: u32,
     damaged: bool,
-    // height: u32,
-    name: Option<String>,
-    layout: Vec<Glyph>,
-    // font_path: PathBuf,
+    size: (u32, u32),
     font: fontdue::Font,
-    font_size: f32,
-    fontdue_layout: Layout,
+    layout: Arc<Mutex<Layout>>,
 }
 
 #[derive(Debug, Clone)]
@@ -28,7 +24,7 @@ pub struct Glyph {
     color: u32,
     position: (u32, u32),
     config: GlyphRasterConfig,
-    bitmap: Vec<u8>,
+    coverage: Vec<u8>,
     metrics: fontdue::Metrics,
 }
 
@@ -45,12 +41,12 @@ static DEFAULT: LayoutSettings = LayoutSettings {
 
 impl Glyph {
     fn new<'f>(font: &'f Font, config: GlyphRasterConfig, color: u32, x: u32, y: u32) -> Glyph {
-        let (metrics, bitmap) = font.rasterize_config(config);
+        let (metrics, coverage) = font.rasterize_config(config);
         Glyph {
             position: (x, y),
             color,
             config,
-            bitmap,
+            coverage,
             metrics,
         }
     }
@@ -67,7 +63,7 @@ impl Drawable for Glyph {
             (((x + self.position.0) + ((y + self.position.1) * canvas.width as u32)) * 4) as usize;
         if index < size {
             let mut writer = &mut canvas[index..];
-            for (i, t) in self.bitmap.iter().enumerate() {
+            for (i, t) in self.coverage.iter().enumerate() {
                 let pixel = self.color.to_ne_bytes();
                 match t {
                     &0 => {
@@ -95,183 +91,64 @@ impl Drawable for Glyph {
     }
 }
 
-impl Geometry for Glyph {
-    fn get_width(&self) -> u32 {
-        self.metrics.width as u32
-    }
-    fn get_height(&self) -> u32 {
-        self.metrics.height as u32
-    }
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Err(Error::Dimension(
-            "\"label\" cannot be resized",
-            self.get_width(),
-            self.get_height(),
-        ))
-    }
-}
-
 impl Label {
-    pub fn set_name(&mut self, name: Option<String>) {
-        self.name = name;
-    }
-    pub fn new<'f>(text: &'f str, font: &'f str, font_size: f32, color: u32) -> Label {
-        let fc = Fontconfig::new().unwrap();
-        let font_path = fc.find(font, None).unwrap().path;
-        let font = read(&font_path).unwrap();
+    pub fn new(text: &str, path: &Path, font_size: f32) -> Label {
+        let font = read(path).unwrap();
         // Parse it into the font type.
         let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
-        let mut fontdue_layout = Layout::new(CoordinateSystem::PositiveYDown);
-        fontdue_layout.append(&[&font], &TextStyle::new(text, font_size, 0));
-
-        let mut width = 0;
-        // let height = (font_size * fontdue_layout.lines() as f32) as u32;
-
-        // Getting Glyphs from the Layout
-        let layout: Vec<Glyph> = fontdue_layout
-            .glyphs()
-            .iter()
-            .map(|glyph_position| {
-                let delta = glyph_position.x as usize + glyph_position.width;
-                if delta > width {
-                    width = delta;
-                }
-                Glyph::new(
-                    &font,
-                    glyph_position.key,
-                    color,
-                    glyph_position.x as u32,
-                    glyph_position.y as u32,
-                )
-            })
-            .collect();
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.append(&[&font], &TextStyle::new(text, font_size, 0));
         Label {
-            name: None,
-            width: width as u32,
-            damaged: true,
-            // height,
-            fontdue_layout,
-            // font_path: font_path,
-            layout,
             font,
-            font_size,
-            color: color,
+            color: 0,
+            damaged: true,
+            size: (0, 0),
+            layout: Arc::new(Mutex::new(layout)),
         }
     }
-    pub fn new_with_size<'f>(
+    pub fn max_width<'f>(
         text: &'f str,
-        font: &'f str,
+        path: &Path,
         font_size: f32,
-        color: u32,
         width: f32,
     ) -> Label {
-        let fc = Fontconfig::new().unwrap();
-        let font_path = fc.find(font, None).unwrap().path;
-        let font = read(&font_path).unwrap();
+        let font = read(path).unwrap();
         // Parse it into the font type.
         let mut layout_setting = DEFAULT;
         layout_setting.max_width = Some(width);
         let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
-        let mut fontdue_layout = Layout::new(CoordinateSystem::PositiveYDown);
-        fontdue_layout.reset(&layout_setting);
-        fontdue_layout.append(&[&font], &TextStyle::new(text, font_size, 0));
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.reset(&layout_setting);
+        layout.append(&[&font], &TextStyle::new(text, font_size, 0));
 
-        let mut width = 0;
-        // let height = (font_size * fontdue_layout.lines() as f32) as u32;
-
-        // Getting Glyphs from the Layout
-        let layout: Vec<Glyph> = fontdue_layout
-            .glyphs()
-            .iter()
-            .map(|glyph_position| {
-                let delta = glyph_position.x as usize + glyph_position.width;
-                if delta > width {
-                    width = delta;
-                }
-                Glyph::new(
-                    &font,
-                    glyph_position.key,
-                    color,
-                    glyph_position.x as u32,
-                    glyph_position.y as u32,
-                )
-            })
-            .collect();
         Label {
-            name: None,
-            width: width as u32,
-            // height,
-            fontdue_layout,
-            damaged: true,
-            // font_path: font_path,
-            layout,
             font,
-            font_size,
-            color: color,
+            color: 0,
+            damaged: true,
+            size: (0, 0),
+            layout: Arc::new(Mutex::new(layout)),
         }
     }
     pub fn edit<'f>(&mut self, text: &'f str) {
-        let mut width = 0;
         let font = &self.font;
-        let color = self.color;
-        self.fontdue_layout.reset(&DEFAULT);
-        self.fontdue_layout
-            .append(&[&self.font], &TextStyle::new(text, self.font_size, 0));
-        self.layout = self
-            .fontdue_layout
-            .glyphs()
-            .iter()
-            .map(|glyph_position| {
-                let delta = glyph_position.x as usize + glyph_position.width;
-                if delta > width {
-                    width = delta;
-                }
-                Glyph::new(
-                    font,
-                    glyph_position.key,
-                    color,
-                    glyph_position.x as u32,
-                    glyph_position.y as u32,
-                )
-            })
-            .collect();
-        self.width = width as u32;
-    }
-    pub fn write<'f>(&mut self, text: &'f str) {
-        let font = &self.font;
-        let color = self.color;
-        self.fontdue_layout
-            .append(&[&self.font], &TextStyle::new(text, self.font_size, 0));
-        self.layout = self
-            .fontdue_layout
-            .glyphs()
-            .iter()
-            .map(|glyph_position| {
-                Glyph::new(
-                    font,
-                    glyph_position.key,
-                    color,
-                    glyph_position.x as u32,
-                    glyph_position.y as u32,
-                )
-            })
-            .collect();
+        if let Ok(mut layout) = self.layout.lock() {
+            let font_size = layout.height();
+            layout.reset(&DEFAULT);
+            layout.append(&[font], &TextStyle::new(text, font_size, 0));
+        }
     }
 }
 
 impl Geometry for Label {
     fn get_width(&self) -> u32 {
-        self.width
+        self.size.0
     }
     fn get_height(&self) -> u32 {
-        (self.font_size * self.fontdue_layout.lines() as f32).ceil() as u32
+        self.size.1
     }
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Err(Error::Dimension(
-            "\"label\" cannot be resized",
-            self.get_width(),
-            self.get_height(),
-        ))
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
+        self.size = (width, height);
+        Ok(())
     }
 }
 
@@ -280,8 +157,10 @@ impl Drawable for Label {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        for glyph in &self.layout {
-            glyph.draw(canvas, x, y);
+        if let Ok(mut layout) = self.layout.lock() {
+            for glyph in layout.glyphs() {
+                Glyph::new(&self.font, glyph.key, self.color, glyph.x as u32, glyph.y as u32).draw(canvas, x, y);
+            }
         }
     }
 }
