@@ -92,7 +92,7 @@ impl Drawable for Glyph {
 }
 
 impl Label {
-    pub fn new(text: &str, path: &Path, font_size: f32) -> Label {
+    pub fn new(text: &str, path: &Path, font_size: f32, color: u32) -> Label {
         let font = read(path).unwrap();
         // Parse it into the font type.
         let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
@@ -100,14 +100,14 @@ impl Label {
         layout.append(&[&font], &TextStyle::new(text, font_size, 0));
         Label {
             font,
-            color: 0,
+            color,
             damaged: true,
             font_size: font_size as u32,
             size: (0, layout.height() as u32),
             layout: Arc::new(Mutex::new(layout)),
         }
     }
-    pub fn max_width<'f>(text: &'f str, path: &Path, font_size: f32, width: f32) -> Label {
+    pub fn max_width<'f>(text: &'f str, path: &Path, font_size: f32, width: f32, color: u32) -> Label {
         let font = read(path).unwrap();
         // Parse it into the font type.
         let mut layout_setting = DEFAULT;
@@ -119,7 +119,7 @@ impl Label {
 
         Label {
             font,
-            color: 0,
+            color,
             damaged: true,
             font_size: font_size as u32,
             size: (width as u32, layout.height() as u32),

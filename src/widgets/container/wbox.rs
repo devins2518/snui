@@ -229,9 +229,6 @@ impl Container for Wbox {
     fn add(&mut self, _widget: impl Widget + 'static) -> Result<(), Error> {
         Err(Error::Message("add is not valid on \"wbox\""))
     }
-    fn get_child(&self) -> Result<&dyn Widget, Error> {
-        Err(Error::Message("get_child is not valid on \"wbox\""))
-    }
 }
 
 impl Wbox {
