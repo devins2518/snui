@@ -87,9 +87,6 @@ impl Geometry for WidgetLayout {
         }
         height
     }
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Ok(())
-    }
 }
 
 impl Drawable for WidgetLayout {
@@ -138,9 +135,6 @@ impl Container for WidgetLayout {
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         self.widgets.push(Element::new(widget));
         Ok(())
-    }
-    fn get_child(&self) -> Result<&dyn Widget, Error> {
-        Err(Error::Message("get_child is not valid on \"wbox\""))
     }
 }
 

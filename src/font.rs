@@ -5,16 +5,18 @@ use fontdue::{
     layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle},
     Font,
 };
-use std::path::Path;
 use std::fs::read;
 use std::io::Write;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 // use std::path::PathBuf;
 
+#[derive(Clone)]
 pub struct Label {
     color: u32,
     damaged: bool,
-    size: (u32, u32),
+    font_size: u32,
+    pub size: (u32, u32),
     font: fontdue::Font,
     layout: Arc<Mutex<Layout>>,
 }
@@ -57,34 +59,32 @@ impl Drawable for Glyph {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        let size = canvas.size();
         let stride = canvas.width as usize * 4;
         let mut index =
             (((x + self.position.0) + ((y + self.position.1) * canvas.width as u32)) * 4) as usize;
-        if index < size {
-            let mut writer = &mut canvas[index..];
-            for (i, t) in self.coverage.iter().enumerate() {
-                let pixel = self.color.to_ne_bytes();
-                match t {
-                    &0 => {
-                        let p = [writer[0], writer[1], writer[2], writer[3]];
-                        writer.write(&p).unwrap();
-                    }
-                    &255 => {
-                        writer.write(&pixel).unwrap();
-                    }
-                    _ => {
-                        if i < writer.len() {
+        if self.metrics.width > 0 {
+            for row in self.coverage.chunks(self.metrics.width) {
+                if index < canvas.size() {
+                let mut writer = &mut canvas[index..];
+                for t in row.iter() {
+                    let pixel = self.color.to_ne_bytes();
+                    match t {
+                        &0 => {
+                            let p = [writer[0], writer[1], writer[2], writer[3]];
+                            writer.write(&p).unwrap();
+                        }
+                        &255 => {
+                            writer.write(&pixel).unwrap();
+                        }
+                        _ => {
                             let mut p = [writer[0], writer[1], writer[2], writer[3]];
                             p = blend(&pixel, &p, (255 - *t) as f32 / 255.0);
                             writer.write(&p).unwrap();
                         }
                     }
                 }
-                if (i + 1) % self.metrics.width == 0 {
-                    index += stride;
-                    writer.flush().unwrap();
-                    writer = &mut canvas[index..];
+                index += stride;
+                writer.flush().unwrap();
                 }
             }
         }
@@ -102,16 +102,12 @@ impl Label {
             font,
             color: 0,
             damaged: true,
-            size: (0, 0),
+            font_size: font_size as u32,
+            size: (0, layout.height() as u32),
             layout: Arc::new(Mutex::new(layout)),
         }
     }
-    pub fn max_width<'f>(
-        text: &'f str,
-        path: &Path,
-        font_size: f32,
-        width: f32,
-    ) -> Label {
+    pub fn max_width<'f>(text: &'f str, path: &Path, font_size: f32, width: f32) -> Label {
         let font = read(path).unwrap();
         // Parse it into the font type.
         let mut layout_setting = DEFAULT;
@@ -125,16 +121,17 @@ impl Label {
             font,
             color: 0,
             damaged: true,
-            size: (0, 0),
+            font_size: font_size as u32,
+            size: (width as u32, layout.height() as u32),
             layout: Arc::new(Mutex::new(layout)),
         }
     }
     pub fn edit<'f>(&mut self, text: &'f str) {
         let font = &self.font;
         if let Ok(mut layout) = self.layout.lock() {
-            let font_size = layout.height();
             layout.reset(&DEFAULT);
-            layout.append(&[font], &TextStyle::new(text, font_size, 0));
+            layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
+            self.size.1 = layout.height() as u32;
         }
     }
 }
@@ -146,10 +143,6 @@ impl Geometry for Label {
     fn get_height(&self) -> u32 {
         self.size.1
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.size = (width, height);
-        Ok(())
-    }
 }
 
 impl Drawable for Label {
@@ -159,7 +152,14 @@ impl Drawable for Label {
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         if let Ok(mut layout) = self.layout.lock() {
             for glyph in layout.glyphs() {
-                Glyph::new(&self.font, glyph.key, self.color, glyph.x as u32, glyph.y as u32).draw(canvas, x, y);
+                Glyph::new(
+                    &self.font,
+                    glyph.key,
+                    self.color,
+                    glyph.x as u32,
+                    glyph.y as u32,
+                )
+                .draw(canvas, x, y);
             }
         }
     }

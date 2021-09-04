@@ -1,10 +1,10 @@
 pub mod app;
 
-use crate::*;
-use smithay_client_toolkit::shm::{MemPool, Format};
+use crate::{Canvas, Geometry};
+use smithay_client_toolkit::shm::{Format, MemPool};
 use wayland_client::protocol::{wl_buffer::WlBuffer, wl_surface::WlSurface};
 
-const FORMAT:Format = Format::Argb8888;
+const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     width: u32,
@@ -20,13 +20,6 @@ impl<'b> Geometry for Buffer<'b> {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Err(Error::Dimension(
-            "\"buffer\" cannot be resized",
-            self.get_width(),
-            self.get_height(),
-        ))
-    }
 }
 
 impl<'b> Buffer<'b> {
@@ -34,14 +27,12 @@ impl<'b> Buffer<'b> {
         let stride = width * 4;
         if mempool.resize((stride * height) as usize).is_ok() {
             let buffer = mempool.buffer(0, width as i32, height as i32, stride as i32, FORMAT);
-            Ok(
-                Buffer {
-                    width: width,
-                    height: height,
-                    wlbuffer: buffer,
-                    canvas: Canvas::new(mempool.mmap(), width as u32, height as u32),
-                }
-            )
+            Ok(Buffer {
+                width: width,
+                height: height,
+                wlbuffer: buffer,
+                canvas: Canvas::new(mempool.mmap(), width as u32, height as u32),
+            })
         } else {
             Err(())
         }

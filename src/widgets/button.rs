@@ -21,9 +21,6 @@ impl<W: Widget> Geometry for Button<W> {
     fn get_height(&self) -> u32 {
         self.widget.get_height()
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.widget.resize(width, height)
-    }
 }
 
 impl<W: Widget> Drawable for Button<W> {

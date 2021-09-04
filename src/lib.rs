@@ -53,9 +53,6 @@ pub enum Pointer {
     Leave,
 }
 
-/*
- * Canvas is a trait for types that hold a pixmap.
- */
 #[derive(Debug)]
 pub struct Canvas<'c> {
     slice: &'c mut [u8],
@@ -89,24 +86,17 @@ impl<'c> DerefMut for Canvas<'c> {
     }
 }
 
-/*
- * A Container is well.. a widget container.
- * How widgets are contained within the boundaries of it is up to the impelmentation.
- * NOTE: For consistency it's highly recommended to hold widgets within the geometry of a container
- */
 pub trait Container {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn get_child(&self) -> Result<&dyn Widget, Error>;
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
 }
 
 pub trait Geometry {
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error>;
 }
 
 /*
@@ -125,10 +115,6 @@ pub trait Widget: Drawable + Geometry + Send + Sync {
         widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage>;
-}
-
-pub trait Transform {
-    fn scale(&mut self, f: f32);
 }
 
 impl Error {

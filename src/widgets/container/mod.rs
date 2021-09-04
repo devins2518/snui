@@ -22,9 +22,6 @@ impl<W: Widget> Geometry for Border<W> {
     fn get_height(&self) -> u32 {
         self.widget.get_height() + self.size.1 + self.size.3
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.widget.resize(width, height)
-    }
 }
 
 impl<W: Widget> Drawable for Border<W> {
@@ -36,20 +33,11 @@ impl<W: Widget> Drawable for Border<W> {
         let bheight = self.get_height();
 
         Rectangle::new(bwidth, self.size.0, self.color).draw(canvas, x, y);
-        Rectangle::new(bwidth, self.size.2, self.color).draw(
-            canvas,
-            x,
-            y + bheight - self.size.2,
-        );
-        Rectangle::new(self.size.1, bheight, self.color).draw(
-            canvas,
-            x + bwidth - self.size.1,
-            y,
-        );
+        Rectangle::new(bwidth, self.size.2, self.color).draw(canvas, x, y + bheight - self.size.2);
+        Rectangle::new(self.size.1, bheight, self.color).draw(canvas, x + bwidth - self.size.1, y);
         Rectangle::new(self.size.3, bheight, self.color).draw(canvas, x, y);
 
-        self.widget
-            .draw(canvas, x + self.size.0, y + self.size.3);
+        self.widget.draw(canvas, x + self.size.0, y + self.size.3);
     }
 }
 
@@ -96,9 +84,6 @@ impl<W: Widget> Geometry for Background<W> {
     fn get_height(&self) -> u32 {
         self.widget.get_height() + self.padding.0 + self.padding.2
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.widget.resize(width, height)
-    }
 }
 
 impl<W: Widget> Drawable for Background<W> {
@@ -106,8 +91,7 @@ impl<W: Widget> Drawable for Background<W> {
         self.background = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        Rectangle::new(self.get_width(), self.get_height(), self.background)
-            .draw(canvas, x, y);
+        Rectangle::new(self.get_width(), self.get_height(), self.background).draw(canvas, x, y);
 
         self.widget
             .draw(canvas, x + self.padding.3, y + self.padding.0);

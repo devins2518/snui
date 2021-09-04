@@ -37,9 +37,6 @@ impl Geometry for Inner {
     fn get_height(&self) -> u32 {
         self.widget.as_ref().get_height()
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.widget.resize(width, height)
-    }
 }
 
 impl Container for Inner {
@@ -48,9 +45,6 @@ impl Container for Inner {
     }
     fn add(&mut self, _widget: impl Drawable + 'static) -> Result<(), Error> {
         Err(Error::Overflow("inner", 1))
-    }
-    fn get_child(&self) -> Result<&dyn Widget, Error> {
-        Ok(self.widget.as_ref())
     }
 }
 
@@ -112,6 +106,9 @@ impl Inner {
     }
     pub fn coords(&self) -> (u32, u32) {
         (self.x, self.y)
+    }
+    pub fn get_child(&self) -> &dyn Widget {
+        self.widget.as_ref()
     }
     pub fn get_location(&self, width: u32, height: u32) -> Result<(u32, u32), Error> {
         let widget_width = self.get_width();
@@ -199,11 +196,6 @@ impl Geometry for Wbox {
     fn get_height(&self) -> u32 {
         self.height
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        self.width = width;
-        self.height = height;
-        Ok(())
-    }
 }
 
 impl Drawable for Wbox {
@@ -275,6 +267,10 @@ impl Wbox {
         for w in &mut self.widgets {
             w.map();
         }
+    }
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
     }
 }
 

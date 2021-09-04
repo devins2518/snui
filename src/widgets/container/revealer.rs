@@ -40,13 +40,6 @@ impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
             self.normal.get_height()
         }
     }
-    fn resize(&mut self, width: u32, height: u32) -> Result<(), Error> {
-        if self.state {
-            self.reveal.resize(width, height)
-        } else {
-            self.normal.resize(width, height)
-        }
-    }
 }
 
 impl<N: Widget, R: Widget> Revealer<N, R> {

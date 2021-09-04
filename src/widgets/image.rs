@@ -50,10 +50,10 @@ impl Image {
         (self.image.width() * self.image.height() * 4) as usize
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) -> Self {
+    pub fn resize(&self, width: u32, height: u32) -> Self {
         Self {
             damaged: true,
-            image: imageops::resize(&self.image, width, height, FilterType::Triangle)
+            image: imageops::resize(&self.image, width, height, FilterType::Triangle),
         }
     }
 }
@@ -64,9 +64,6 @@ impl Geometry for Image {
     }
     fn get_height(&self) -> u32 {
         self.image.height()
-    }
-    fn resize(&mut self, _width: u32, _height: u32) -> Result<(), Error> {
-        Ok(())
     }
 }
 
