@@ -93,8 +93,8 @@ impl<W: Widget> Application<W> {
                     damage.widget.get_height() as i32,
                 );
                 self.surface.commit();
+        		return true
     		}
-    		return true
         }
         false
     }

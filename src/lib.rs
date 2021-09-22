@@ -19,8 +19,8 @@ pub struct Key {
 }
 
 #[derive(Debug)]
-pub enum Dispatch<'a> {
-    Data(&'static str, &'a (dyn std::any::Any + Send + Sync)),
+pub enum Dispatch {
+    Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
     Pointer(u32, u32, Pointer),
     Keyboard(Key),
     Commit,
