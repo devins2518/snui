@@ -158,59 +158,61 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
     let mut sender = None;
     let mut kb_key = None;
     keyboard.quick_assign(move |_, event, mut senders| {
-        if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
-            match event {
-                wl_keyboard::Event::Keymap {
-                    format: _,
-                    fd: _,
-                    size: _,
-                } => {}
-                wl_keyboard::Event::Enter {
-                    serial: _,
-                    surface,
-                    keys: _,
-                } => {
+        match event {
+            wl_keyboard::Event::Keymap {
+                format: _,
+                fd: _,
+                size: _,
+            } => {}
+            wl_keyboard::Event::Enter {
+                serial: _,
+                surface,
+                keys: _,
+            } => {
+                if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
                     for app in senders {
                         if surface.eq(&app.0) {
                             sender = Some(app.1.clone());
                             break;
                         }
                     }
+                } else if let Some(focused) = senders.get::<Sender<Dispatch>>() {
+                    sender = Some(focused.clone());
                 }
-                wl_keyboard::Event::Leave {
-                    serial: _,
-                    surface: _,
-                } => {
-                    sender = None;
-                }
-                wl_keyboard::Event::Key {
-                    serial: _,
-                    time: _,
-                    key,
-                    state,
-                } => {
-                    kb_key = Some(Key {
-                        key,
-                        pressed: state == KeyState::Pressed,
-                        modifier: None,
-                    });
-                }
-                wl_keyboard::Event::Modifiers {
-                    serial: _,
-                    mods_depressed: _,
-                    mods_latched: _,
-                    mods_locked: _,
-                    group: _,
-                } => {}
-                wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {}
-                _ => {}
             }
-            // Dispatching the event to widgets
-            if let Some(ev) = kb_key {
-                if let Some(sender) = &sender {
-                    if sender.send(Dispatch::Keyboard(ev)).is_ok() {
-                        kb_key = None;
-                    }
+            wl_keyboard::Event::Leave {
+                serial: _,
+                surface: _,
+            } => {
+                sender = None;
+            }
+            wl_keyboard::Event::Key {
+                serial: _,
+                time: _,
+                key,
+                state,
+            } => {
+                kb_key = Some(Key {
+                    key,
+                    pressed: state == KeyState::Pressed,
+                    modifier: None,
+                });
+            }
+            wl_keyboard::Event::Modifiers {
+                serial: _,
+                mods_depressed: _,
+                mods_latched: _,
+                mods_locked: _,
+                group: _,
+            } => {}
+            wl_keyboard::Event::RepeatInfo { rate: _, delay: _ } => {}
+            _ => {}
+        }
+        // Dispatching the event to widgets
+        if let Some(ev) = kb_key {
+            if let Some(sender) = &sender {
+                if sender.send(Dispatch::Keyboard(ev)).is_ok() {
+                    kb_key = None;
                 }
             }
         }

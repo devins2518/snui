@@ -1,4 +1,3 @@
-use crate::widgets::Rectangle;
 use crate::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -18,14 +17,12 @@ pub struct Wbox {
     width: u32,
     height: u32,
     pub widgets: Vec<Inner>,
-    background: u32,
 }
 
 pub struct Inner {
     x: u32,
     y: u32,
     mapped: bool,
-    // entered: bool,
     anchor: Anchor,
     widget: Box<dyn Widget>,
 }
@@ -199,16 +196,10 @@ impl Geometry for Wbox {
 }
 
 impl Drawable for Wbox {
-    fn set_color(&mut self, color: u32) {
-        self.background = color;
-    }
+    fn set_color(&mut self, _color: u32) { }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let sw = self.get_width();
         let sh = self.get_height();
-        if self.background != 0 {
-            let rectangle = Rectangle::new(sw, sh, self.background);
-            rectangle.draw(canvas, x, y);
-        }
         for w in &self.widgets {
             match w.get_location(sw, sh) {
                 Ok((dx, dy)) => {
@@ -236,7 +227,6 @@ impl Wbox {
         Wbox {
             width,
             height,
-            background: 0,
             widgets: Vec::new(),
         }
     }
@@ -273,7 +263,10 @@ impl Wbox {
 
 impl Widget for Wbox {
     fn damaged(&self) -> bool {
-        self.background != 0
+        for w in &self.widgets {
+            if w.mapped { return true }
+        }
+        false
     }
     fn roundtrip<'d>(
         &'d mut self,

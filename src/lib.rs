@@ -13,21 +13,21 @@ pub enum Error {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Key {
-    key: u32,
+    pub key: u32,
     modifier: Option<u32>,
     pressed: bool,
 }
 
 #[derive(Debug)]
-pub enum Dispatch {
-    Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
+pub enum Dispatch<'a> {
+    Data(&'static str, &'a (dyn std::any::Any + Send + Sync)),
     Pointer(u32, u32, Pointer),
     Keyboard(Key),
     Commit,
 }
 
 pub struct Damage<'d> {
-    pub widget: Box<&'d dyn Widget>,
+    pub widget: &'d dyn Widget,
     pub x: u32,
     pub y: u32,
 }
@@ -35,7 +35,7 @@ pub struct Damage<'d> {
 impl<'d> Damage<'d> {
     pub fn new<W: Widget>(widget: &'d W, x: u32, y: u32) -> Damage {
         Damage {
-            widget: Box::new(widget),
+            widget: widget,
             x,
             y,
         }

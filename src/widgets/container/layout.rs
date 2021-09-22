@@ -1,4 +1,3 @@
-use crate::widgets::Rectangle;
 use crate::*;
 
 #[derive(Copy, Clone, Debug)]
@@ -31,7 +30,6 @@ impl Element {
 pub struct WidgetLayout {
     spacing: u32,
     pub widgets: Vec<Element>,
-    background: u32,
     orientation: Orientation,
     alignment: Alignment,
 }
@@ -90,16 +88,10 @@ impl Geometry for WidgetLayout {
 }
 
 impl Drawable for WidgetLayout {
-    fn set_color(&mut self, color: u32) {
-        self.background = color;
-    }
+    fn set_color(&mut self, _color: u32) { }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let sw = self.get_width();
         let sh = self.get_height();
-        if self.background != 0 {
-            let rectangle = Rectangle::new(sw, sh, self.background);
-            rectangle.draw(canvas, x, y);
-        }
         let (mut dx, mut dy) = (0, 0);
         for w in &self.widgets {
             if w.mapped {
@@ -143,7 +135,6 @@ impl WidgetLayout {
         WidgetLayout {
             spacing: 0,
             orientation,
-            background: 0,
             widgets: Vec::new(),
             alignment: Alignment::Start,
         }
@@ -151,7 +142,6 @@ impl WidgetLayout {
     pub fn horizontal(spacing: u32) -> Self {
         WidgetLayout {
             spacing,
-            background: 0,
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,
@@ -160,7 +150,6 @@ impl WidgetLayout {
     pub fn vertical(spacing: u32) -> Self {
         WidgetLayout {
             spacing,
-            background: 0,
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Vertical,
@@ -169,16 +158,6 @@ impl WidgetLayout {
     pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
         WidgetLayout {
             spacing,
-            orientation,
-            background: 0,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
-        }
-    }
-    pub fn from(orientation: Orientation, background: u32) -> Self {
-        WidgetLayout {
-            spacing: 0,
-            background,
             orientation,
             widgets: Vec::new(),
             alignment: Alignment::Start,
@@ -212,7 +191,10 @@ impl WidgetLayout {
 
 impl Widget for WidgetLayout {
     fn damaged(&self) -> bool {
-        self.background != 0
+        for w in &self.widgets {
+            if w.mapped { return true }
+        }
+        false
     }
     fn roundtrip<'d>(
         &'d mut self,

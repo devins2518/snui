@@ -103,7 +103,15 @@ impl Label {
             color,
             damaged: true,
             font_size: font_size as u32,
-            size: (0, layout.height() as u32),
+            size: ({
+                let mut w = 0;
+                for gp in layout.glyphs().iter() {
+                    if w < gp.width + gp.x as usize {
+                        w = gp.width + gp.x as usize
+                    }
+                }
+                w as u32
+            }, layout.height() as u32),
             layout: Arc::new(Mutex::new(layout)),
         }
     }
@@ -131,6 +139,12 @@ impl Label {
         if let Ok(mut layout) = self.layout.lock() {
             layout.reset(&DEFAULT);
             layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
+            self.size.0 = 0;
+            for gp in layout.glyphs().iter() {
+                if self.size.0 < gp.width as u32 + gp.x as u32 {
+                    self.size.0 = gp.width as u32 + gp.x as u32
+                }
+            }
             self.size.1 = layout.height() as u32;
         }
     }
