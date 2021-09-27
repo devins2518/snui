@@ -36,15 +36,6 @@ impl Geometry for Inner {
     }
 }
 
-impl Container for Inner {
-    fn len(&self) -> usize {
-        1
-    }
-    fn add(&mut self, _widget: impl Drawable + 'static) -> Result<(), Error> {
-        Err(Error::Overflow("inner", 1))
-    }
-}
-
 impl Drawable for Inner {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color)

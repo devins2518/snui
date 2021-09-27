@@ -1,8 +1,9 @@
-use crate::wayland::Buffer;
 use crate::*;
-use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
+use std::time;
+use crate::wayland::Buffer;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
+use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_keyboard::KeyState;
@@ -53,16 +54,6 @@ impl<W: Widget> Application<W> {
         let mut event_queue = display.create_event_queue();
         let attached = self.shm.as_ref().attach(event_queue.token());
         let mut mempool = DoubleMemPool::new(attached, |_| {}).unwrap();
-        if let Some(mut pool) = mempool.pool() {
-            self.render(&mut pool);
-            self.surface.damage(
-                0,
-                0,
-                self.widget.get_width() as i32,
-                self.widget.get_height() as i32,
-            );
-            self.widget.roundtrip(0, 0, &Dispatch::Commit);
-        }
 
         loop {
             if let Ok(dispatch) = self.receiver.recv() {
@@ -98,7 +89,12 @@ impl<W: Widget> Application<W> {
         }
         false
     }
-    pub fn show(&mut self) {
+    pub fn init(&mut self, mempool: &mut MemPool) {
+        self.render(mempool);
+        self.show();
+        self.widget.roundtrip(0, 0, &Dispatch::Commit);
+    }
+    pub fn show(&self) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         self.surface.damage(
             0,
@@ -112,7 +108,6 @@ impl<W: Widget> Application<W> {
         if let Ok(mut buf) = Buffer::new(self.widget.get_width(), self.widget.get_height(), mempool)
         {
             self.widget.draw(&mut buf.canvas, 0, 0);
-            buf.attach(&self.surface, 0, 0);
             self.buffer = buf.get();
         }
     }
@@ -134,9 +129,18 @@ impl<W: Widget> Application<W> {
     }
 }
 
+fn get_sender(surface: &WlSurface, slice: &[(WlSurface, Sender<Dispatch>)]) -> Option<Sender<Dispatch>> {
+    for app in slice {
+        if surface.eq(&app.0) {
+            return Some(app.1.clone());
+        }
+    }
+    None
+}
+
 pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
     let surface_handle = surface.clone();
-    layer_surface.quick_assign(move |layer_surface, event, _| match event {
+    layer_surface.quick_assign(move |layer_surface, event, mut senders| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
             width,
@@ -144,7 +148,17 @@ pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerS
         } => {
             layer_surface.ack_configure(serial);
             layer_surface.set_size(width, height);
-            surface_handle.commit();
+            if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
+                for sender in senders {
+                    if !sender.1.send(Dispatch::Commit).is_ok() {
+                        surface_handle.commit();
+                    }
+                }
+            } else if let Some(sender) = senders.get::<Sender<Dispatch>>() {
+                if !sender.send(Dispatch::Commit).is_ok() {
+                    surface_handle.commit();
+                }
+            }
         }
         zwlr_layer_surface_v1::Event::Closed => {
             surface_handle.destroy();
@@ -170,12 +184,7 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                 keys: _,
             } => {
                 if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
-                    for app in senders {
-                        if surface.eq(&app.0) {
-                            sender = Some(app.1.clone());
-                            break;
-                        }
-                    }
+                    sender = get_sender(&surface, &senders);
                 } else if let Some(focused) = senders.get::<Sender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }
@@ -193,7 +202,7 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                 state,
             } => {
                 kb_key = Some(Key {
-                    key,
+                    value: key,
                     pressed: state == KeyState::Pressed,
                     modifier: None,
                 });
@@ -220,8 +229,8 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
 }
 
 pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
-    let mut input = None;
     let mut sender = None;
+    let mut input = Pointer::Enter;
     let (mut x, mut y) = (0, 0);
     pointer.quick_assign(move |_, event, mut senders| {
         match event {
@@ -232,18 +241,13 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                 surface_y,
             } => {
                 if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
-                    for app in senders {
-                        if surface.eq(&app.0) {
-                            sender = Some(app.1.clone());
-                            break;
-                        }
-                    }
+                    sender = get_sender(&surface, &senders);
                 } else if let Some(focused) = senders.get::<Sender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }
                 x = surface_x as u32;
                 y = surface_y as u32;
-                input = Some(Pointer::Enter);
+                input = Pointer::Enter;
             }
             wl_pointer::Event::Leave {
                 serial: _,
@@ -252,12 +256,13 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                 sender = None;
             }
             wl_pointer::Event::Motion {
-                time: _,
+                time:_,
                 surface_x,
                 surface_y,
             } => {
                 x = surface_x as u32;
                 y = surface_y as u32;
+                input = Pointer::Hover;
             }
             wl_pointer::Event::Button {
                 serial: _,
@@ -265,20 +270,20 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                 button,
                 state,
             } => {
-                input = Some(Pointer::MouseClick {
+                input = Pointer::MouseClick {
                     time,
                     button,
                     pressed: state == ButtonState::Pressed,
-                });
+                };
             }
-            _ => {}
-        }
-        if let Some(ev) = input {
-            if let Some(sender) = &sender {
-                if sender.send(Dispatch::Pointer(x, y, ev)).is_ok() {
-                    input = None;
+            wl_pointer::Event::Frame => {
+                if let Some(sender) = &sender {
+                    if sender.send(Dispatch::Pointer(x, y, input)).is_ok() {
+                        input = Pointer::Leave;
+                    }
                 }
             }
+            _ => {}
         }
     });
 }

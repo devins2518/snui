@@ -13,13 +13,14 @@ pub enum Error {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Key {
-    pub key: u32,
+    pub value: u32,
     modifier: Option<u32>,
     pressed: bool,
 }
 
 #[derive(Debug)]
 pub enum Dispatch {
+    Message(&'static str),
     Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
     Pointer(u32, u32, Pointer),
     Keyboard(Key),
@@ -49,6 +50,7 @@ pub enum Pointer {
         button: u32,
         pressed: bool,
     },
+    Hover,
     Enter,
     Leave,
 }

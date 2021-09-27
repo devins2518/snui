@@ -94,10 +94,10 @@ impl Drawable for Rectangle {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        let buf = self.color.to_ne_bytes();
-        let stride = canvas.width as usize * 4;
-
         if self.color != 0 {
+            let buf = self.color.to_ne_bytes();
+            let stride = canvas.width as usize * 4;
+
             let mut index = ((x + (y * canvas.width as u32)) * 4) as usize;
             for _ in 0..self.height {
                 if index >= canvas.len() {
