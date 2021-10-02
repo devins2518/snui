@@ -29,14 +29,15 @@ impl<W: Widget> Drawable for Border<W> {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        let bwidth = self.get_width();
-        let bheight = self.get_height();
+        if self.damaged {
+            let bwidth = self.get_width();
+            let bheight = self.get_height();
 
-        Rectangle::new(bwidth, self.size.0, self.color).draw(canvas, x, y);
-        Rectangle::new(bwidth, self.size.2, self.color).draw(canvas, x, y + bheight - self.size.2);
-        Rectangle::new(self.size.1, bheight, self.color).draw(canvas, x + bwidth - self.size.1, y);
-        Rectangle::new(self.size.3, bheight, self.color).draw(canvas, x, y);
-
+            Rectangle::new(bwidth, self.size.0, self.color).draw(canvas, x, y);
+            Rectangle::new(bwidth, self.size.2, self.color).draw(canvas, x, y + bheight - self.size.2);
+            Rectangle::new(self.size.1, bheight, self.color).draw(canvas, x + bwidth - self.size.1, y);
+            Rectangle::new(self.size.3, bheight, self.color).draw(canvas, x, y);
+        }
         self.widget.draw(canvas, x + self.size.0, y + self.size.3);
     }
 }
@@ -51,6 +52,9 @@ impl<W: Widget> Widget for Border<W> {
         widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
+        if let Dispatch::Commit = dispatched {
+            self.damaged = self.damaged == false;
+        }
         self.widget
             .roundtrip(widget_x + self.size.0, widget_y + self.size.3, dispatched)
     }
@@ -91,8 +95,9 @@ impl<W: Widget> Drawable for Background<W> {
         self.background = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        Rectangle::new(self.get_width(), self.get_height(), self.background).draw(canvas, x, y);
-
+        if self.damaged {
+            Rectangle::new(self.get_width(), self.get_height(), self.background).draw(canvas, x, y);
+        }
         self.widget
             .draw(canvas, x + self.padding.3, y + self.padding.0);
     }
@@ -108,6 +113,9 @@ impl<W: Widget> Widget for Background<W> {
         widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
+        if let Dispatch::Commit = dispatched {
+            self.damaged = self.damaged == false;
+        }
         self.widget.roundtrip(
             widget_x + self.padding.3,
             widget_y + self.padding.0,

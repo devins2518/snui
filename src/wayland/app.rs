@@ -1,8 +1,7 @@
 use crate::*;
-use std::time;
 use crate::wayland::Buffer;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::sync_channel;
+use std::sync::mpsc::{Receiver, SyncSender};
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
@@ -26,8 +25,8 @@ pub struct Application<W: Widget> {
 }
 
 impl<W: Widget> Application<W> {
-    pub fn new(widget: W, surface: WlSurface, shm: WlShm) -> (Application<W>, Sender<Dispatch>) {
-        let (sender, receiver) = channel();
+    pub fn new(widget: W, surface: WlSurface, shm: WlShm) -> (Application<W>, SyncSender<Dispatch>) {
+        let (sender, receiver) = sync_channel(1);
         (
             Application {
                 shm,
@@ -89,11 +88,6 @@ impl<W: Widget> Application<W> {
         }
         false
     }
-    pub fn init(&mut self, mempool: &mut MemPool) {
-        self.render(mempool);
-        self.show();
-        self.widget.roundtrip(0, 0, &Dispatch::Commit);
-    }
     pub fn show(&self) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         self.surface.damage(
@@ -129,7 +123,7 @@ impl<W: Widget> Application<W> {
     }
 }
 
-fn get_sender(surface: &WlSurface, slice: &[(WlSurface, Sender<Dispatch>)]) -> Option<Sender<Dispatch>> {
+fn get_sender(surface: &WlSurface, slice: &[(WlSurface, SyncSender<Dispatch>)]) -> Option<SyncSender<Dispatch>> {
     for app in slice {
         if surface.eq(&app.0) {
             return Some(app.1.clone());
@@ -148,13 +142,16 @@ pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerS
         } => {
             layer_surface.ack_configure(serial);
             layer_surface.set_size(width, height);
-            if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
-                for sender in senders {
-                    if !sender.1.send(Dispatch::Commit).is_ok() {
-                        surface_handle.commit();
+            if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
+                for (wlsurface, sender) in senders {
+                    if wlsurface == &surface_handle {
+                        if !sender.send(Dispatch::Commit).is_ok() {
+                            surface_handle.commit();
+                        }
+                        break;
                     }
                 }
-            } else if let Some(sender) = senders.get::<Sender<Dispatch>>() {
+            } else if let Some(sender) = senders.get::<SyncSender<Dispatch>>() {
                 if !sender.send(Dispatch::Commit).is_ok() {
                     surface_handle.commit();
                 }
@@ -183,9 +180,9 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                 surface,
                 keys: _,
             } => {
-                if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
+                if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
                     sender = get_sender(&surface, &senders);
-                } else if let Some(focused) = senders.get::<Sender<Dispatch>>() {
+                } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }
             }
@@ -240,9 +237,9 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                 surface_x,
                 surface_y,
             } => {
-                if let Some(senders) = senders.get::<Vec<(WlSurface, Sender<Dispatch>)>>() {
+                if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
                     sender = get_sender(&surface, &senders);
-                } else if let Some(focused) = senders.get::<Sender<Dispatch>>() {
+                } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }
                 x = surface_x as u32;

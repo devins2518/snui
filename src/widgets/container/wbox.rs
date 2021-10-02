@@ -265,13 +265,20 @@ impl Widget for Wbox {
         widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
-        let width = self.get_width();
-        let height = self.get_height();
-        for l in &mut self.widgets {
-            let (dx, dy) = l.get_location(width, height).unwrap();
-            let ev = l.roundtrip(widget_x + dx, widget_y + dy, dispatched);
-            if ev.is_some() {
-                return ev;
+        match dispatched {
+            Dispatch::Commit => for w in self.widgets.iter_mut() {
+                w.mapped = w.mapped == false;
+            }
+            _ => {
+                let width = self.get_width();
+                let height = self.get_height();
+                for l in &mut self.widgets {
+                    let (dx, dy) = l.get_location(width, height).unwrap();
+                    let ev = l.roundtrip(widget_x + dx, widget_y + dy, dispatched);
+                    if ev.is_some() {
+                        return ev;
+                    }
+                }
             }
         }
         None

@@ -202,21 +202,28 @@ impl Widget for WidgetLayout {
         widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
-        let (mut dx, mut dy) = (0, 0);
-        for w in &mut self.widgets {
-            if w.mapped {
-                let widget_width = w.widget.get_width();
-                let widget_height = w.widget.get_height();
-                let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatched);
-                if ev.is_some() {
-                    return ev;
-                }
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        dx += widget_width + self.spacing;
-                    }
-                    Orientation::Vertical => {
-                        dy += widget_height + self.spacing;
+        match dispatched {
+            Dispatch::Commit => for w in self.widgets.iter_mut() {
+                w.mapped = w.mapped == false;
+            }
+            _ => {
+                let (mut dx, mut dy) = (0, 0);
+                for w in &mut self.widgets {
+                    if w.mapped {
+                        let widget_width = w.widget.get_width();
+                        let widget_height = w.widget.get_height();
+                        let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatched);
+                        if ev.is_some() {
+                            return ev;
+                        }
+                        match self.orientation {
+                            Orientation::Horizontal => {
+                                dx += widget_width + self.spacing;
+                            }
+                            Orientation::Vertical => {
+                                dy += widget_height + self.spacing;
+                            }
+                        }
                     }
                 }
             }

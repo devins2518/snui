@@ -27,6 +27,12 @@ pub enum Dispatch {
     Commit,
 }
 
+impl Dispatch {
+    pub fn data<D: std::any::Any + Send + Sync>(name: &'static str, data: D) -> Self {
+        Dispatch::Data(name, Box::new(data))
+    }
+}
+
 pub struct Damage<'d> {
     pub widget: &'d dyn Widget,
     pub x: u32,
