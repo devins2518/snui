@@ -115,6 +115,27 @@ impl Label {
             layout: Arc::new(Mutex::new(layout)),
         }
     }
+    pub fn from(text: &str, font: &[u8], font_size: f32, color: u32) -> Label {
+        let font = fontdue::Font::from_bytes(font, fontdue::FontSettings::default()).unwrap();
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.append(&[&font], &TextStyle::new(text, font_size, 0));
+        Label {
+            font,
+            color,
+            damaged: true,
+            font_size: font_size as u32,
+            size: ({
+                let mut w = 0;
+                for gp in layout.glyphs().iter() {
+                    if w < gp.width + gp.x as usize {
+                        w = gp.width + gp.x as usize
+                    }
+                }
+                w as u32
+            }, layout.height() as u32),
+            layout: Arc::new(Mutex::new(layout)),
+        }
+    }
     pub fn max_width<'f>(text: &'f str, path: &Path, font_size: f32, width: f32, color: u32) -> Label {
         let font = read(path).unwrap();
         // Parse it into the font type.

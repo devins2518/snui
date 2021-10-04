@@ -5,7 +5,6 @@ pub struct Revealer<N: Widget, R: Widget> {
     normal: N,
     reveal: R,
     state: bool,
-    name: Option<String>,
 }
 
 impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
@@ -48,11 +47,7 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
             state: false,
             normal,
             reveal,
-            name: None,
         }
-    }
-    pub fn set_name(&mut self, name: Option<String>) {
-        self.name = name;
     }
     pub fn toggle(&mut self) {
         self.state = self.state == false;

@@ -106,14 +106,8 @@ impl<W: Widget> Application<W> {
         }
     }
     pub fn hide(&mut self) {
-        self.surface.attach(None, 0, 0);
-        self.surface.damage(
-            0,
-            0,
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
-        );
-        self.surface.commit();
+        self.buffer = None;
+        self.show();
     }
     pub fn destroy(&self) {
         self.surface.destroy();
@@ -167,7 +161,7 @@ pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerS
 
 pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
     let mut sender = None;
-    let mut kb_key = None;
+    let mut kb_key: Option<Key> = None;
     keyboard.quick_assign(move |_, event, mut senders| {
         match event {
             wl_keyboard::Event::Keymap {
@@ -198,11 +192,16 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                 key,
                 state,
             } => {
-                kb_key = Some(Key {
-                    value: key,
-                    pressed: state == KeyState::Pressed,
-                    modifier: None,
-                });
+                if let Some(kb_key) = kb_key.as_mut() {
+                    kb_key.value = key;
+                    kb_key.pressed = state == KeyState::Pressed;
+                } else {
+                    kb_key = Some(Key {
+                        value: key,
+                        pressed: state == KeyState::Pressed,
+                        modifier: None,
+                    });
+                }
             }
             wl_keyboard::Event::Modifiers {
                 serial: _,

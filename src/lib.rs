@@ -1,4 +1,3 @@
-pub mod font;
 pub mod wayland;
 pub mod widgets;
 use std::ops::{Deref, DerefMut};
@@ -18,19 +17,12 @@ pub struct Key {
     pressed: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Dispatch {
     Message(&'static str),
-    Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
     Pointer(u32, u32, Pointer),
     Keyboard(Key),
     Commit,
-}
-
-impl Dispatch {
-    pub fn data<D: std::any::Any + Send + Sync>(name: &'static str, data: D) -> Self {
-        Dispatch::Data(name, Box::new(data))
-    }
 }
 
 pub struct Damage<'d> {
