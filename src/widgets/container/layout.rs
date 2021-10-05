@@ -88,7 +88,7 @@ impl Geometry for WidgetLayout {
 }
 
 impl Drawable for WidgetLayout {
-    fn set_color(&mut self, _color: u32) { }
+    fn set_color(&mut self, _color: u32) {}
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let sw = self.width();
         let sh = self.height();
@@ -192,19 +192,23 @@ impl WidgetLayout {
 impl Widget for WidgetLayout {
     fn damaged(&self) -> bool {
         for w in &self.widgets {
-            if w.mapped { return true }
+            if w.mapped {
+                return true;
+            }
         }
         false
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widx: u32,
-        widy: u32,
+        widget_x: u32,
+        widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         match dispatched {
-            Dispatch::Commit => for w in self.widgets.iter_mut() {
-                w.mapped = w.mapped == false;
+            Dispatch::Commit => {
+                for w in self.widgets.iter_mut() {
+                    w.mapped = w.mapped == false;
+                }
             }
             _ => {
                 let (mut dx, mut dy) = (0, 0);
@@ -212,7 +216,7 @@ impl Widget for WidgetLayout {
                     if w.mapped {
                         let widwidth = w.widget.width();
                         let widheight = w.widget.height();
-                        let ev = w.widget.roundtrip(widx + dx, widy + dy, dispatched);
+                        let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatched);
                         if ev.is_some() {
                             return ev;
                         }

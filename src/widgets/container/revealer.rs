@@ -65,8 +65,8 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widx: u32,
-        widy: u32,
+        widget_x: u32,
+        widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Commit = dispatched {
@@ -74,9 +74,9 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
             None
         } else {
             if self.state {
-                self.reveal.roundtrip(widx, widy, dispatched)
+                self.reveal.roundtrip(widget_x, widget_y, dispatched)
             } else {
-                self.normal.roundtrip(widx, widy, dispatched)
+                self.normal.roundtrip(widget_x, widget_y, dispatched)
             }
         }
     }

@@ -1,8 +1,8 @@
-use crate::*;
 use crate::wayland::buffer;
+use crate::*;
+use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, SyncSender};
-use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_keyboard::KeyState;
@@ -25,7 +25,11 @@ pub struct Application<W: Widget> {
 }
 
 impl<W: Widget> Application<W> {
-    pub fn new(widget: W, surface: WlSurface, shm: WlShm) -> (Application<W>, SyncSender<Dispatch>) {
+    pub fn new(
+        widget: W,
+        surface: WlSurface,
+        shm: WlShm,
+    ) -> (Application<W>, SyncSender<Dispatch>) {
         let (sender, receiver) = sync_channel(1);
         (
             Application {
@@ -45,11 +49,7 @@ impl<W: Widget> Application<W> {
         assign_layer_surface(&self.surface, &layer_surface);
         self.layer_surface = Some(layer_surface.detach());
     }
-    pub fn run(
-        mut self,
-        display: Display,
-        mut cb: impl FnMut(&mut Self, &mut MemPool, Dispatch),
-    ) {
+    pub fn run(mut self, display: Display, mut cb: impl FnMut(&mut Self, &mut MemPool, Dispatch)) {
         let mut event_queue = display.create_event_queue();
         let attached = self.shm.as_ref().attach(event_queue.token());
         let mut mempool = DoubleMemPool::new(attached, |_| {}).unwrap();
@@ -65,14 +65,10 @@ impl<W: Widget> Application<W> {
             }
         }
     }
-    pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) -> bool {
+    pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
         let width = self.widget.width();
         let height = self.widget.height();
-        if let Ok((mut buffer, wlbuf)) = buffer(
-            width,
-            height,
-            pool,
-        ) {
+        if let Ok((mut buffer, wlbuf)) = buffer(width, height, pool) {
             if let Some(damage) = self.widget.roundtrip(0, 0, &dispatch) {
                 damage.widget.draw(buffer.canvas(), damage.x, damage.y);
                 self.surface.attach(Some(&wlbuf), 0, 0);
@@ -82,46 +78,28 @@ impl<W: Widget> Application<W> {
                     damage.widget.width() as i32,
                     damage.widget.height() as i32,
                 );
-                buffer.composite();
+                buffer.merge();
                 self.surface.commit();
-        		return true
-    		} else {
-        		let canvas = buffer.canvas();
-                self.widget.draw(canvas, 0, 0);
-                if !canvas.report().is_empty() {
-                    self.surface.attach(Some(&wlbuf), 0, 0);
-                    for damage in canvas.report() {
-                        self.surface.damage(
-                            damage.x as i32,
-                            damage.y as i32,
-                            damage.width as i32,
-                            damage.height as i32,
-                        );
-                    }
-                    buffer.composite();
-                    return true;
-                }
-    		}
+            } else {
+                self.render(pool);
+                self.show();
+            }
         }
-        false
     }
     pub fn show(&self) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
-        self.surface.damage(
-            0,
-            0,
-            self.widget.width() as i32,
-            self.widget.height() as i32,
-        );
+        // self.surface.damage(
+        //     0,
+        //     0,
+        //     self.widget.width() as i32,
+        //     self.widget.height() as i32,
+        // );
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        if let Ok((mut buffer, wlbuf)) = buffer(
-            self.widget.width(),
-            self.widget.height(),
-            mempool,
-        ) {
-        	let canvas = buffer.canvas();
+        if let Ok((mut buffer, wlbuf)) = buffer(self.widget.width(), self.widget.height(), mempool)
+        {
+            let canvas = buffer.canvas();
             self.widget.draw(canvas, 0, 0);
             for damage in canvas.report() {
                 self.surface.damage(
@@ -131,7 +109,7 @@ impl<W: Widget> Application<W> {
                     damage.height as i32,
                 );
             }
-            buffer.composite();
+            buffer.merge();
             self.buffer = Some(wlbuf);
         }
     }
@@ -147,7 +125,10 @@ impl<W: Widget> Application<W> {
     }
 }
 
-fn get_sender(surface: &WlSurface, slice: &[(WlSurface, SyncSender<Dispatch>)]) -> Option<SyncSender<Dispatch>> {
+fn get_sender(
+    surface: &WlSurface,
+    slice: &[(WlSurface, SyncSender<Dispatch>)],
+) -> Option<SyncSender<Dispatch>> {
     for app in slice {
         if surface.eq(&app.0) {
             return Some(app.1.clone());
@@ -226,7 +207,7 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                     kb.value = key;
                     kb.pressed = state == KeyState::Pressed;
                 } else {
-                    kb= Some(Key {
+                    kb = Some(Key {
                         value: key,
                         pressed: state == KeyState::Pressed,
                         modifier: None,
@@ -258,60 +239,63 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
     let mut sender = None;
     let mut input = Pointer::Enter;
     let (mut x, mut y) = (0, 0);
-    pointer.quick_assign(move |_, event, mut senders| {
-        match event {
-            wl_pointer::Event::Enter {
-                serial: _,
-                surface,
-                surface_x,
-                surface_y,
-            } => {
-                if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
-                    sender = get_sender(&surface, &senders);
-                } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
-                    sender = Some(focused.clone());
-                }
-                x = surface_x as u32;
-                y = surface_y as u32;
-                input = Pointer::Enter;
+    pointer.quick_assign(move |_, event, mut senders| match event {
+        wl_pointer::Event::Enter {
+            serial: _,
+            surface,
+            surface_x,
+            surface_y,
+        } => {
+            if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
+                sender = get_sender(&surface, &senders);
+            } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
+                sender = Some(focused.clone());
             }
-            wl_pointer::Event::Leave {
-                serial: _,
-                surface: _,
-            } => {
-                if sender.as_ref().unwrap().send(Dispatch::Pointer(0, 0, Pointer::Leave)).is_ok() {
-                    sender = None;
-                }
+            x = surface_x as u32;
+            y = surface_y as u32;
+            input = Pointer::Enter;
+        }
+        wl_pointer::Event::Leave {
+            serial: _,
+            surface: _,
+        } => {
+            if sender
+                .as_ref()
+                .unwrap()
+                .send(Dispatch::Pointer(0, 0, Pointer::Leave))
+                .is_ok()
+            {
+                sender = None;
             }
-            wl_pointer::Event::Motion {
-                time:_,
-                surface_x,
-                surface_y,
-            } => {
-                x = surface_x as u32;
-                y = surface_y as u32;
-                input = Pointer::Hover;
-            }
-            wl_pointer::Event::Button {
-                serial: _,
+        }
+        wl_pointer::Event::Motion {
+            time: _,
+            surface_x,
+            surface_y,
+        } => {
+            x = surface_x as u32;
+            y = surface_y as u32;
+            input = Pointer::Hover;
+        }
+        wl_pointer::Event::Button {
+            serial: _,
+            time,
+            button,
+            state,
+        } => {
+            input = Pointer::MouseClick {
                 time,
                 button,
-                state,
-            } => {
-                input = Pointer::MouseClick {
-                    time,
-                    button,
-                    pressed: state == ButtonState::Pressed,
-                };
-            }
-            wl_pointer::Event::Frame => {
-                if let Some(sender) = &sender {
-                    if sender.send(Dispatch::Pointer(x, y, input)).is_ok() {
-                        input = Pointer::Leave;
-                    }
+                pressed: state == ButtonState::Pressed,
+            };
+        }
+        wl_pointer::Event::Frame => {
+            if let Some(sender) = &sender {
+                if sender.send(Dispatch::Pointer(x, y, input)).is_ok() {
+                    input = Pointer::Leave;
                 }
             }
-            _ => {}
         }
+        _ => {}
     });
 }

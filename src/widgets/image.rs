@@ -84,8 +84,8 @@ impl Widget for Image {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        _widx: u32,
-        _widy: u32,
+        _widget_x: u32,
+        _widget_y: u32,
         _dispatched: &Dispatch,
     ) -> Option<Damage> {
         None

@@ -51,11 +51,11 @@ impl Widget for Inner {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widx: u32,
-        widy: u32,
+        widget_x: u32,
+        widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
-        self.widget.roundtrip(widx, widy, dispatched)
+        self.widget.roundtrip(widget_x, widget_y, dispatched)
     }
 }
 
@@ -109,10 +109,7 @@ impl Inner {
             }
             Anchor::Right => {
                 if height >= widheight && width >= widheight {
-                    return Ok((
-                        width - widwidth - self.x,
-                        (height - widheight + self.y) / 2,
-                    ));
+                    return Ok((width - widwidth - self.x, (height - widheight + self.y) / 2));
                 }
             }
             Anchor::Top => {
@@ -122,10 +119,7 @@ impl Inner {
             }
             Anchor::Bottom => {
                 if height > self.y + widheight {
-                    return Ok((
-                        (width - widwidth + self.x) / 2,
-                        height - self.y - widheight,
-                    ));
+                    return Ok(((width - widwidth + self.x) / 2, height - self.y - widheight));
                 }
             }
             Anchor::Center => {
@@ -150,10 +144,7 @@ impl Inner {
             Anchor::TopLeft => return Ok((self.x, self.y)),
             Anchor::BottomRight => {
                 if width > self.x + widwidth && height > self.y + widheight {
-                    return Ok((
-                        width - self.x - widwidth,
-                        height - self.y - widheight,
-                    ));
+                    return Ok((width - self.x - widwidth, height - self.y - widheight));
                 }
             }
             Anchor::BottomLeft => {
@@ -187,7 +178,7 @@ impl Geometry for Wbox {
 }
 
 impl Drawable for Wbox {
-    fn set_color(&mut self, _color: u32) { }
+    fn set_color(&mut self, _color: u32) {}
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let sw = self.width();
         let sh = self.height();
@@ -255,26 +246,30 @@ impl Wbox {
 impl Widget for Wbox {
     fn damaged(&self) -> bool {
         for w in &self.widgets {
-            if w.mapped { return true }
+            if w.mapped {
+                return true;
+            }
         }
         false
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widx: u32,
-        widy: u32,
+        widget_x: u32,
+        widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         match dispatched {
-            Dispatch::Commit => for w in self.widgets.iter_mut() {
-                w.mapped = w.mapped == false;
+            Dispatch::Commit => {
+                for w in self.widgets.iter_mut() {
+                    w.mapped = w.mapped == false;
+                }
             }
             _ => {
                 let width = self.width();
                 let height = self.height();
                 for l in &mut self.widgets {
                     let (dx, dy) = l.location(width, height).unwrap();
-                    let ev = l.roundtrip(widx + dx, widy + dy, dispatched);
+                    let ev = l.roundtrip(widget_x + dx, widget_y + dy, dispatched);
                     if ev.is_some() {
                         return ev;
                     }

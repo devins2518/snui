@@ -3,18 +3,18 @@ pub mod container;
 pub mod image;
 pub mod label;
 
-use crate::*;
-use raqote::*;
-use std::io::Write;
-pub use button::Button;
 pub use self::image::Image;
+use crate::*;
+pub use button::Button;
 pub use container::{layout::WidgetLayout, Wbox};
+use raqote::*;
 pub use rectangle::*;
+use std::io::Write;
 
 const DRAW_OPTION: DrawOptions = DrawOptions {
     blend_mode: BlendMode::Add,
     alpha: 1.0,
-    antialias: AntialiasMode::None
+    antialias: AntialiasMode::None,
 };
 
 pub fn render(canvas: &mut Canvas, buffer: &[u8], width: u32, x: u32, y: u32) {
@@ -28,7 +28,9 @@ pub fn render(canvas: &mut Canvas, buffer: &[u8], width: u32, x: u32, y: u32) {
             for pixel in buf.chunks(4) {
                 match pixel[3] {
                     0 => {
-                        writer.write(&[writer[0], writer[1], writer[2], writer[3]]).unwrap();
+                        writer
+                            .write(&[writer[0], writer[1], writer[2], writer[3]])
+                            .unwrap();
                     }
                     255 => {
                         writer.write(&pixel).unwrap();
@@ -81,9 +83,9 @@ pub fn boxed<W: Widget>(
 }
 
 pub mod rectangle {
+    use crate::widgets::DRAW_OPTION;
     use crate::*;
     use std::io::Write;
-    use crate::widgets::DRAW_OPTION;
 
     #[derive(Copy, Clone, Debug)]
     pub struct Rectangle {
@@ -105,7 +107,7 @@ pub mod rectangle {
     impl Drawable for Rectangle {
         fn set_color(&mut self, color: u32) {
             let color = color.to_ne_bytes();
-            let source = SolidSource{
+            let source = SolidSource {
                 r: color[0],
                 g: color[1],
                 b: color[2],
@@ -122,7 +124,7 @@ pub mod rectangle {
                     self.width as f32,
                     self.height as f32,
                     &source,
-                    &DRAW_OPTION
+                    &DRAW_OPTION,
                 );
             }
         }
@@ -131,8 +133,8 @@ pub mod rectangle {
     impl Widget for Rectangle {
         fn roundtrip<'d>(
             &'d mut self,
-            _widx: u32,
-            _widy: u32,
+            _widget_x: u32,
+            _widget_y: u32,
             dispatched: &Dispatch,
         ) -> Option<Damage> {
             if let Dispatch::Commit = dispatched {
@@ -148,7 +150,7 @@ pub mod rectangle {
     impl Rectangle {
         pub fn new(width: u32, height: u32, color: u32) -> Rectangle {
             let color = color.to_ne_bytes();
-            let source = SolidSource{
+            let source = SolidSource {
                 r: color[0],
                 g: color[1],
                 b: color[2],
@@ -171,7 +173,7 @@ pub mod rectangle {
         }
         pub fn square(size: u32, color: u32) -> Rectangle {
             let color = color.to_ne_bytes();
-            let source = SolidSource{
+            let source = SolidSource {
                 r: color[0],
                 g: color[1],
                 b: color[2],
@@ -212,8 +214,16 @@ pub mod rectangle {
                 let bheight = self.height();
 
                 Rectangle::new(bwidth, self.size.0, self.color).draw(canvas, x, y);
-                Rectangle::new(bwidth, self.size.2, self.color).draw(canvas, x, y + bheight - self.size.2);
-                Rectangle::new(self.size.1, bheight, self.color).draw(canvas, x + bwidth - self.size.1, y);
+                Rectangle::new(bwidth, self.size.2, self.color).draw(
+                    canvas,
+                    x,
+                    y + bheight - self.size.2,
+                );
+                Rectangle::new(self.size.1, bheight, self.color).draw(
+                    canvas,
+                    x + bwidth - self.size.1,
+                    y,
+                );
                 Rectangle::new(self.size.3, bheight, self.color).draw(canvas, x, y);
             }
             canvas.push(x, y, self, true);
@@ -227,15 +237,15 @@ pub mod rectangle {
         }
         fn roundtrip<'d>(
             &'d mut self,
-            widx: u32,
-            widy: u32,
+            widget_x: u32,
+            widget_y: u32,
             dispatched: &Dispatch,
         ) -> Option<Damage> {
             if let Dispatch::Commit = dispatched {
                 self.damaged = self.damaged == false;
             }
             self.widget
-                .roundtrip(widx + self.size.0, widy + self.size.3, dispatched)
+                .roundtrip(widget_x + self.size.0, widget_y + self.size.3, dispatched)
         }
     }
 
@@ -289,16 +299,16 @@ pub mod rectangle {
         }
         fn roundtrip<'d>(
             &'d mut self,
-            widx: u32,
-            widy: u32,
+            widget_x: u32,
+            widget_y: u32,
             dispatched: &Dispatch,
         ) -> Option<Damage> {
             if let Dispatch::Commit = dispatched {
                 self.damaged = self.damaged == false;
             }
             self.widget.roundtrip(
-                widx + self.padding.3,
-                widy + self.padding.0,
+                widget_x + self.padding.3,
+                widget_y + self.padding.0,
                 dispatched,
             )
         }

@@ -65,36 +65,36 @@ pub struct DamageReport {
 
 pub struct Canvas {
     target: DrawTarget,
-    damage: Vec<DamageReport>
+    damage: Vec<DamageReport>,
 }
 
 impl Canvas {
     fn new(width: u32, height: u32) -> Self {
         Self {
             target: DrawTarget::new(width as i32, height as i32),
-            damage: Vec::new()
+            damage: Vec::new(),
         }
     }
     fn target(&mut self) -> &mut DrawTarget {
         &mut self.target
     }
     fn size(&self) -> usize {
-    	(self.target.width() * self.target.height()) as usize
+        (self.target.width() * self.target.height()) as usize
     }
     pub fn push<W: Geometry>(&mut self, x: u32, y: u32, widget: &W, container: bool) {
         if let Some(last) = self.damage.last() {
             if !(last.container
-            && last.x > x
-            && last.y > y
-            && last.x < x + widget.width()
-            && last.y < y + widget.height())
+                && last.x > x
+                && last.y > y
+                && last.x < x + widget.width()
+                && last.y < y + widget.height())
             {
                 self.damage.push(DamageReport {
                     x,
                     y,
                     container,
                     width: widget.width(),
-                    height: widget.height()
+                    height: widget.height(),
                 });
             }
         }
@@ -151,8 +151,8 @@ pub trait Widget: Drawable + Geometry + Send + Sync {
     fn damaged(&self) -> bool;
     fn roundtrip<'d>(
         &'d mut self,
-        widx: u32,
-        widy: u32,
+        widget_x: u32,
+        widget_y: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage>;
 }
