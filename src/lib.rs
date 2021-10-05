@@ -53,11 +53,21 @@ pub enum Pointer {
     Leave,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct DamageReport {
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    container: bool,
+}
+
 #[derive(Debug)]
 pub struct Canvas<'c> {
     slice: &'c mut [u8],
     pub width: u32,
     pub height: u32,
+    damage: Vec<DamageReport>
 }
 
 impl<'c> Canvas<'c> {
@@ -66,10 +76,27 @@ impl<'c> Canvas<'c> {
             slice,
             width,
             height,
+            damage: Vec::new()
         }
     }
     fn size(&self) -> usize {
         self.slice.len()
+    }
+    pub fn push<W: Geometry>(&mut self, x: u32, y: u32, widget: &W, container: bool) {
+        if let Some(last) = self.damage.last() {
+            if !last.container {
+                self.damage.push(DamageReport {
+                    x,
+                    y,
+                    container,
+                    width: widget.get_width(),
+                    height: widget.get_height()
+                });
+            }
+        }
+    }
+    pub fn report(&self) -> &[DamageReport] {
+        &self.damage
     }
 }
 

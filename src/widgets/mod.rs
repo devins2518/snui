@@ -21,8 +21,7 @@ pub fn render(canvas: &mut Canvas, buffer: &[u8], width: u32, x: u32, y: u32) {
             for pixel in buf.chunks(4) {
                 match pixel[3] {
                     0 => {
-                        let p = [writer[0], writer[1], writer[2], writer[3]];
-                        writer.write(&p).unwrap();
+                        writer.write(&[writer[0], writer[1], writer[2], writer[3]]).unwrap();
                     }
                     255 => {
                         writer.write(&pixel).unwrap();
@@ -104,6 +103,7 @@ pub mod rectangle {
                 let buf = self.color.to_ne_bytes();
                 let stride = canvas.width as usize * 4;
 
+                canvas.push(x, y, self, false);
                 let mut index = ((x + (y * canvas.width as u32)) * 4) as usize;
                 for _ in 0..self.height {
                     if index >= canvas.len() {
@@ -195,6 +195,7 @@ pub mod rectangle {
                 Rectangle::new(self.size.1, bheight, self.color).draw(canvas, x + bwidth - self.size.1, y);
                 Rectangle::new(self.size.3, bheight, self.color).draw(canvas, x, y);
             }
+            canvas.push(x, y, self, true);
             self.widget.draw(canvas, x + self.size.0, y + self.size.3);
         }
     }
@@ -255,6 +256,7 @@ pub mod rectangle {
             if self.damaged {
                 Rectangle::new(self.get_width(), self.get_height(), self.background).draw(canvas, x, y);
             }
+            canvas.push(x, y, self, true);
             self.widget
                 .draw(canvas, x + self.padding.3, y + self.padding.0);
         }

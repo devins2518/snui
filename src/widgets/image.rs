@@ -73,6 +73,7 @@ impl Drawable for Image {
     }
 
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        canvas.push(x, y, self, false);
         render(canvas, self.image.as_raw(), self.image.width(), x, y);
     }
 }

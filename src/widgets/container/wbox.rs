@@ -191,6 +191,7 @@ impl Drawable for Wbox {
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         let sw = self.get_width();
         let sh = self.get_height();
+        canvas.push(x, y, self, true);
         for w in &self.widgets {
             match w.get_location(sw, sh) {
                 Ok((dx, dy)) => {

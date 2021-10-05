@@ -93,6 +93,7 @@ impl Drawable for WidgetLayout {
         let sw = self.get_width();
         let sh = self.get_height();
         let (mut dx, mut dy) = (0, 0);
+        canvas.push(x, y, self, true);
         for w in &self.widgets {
             if w.mapped {
                 match self.orientation {

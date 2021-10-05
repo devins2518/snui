@@ -1,5 +1,5 @@
 use crate::*;
-use crate::wayland::Buffer;
+use crate::wayland::buffer;
 use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, SyncSender};
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
@@ -68,14 +68,14 @@ impl<W: Widget> Application<W> {
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) -> bool {
         let width = self.widget.get_width();
         let height = self.widget.get_height();
-        if let Some(damage) = self.widget.roundtrip(0, 0, &dispatch) {
-            if let Ok(mut buf) = Buffer::new(
-                width,
-                height,
-                pool,
-            ) {
-                damage.widget.draw(&mut buf.canvas, damage.x, damage.y);
-                buf.attach(&self.surface, 0, 0);
+        if let Ok((mut canvas, wlbuf)) = buffer(
+            width,
+            height,
+            pool,
+        ) {
+            if let Some(damage) = self.widget.roundtrip(0, 0, &dispatch) {
+                damage.widget.draw(&mut canvas, damage.x, damage.y);
+                self.surface.attach(Some(&wlbuf), 0, 0);
                 self.surface.damage(
                     damage.x as i32,
                     damage.y as i32,
@@ -84,6 +84,20 @@ impl<W: Widget> Application<W> {
                 );
                 self.surface.commit();
         		return true
+    		} else {
+                self.widget.draw(&mut canvas, 0, 0);
+                if !canvas.report().is_empty() {
+                    self.surface.attach(Some(&wlbuf), 0, 0);
+                    for damage in canvas.report() {
+                        self.surface.damage(
+                            damage.x as i32,
+                            damage.y as i32,
+                            damage.width as i32,
+                            damage.height as i32,
+                        );
+                    }
+                    return true;
+                }
     		}
         }
         false
@@ -99,10 +113,21 @@ impl<W: Widget> Application<W> {
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        if let Ok(mut buf) = Buffer::new(self.widget.get_width(), self.widget.get_height(), mempool)
-        {
-            self.widget.draw(&mut buf.canvas, 0, 0);
-            self.buffer = buf.get();
+        if let Ok((mut canvas, wlbuf)) = buffer(
+            self.widget.get_width(),
+            self.widget.get_height(),
+            mempool,
+        ) {
+            self.widget.draw(&mut canvas, 0, 0);
+            for damage in canvas.report() {
+                self.surface.damage(
+                    damage.x as i32,
+                    damage.y as i32,
+                    damage.width as i32,
+                    damage.height as i32,
+                );
+            }
+            self.buffer = Some(wlbuf);
         }
     }
     pub fn hide(&mut self) {
@@ -161,7 +186,7 @@ pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerS
 
 pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
     let mut sender = None;
-    let mut kb_key: Option<Key> = None;
+    let mut kb: Option<Key> = None;
     keyboard.quick_assign(move |_, event, mut senders| {
         match event {
             wl_keyboard::Event::Keymap {
@@ -192,11 +217,11 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                 key,
                 state,
             } => {
-                if let Some(kb_key) = kb_key.as_mut() {
-                    kb_key.value = key;
-                    kb_key.pressed = state == KeyState::Pressed;
+                if let Some(kb) = kb.as_mut() {
+                    kb.value = key;
+                    kb.pressed = state == KeyState::Pressed;
                 } else {
-                    kb_key = Some(Key {
+                    kb= Some(Key {
                         value: key,
                         pressed: state == KeyState::Pressed,
                         modifier: None,
@@ -214,10 +239,10 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
             _ => {}
         }
         // Dispatching the event to widgets
-        if let Some(ev) = kb_key {
+        if let Some(ev) = kb {
             if let Some(sender) = &sender {
                 if sender.send(Dispatch::Keyboard(ev)).is_ok() {
-                    kb_key = None;
+                    kb = None;
                 }
             }
         }
@@ -249,7 +274,9 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                 serial: _,
                 surface: _,
             } => {
-                sender = None;
+                if sender.as_ref().unwrap().send(Dispatch::Pointer(0, 0, Pointer::Leave)).is_ok() {
+                    sender = None;
+                }
             }
             wl_pointer::Event::Motion {
                 time:_,

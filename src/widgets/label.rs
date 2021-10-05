@@ -186,6 +186,7 @@ impl Drawable for Label {
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         if let Ok(mut layout) = self.layout.lock() {
+            canvas.push(x, y, self, false);
             for glyph in layout.glyphs() {
                 Glyph::new(
                     &self.font,
