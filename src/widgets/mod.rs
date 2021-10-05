@@ -4,15 +4,22 @@ pub mod image;
 pub mod label;
 
 use crate::*;
+use raqote::*;
 use std::io::Write;
 pub use button::Button;
 pub use self::image::Image;
 pub use container::{layout::WidgetLayout, Wbox};
 pub use rectangle::*;
 
+const DRAW_OPTION: DrawOptions = DrawOptions {
+    blend_mode: BlendMode::Add,
+    alpha: 1.0,
+    antialias: AntialiasMode::None
+};
+
 pub fn render(canvas: &mut Canvas, buffer: &[u8], width: u32, x: u32, y: u32) {
-    let stride = canvas.width as usize * 4;
-    let mut index = ((x + (y * canvas.width as u32)) * 4) as usize;
+    let stride = canvas.width() as usize * 4;
+    let mut index = ((x + (y * canvas.width() as u32)) * 4) as usize;
     for buf in buffer.chunks(width as usize * 4) {
         if index >= canvas.len() {
             break;
@@ -76,12 +83,13 @@ pub fn boxed<W: Widget>(
 pub mod rectangle {
     use crate::*;
     use std::io::Write;
+    use crate::widgets::DRAW_OPTION;
 
     #[derive(Copy, Clone, Debug)]
     pub struct Rectangle {
         width: u32,
         height: u32,
-        color: u32,
+        source: Option<SolidSource>,
         damaged: bool,
     }
 
@@ -96,27 +104,26 @@ pub mod rectangle {
 
     impl Drawable for Rectangle {
         fn set_color(&mut self, color: u32) {
-            self.color = color;
+            let color = color.to_ne_bytes();
+            let source = SolidSource{
+                r: color[0],
+                g: color[1],
+                b: color[2],
+                a: color[3],
+            };
+            self.source = Some(source);
         }
         fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-            if self.color != 0 {
-                let buf = self.color.to_ne_bytes();
-                let stride = canvas.width as usize * 4;
-
-                canvas.push(x, y, self, false);
-                let mut index = ((x + (y * canvas.width as u32)) * 4) as usize;
-                for _ in 0..self.height {
-                    if index >= canvas.len() {
-                        break;
-                    } else {
-                        let mut writer = &mut canvas[index..];
-                        for _ in 0..self.width {
-                            writer.write_all(&buf).unwrap();
-                        }
-                        writer.flush().unwrap();
-                        index += stride;
-                    }
-                }
+            if let Some(color) = self.source {
+                let source = Source::Solid(color);
+                canvas.target().fill_rect(
+                    x as f32,
+                    y as f32,
+                    self.width as f32,
+                    self.height as f32,
+                    &source,
+                    &DRAW_OPTION
+                );
             }
         }
     }
@@ -140,8 +147,15 @@ pub mod rectangle {
 
     impl Rectangle {
         pub fn new(width: u32, height: u32, color: u32) -> Rectangle {
+            let color = color.to_ne_bytes();
+            let source = SolidSource{
+                r: color[0],
+                g: color[1],
+                b: color[2],
+                a: color[3],
+            };
             Rectangle {
-                color,
+                source: Some(source),
                 width,
                 height,
                 damaged: true,
@@ -149,15 +163,22 @@ pub mod rectangle {
         }
         pub fn empty(width: u32, height: u32) -> Rectangle {
             Rectangle {
-                color: 0,
                 width,
                 height,
+                source: None,
                 damaged: true,
             }
         }
         pub fn square(size: u32, color: u32) -> Rectangle {
+            let color = color.to_ne_bytes();
+            let source = SolidSource{
+                r: color[0],
+                g: color[1],
+                b: color[2],
+                a: color[3],
+            };
             Rectangle {
-                color,
+                source: Some(source),
                 width: size,
                 height: size,
                 damaged: true,

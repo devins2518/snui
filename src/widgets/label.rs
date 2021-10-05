@@ -59,9 +59,9 @@ impl Drawable for Glyph {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        let stride = canvas.width as usize * 4;
+        let stride = canvas.width() as usize * 4;
         let mut index =
-            (((x + self.position.0) + ((y + self.position.1) * canvas.width as u32)) * 4) as usize;
+            (((x + self.position.0) + ((y + self.position.1) * canvas.width() as u32)) * 4) as usize;
         if self.metrics.width > 0 {
             for row in self.coverage.chunks(self.metrics.width) {
                 if index < canvas.size() {

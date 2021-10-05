@@ -1,6 +1,6 @@
 pub mod wayland;
 pub mod widgets;
-use raquote::DrawTarget;
+use raqote::*;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Copy, Clone, Debug)]
@@ -63,22 +63,24 @@ pub struct DamageReport {
     container: bool,
 }
 
-#[derive(Debug)]
 pub struct Canvas {
-    context: DrawContext,
+    target: DrawTarget,
     damage: Vec<DamageReport>
 }
 
 impl Canvas {
     fn new(width: u32, height: u32) -> Self {
         Self {
-            context: DrawContext::new(width as i32, height as i32),
+            target: DrawTarget::new(width as i32, height as i32),
             damage: Vec::new()
         }
     }
-    // fn size(&self) -> usize {
-    //     self.slice.len()
-    // }
+    fn target(&mut self) -> &mut DrawTarget {
+        &mut self.target
+    }
+    fn size(&self) -> usize {
+    	(self.target.width() * self.target.height()) as usize
+    }
     pub fn push<W: Geometry>(&mut self, x: u32, y: u32, widget: &W, container: bool) {
         if let Some(last) = self.damage.last() {
             if !(last.container
@@ -104,23 +106,23 @@ impl Canvas {
 
 impl Geometry for Canvas {
     fn width(&self) -> u32 {
-        self.context.width();
+        self.target.width() as u32
     }
     fn height(&self) -> u32 {
-        self.context.height();
+        self.target.height() as u32
     }
 }
 
 impl Deref for Canvas {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
-        self.context.data_u8()
+        self.target.get_data_u8()
     }
 }
 
 impl DerefMut for Canvas {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.context.data_u8_mut()
+        self.target.get_data_u8_mut()
     }
 }
 

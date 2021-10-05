@@ -68,13 +68,13 @@ impl<W: Widget> Application<W> {
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) -> bool {
         let width = self.widget.width();
         let height = self.widget.height();
-        if let Ok((mut canvas, wlbuf)) = buffer(
+        if let Ok((mut buffer, wlbuf)) = buffer(
             width,
             height,
             pool,
         ) {
             if let Some(damage) = self.widget.roundtrip(0, 0, &dispatch) {
-                damage.widget.draw(&mut canvas, damage.x, damage.y);
+                damage.widget.draw(buffer.canvas(), damage.x, damage.y);
                 self.surface.attach(Some(&wlbuf), 0, 0);
                 self.surface.damage(
                     damage.x as i32,
@@ -82,10 +82,12 @@ impl<W: Widget> Application<W> {
                     damage.widget.width() as i32,
                     damage.widget.height() as i32,
                 );
+                buffer.composite();
                 self.surface.commit();
         		return true
     		} else {
-                self.widget.draw(&mut canvas, 0, 0);
+        		let canvas = buffer.canvas();
+                self.widget.draw(canvas, 0, 0);
                 if !canvas.report().is_empty() {
                     self.surface.attach(Some(&wlbuf), 0, 0);
                     for damage in canvas.report() {
@@ -96,6 +98,7 @@ impl<W: Widget> Application<W> {
                             damage.height as i32,
                         );
                     }
+                    buffer.composite();
                     return true;
                 }
     		}
@@ -113,12 +116,13 @@ impl<W: Widget> Application<W> {
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        if let Ok((mut canvas, wlbuf)) = buffer(
+        if let Ok((mut buffer, wlbuf)) = buffer(
             self.widget.width(),
             self.widget.height(),
             mempool,
         ) {
-            self.widget.draw(&mut canvas, 0, 0);
+        	let canvas = buffer.canvas();
+            self.widget.draw(canvas, 0, 0);
             for damage in canvas.report() {
                 self.surface.damage(
                     damage.x as i32,
@@ -127,6 +131,7 @@ impl<W: Widget> Application<W> {
                     damage.height as i32,
                 );
             }
+            buffer.composite();
             self.buffer = Some(wlbuf);
         }
     }
@@ -142,7 +147,7 @@ impl<W: Widget> Application<W> {
     }
 }
 
-fn sender(surface: &WlSurface, slice: &[(WlSurface, SyncSender<Dispatch>)]) -> Option<SyncSender<Dispatch>> {
+fn get_sender(surface: &WlSurface, slice: &[(WlSurface, SyncSender<Dispatch>)]) -> Option<SyncSender<Dispatch>> {
     for app in slice {
         if surface.eq(&app.0) {
             return Some(app.1.clone());
@@ -200,7 +205,7 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                 keys: _,
             } => {
                 if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
-                    sender = sender(&surface, &senders);
+                    sender = get_sender(&surface, &senders);
                 } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }
@@ -262,7 +267,7 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                 surface_y,
             } => {
                 if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
-                    sender = sender(&surface, &senders);
+                    sender = get_sender(&surface, &senders);
                 } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }
