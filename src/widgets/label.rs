@@ -172,10 +172,10 @@ impl Label {
 }
 
 impl Geometry for Label {
-    fn get_width(&self) -> u32 {
+    fn width(&self) -> u32 {
         self.size.0
     }
-    fn get_height(&self) -> u32 {
+    fn height(&self) -> u32 {
         self.size.1
     }
 }
@@ -207,8 +207,8 @@ impl Widget for Label {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        _widget_x: u32,
-        _widget_y: u32,
+        _widx: u32,
+        _widy: u32,
         _dispatched: &Dispatch,
     ) -> Option<Damage> {
         None

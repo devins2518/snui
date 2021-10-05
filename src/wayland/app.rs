@@ -40,7 +40,7 @@ impl<W: Widget> Application<W> {
         )
     }
     pub fn attach_layer_surface(&mut self, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
-        layer_surface.set_size(self.widget.get_width(), self.widget.get_height());
+        layer_surface.set_size(self.widget.width(), self.widget.height());
         self.surface.commit();
         assign_layer_surface(&self.surface, &layer_surface);
         self.layer_surface = Some(layer_surface.detach());
@@ -66,8 +66,8 @@ impl<W: Widget> Application<W> {
         }
     }
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) -> bool {
-        let width = self.widget.get_width();
-        let height = self.widget.get_height();
+        let width = self.widget.width();
+        let height = self.widget.height();
         if let Ok((mut canvas, wlbuf)) = buffer(
             width,
             height,
@@ -79,8 +79,8 @@ impl<W: Widget> Application<W> {
                 self.surface.damage(
                     damage.x as i32,
                     damage.y as i32,
-                    damage.widget.get_width() as i32,
-                    damage.widget.get_height() as i32,
+                    damage.widget.width() as i32,
+                    damage.widget.height() as i32,
                 );
                 self.surface.commit();
         		return true
@@ -107,15 +107,15 @@ impl<W: Widget> Application<W> {
         self.surface.damage(
             0,
             0,
-            self.widget.get_width() as i32,
-            self.widget.get_height() as i32,
+            self.widget.width() as i32,
+            self.widget.height() as i32,
         );
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
         if let Ok((mut canvas, wlbuf)) = buffer(
-            self.widget.get_width(),
-            self.widget.get_height(),
+            self.widget.width(),
+            self.widget.height(),
             mempool,
         ) {
             self.widget.draw(&mut canvas, 0, 0);
@@ -142,7 +142,7 @@ impl<W: Widget> Application<W> {
     }
 }
 
-fn get_sender(surface: &WlSurface, slice: &[(WlSurface, SyncSender<Dispatch>)]) -> Option<SyncSender<Dispatch>> {
+fn sender(surface: &WlSurface, slice: &[(WlSurface, SyncSender<Dispatch>)]) -> Option<SyncSender<Dispatch>> {
     for app in slice {
         if surface.eq(&app.0) {
             return Some(app.1.clone());
@@ -200,7 +200,7 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
                 keys: _,
             } => {
                 if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
-                    sender = get_sender(&surface, &senders);
+                    sender = sender(&surface, &senders);
                 } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }
@@ -262,7 +262,7 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
                 surface_y,
             } => {
                 if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
-                    sender = get_sender(&surface, &senders);
+                    sender = sender(&surface, &senders);
                 } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
                     sender = Some(focused.clone());
                 }

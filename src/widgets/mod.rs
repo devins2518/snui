@@ -86,10 +86,10 @@ pub mod rectangle {
     }
 
     impl Geometry for Rectangle {
-        fn get_width(&self) -> u32 {
+        fn width(&self) -> u32 {
             self.width
         }
-        fn get_height(&self) -> u32 {
+        fn height(&self) -> u32 {
             self.height
         }
     }
@@ -124,8 +124,8 @@ pub mod rectangle {
     impl Widget for Rectangle {
         fn roundtrip<'d>(
             &'d mut self,
-            _widget_x: u32,
-            _widget_y: u32,
+            _widx: u32,
+            _widy: u32,
             dispatched: &Dispatch,
         ) -> Option<Damage> {
             if let Dispatch::Commit = dispatched {
@@ -173,11 +173,11 @@ pub mod rectangle {
     }
 
     impl<W: Widget> Geometry for Border<W> {
-        fn get_width(&self) -> u32 {
-            self.widget.get_width() + self.size.0 + self.size.2
+        fn width(&self) -> u32 {
+            self.widget.width() + self.size.0 + self.size.2
         }
-        fn get_height(&self) -> u32 {
-            self.widget.get_height() + self.size.1 + self.size.3
+        fn height(&self) -> u32 {
+            self.widget.height() + self.size.1 + self.size.3
         }
     }
 
@@ -187,8 +187,8 @@ pub mod rectangle {
         }
         fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
             if self.damaged {
-                let bwidth = self.get_width();
-                let bheight = self.get_height();
+                let bwidth = self.width();
+                let bheight = self.height();
 
                 Rectangle::new(bwidth, self.size.0, self.color).draw(canvas, x, y);
                 Rectangle::new(bwidth, self.size.2, self.color).draw(canvas, x, y + bheight - self.size.2);
@@ -206,15 +206,15 @@ pub mod rectangle {
         }
         fn roundtrip<'d>(
             &'d mut self,
-            widget_x: u32,
-            widget_y: u32,
+            widx: u32,
+            widy: u32,
             dispatched: &Dispatch,
         ) -> Option<Damage> {
             if let Dispatch::Commit = dispatched {
                 self.damaged = self.damaged == false;
             }
             self.widget
-                .roundtrip(widget_x + self.size.0, widget_y + self.size.3, dispatched)
+                .roundtrip(widx + self.size.0, widy + self.size.3, dispatched)
         }
     }
 
@@ -240,11 +240,11 @@ pub mod rectangle {
     }
 
     impl<W: Widget> Geometry for Background<W> {
-        fn get_width(&self) -> u32 {
-            self.widget.get_width() + self.padding.1 + self.padding.3
+        fn width(&self) -> u32 {
+            self.widget.width() + self.padding.1 + self.padding.3
         }
-        fn get_height(&self) -> u32 {
-            self.widget.get_height() + self.padding.0 + self.padding.2
+        fn height(&self) -> u32 {
+            self.widget.height() + self.padding.0 + self.padding.2
         }
     }
 
@@ -254,7 +254,7 @@ pub mod rectangle {
         }
         fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
             if self.damaged {
-                Rectangle::new(self.get_width(), self.get_height(), self.background).draw(canvas, x, y);
+                Rectangle::new(self.width(), self.height(), self.background).draw(canvas, x, y);
             }
             canvas.push(x, y, self, true);
             self.widget
@@ -268,16 +268,16 @@ pub mod rectangle {
         }
         fn roundtrip<'d>(
             &'d mut self,
-            widget_x: u32,
-            widget_y: u32,
+            widx: u32,
+            widy: u32,
             dispatched: &Dispatch,
         ) -> Option<Damage> {
             if let Dispatch::Commit = dispatched {
                 self.damaged = self.damaged == false;
             }
             self.widget.roundtrip(
-                widget_x + self.padding.3,
-                widget_y + self.padding.0,
+                widx + self.padding.3,
+                widy + self.padding.0,
                 dispatched,
             )
         }

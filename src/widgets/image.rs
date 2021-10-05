@@ -59,10 +59,10 @@ impl Image {
 }
 
 impl Geometry for Image {
-    fn get_width(&self) -> u32 {
+    fn width(&self) -> u32 {
         self.image.width()
     }
-    fn get_height(&self) -> u32 {
+    fn height(&self) -> u32 {
         self.image.height()
     }
 }
@@ -84,8 +84,8 @@ impl Widget for Image {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        _widget_x: u32,
-        _widget_y: u32,
+        _widx: u32,
+        _widy: u32,
         _dispatched: &Dispatch,
     ) -> Option<Damage> {
         None

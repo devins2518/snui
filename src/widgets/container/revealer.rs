@@ -26,18 +26,18 @@ impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
-    fn get_width(&self) -> u32 {
+    fn width(&self) -> u32 {
         if self.state {
-            self.reveal.get_width()
+            self.reveal.width()
         } else {
-            self.normal.get_width()
+            self.normal.width()
         }
     }
-    fn get_height(&self) -> u32 {
+    fn height(&self) -> u32 {
         if self.state {
-            self.reveal.get_height()
+            self.reveal.height()
         } else {
-            self.normal.get_height()
+            self.normal.height()
         }
     }
 }
@@ -65,8 +65,8 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widx: u32,
+        widy: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Commit = dispatched {
@@ -74,9 +74,9 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
             None
         } else {
             if self.state {
-                self.reveal.roundtrip(widget_x, widget_y, dispatched)
+                self.reveal.roundtrip(widx, widy, dispatched)
             } else {
-                self.normal.roundtrip(widget_x, widget_y, dispatched)
+                self.normal.roundtrip(widx, widy, dispatched)
             }
         }
     }

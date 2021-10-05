@@ -15,11 +15,11 @@ impl<W: Widget> Button<W> {
 }
 
 impl<W: Widget> Geometry for Button<W> {
-    fn get_width(&self) -> u32 {
-        self.widget.get_width()
+    fn width(&self) -> u32 {
+        self.widget.width()
     }
-    fn get_height(&self) -> u32 {
-        self.widget.get_height()
+    fn height(&self) -> u32 {
+        self.widget.height()
     }
 }
 
@@ -40,15 +40,15 @@ impl<W: Widget> Widget for Button<W> {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widx: u32,
+        widy: u32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Pointer(x, y, pointer) = dispatched {
-            if *x > widget_x
-                && *y > widget_y
-                && *x < widget_x + self.get_width()
-                && *y < widget_y + self.get_height()
+            if *x > widx
+                && *y > widy
+                && *x < widx + self.width()
+                && *y < widy + self.height()
             {
                 match pointer {
                     // I need to make a distinction between left-click, right-click and middle-click
