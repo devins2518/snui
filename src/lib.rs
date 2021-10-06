@@ -85,10 +85,10 @@ impl<'c> Canvas<'c> {
     pub fn push<W: Geometry>(&mut self, x: u32, y: u32, widget: &W, container: bool) {
         if let Some(last) = self.damage.last() {
             if !(last.container
-            && last.x > x
-            && last.y > y
-            && last.x < x + widget.get_width()
-            && last.y < y + widget.get_height())
+            && last.x < x
+            && last.y < y
+            && last.x + last.width > x
+            && last.y + last.height > y)
             {
                 self.damage.push(DamageReport {
                     x,
