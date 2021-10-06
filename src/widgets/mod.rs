@@ -1,4 +1,5 @@
 pub mod button;
+pub mod primitives;
 pub mod container;
 pub mod image;
 pub mod label;
@@ -85,7 +86,6 @@ pub fn boxed<W: Widget>(
 pub mod rectangle {
     use crate::widgets::DRAW_OPTION;
     use crate::*;
-    use std::io::Write;
 
     #[derive(Copy, Clone, Debug)]
     pub struct Rectangle {
@@ -107,13 +107,12 @@ pub mod rectangle {
     impl Drawable for Rectangle {
         fn set_color(&mut self, color: u32) {
             let color = color.to_ne_bytes();
-            let source = SolidSource {
-                r: color[0],
-                g: color[1],
-                b: color[2],
-                a: color[3],
-            };
-            self.source = Some(source);
+            self.source = Some(SolidSource::from_unpremultiplied_argb(
+                color[0],
+                color[1],
+                color[2],
+                color[3],
+            ));
         }
         fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
             if let Some(color) = self.source {
@@ -149,7 +148,7 @@ pub mod rectangle {
 
     impl Rectangle {
         pub fn new(width: u32, height: u32, color: u32) -> Rectangle {
-            let color = color.to_ne_bytes();
+            let color = color.to_le_bytes();
             let source = SolidSource {
                 r: color[0],
                 g: color[1],
@@ -172,7 +171,7 @@ pub mod rectangle {
             }
         }
         pub fn square(size: u32, color: u32) -> Rectangle {
-            let color = color.to_ne_bytes();
+            let color = color.to_le_bytes();
             let source = SolidSource {
                 r: color[0],
                 g: color[1],

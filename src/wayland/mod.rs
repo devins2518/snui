@@ -24,7 +24,7 @@ impl<'b> Buffer<'b> {
     }
     fn merge(&mut self) {
         self.slice.write_all(&self.canvas).unwrap();
-        self.slice.flush();
+        self.slice.flush().unwrap();
     }
 }
 

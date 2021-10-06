@@ -63,11 +63,11 @@ impl Drawable for Glyph {
         let mut index = (((x + self.position.0) + ((y + self.position.1) * canvas.width() as u32))
             * 4) as usize;
         if self.metrics.width > 0 {
+            let pixel = self.color.to_ne_bytes();
             for row in self.coverage.chunks(self.metrics.width) {
                 if index < canvas.size() {
                     let mut writer = &mut canvas[index..];
                     for t in row.iter() {
-                        let pixel = self.color.to_ne_bytes();
                         match t {
                             &0 => {
                                 let p = [writer[0], writer[1], writer[2], writer[3]];
