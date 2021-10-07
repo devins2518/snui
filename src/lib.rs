@@ -183,7 +183,7 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32);
 }
 
-pub trait Widget: Drawable + Geometry + Send + Sync {
+pub trait Widget: Drawable + Geometry {
     fn damaged(&self) -> bool;
     fn roundtrip<'d>(
         &'d mut self,

@@ -1,7 +1,6 @@
 use crate::wayland::buffer;
 use crate::*;
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
-use std::sync::mpsc::sync_channel;
 use std::sync::mpsc::{Receiver, SyncSender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_keyboard;
@@ -28,20 +27,17 @@ impl<W: Widget> Application<W> {
     pub fn new(
         widget: W,
         surface: WlSurface,
+        receiver: Receiver<Dispatch>,
         shm: WlShm,
-    ) -> (Application<W>, SyncSender<Dispatch>) {
-        let (sender, receiver) = sync_channel(1);
-        (
-            Application {
-                shm,
-                surface,
-                receiver,
-                buffer: None,
-                layer_surface: None,
-                widget,
-            },
-            sender,
-        )
+    ) -> Application<W> {
+        Application {
+            shm,
+            surface,
+            receiver,
+            buffer: None,
+            layer_surface: None,
+            widget,
+        }
     }
     pub fn attach_layer_surface(&mut self, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
         layer_surface.set_size(self.widget.width(), self.widget.height());
