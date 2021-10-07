@@ -27,8 +27,8 @@ impl<W: Widget> Application<W> {
     pub fn new(
         widget: W,
         surface: WlSurface,
-        receiver: Receiver<Dispatch>,
         shm: WlShm,
+        receiver: Receiver<Dispatch>,
     ) -> Application<W> {
         Application {
             shm,

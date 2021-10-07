@@ -80,7 +80,7 @@ impl Canvas {
         &mut self.target
     }
     fn size(&self) -> usize {
-        (self.target.width() * self.target.height()) as usize
+        self.target.get_data_u8().len()
     }
     pub fn push<W: Geometry>(&mut self, x: u32, y: u32, widget: &W, container: bool) {
         if let Some(last) = self.damage.last() {
