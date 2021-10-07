@@ -113,6 +113,27 @@ impl Geometry for Canvas {
     }
 }
 
+impl Drawable for Canvas {
+    fn set_color(&mut self, color: u32) {
+        let color = color.to_be_bytes();
+        self.target.fill_rect(
+            0.,
+            0.,
+            self.target.width() as f32,
+            self.target.height() as f32,
+            &Source::Solid(SolidSource {
+                a: color[0],
+                r: color[1],
+                g: color[2],
+                b: color[3],
+            }),
+            &DrawOptions::new()
+        )
+    }
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    }
+}
+
 impl Deref for Canvas {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {

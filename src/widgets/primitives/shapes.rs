@@ -137,7 +137,7 @@ impl Drawable for Rectangle {
                 Style::Border(source, border) => {
                     let stroke = StrokeStyle {
                         width: *border,
-                        cap: LineCap::Butt,
+                        cap: LineCap::Round,
                         join: LineJoin::Miter,
                         miter_limit: 10.,
                         dash_array: Vec::new(),
@@ -170,5 +170,83 @@ impl Widget for Rectangle {
     }
     fn damaged(&self) -> bool {
         self.damaged
+    }
+}
+
+pub struct Circle {
+    damaged: bool,
+    style: Style,
+    // (tl, tr, br, bl)
+    radius: f32,
+}
+
+impl Geometry for Circle {
+    fn width(&self) -> u32 {
+        self.radius as u32 * 2
+    }
+    fn height(&self) -> u32 {
+        self.radius as u32 * 2
+    }
+}
+
+impl Drawable for Circle {
+    fn set_color(&mut self, color: u32) {
+        let color = color.to_be_bytes();
+        if let Style::Border(source, _) = &mut self.style {
+            *source = SolidSource {
+                a: color[0],
+                r: color[1],
+                g: color[2],
+                b: color[3],
+            };
+        } else if let Style::Fill(source) = &mut self.style {
+            *source = SolidSource {
+                a: color[0],
+                r: color[1],
+                g: color[2],
+                b: color[3],
+            };
+        }
+    }
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        if !self.style.is_empty() {
+            let dt = canvas.target();
+            let mut pb = PathBuilder::new();
+            let mut cursor = (x as f32, y as f32);
+
+    		// Positioning the cursor
+    		cursor.0 += self.radius;
+    		cursor.1 += self.radius;
+
+            // Drawing the outline
+            pb.arc(cursor.0, cursor.1, self.radius[0], 0, 2. * PI);
+
+            // Closing path
+            pb.close();
+            let path = pb.finish();
+
+            match &self.style {
+                Style::Fill(source) => {
+                    dt.fill(&path, &Source::Solid(*source), &DrawOptions::new());
+                }
+                Style::Border(source, border) => {
+                    let stroke = StrokeStyle {
+                        width: *border,
+                        cap: LineCap::Round,
+                        join: LineJoin::Miter,
+                        miter_limit: 10.,
+                        dash_array: Vec::new(),
+                        dash_offset: 0.,
+                    };
+                    dt.stroke(
+                        &path,
+                        &Source::Solid(*source),
+                        &stroke,
+                        &DrawOptions::new()
+                    );
+                }
+                Style::Empty => {}
+            }
+        }
     }
 }
