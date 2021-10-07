@@ -46,7 +46,7 @@ impl<W: Widget> Drawable for Boxed<W> {
             Shape::Rectangle => {
                 let width = self.child.width() + self.padding[1] + self.padding[3];
                 let height = self.child.height() + self.padding[0] + self.padding[2];
-                Rectangle::new(width as f32, height as f32, self.border_color).draw(canvas, x, y);
+                Rectangle::new(width as f32, height as f32, self.border_color).draw(canvas, x + self.border_width/2, y + self.border_width/2);
                 Rectangle::new(width as f32, height as f32, self.background_color).draw(canvas, x + self.border_width, y + self.border_width);
             }
             _ => {}
