@@ -1,5 +1,6 @@
 pub mod shapes;
 
+use crate::*;
 use raqote::*;
 use shapes::*;
 
@@ -9,7 +10,81 @@ pub enum Style {
     Empty
 }
 
-pub struct BorderedRectangle {
+pub struct Boxed<W: Widget> {
+    pub child: W,
+    damaged: bool,
     rect: Rectangle,
     border: Rectangle,
+    border_width: u32,
+    padding: [u32; 4],
+}
+
+impl<W: Widget> Geometry for Boxed<W> {
+    fn width(&self) -> u32 {
+        self.rect.width() + self.border_width * 2
+    }
+    fn height(&self) -> u32 {
+        self.rect.height() + self.border_width * 2
+    }
+}
+
+impl<W: Widget> Drawable for Boxed<W> {
+    fn set_color(&mut self, color: u32) {
+        self.border.set_color(color);
+    }
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        self.rect.draw(canvas, x, y);
+        self.border.draw(canvas, x + self.border_width, y + self.border_width);
+        self.child
+            .draw(canvas, x + self.padding[3] + self.border_width, y + self.padding[0] + self.border_width);
+    }
+}
+
+impl<W: Widget> Widget for Boxed<W> {
+    fn damaged(&self) -> bool {
+        self.damaged
+    }
+    fn roundtrip<'d>(
+        &'d mut self,
+        widget_x: u32,
+        widget_y: u32,
+        dispatched: &Dispatch,
+    ) -> Option<Damage> {
+        if let Dispatch::Commit = dispatched {
+            self.damaged = self.damaged == false;
+        }
+        self.child.roundtrip(
+            widget_x + self.padding[3] + self.border_width,
+            widget_y + self.padding[0] + self.border_width,
+            dispatched,
+        )
+    }
+}
+
+impl<W: Widget> Boxed<W> {
+    pub fn new(padding: u32, border_width: u32, color: u32, border_color: u32, child: W) -> Self {
+        Self {
+            rect: Rectangle::new(
+                (child.width() + 2 * padding) as f32,
+                (child.height() + 2 * padding) as f32,
+                if color != 0 { Style::fill(color) } else { Style::Empty }
+            ),
+            border: Rectangle::new(
+                (child.width() + 2 * padding) as f32,
+                (child.height() + 2 * padding) as f32,
+                if color != 0 { Style::border(border_color, border_width as f32) } else { Style::Empty }
+            ),
+            child,
+            border_width,
+            padding: [padding; 4],
+            damaged: true,
+        }
+    }
+    pub fn set_radius(&mut self, radius: f32) {
+        self.rect.set_radius(radius);
+        self.border.set_radius(radius+1.);
+    }
+    pub fn set_padding(&mut self, padding: u32) {
+        self.padding = [padding; 4];
+    }
 }

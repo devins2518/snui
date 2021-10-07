@@ -53,6 +53,9 @@ impl Rectangle {
             radius: [0.;4]
         }
     }
+    pub fn set_radius(&mut self, radius: f32) {
+        self.radius = [radius; 4];
+    }
 }
 
 impl Geometry for Rectangle {

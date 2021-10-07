@@ -60,10 +60,10 @@ impl Image {
 
 impl Geometry for Image {
     fn width(&self) -> u32 {
-        self.image.width()
+        self.image.width() as u32
     }
     fn height(&self) -> u32 {
-        self.image.height()
+        self.image.height() as u32
     }
 }
 
@@ -74,7 +74,7 @@ impl Drawable for Image {
 
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         canvas.push(x, y, self, false);
-        render(canvas, self.image.as_raw(), self.image.width(), x, y);
+        //render(canvas, self.image.as_raw(), self.image.width(), x, y);
     }
 }
 
