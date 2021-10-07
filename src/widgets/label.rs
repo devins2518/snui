@@ -9,7 +9,6 @@ use std::fs::read;
 use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-// use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Label {
@@ -59,32 +58,32 @@ impl Drawable for Glyph {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        let stride = canvas.width as usize * 4;
-        let mut index =
-            (((x + self.position.0) + ((y + self.position.1) * canvas.width as u32)) * 4) as usize;
+        let stride = canvas.width() as usize * 4;
+        let mut index = (((x + self.position.0) + ((y + self.position.1) * canvas.width() as u32))
+            * 4) as usize;
         if self.metrics.width > 0 {
+            let pixel = self.color.to_ne_bytes();
             for row in self.coverage.chunks(self.metrics.width) {
                 if index < canvas.size() {
-                let mut writer = &mut canvas[index..];
-                for t in row.iter() {
-                    let pixel = self.color.to_ne_bytes();
-                    match t {
-                        &0 => {
-                            let p = [writer[0], writer[1], writer[2], writer[3]];
-                            writer.write(&p).unwrap();
-                        }
-                        &255 => {
-                            writer.write(&pixel).unwrap();
-                        }
-                        _ => {
-                            let mut p = [writer[0], writer[1], writer[2], writer[3]];
-                            p = blend(&pixel, &p, (255 - *t) as f32 / 255.0);
-                            writer.write(&p).unwrap();
+                    let mut writer = &mut canvas[index..];
+                    for t in row.iter() {
+                        match t {
+                            &0 => {
+                                let p = [writer[0], writer[1], writer[2], writer[3]];
+                                writer.write(&p).unwrap();
+                            }
+                            &255 => {
+                                writer.write(&pixel).unwrap();
+                            }
+                            _ => {
+                                let mut p = [writer[0], writer[1], writer[2], writer[3]];
+                                p = blend(&pixel, &p, (255 - *t) as f32 / 255.0);
+                                writer.write(&p).unwrap();
+                            }
                         }
                     }
-                }
-                index += stride;
-                writer.flush().unwrap();
+                    index += stride;
+                    writer.flush().unwrap();
                 }
             }
         }
@@ -103,15 +102,18 @@ impl Label {
             color,
             damaged: true,
             font_size: font_size as u32,
-            size: ({
-                let mut w = 0;
-                for gp in layout.glyphs().iter() {
-                    if w < gp.width + gp.x as usize {
-                        w = gp.width + gp.x as usize
+            size: (
+                {
+                    let mut w = 0;
+                    for gp in layout.glyphs().iter() {
+                        if w < gp.width + gp.x as usize {
+                            w = gp.width + gp.x as usize
+                        }
                     }
-                }
-                w as u32
-            }, layout.height() as u32),
+                    w as u32
+                },
+                layout.height() as u32,
+            ),
             layout: Arc::new(Mutex::new(layout)),
         }
     }
@@ -124,19 +126,28 @@ impl Label {
             color,
             damaged: true,
             font_size: font_size as u32,
-            size: ({
-                let mut w = 0;
-                for gp in layout.glyphs().iter() {
-                    if w < gp.width + gp.x as usize {
-                        w = gp.width + gp.x as usize
+            size: (
+                {
+                    let mut w = 0;
+                    for gp in layout.glyphs().iter() {
+                        if w < gp.width + gp.x as usize {
+                            w = gp.width + gp.x as usize
+                        }
                     }
-                }
-                w as u32
-            }, layout.height() as u32),
+                    w as u32
+                },
+                layout.height() as u32,
+            ),
             layout: Arc::new(Mutex::new(layout)),
         }
     }
-    pub fn max_width<'f>(text: &'f str, path: &Path, font_size: f32, width: f32, color: u32) -> Label {
+    pub fn max_width<'f>(
+        text: &'f str,
+        path: &Path,
+        font_size: f32,
+        width: f32,
+        color: u32,
+    ) -> Label {
         let font = read(path).unwrap();
         // Parse it into the font type.
         let mut layout_setting = DEFAULT;
@@ -172,10 +183,10 @@ impl Label {
 }
 
 impl Geometry for Label {
-    fn get_width(&self) -> u32 {
+    fn width(&self) -> u32 {
         self.size.0
     }
-    fn get_height(&self) -> u32 {
+    fn height(&self) -> u32 {
         self.size.1
     }
 }

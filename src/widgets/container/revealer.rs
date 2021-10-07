@@ -1,6 +1,5 @@
 use crate::*;
 
-#[derive(Clone)]
 pub struct Revealer<N: Widget, R: Widget> {
     normal: N,
     reveal: R,
@@ -26,18 +25,18 @@ impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
-    fn get_width(&self) -> u32 {
+    fn width(&self) -> u32 {
         if self.state {
-            self.reveal.get_width()
+            self.reveal.width()
         } else {
-            self.normal.get_width()
+            self.normal.width()
         }
     }
-    fn get_height(&self) -> u32 {
+    fn height(&self) -> u32 {
         if self.state {
-            self.reveal.get_height()
+            self.reveal.height()
         } else {
-            self.normal.get_height()
+            self.normal.height()
         }
     }
 }

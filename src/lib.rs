@@ -1,5 +1,7 @@
 pub mod wayland;
 pub mod widgets;
+use euclid::default::{Box2D, Point2D};
+use raqote::*;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Copy, Clone, Debug)]
@@ -62,40 +64,38 @@ pub struct DamageReport {
     container: bool,
 }
 
-#[derive(Debug)]
-pub struct Canvas<'c> {
-    slice: &'c mut [u8],
-    pub width: u32,
-    pub height: u32,
-    damage: Vec<DamageReport>
+pub struct Canvas {
+    target: DrawTarget,
+    damage: Vec<DamageReport>,
 }
 
-impl<'c> Canvas<'c> {
-    fn new(slice: &'c mut [u8], width: u32, height: u32) -> Self {
+impl Canvas {
+    fn new(width: u32, height: u32) -> Self {
         Self {
-            slice,
-            width,
-            height,
-            damage: Vec::new()
+            target: DrawTarget::new(width as i32, height as i32),
+            damage: Vec::new(),
         }
     }
+    fn target(&mut self) -> &mut DrawTarget {
+        &mut self.target
+    }
     fn size(&self) -> usize {
-        self.slice.len()
+        self.target.get_data_u8().len()
     }
     pub fn push<W: Geometry>(&mut self, x: u32, y: u32, widget: &W, container: bool) {
         if let Some(last) = self.damage.last() {
             if !(last.container
-            && last.x < x
-            && last.y < y
-            && last.x + last.width > x
-            && last.y + last.height > y)
+                && last.x > x
+                && last.y > y
+                && last.x < x + widget.width()
+                && last.y < y + widget.height())
             {
                 self.damage.push(DamageReport {
                     x,
                     y,
                     container,
-                    width: widget.get_width(),
-                    height: widget.get_height()
+                    width: widget.width(),
+                    height: widget.height(),
                 });
             }
         }
@@ -105,16 +105,58 @@ impl<'c> Canvas<'c> {
     }
 }
 
-impl<'c> Deref for Canvas<'c> {
-    type Target = [u8];
-    fn deref(&self) -> &Self::Target {
-        &self.slice
+impl Geometry for Canvas {
+    fn width(&self) -> u32 {
+        self.target.width() as u32
+    }
+    fn height(&self) -> u32 {
+        self.target.height() as u32
     }
 }
 
-impl<'c> DerefMut for Canvas<'c> {
+impl Drawable for Canvas {
+    fn set_color(&mut self, color: u32) {
+        let color = color.to_be_bytes();
+        self.target.fill_rect(
+            0.,
+            0.,
+            self.target.width() as f32,
+            self.target.height() as f32,
+            &Source::Solid(SolidSource {
+                a: color[0],
+                r: color[1],
+                g: color[2],
+                b: color[3],
+            }),
+            &DrawOptions::new(),
+        )
+    }
+    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        for damage in &self.damage {
+            canvas.damage.push(*damage);
+        }
+        canvas.target().blend_surface(
+            &self.target,
+            Box2D::new(
+                euclid::point2(x as i32, y as i32),
+                euclid::point2((x + self.width()) as i32, (y + self.height()) as i32),
+            ),
+            Point2D::new(x as i32, y as i32),
+            BlendMode::Add,
+        )
+    }
+}
+
+impl Deref for Canvas {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        self.target.get_data_u8()
+    }
+}
+
+impl DerefMut for Canvas {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.slice
+        self.target.get_data_u8_mut()
     }
 }
 
@@ -127,8 +169,8 @@ pub trait Container {
 }
 
 pub trait Geometry {
-    fn get_width(&self) -> u32;
-    fn get_height(&self) -> u32;
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
 }
 
 /*
@@ -139,7 +181,7 @@ pub trait Drawable {
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32);
 }
 
-pub trait Widget: Drawable + Geometry + Send + Sync {
+pub trait Widget: Drawable + Geometry {
     fn damaged(&self) -> bool;
     fn roundtrip<'d>(
         &'d mut self,

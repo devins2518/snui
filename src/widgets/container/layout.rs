@@ -35,13 +35,13 @@ pub struct WidgetLayout {
 }
 
 impl Geometry for WidgetLayout {
-    fn get_width(&self) -> u32 {
+    fn width(&self) -> u32 {
         let mut width = 0;
         match self.orientation {
             Orientation::Horizontal => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lwidth = w.widget.get_width();
+                        let lwidth = w.widget.width();
                         width += lwidth + self.spacing;
                     }
                 }
@@ -50,7 +50,7 @@ impl Geometry for WidgetLayout {
             Orientation::Vertical => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lwidth = w.widget.get_width();
+                        let lwidth = w.widget.width();
                         if lwidth > width {
                             width = lwidth;
                         }
@@ -60,13 +60,13 @@ impl Geometry for WidgetLayout {
         }
         width
     }
-    fn get_height(&self) -> u32 {
+    fn height(&self) -> u32 {
         let mut height = 0;
         match self.orientation {
             Orientation::Horizontal => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lheight = w.widget.get_height();
+                        let lheight = w.widget.height();
                         if lheight > height {
                             height = lheight;
                         }
@@ -76,7 +76,7 @@ impl Geometry for WidgetLayout {
             Orientation::Vertical => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lheight = w.widget.get_height();
+                        let lheight = w.widget.height();
                         height += lheight + self.spacing;
                     }
                 }
@@ -88,10 +88,10 @@ impl Geometry for WidgetLayout {
 }
 
 impl Drawable for WidgetLayout {
-    fn set_color(&mut self, _color: u32) { }
+    fn set_color(&mut self, _color: u32) {}
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        let sw = self.get_width();
-        let sh = self.get_height();
+        let sw = self.width();
+        let sh = self.height();
         let (mut dx, mut dy) = (0, 0);
         for w in &self.widgets {
             if w.mapped {
@@ -99,20 +99,20 @@ impl Drawable for WidgetLayout {
                     Orientation::Horizontal => {
                         match self.alignment {
                             Alignment::Start => dy = 0,
-                            Alignment::Center => dy = (sh - w.widget.get_height()) / 2,
-                            Alignment::End => dy = sh - w.widget.get_height(),
+                            Alignment::Center => dy = (sh - w.widget.height()) / 2,
+                            Alignment::End => dy = sh - w.widget.height(),
                         }
                         w.widget.draw(canvas, x + dx, y + dy);
-                        dx += w.widget.get_width() + self.spacing;
+                        dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
                         match self.alignment {
                             Alignment::Start => dx = 0,
-                            Alignment::Center => dx = (sw - w.widget.get_width()) / 2,
-                            Alignment::End => dx = sw - w.widget.get_width(),
+                            Alignment::Center => dx = (sw - w.widget.width()) / 2,
+                            Alignment::End => dx = sw - w.widget.width(),
                         }
                         w.widget.draw(canvas, x + dx, y + dy);
-                        dy += w.widget.get_height() + self.spacing;
+                        dy += w.widget.height() + self.spacing;
                     }
                 }
             }
@@ -192,7 +192,9 @@ impl WidgetLayout {
 impl Widget for WidgetLayout {
     fn damaged(&self) -> bool {
         for w in &self.widgets {
-            if w.mapped { return true }
+            if w.mapped {
+                return true;
+            }
         }
         false
     }
@@ -203,25 +205,27 @@ impl Widget for WidgetLayout {
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         match dispatched {
-            Dispatch::Commit => for w in self.widgets.iter_mut() {
-                w.mapped = w.mapped == false;
+            Dispatch::Commit => {
+                for w in self.widgets.iter_mut() {
+                    w.mapped = w.mapped == false;
+                }
             }
             _ => {
                 let (mut dx, mut dy) = (0, 0);
                 for w in &mut self.widgets {
                     if w.mapped {
-                        let widget_width = w.widget.get_width();
-                        let widget_height = w.widget.get_height();
+                        let widwidth = w.widget.width();
+                        let widheight = w.widget.height();
                         let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatched);
                         if ev.is_some() {
                             return ev;
                         }
                         match self.orientation {
                             Orientation::Horizontal => {
-                                dx += widget_width + self.spacing;
+                                dx += widwidth + self.spacing;
                             }
                             Orientation::Vertical => {
-                                dy += widget_height + self.spacing;
+                                dy += widheight + self.spacing;
                             }
                         }
                     }

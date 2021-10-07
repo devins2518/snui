@@ -59,11 +59,11 @@ impl Image {
 }
 
 impl Geometry for Image {
-    fn get_width(&self) -> u32 {
-        self.image.width()
+    fn width(&self) -> u32 {
+        self.image.width() as u32
     }
-    fn get_height(&self) -> u32 {
-        self.image.height()
+    fn height(&self) -> u32 {
+        self.image.height() as u32
     }
 }
 
