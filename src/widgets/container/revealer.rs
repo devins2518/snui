@@ -1,6 +1,5 @@
 use crate::*;
 
-#[derive(Clone)]
 pub struct Revealer<N: Widget, R: Widget> {
     normal: N,
     reveal: R,

@@ -15,12 +15,13 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 };
 
 pub struct Application<W: Widget> {
+    pub running: bool,
+    widget: W,
     shm: WlShm,
+    surface: WlSurface,
+    buffer: Option<WlBuffer>,
     receiver: Receiver<Dispatch>,
-    pub widget: W,
-    pub surface: WlSurface,
-    pub buffer: Option<WlBuffer>,
-    pub layer_surface: Option<ZwlrLayerSurfaceV1>,
+    layer_surface: Option<ZwlrLayerSurfaceV1>,
 }
 
 impl<W: Widget> Application<W> {
@@ -31,6 +32,7 @@ impl<W: Widget> Application<W> {
         receiver: Receiver<Dispatch>,
     ) -> Application<W> {
         Application {
+            running: false,
             shm,
             surface,
             receiver,
@@ -50,7 +52,9 @@ impl<W: Widget> Application<W> {
         let attached = self.shm.as_ref().attach(event_queue.token());
         let mut mempool = DoubleMemPool::new(attached, |_| {}).unwrap();
 
-        loop {
+        self.running = true;
+
+        while self.running {
             if let Ok(dispatch) = self.receiver.recv() {
                 if let Some(mut pool) = mempool.pool() {
                     cb(&mut self, &mut pool, dispatch);
@@ -84,12 +88,6 @@ impl<W: Widget> Application<W> {
     }
     pub fn show(&self) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
-        // self.surface.damage(
-        //     0,
-        //     0,
-        //     self.widget.width() as i32,
-        //     self.widget.height() as i32,
-        // );
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
@@ -113,11 +111,12 @@ impl<W: Widget> Application<W> {
         self.buffer = None;
         self.show();
     }
-    pub fn destroy(&self) {
+    pub fn destroy(&mut self) {
         self.surface.destroy();
         if let Some(layer_surface) = &self.layer_surface {
             layer_surface.destroy();
         }
+        self.running = false;
     }
 }
 

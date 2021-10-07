@@ -128,7 +128,7 @@ impl Drawable for Canvas {
                 g: color[2],
                 b: color[3],
             }),
-            &DrawOptions::new()
+            &DrawOptions::new(),
         )
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
@@ -139,13 +139,11 @@ impl Drawable for Canvas {
             &self.target,
             Box2D::new(
                 euclid::point2(x as i32, y as i32),
-                euclid::point2(
-                    (x + self.width()) as i32,
-                    (y + self.height()) as i32
-                )
+                euclid::point2((x + self.width()) as i32, (y + self.height()) as i32),
             ),
             Point2D::new(x as i32, y as i32),
-            BlendMode::Add)
+            BlendMode::Add,
+        )
     }
 }
 

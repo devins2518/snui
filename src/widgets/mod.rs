@@ -1,13 +1,13 @@
-pub mod primitives;
 pub mod container;
 pub mod image;
 pub mod label;
+pub mod primitives;
 
 pub use self::image::Image;
 use crate::*;
-use std::rc::Rc;
 pub use container::{layout::WidgetLayout, Wbox};
 use std::io::Write;
+use std::rc::Rc;
 
 pub fn render(canvas: &mut Canvas, buffer: &[u8], width: u32, x: u32, y: u32) {
     let stride = canvas.width() as usize * 4;
@@ -65,14 +65,14 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
 
 pub struct Actionnable<W: Widget> {
     widget: W,
-    cb: Rc<dyn FnMut(&mut W, Dispatch) -> Option<Damage>>
+    cb: Rc<dyn FnMut(&mut W, Dispatch) -> Option<Damage>>,
 }
 
 impl<W: Widget> Actionnable<W> {
     pub fn new(widget: W, cb: impl FnMut(&mut W, Dispatch) -> Option<Damage> + 'static) -> Self {
         Self {
             widget,
-            cb: Rc::new(cb)
+            cb: Rc::new(cb),
         }
     }
 }

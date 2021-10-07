@@ -9,7 +9,6 @@ use std::fs::read;
 use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-// use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Label {

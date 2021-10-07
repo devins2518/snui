@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::primitives::*;
+use crate::*;
 use raqote::*;
 
 const PI: f32 = 3.14159;
@@ -16,15 +16,22 @@ impl Style {
     }
     pub fn border(color: u32, size: f32) -> Self {
         let color = color.to_be_bytes();
-        Style::Border(SolidSource {
-            a: color[0],
-            r: color[1],
-            g: color[2],
-            b: color[3],
-        }, size)
+        Style::Border(
+            SolidSource {
+                a: color[0],
+                r: color[1],
+                g: color[2],
+                b: color[3],
+            },
+            size,
+        )
     }
     pub fn is_empty(&self) -> bool {
-        if let Style::Empty = self { true } else { false }
+        if let Style::Empty = self {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -44,7 +51,7 @@ impl Rectangle {
             width,
             height,
             style,
-            radius: [0.;4]
+            radius: [0.; 4],
         }
     }
     pub fn square(size: f32, style: Style) -> Self {
@@ -53,7 +60,7 @@ impl Rectangle {
             width: size,
             height: size,
             style,
-            radius: [0.;4]
+            radius: [0.; 4],
         }
     }
     pub fn set_radius(&mut self, radius: [f32; 4]) {
@@ -95,35 +102,35 @@ impl Drawable for Rectangle {
             let mut pb = PathBuilder::new();
             let mut cursor = (x as f32, y as f32);
 
-    		// Sides length
+            // Sides length
             let top = self.width - self.radius[0] - self.radius[1];
             let right = self.height - self.radius[1] - self.radius[2];
             let left = self.height - self.radius[0] - self.radius[3];
             let bottom = self.width - self.radius[2] - self.radius[3];
 
-    		// Positioning the cursor
-    		cursor.0 += self.radius[0];
-    		cursor.1 += self.radius[0];
+            // Positioning the cursor
+            cursor.0 += self.radius[0];
+            cursor.1 += self.radius[0];
 
             // Drawing the outline
-            pb.arc(cursor.0, cursor.1, self.radius[0], PI, PI/2.);
-    		cursor.0 += top;
-    		cursor.1 -= self.radius[0];
+            pb.arc(cursor.0, cursor.1, self.radius[0], PI, PI / 2.);
+            cursor.0 += top;
+            cursor.1 -= self.radius[0];
             pb.line_to(cursor.0, cursor.1);
-    		cursor.1 += self.radius[1];
-            pb.arc(cursor.0, cursor.1, self.radius[1], -PI/2., PI/2.);
-    		cursor.0 += self.radius[1];
-    		cursor.1 += right;
+            cursor.1 += self.radius[1];
+            pb.arc(cursor.0, cursor.1, self.radius[1], -PI / 2., PI / 2.);
+            cursor.0 += self.radius[1];
+            cursor.1 += right;
             pb.line_to(cursor.0, cursor.1);
             cursor.0 -= self.radius[2];
-            pb.arc(cursor.0, cursor.1, self.radius[2], 0., PI/2.);
-    		cursor.1 += self.radius[2];
-    		cursor.0 -= bottom;
+            pb.arc(cursor.0, cursor.1, self.radius[2], 0., PI / 2.);
+            cursor.1 += self.radius[2];
+            cursor.0 -= bottom;
             pb.line_to(cursor.0, cursor.1);
-    		cursor.1 -= self.radius[3];
-            pb.arc(cursor.0, cursor.1, self.radius[3], PI/2., PI/2.);
-    		cursor.0 -= self.radius[3];
-    		cursor.1 -= left;
+            cursor.1 -= self.radius[3];
+            pb.arc(cursor.0, cursor.1, self.radius[3], PI / 2., PI / 2.);
+            cursor.0 -= self.radius[3];
+            cursor.1 -= left;
             pb.line_to(cursor.0, cursor.1);
 
             // Closing path
@@ -143,12 +150,7 @@ impl Drawable for Rectangle {
                         dash_array: Vec::new(),
                         dash_offset: 0.,
                     };
-                    dt.stroke(
-                        &path,
-                        &Source::Solid(*source),
-                        &stroke,
-                        &DrawOptions::new()
-                    );
+                    dt.stroke(&path, &Source::Solid(*source), &stroke, &DrawOptions::new());
                 }
                 Style::Empty => {}
             }
@@ -185,7 +187,7 @@ impl Circle {
         Circle {
             damaged: true,
             style,
-            radius: radius
+            radius: radius,
         }
     }
 }
@@ -224,10 +226,10 @@ impl Drawable for Circle {
             let mut pb = PathBuilder::new();
             let mut cursor = (x as f32, y as f32);
 
-    		// Positioning the cursor
-    		cursor.0 += self.radius;
-    		cursor.1 += self.radius;
-    		pb.move_to(cursor.0, cursor.1);
+            // Positioning the cursor
+            cursor.0 += self.radius;
+            cursor.1 += self.radius;
+            pb.move_to(cursor.0, cursor.1);
 
             // Drawing the outline
             pb.arc(cursor.0, cursor.1, self.radius, 0., 2. * PI);
@@ -249,12 +251,7 @@ impl Drawable for Circle {
                         dash_array: Vec::new(),
                         dash_offset: 0.,
                     };
-                    dt.stroke(
-                        &path,
-                        &Source::Solid(*source),
-                        &stroke,
-                        &DrawOptions::new()
-                    );
+                    dt.stroke(&path, &Source::Solid(*source), &stroke, &DrawOptions::new());
                 }
                 Style::Empty => {}
             }

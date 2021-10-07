@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::render;
+use crate::*;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
