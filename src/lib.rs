@@ -1,5 +1,6 @@
 pub mod wayland;
 pub mod widgets;
+use euclid::default::{Box2D, Point2D};
 use raqote::*;
 use std::ops::{Deref, DerefMut};
 
@@ -131,6 +132,20 @@ impl Drawable for Canvas {
         )
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        for damage in &self.damage {
+            canvas.damage.push(*damage);
+        }
+        canvas.target().blend_surface(
+            &self.target,
+            Box2D::new(
+                euclid::point2(x as i32, y as i32),
+                euclid::point2(
+                    (x + self.width()) as i32,
+                    (y + self.height()) as i32
+                )
+            ),
+            Point2D::new(x as i32, y as i32),
+            BlendMode::Add)
     }
 }
 

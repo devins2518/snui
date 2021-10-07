@@ -180,6 +180,16 @@ pub struct Circle {
     radius: f32,
 }
 
+impl Circle {
+    pub fn new(radius: f32, style: Style) -> Self {
+        Circle {
+            damaged: true,
+            style,
+            radius: radius
+        }
+    }
+}
+
 impl Geometry for Circle {
     fn width(&self) -> u32 {
         self.radius as u32 * 2
@@ -217,9 +227,10 @@ impl Drawable for Circle {
     		// Positioning the cursor
     		cursor.0 += self.radius;
     		cursor.1 += self.radius;
+    		pb.move_to(cursor.0, cursor.1);
 
             // Drawing the outline
-            pb.arc(cursor.0, cursor.1, self.radius[0], 0, 2. * PI);
+            pb.arc(cursor.0, cursor.1, self.radius, 0., 2. * PI);
 
             // Closing path
             pb.close();
@@ -233,7 +244,7 @@ impl Drawable for Circle {
                     let stroke = StrokeStyle {
                         width: *border,
                         cap: LineCap::Round,
-                        join: LineJoin::Miter,
+                        join: LineJoin::Bevel,
                         miter_limit: 10.,
                         dash_array: Vec::new(),
                         dash_offset: 0.,
@@ -248,5 +259,22 @@ impl Drawable for Circle {
                 Style::Empty => {}
             }
         }
+    }
+}
+
+impl Widget for Circle {
+    fn roundtrip<'d>(
+        &'d mut self,
+        _widget_x: u32,
+        _widget_y: u32,
+        dispatched: &Dispatch,
+    ) -> Option<Damage> {
+        if let Dispatch::Commit = dispatched {
+            self.damaged = self.damaged == false;
+        }
+        None
+    }
+    fn damaged(&self) -> bool {
+        self.damaged
     }
 }

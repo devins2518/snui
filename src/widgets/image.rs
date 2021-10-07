@@ -1,5 +1,5 @@
-use crate::widgets::render;
 use crate::*;
+use crate::widgets::render;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
@@ -74,7 +74,7 @@ impl Drawable for Image {
 
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
         canvas.push(x, y, self, false);
-        //render(canvas, self.image.as_raw(), self.image.width(), x, y);
+        render(canvas, self.image.as_raw(), self.image.width(), x, y);
     }
 }
 

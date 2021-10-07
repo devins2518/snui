@@ -17,7 +17,7 @@ pub enum Shape {
     Triangle
 }
 
-pub struct Boxed<W: Widget> {
+pub struct WidgetShell<W: Widget> {
     pub child: W,
     damaged: bool,
     shape: Shape,
@@ -28,7 +28,7 @@ pub struct Boxed<W: Widget> {
     padding: [u32; 4],
 }
 
-impl<W: Widget> Geometry for Boxed<W> {
+impl<W: Widget> Geometry for WidgetShell<W> {
     fn width(&self) -> u32 {
         self.child.width() + (self.border_width * 2) + self.padding[1] + self.padding[3]
     }
@@ -37,17 +37,28 @@ impl<W: Widget> Geometry for Boxed<W> {
     }
 }
 
-impl<W: Widget> Drawable for Boxed<W> {
+impl<W: Widget> Drawable for WidgetShell<W> {
     fn set_color(&mut self, color: u32) {
         self.background_color = Style::fill(color);
     }
     fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+        let width = self.child.width() + self.padding[1] + self.padding[3];
+        let height = self.child.height() + self.padding[0] + self.padding[2];
         match self.shape {
             Shape::Rectangle => {
-                let width = self.child.width() + self.padding[1] + self.padding[3];
-                let height = self.child.height() + self.padding[0] + self.padding[2];
-                Rectangle::new(width as f32, height as f32, self.border_color).draw(canvas, x + self.border_width/2, y + self.border_width/2);
-                Rectangle::new(width as f32, height as f32, self.background_color).draw(canvas, x + self.border_width, y + self.border_width);
+                let mut background = Rectangle::new(width as f32, height as f32, self.background_color);
+                background.set_radius(self.radius);
+                background.draw(canvas, x + self.border_width, y + self.border_width);
+                let mut border = Rectangle::new(width as f32, height as f32, self.border_color);
+                border.set_radius(self.radius);
+                border.draw(canvas, x + self.border_width/2, y + self.border_width/2);
+            }
+            Shape::Circle => {
+                let radius = if width > height {
+                    width as f32
+                } else { height as f32 };
+                Circle::new(radius, self.background_color).draw(canvas, x + self.border_width, y + self.border_width);
+                Circle::new(radius, self.border_color).draw(canvas, x + self.border_width, y + self.border_width);
             }
             _ => {}
         }
@@ -56,7 +67,7 @@ impl<W: Widget> Drawable for Boxed<W> {
     }
 }
 
-impl<W: Widget> Widget for Boxed<W> {
+impl<W: Widget> Widget for WidgetShell<W> {
     fn damaged(&self) -> bool {
         self.damaged
     }
@@ -77,7 +88,7 @@ impl<W: Widget> Widget for Boxed<W> {
     }
 }
 
-impl<W: Widget> Boxed<W> {
+impl<W: Widget> WidgetShell<W> {
     pub fn rect(padding: u32, border_width: u32, background_color: u32, border_color: u32, child: W) -> Self {
         Self {
             child,
@@ -85,7 +96,7 @@ impl<W: Widget> Boxed<W> {
                 Style::fill(background_color)
             } else { Style::Empty },
             border_color: if border_color != 0 {
-                Style::border(border_color, border_width as f32 * 2.)
+                Style::border(border_color, border_width as f32)
             } else { Style::Empty },
             border_width,
             shape: Shape::Rectangle,
@@ -94,8 +105,29 @@ impl<W: Widget> Boxed<W> {
             damaged: true,
         }
     }
+    pub fn circle(padding: u32, border_width: u32, background_color: u32, border_color: u32, child: W) -> Self {
+        Self {
+            child,
+            background_color: if background_color != 0 {
+                Style::fill(background_color)
+            } else { Style::Empty },
+            border_color: if border_color != 0 {
+                Style::border(border_color, border_width as f32)
+            } else { Style::Empty },
+            border_width,
+            shape: Shape::Circle,
+            radius: [0.;4],
+            padding: [padding; 4],
+            damaged: true,
+        }
+    }
     pub fn set_radius(&mut self, radius: f32) {
         self.radius = [radius; 4];
+    }
+    pub fn set_border_color(&mut self, color: u32) {
+        if let Style::Border(_, width) = &self.border_color {
+            self.border_color = Style::border(color, *width);
+        }
     }
     pub fn set_padding(&mut self, padding: u32) {
         self.padding = [padding; 4];
