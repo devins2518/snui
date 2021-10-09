@@ -64,29 +64,29 @@ impl Drawable for Glyph {
             g: color[2],
             b: color[3],
         };
-        let pixmap: Vec<u32> = self.coverage.iter().map(|a| {
-            if a == &0 {
-                0
-            } else {
-                source.a = *a;
-                SolidSource::from_unpremultiplied_argb(
-                    *a,
-                    color[1],
-                    color[2],
-                    color[3],
-                ).to_u32()
-            }
-        }).collect();
+        let pixmap: Vec<u32> = self
+            .coverage
+            .iter()
+            .map(|a| {
+                if a == &0 {
+                    0
+                } else {
+                    source.a = *a;
+                    SolidSource::from_unpremultiplied_argb(*a, color[1], color[2], color[3])
+                        .to_u32()
+                }
+            })
+            .collect();
         let image = Image {
             width: self.metrics.width as i32,
             height: self.metrics.height as i32,
-            data: &pixmap
+            data: &pixmap,
         };
         canvas.target.draw_image_at(
             x.round() + self.position.0,
             y.round() + self.position.1,
             &image,
-            &DrawOptions::default()
+            &DrawOptions::default(),
         );
     }
 }
@@ -259,14 +259,7 @@ impl Drawable for Label {
         if let Ok(mut layout) = self.layout.lock() {
             canvas.push(x, y, self, false);
             for glyph in layout.glyphs() {
-                Glyph::new(
-                    &self.font,
-                    glyph.key,
-                    self.color,
-                    glyph.x,
-                    glyph.y,
-                )
-                .draw(canvas, x, y);
+                Glyph::new(&self.font, glyph.key, self.color, glyph.x, glyph.y).draw(canvas, x, y);
             }
         }
     }

@@ -53,7 +53,11 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                     background.draw(canvas, x + self.border_width, y + self.border_width);
                     let mut border = Rectangle::new(width as f32, height as f32, self.border_color);
                     border.set_radius(self.radius);
-                    border.draw(canvas, x + self.border_width / 2., y + self.border_width / 2.);
+                    border.draw(
+                        canvas,
+                        x + self.border_width / 2.,
+                        y + self.border_width / 2.,
+                    );
                 }
                 Shape::Circle => {
                     let radius = if width > height {
@@ -76,8 +80,8 @@ impl<W: Widget> Drawable for WidgetShell<W> {
             }
             self.child.draw(
                 canvas,
-                x + self.padding[3] + self.border_width/2. + self.border_width%2.,
-                y + self.padding[0] + self.border_width/2. + self.border_width%2.,
+                x + self.padding[3] + self.border_width / 2. + self.border_width % 2.,
+                y + self.padding[0] + self.border_width / 2. + self.border_width % 2.,
             );
             canvas.push(x, y, self, true);
         } else {

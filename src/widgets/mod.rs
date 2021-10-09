@@ -118,13 +118,19 @@ impl<W: Widget> Widget for Actionnable<W> {
                 if !self.focused {
                     self.focused = true;
                     if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                        cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, Pointer::Enter))
+                        cb(
+                            &mut self.widget,
+                            Dispatch::Pointer(widget_x, widget_y, Pointer::Enter),
+                        )
                     } else {
                         None
                     }
                 } else {
                     if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                        cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, *pointer))
+                        cb(
+                            &mut self.widget,
+                            Dispatch::Pointer(widget_x, widget_y, *pointer),
+                        )
                     } else {
                         None
                     }
@@ -132,7 +138,10 @@ impl<W: Widget> Widget for Actionnable<W> {
             } else if self.focused {
                 self.focused = false;
                 if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                    cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, Pointer::Leave))
+                    cb(
+                        &mut self.widget,
+                        Dispatch::Pointer(widget_x, widget_y, Pointer::Leave),
+                    )
                 } else {
                     None
                 }
@@ -149,83 +158,3 @@ impl<W: Widget> Widget for Actionnable<W> {
     }
 }
 
-pub struct Button<W: Widget> {
-    pub widget: W,
-    command: String,
-}
-
-impl<W: Widget> Button<W> {
-    pub fn new(widget: W, command: String) -> Self {
-        Button { widget, command }
-    }
-    pub fn change(&mut self, command: String) {
-        self.command = command;
-    }
-}
-
-impl<W: Widget> Geometry for Button<W> {
-    fn width(&self) -> f32 {
-        self.widget.width()
-    }
-    fn height(&self) -> f32 {
-        self.widget.height()
-    }
-}
-
-impl<W: Widget> Drawable for Button<W> {
-    fn set_color(&mut self, color: u32) {
-        self.widget.set_color(color);
-    }
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if self.damaged() {
-            self.widget.draw(canvas, x, y)
-        }
-    }
-}
-
-impl<W: Widget> Widget for Button<W> {
-    fn damaged(&self) -> bool {
-        self.widget.damaged()
-    }
-    fn roundtrip<'d>(
-        &'d mut self,
-        widget_x: f32,
-        widget_y: f32,
-        dispatched: &Dispatch,
-    ) -> Option<Damage> {
-        if let Dispatch::Pointer(x, y, pointer) = dispatched {
-            if *x > widget_x
-                && *y > widget_y
-                && *x < widget_x + self.width()
-                && *y < widget_y + self.height()
-            {
-                match pointer {
-                    // I need to make a distinction between left-click, right-click and middle-click
-                    Pointer::MouseClick {
-                        time: _,
-                        button: _,
-                        pressed,
-                    } => {
-                        if *pressed {
-                            run_command(&self.command);
-                        }
-                        None
-                    }
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-
-fn run_command<'s>(value: &'s str) {
-    use std::process::Command;
-    let mut string = value.split_whitespace();
-    let mut command = Command::new(string.next().unwrap());
-    command.args(string.collect::<Vec<&str>>());
-    command.spawn().expect("Error");
-}

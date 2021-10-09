@@ -1,7 +1,7 @@
 pub mod app;
 
-use crate::*;
 use crate::Canvas;
+use crate::*;
 use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -15,10 +15,7 @@ pub struct Buffer<'b> {
 
 impl<'b> Buffer<'b> {
     fn new(slice: &'b mut [u8], canvas: &'b mut Canvas) -> Self {
-        Self {
-            slice,
-            canvas,
-        }
+        Self { slice, canvas }
     }
     pub fn canvas(&mut self) -> &mut Canvas {
         &mut self.canvas
@@ -38,10 +35,7 @@ pub fn buffer<'b>(
     let stride = width * 4;
     if mempool.resize((stride * height) as usize).is_ok() {
         let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
-        Ok((
-            Buffer::new(mempool.mmap(), canvas),
-            wlbuf,
-        ))
+        Ok((Buffer::new(mempool.mmap(), canvas), wlbuf))
     } else {
         Err(())
     }

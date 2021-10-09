@@ -109,7 +109,10 @@ impl Inner {
             }
             Anchor::Right => {
                 if height >= widheight && width >= widheight {
-                    return Ok((width - widwidth - self.x, (height - widheight + self.y) / 2.));
+                    return Ok((
+                        width - widwidth - self.x,
+                        (height - widheight + self.y) / 2.,
+                    ));
                 }
             }
             Anchor::Top => {
@@ -119,7 +122,10 @@ impl Inner {
             }
             Anchor::Bottom => {
                 if height > self.y + widheight {
-                    return Ok(((width - widwidth + self.x) / 2., height - self.y - widheight));
+                    return Ok((
+                        (width - widwidth + self.x) / 2.,
+                        height - self.y - widheight,
+                    ));
                 }
             }
             Anchor::Center => {
@@ -214,7 +220,8 @@ impl Wbox {
     }
 
     pub fn anchor(&mut self, widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) {
-        self.widgets.push(Inner::new_at(widget, anchor, x as f32, y as f32));
+        self.widgets
+            .push(Inner::new_at(widget, anchor, x as f32, y as f32));
     }
 
     pub fn unmap(&mut self, i: usize) {

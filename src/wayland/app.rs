@@ -67,12 +67,14 @@ impl<W: Widget> Application<W> {
                 damage.widget.draw(buffer.canvas(), damage.x, damage.y);
                 self.buffer = Some(wlbuf);
                 self.surface.attach(self.buffer.as_ref(), 0, 0);
-                self.surface.damage(
-                    damage.x as i32,
-                    damage.y as i32,
-                    damage.widget.width() as i32,
-                    damage.widget.height() as i32,
-                );
+                for damage in buffer.canvas().report() {
+                    self.surface.damage(
+                        damage.x as i32,
+                        damage.y as i32,
+                        damage.width as i32,
+                        damage.height as i32,
+                    );
+                }
                 buffer.merge();
                 self.surface.commit();
             }
@@ -83,8 +85,7 @@ impl<W: Widget> Application<W> {
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, mempool)
-        {
+        if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, mempool) {
             let canvas = buffer.canvas();
             if let Some(layer_surface) = &self.layer_surface {
                 layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
@@ -103,11 +104,20 @@ impl<W: Widget> Application<W> {
             self.buffer = Some(wlbuf);
         }
     }
-    pub fn resize(&mut self, width: u32, height: u32) {
-        if self.canvas.width() as u32 != width
-        && self.canvas.height() as u32 != height {
+    pub fn resize(&mut self) {
+        let width = self.widget.width() as u32;
+        let height = self.widget.height() as u32;
+        if self.canvas.width() as u32 != width && self.canvas.height() as u32 != height {
+            if let Some(layer_surface) = &self.layer_surface {
+                layer_surface.set_size(width, height);
+            }
             self.canvas = Canvas::new(width as u32, height as u32);
         }
+    }
+    pub fn init(&mut self, pool: &mut MemPool) {
+        self.render(pool);
+        self.show();
+        self.widget.roundtrip(0., 0., &Dispatch::Commit);
     }
     pub fn hide(&mut self) {
         self.buffer = None;
@@ -290,7 +300,10 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
         }
         wl_pointer::Event::Frame => {
             if let Some(sender) = &sender {
-                if sender.send(Dispatch::Pointer(x as f32, y as f32, input)).is_ok() {
+                if sender
+                    .send(Dispatch::Pointer(x as f32, y as f32, input))
+                    .is_ok()
+                {
                     input = Pointer::Leave;
                 }
             }
