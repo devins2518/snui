@@ -28,15 +28,15 @@ impl Element {
 }
 
 pub struct WidgetLayout {
-    spacing: u32,
+    spacing: f32,
     pub widgets: Vec<Element>,
     orientation: Orientation,
     alignment: Alignment,
 }
 
 impl Geometry for WidgetLayout {
-    fn width(&self) -> u32 {
-        let mut width = 0;
+    fn width(&self) -> f32 {
+        let mut width = 0.;
         match self.orientation {
             Orientation::Horizontal => {
                 for w in &self.widgets {
@@ -45,7 +45,9 @@ impl Geometry for WidgetLayout {
                         width += lwidth + self.spacing;
                     }
                 }
-                width -= if !self.is_empty() { self.spacing } else { 0 };
+                if width > self.spacing {
+                    width -= self.spacing
+                }
             }
             Orientation::Vertical => {
                 for w in &self.widgets {
@@ -60,8 +62,8 @@ impl Geometry for WidgetLayout {
         }
         width
     }
-    fn height(&self) -> u32 {
-        let mut height = 0;
+    fn height(&self) -> f32 {
+        let mut height = 0.;
         match self.orientation {
             Orientation::Horizontal => {
                 for w in &self.widgets {
@@ -80,7 +82,9 @@ impl Geometry for WidgetLayout {
                         height += lheight + self.spacing;
                     }
                 }
-                height -= if !self.is_empty() { self.spacing } else { 0 };
+                if height > self.spacing {
+                    height -= self.spacing
+                }
             }
         }
         height
@@ -89,17 +93,17 @@ impl Geometry for WidgetLayout {
 
 impl Drawable for WidgetLayout {
     fn set_color(&mut self, _color: u32) {}
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         let sw = self.width();
         let sh = self.height();
-        let (mut dx, mut dy) = (0, 0);
+        let (mut dx, mut dy) = (0., 0.);
         for w in &self.widgets {
             if w.mapped {
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {
-                            Alignment::Start => dy = 0,
-                            Alignment::Center => dy = (sh - w.widget.height()) / 2,
+                            Alignment::Start => dy = 0.,
+                            Alignment::Center => dy = (sh - w.widget.height()) / 2.,
                             Alignment::End => dy = sh - w.widget.height(),
                         }
                         w.widget.draw(canvas, x + dx, y + dy);
@@ -107,8 +111,8 @@ impl Drawable for WidgetLayout {
                     }
                     Orientation::Vertical => {
                         match self.alignment {
-                            Alignment::Start => dx = 0,
-                            Alignment::Center => dx = (sw - w.widget.width()) / 2,
+                            Alignment::Start => dx = 0.,
+                            Alignment::Center => dx = (sw - w.widget.width()) / 2.,
                             Alignment::End => dx = sw - w.widget.width(),
                         }
                         w.widget.draw(canvas, x + dx, y + dy);
@@ -133,7 +137,7 @@ impl Container for WidgetLayout {
 impl WidgetLayout {
     pub fn new(orientation: Orientation) -> Self {
         WidgetLayout {
-            spacing: 0,
+            spacing: 0.,
             orientation,
             widgets: Vec::new(),
             alignment: Alignment::Start,
@@ -141,7 +145,7 @@ impl WidgetLayout {
     }
     pub fn horizontal(spacing: u32) -> Self {
         WidgetLayout {
-            spacing,
+            spacing: spacing as f32,
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,
@@ -149,7 +153,7 @@ impl WidgetLayout {
     }
     pub fn vertical(spacing: u32) -> Self {
         WidgetLayout {
-            spacing,
+            spacing: spacing as f32,
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Vertical,
@@ -157,14 +161,14 @@ impl WidgetLayout {
     }
     pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
         WidgetLayout {
-            spacing,
+            spacing: spacing as f32,
             orientation,
             widgets: Vec::new(),
             alignment: Alignment::Start,
         }
     }
     pub fn set_spacing(&mut self, spacing: u32) {
-        self.spacing = spacing;
+        self.spacing = spacing as f32;
     }
     pub fn justify(&mut self, alignment: Alignment) {
         self.alignment = alignment;
@@ -200,8 +204,8 @@ impl Widget for WidgetLayout {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         match dispatched {
@@ -211,7 +215,7 @@ impl Widget for WidgetLayout {
                 }
             }
             _ => {
-                let (mut dx, mut dy) = (0, 0);
+                let (mut dx, mut dy) = (0., 0.);
                 for w in &mut self.widgets {
                     if w.mapped {
                         let widwidth = w.widget.width();

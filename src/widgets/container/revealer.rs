@@ -14,7 +14,7 @@ impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
             self.normal.set_color(color);
         }
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         canvas.push(x, y, self, false);
         if self.state {
             self.reveal.draw(canvas, x, y)
@@ -25,14 +25,14 @@ impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
-    fn width(&self) -> u32 {
+    fn width(&self) -> f32 {
         if self.state {
             self.reveal.width()
         } else {
             self.normal.width()
         }
     }
-    fn height(&self) -> u32 {
+    fn height(&self) -> f32 {
         if self.state {
             self.reveal.height()
         } else {
@@ -64,8 +64,8 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Commit = dispatched {

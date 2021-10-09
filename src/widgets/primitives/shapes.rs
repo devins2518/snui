@@ -69,11 +69,11 @@ impl Rectangle {
 }
 
 impl Geometry for Rectangle {
-    fn width(&self) -> u32 {
-        self.width as u32
+    fn width(&self) -> f32 {
+        self.width
     }
-    fn height(&self) -> u32 {
-        self.height as u32
+    fn height(&self) -> f32 {
+        self.height
     }
 }
 
@@ -96,8 +96,9 @@ impl Drawable for Rectangle {
             };
         }
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if !self.style.is_empty() {
+            canvas.push(x, y, self, false);
             let dt = canvas.target();
             let mut pb = PathBuilder::new();
             let mut cursor = (x as f32, y as f32);
@@ -161,8 +162,8 @@ impl Drawable for Rectangle {
 impl Widget for Rectangle {
     fn roundtrip<'d>(
         &'d mut self,
-        _widget_x: u32,
-        _widget_y: u32,
+        _widget_x: f32,
+        _widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Commit = dispatched {
@@ -193,11 +194,11 @@ impl Circle {
 }
 
 impl Geometry for Circle {
-    fn width(&self) -> u32 {
-        self.radius as u32 * 2
+    fn width(&self) -> f32 {
+        self.radius * 2.
     }
-    fn height(&self) -> u32 {
-        self.radius as u32 * 2
+    fn height(&self) -> f32 {
+        self.radius * 2.
     }
 }
 
@@ -220,7 +221,7 @@ impl Drawable for Circle {
             };
         }
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if !self.style.is_empty() {
             let dt = canvas.target();
             let mut pb = PathBuilder::new();
@@ -262,8 +263,8 @@ impl Drawable for Circle {
 impl Widget for Circle {
     fn roundtrip<'d>(
         &'d mut self,
-        _widget_x: u32,
-        _widget_y: u32,
+        _widget_x: f32,
+        _widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Commit = dispatched {

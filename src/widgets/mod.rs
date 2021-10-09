@@ -9,9 +9,9 @@ pub use container::{layout::WidgetLayout, Wbox};
 use std::io::Write;
 use std::rc::Rc;
 
-pub fn render(canvas: &mut Canvas, buffer: &[u8], width: u32, x: u32, y: u32) {
+pub fn render(canvas: &mut Canvas, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
-    let mut index = ((x + (y * canvas.width() as u32)) * 4) as usize;
+    let mut index = ((x + (y * canvas.width())) * 4.) as usize;
     for buf in buffer.chunks(width as usize * 4) {
         if index >= canvas.len() {
             break;
@@ -78,10 +78,10 @@ impl<W: Widget> Actionnable<W> {
 }
 
 impl<W: Widget> Geometry for Actionnable<W> {
-    fn width(&self) -> u32 {
+    fn width(&self) -> f32 {
         self.widget.width()
     }
-    fn height(&self) -> u32 {
+    fn height(&self) -> f32 {
         self.widget.height()
     }
 }
@@ -90,7 +90,7 @@ impl<W: Widget> Drawable for Actionnable<W> {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color);
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if self.damaged() {
             self.widget.draw(canvas, x, y)
         }
@@ -103,18 +103,18 @@ impl<W: Widget> Widget for Actionnable<W> {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
-        if let Dispatch::Pointer(x, y, _) = dispatched {
-            if *x > widget_x
+        if let Dispatch::Pointer(x, y, pointer) = dispatched {
+            if (*x > widget_x
                 && *y > widget_y
                 && *x < widget_x + self.width()
-                && *y < widget_y + self.height()
+                && *y < widget_y + self.height()) || Pointer::Leave.eq(pointer)
             {
                 if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                    cb(&mut self.widget, *dispatched)
+                    cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, *pointer))
                 } else {
                     None
                 }
@@ -146,10 +146,10 @@ impl<W: Widget> Button<W> {
 }
 
 impl<W: Widget> Geometry for Button<W> {
-    fn width(&self) -> u32 {
+    fn width(&self) -> f32 {
         self.widget.width()
     }
-    fn height(&self) -> u32 {
+    fn height(&self) -> f32 {
         self.widget.height()
     }
 }
@@ -158,7 +158,7 @@ impl<W: Widget> Drawable for Button<W> {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color);
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if self.damaged() {
             self.widget.draw(canvas, x, y)
         }
@@ -171,8 +171,8 @@ impl<W: Widget> Widget for Button<W> {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Pointer(x, y, pointer) = dispatched {

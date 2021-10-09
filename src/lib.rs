@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 pub enum Error {
     Null,
     Overflow(&'static str, u32),
-    Dimension(&'static str, u32, u32),
+    Dimension(&'static str, f32, f32),
     Message(&'static str),
 }
 
@@ -22,19 +22,19 @@ pub struct Key {
 #[derive(Debug, Copy, Clone)]
 pub enum Dispatch {
     Message(&'static str),
-    Pointer(u32, u32, Pointer),
+    Pointer(f32, f32, Pointer),
     Keyboard(Key),
     Commit,
 }
 
 pub struct Damage<'d> {
     pub widget: &'d dyn Widget,
-    pub x: u32,
-    pub y: u32,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl<'d> Damage<'d> {
-    pub fn new<W: Widget>(widget: &'d W, x: u32, y: u32) -> Damage {
+    pub fn new<W: Widget>(x: f32, y: f32, widget: &'d W) -> Damage {
         Damage {
             widget: widget,
             x,
@@ -43,7 +43,16 @@ impl<'d> Damage<'d> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+impl<'d> Geometry for Damage<'d> {
+    fn width(&self) -> f32 {
+        self.widget.width()
+    }
+    fn height(&self) -> f32 {
+        self.widget.height()
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Pointer {
     MouseClick {
         time: u32,
@@ -57,10 +66,10 @@ pub enum Pointer {
 
 #[derive(Debug, Copy, Clone)]
 pub struct DamageReport {
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
     container: bool,
 }
 
@@ -79,10 +88,7 @@ impl Canvas {
     fn target(&mut self) -> &mut DrawTarget {
         &mut self.target
     }
-    fn size(&self) -> usize {
-        self.target.get_data_u8().len()
-    }
-    pub fn push<W: Geometry>(&mut self, x: u32, y: u32, widget: &W, container: bool) {
+    pub fn push<W: Geometry>(&mut self, x: f32, y: f32, widget: &W, container: bool) {
         if let Some(last) = self.damage.last() {
             if !(last.container
                 && last.x > x
@@ -106,11 +112,11 @@ impl Canvas {
 }
 
 impl Geometry for Canvas {
-    fn width(&self) -> u32 {
-        self.target.width() as u32
+    fn width(&self) -> f32 {
+        self.target.width() as f32
     }
-    fn height(&self) -> u32 {
-        self.target.height() as u32
+    fn height(&self) -> f32 {
+        self.target.height() as f32
     }
 }
 
@@ -131,7 +137,7 @@ impl Drawable for Canvas {
             &DrawOptions::new(),
         )
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         for damage in &self.damage {
             canvas.damage.push(*damage);
         }
@@ -169,8 +175,8 @@ pub trait Container {
 }
 
 pub trait Geometry {
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
+    fn width(&self) -> f32;
+    fn height(&self) -> f32;
 }
 
 /*
@@ -178,15 +184,15 @@ pub trait Geometry {
  */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32);
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32);
 }
 
 pub trait Widget: Drawable + Geometry {
     fn damaged(&self) -> bool;
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage>;
 }

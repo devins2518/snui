@@ -16,10 +16,11 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 
 pub struct Application<W: Widget> {
     shm: WlShm,
+    buffer: Option<WlBuffer>,
+    canvas: Canvas,
     pub widget: W,
     pub running: bool,
     pub surface: WlSurface,
-    buffer: Option<WlBuffer>,
     pub receiver: Receiver<Dispatch>,
     pub layer_surface: Option<ZwlrLayerSurfaceV1>,
 }
@@ -36,16 +37,11 @@ impl<W: Widget> Application<W> {
             shm,
             surface,
             receiver,
+            canvas: Canvas::new(widget.width() as u32, widget.height() as u32),
             buffer: None,
             layer_surface: None,
             widget,
         }
-    }
-    pub fn attach_layer_surface(&mut self, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
-        layer_surface.set_size(self.widget.width(), self.widget.height());
-        self.surface.commit();
-        assign_layer_surface(&self.surface, &layer_surface);
-        self.layer_surface = Some(layer_surface.detach());
     }
     pub fn run(mut self, display: Display, mut cb: impl FnMut(&mut Self, &mut MemPool, Dispatch)) {
         let mut event_queue = display.create_event_queue();
@@ -68,10 +64,14 @@ impl<W: Widget> Application<W> {
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
         let width = self.widget.width();
         let height = self.widget.height();
-        if let Ok((mut buffer, wlbuf)) = buffer(width, height, pool) {
-            if let Some(damage) = self.widget.roundtrip(0, 0, &dispatch) {
+        if let Some(damage) = self.widget.roundtrip(0., 0., &dispatch) {
+            if self.canvas.width() != width && self.canvas.height() != height {
+                self.canvas = Canvas::new(width as u32, height as u32);
+            }
+            if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, pool) {
                 damage.widget.draw(buffer.canvas(), damage.x, damage.y);
-                self.surface.attach(Some(&wlbuf), 0, 0);
+                self.buffer = Some(wlbuf);
+                self.surface.attach(self.buffer.as_ref(), 0, 0);
                 self.surface.damage(
                     damage.x as i32,
                     damage.y as i32,
@@ -80,7 +80,10 @@ impl<W: Widget> Application<W> {
                 );
                 buffer.merge();
                 self.surface.commit();
-            } else {
+            }
+        } else {
+            self.widget.roundtrip(0., 0., &Dispatch::Commit);
+            if self.widget.damaged() {
                 self.render(pool);
                 self.show();
             }
@@ -91,11 +94,21 @@ impl<W: Widget> Application<W> {
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        if let Ok((mut buffer, wlbuf)) = buffer(self.widget.width(), self.widget.height(), mempool)
+        let width = self.widget.width();
+        let height = self.widget.height();
+        if self.canvas.width() != width
+        && self.canvas.height() != height {
+            self.canvas = Canvas::new(width as u32, height as u32);
+        }
+        if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, mempool)
         {
             let canvas = buffer.canvas();
-            self.widget.draw(canvas, 0, 0);
+            if let Some(layer_surface) = &self.layer_surface {
+                layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+            }
+            self.widget.draw(canvas, 0., 0.);
             for damage in canvas.report() {
+                println!("{:?}", damage);
                 self.surface.damage(
                     damage.x as i32,
                     damage.y as i32,
@@ -134,6 +147,8 @@ fn get_sender(
 
 pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
     let surface_handle = surface.clone();
+    layer_surface.set_size(1 << 10, 1 << 10);
+    surface_handle.commit();
     layer_surface.quick_assign(move |layer_surface, event, mut senders| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
@@ -233,7 +248,7 @@ pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
 pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
     let mut sender = None;
     let mut input = Pointer::Enter;
-    let (mut x, mut y) = (0, 0);
+    let (mut x, mut y) = (0., 0.);
     pointer.quick_assign(move |_, event, mut senders| match event {
         wl_pointer::Event::Enter {
             serial: _,
@@ -246,8 +261,8 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
             } else if let Some(focused) = senders.get::<SyncSender<Dispatch>>() {
                 sender = Some(focused.clone());
             }
-            x = surface_x as u32;
-            y = surface_y as u32;
+            x = surface_x;
+            y = surface_y;
             input = Pointer::Enter;
         }
         wl_pointer::Event::Leave {
@@ -257,7 +272,7 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
             if sender
                 .as_ref()
                 .unwrap()
-                .send(Dispatch::Pointer(0, 0, Pointer::Leave))
+                .send(Dispatch::Pointer(0., 0., Pointer::Leave))
                 .is_ok()
             {
                 sender = None;
@@ -268,8 +283,8 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
             surface_x,
             surface_y,
         } => {
-            x = surface_x as u32;
-            y = surface_y as u32;
+            x = surface_x;
+            y = surface_y;
             input = Pointer::Hover;
         }
         wl_pointer::Event::Button {
@@ -286,7 +301,7 @@ pub fn quick_assign_pointer(pointer: &Main<wl_pointer::WlPointer>) {
         }
         wl_pointer::Event::Frame => {
             if let Some(sender) = &sender {
-                if sender.send(Dispatch::Pointer(x, y, input)).is_ok() {
+                if sender.send(Dispatch::Pointer(x as f32, y as f32, input)).is_ok() {
                     input = Pointer::Leave;
                 }
             }

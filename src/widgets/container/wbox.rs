@@ -14,24 +14,24 @@ pub enum Anchor {
 }
 
 pub struct Wbox {
-    width: u32,
-    height: u32,
+    width: f32,
+    height: f32,
     pub widgets: Vec<Inner>,
 }
 
 pub struct Inner {
-    x: u32,
-    y: u32,
+    x: f32,
+    y: f32,
     mapped: bool,
     anchor: Anchor,
     widget: Box<dyn Widget>,
 }
 
 impl Geometry for Inner {
-    fn width(&self) -> u32 {
+    fn width(&self) -> f32 {
         self.widget.as_ref().width()
     }
-    fn height(&self) -> u32 {
+    fn height(&self) -> f32 {
         self.widget.as_ref().height()
     }
 }
@@ -40,7 +40,7 @@ impl Drawable for Inner {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color)
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         self.widget.draw(canvas, x, y);
     }
 }
@@ -51,8 +51,8 @@ impl Widget for Inner {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         self.widget.roundtrip(widget_x, widget_y, dispatched)
@@ -62,15 +62,15 @@ impl Widget for Inner {
 impl Inner {
     pub fn new(widget: impl Widget + 'static) -> Inner {
         Inner {
-            x: 0,
-            y: 0,
+            x: 0.,
+            y: 0.,
             mapped: true,
             // entered: false,
             anchor: Anchor::TopLeft,
             widget: Box::new(widget),
         }
     }
-    pub fn new_at(widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) -> Inner {
+    pub fn new_at(widget: impl Widget + 'static, anchor: Anchor, x: f32, y: f32) -> Inner {
         Inner {
             x,
             y,
@@ -92,47 +92,47 @@ impl Inner {
     pub fn unmap(&mut self) {
         self.mapped = false;
     }
-    pub fn coords(&self) -> (u32, u32) {
+    pub fn coords(&self) -> (f32, f32) {
         (self.x, self.y)
     }
     pub fn child(&self) -> &dyn Widget {
         self.widget.as_ref()
     }
-    pub fn location(&self, width: u32, height: u32) -> Result<(u32, u32), Error> {
+    pub fn location(&self, width: f32, height: f32) -> Result<(f32, f32), Error> {
         let widwidth = self.width();
         let widheight = self.height();
         match self.anchor {
             Anchor::Left => {
                 if height >= widheight {
-                    return Ok((self.x, (height - widheight + self.y) / 2));
+                    return Ok((self.x, (height - widheight + self.y) / 2.));
                 }
             }
             Anchor::Right => {
                 if height >= widheight && width >= widheight {
-                    return Ok((width - widwidth - self.x, (height - widheight + self.y) / 2));
+                    return Ok((width - widwidth - self.x, (height - widheight + self.y) / 2.));
                 }
             }
             Anchor::Top => {
                 if width >= widwidth {
-                    return Ok(((width - widwidth + self.x) / 2, self.y));
+                    return Ok(((width - widwidth + self.x) / 2., self.y));
                 }
             }
             Anchor::Bottom => {
                 if height > self.y + widheight {
-                    return Ok(((width - widwidth + self.x) / 2, height - self.y - widheight));
+                    return Ok(((width - widwidth + self.x) / 2., height - self.y - widheight));
                 }
             }
             Anchor::Center => {
                 return Ok((
                     if width >= widwidth {
-                        (width - widwidth + self.x) / 2
+                        (width - widwidth + self.x) / 2.
                     } else {
-                        0
+                        0.
                     },
                     if height >= widheight {
-                        (height - widheight + self.y) / 2
+                        (height - widheight + self.y) / 2.
                     } else {
-                        0
+                        0.
                     },
                 ))
             }
@@ -158,28 +158,28 @@ impl Inner {
     pub fn set_anchor(&mut self, anchor: Anchor) {
         self.anchor = anchor;
     }
-    pub fn set_location(&mut self, x: u32, y: u32) {
+    pub fn set_location(&mut self, x: f32, y: f32) {
         self.x = x;
         self.y = y;
     }
-    pub fn translate(&mut self, x: u32, y: u32) {
+    pub fn translate(&mut self, x: f32, y: f32) {
         self.x += x;
         self.y += y;
     }
 }
 
 impl Geometry for Wbox {
-    fn width(&self) -> u32 {
+    fn width(&self) -> f32 {
         self.width
     }
-    fn height(&self) -> u32 {
+    fn height(&self) -> f32 {
         self.height
     }
 }
 
 impl Drawable for Wbox {
     fn set_color(&mut self, _color: u32) {}
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         let sw = self.width();
         let sh = self.height();
         for w in &self.widgets {
@@ -207,14 +207,14 @@ impl Container for Wbox {
 impl Wbox {
     pub fn new(width: u32, height: u32) -> Self {
         Wbox {
-            width,
-            height,
+            width: width as f32,
+            height: height as f32,
             widgets: Vec::new(),
         }
     }
 
     pub fn anchor(&mut self, widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) {
-        self.widgets.push(Inner::new_at(widget, anchor, x, y));
+        self.widgets.push(Inner::new_at(widget, anchor, x as f32, y as f32));
     }
 
     pub fn unmap(&mut self, i: usize) {
@@ -238,8 +238,8 @@ impl Wbox {
         }
     }
     pub fn resize(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
+        self.width = width as f32;
+        self.height = height as f32;
     }
 }
 
@@ -254,8 +254,8 @@ impl Widget for Wbox {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         match dispatched {

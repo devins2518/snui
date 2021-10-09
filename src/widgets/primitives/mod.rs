@@ -24,16 +24,16 @@ pub struct WidgetShell<W: Widget> {
     radius: [f32; 4],
     border_color: Style,
     background_color: Style,
-    border_width: u32,
-    padding: [u32; 4],
+    border_width: f32,
+    padding: [f32; 4],
 }
 
 impl<W: Widget> Geometry for WidgetShell<W> {
-    fn width(&self) -> u32 {
-        self.child.width() + (self.border_width * 2) + self.padding[1] + self.padding[3]
+    fn width(&self) -> f32 {
+        self.child.width() + (self.border_width * 2.) + self.padding[1] + self.padding[3]
     }
-    fn height(&self) -> u32 {
-        self.child.height() + (self.border_width * 2) + self.padding[0] + self.padding[2]
+    fn height(&self) -> f32 {
+        self.child.height() + (self.border_width * 2.) + self.padding[0] + self.padding[2]
     }
 }
 
@@ -41,54 +41,59 @@ impl<W: Widget> Drawable for WidgetShell<W> {
     fn set_color(&mut self, color: u32) {
         self.background_color = Style::fill(color);
     }
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
-        let width = self.child.width() + self.padding[1] + self.padding[3];
-        let height = self.child.height() + self.padding[0] + self.padding[2];
-        match self.shape {
-            Shape::Rectangle => {
-                let mut background =
-                    Rectangle::new(width as f32, height as f32, self.background_color);
-                background.set_radius(self.radius);
-                background.draw(canvas, x + self.border_width, y + self.border_width);
-                let mut border = Rectangle::new(width as f32, height as f32, self.border_color);
-                border.set_radius(self.radius);
-                border.draw(canvas, x + self.border_width / 2, y + self.border_width / 2);
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+        if self.damaged {
+            let width = self.child.width() + self.padding[1] + self.padding[3];
+            let height = self.child.height() + self.padding[0] + self.padding[2];
+            match self.shape {
+                Shape::Rectangle => {
+                    let mut background =
+                        Rectangle::new(width as f32, height as f32, self.background_color);
+                    background.set_radius(self.radius);
+                    background.draw(canvas, x + self.border_width, y + self.border_width);
+                    let mut border = Rectangle::new(width as f32, height as f32, self.border_color);
+                    border.set_radius(self.radius);
+                    border.draw(canvas, x + self.border_width / 2., y + self.border_width / 2.);
+                }
+                Shape::Circle => {
+                    let radius = if width > height {
+                        width as f32
+                    } else {
+                        height as f32
+                    };
+                    Circle::new(radius, self.background_color).draw(
+                        canvas,
+                        x + self.border_width,
+                        y + self.border_width,
+                    );
+                    Circle::new(radius, self.border_color).draw(
+                        canvas,
+                        x + self.border_width,
+                        y + self.border_width,
+                    );
+                }
+                _ => {}
             }
-            Shape::Circle => {
-                let radius = if width > height {
-                    width as f32
-                } else {
-                    height as f32
-                };
-                Circle::new(radius, self.background_color).draw(
-                    canvas,
-                    x + self.border_width,
-                    y + self.border_width,
-                );
-                Circle::new(radius, self.border_color).draw(
-                    canvas,
-                    x + self.border_width,
-                    y + self.border_width,
-                );
-            }
-            _ => {}
+            self.child.draw(
+                canvas,
+                x + self.padding[3] + self.border_width/2. + self.border_width%2.,
+                y + self.padding[0] + self.border_width/2. + self.border_width%2.,
+            );
+            canvas.push(x, y, self, true);
+        } else {
+            self.child.draw(canvas, x, y);
         }
-        self.child.draw(
-            canvas,
-            x + self.padding[3] + self.border_width / 2,
-            y + self.padding[0] + self.border_width / 2,
-        );
     }
 }
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn damaged(&self) -> bool {
-        self.damaged
+        self.child.damaged()
     }
     fn roundtrip<'d>(
         &'d mut self,
-        widget_x: u32,
-        widget_y: u32,
+        widget_x: f32,
+        widget_y: f32,
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Commit = dispatched {
@@ -122,10 +127,10 @@ impl<W: Widget> WidgetShell<W> {
             } else {
                 Style::Empty
             },
-            border_width,
+            border_width: border_width as f32,
             shape: Shape::Rectangle,
             radius: [0.; 4],
-            padding: [padding; 4],
+            padding: [padding as f32; 4],
             damaged: true,
         }
     }
@@ -148,10 +153,10 @@ impl<W: Widget> WidgetShell<W> {
             } else {
                 Style::Empty
             },
-            border_width,
+            border_width: border_width as f32,
             shape: Shape::Circle,
             radius: [0.; 4],
-            padding: [padding; 4],
+            padding: [padding as f32; 4],
             damaged: true,
         }
     }
@@ -164,6 +169,6 @@ impl<W: Widget> WidgetShell<W> {
         }
     }
     pub fn set_padding(&mut self, padding: u32) {
-        self.padding = [padding; 4];
+        self.padding = [padding as f32; 4];
     }
 }

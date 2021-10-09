@@ -7,7 +7,7 @@ use std::path::Path;
 
 #[derive(Clone)]
 pub struct Image {
-    pub damaged: bool,
+    damaged: bool,
     image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }
 
@@ -59,11 +59,11 @@ impl Image {
 }
 
 impl Geometry for Image {
-    fn width(&self) -> u32 {
-        self.image.width() as u32
+    fn width(&self) -> f32 {
+        self.image.width() as f32
     }
-    fn height(&self) -> u32 {
-        self.image.height() as u32
+    fn height(&self) -> f32 {
+        self.image.height() as f32
     }
 }
 
@@ -72,9 +72,9 @@ impl Drawable for Image {
         eprintln!("Attempted to perform illegal operation on image!");
     }
 
-    fn draw(&self, canvas: &mut Canvas, x: u32, y: u32) {
+    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         canvas.push(x, y, self, false);
-        render(canvas, self.image.as_raw(), self.image.width(), x, y);
+        render(canvas, self.image.as_raw(), self.image.width() as f32, x, y);
     }
 }
 
@@ -84,8 +84,8 @@ impl Widget for Image {
     }
     fn roundtrip<'d>(
         &'d mut self,
-        _widget_x: u32,
-        _widget_y: u32,
+        _widget_x: f32,
+        _widget_y: f32,
         _dispatched: &Dispatch,
     ) -> Option<Damage> {
         None
