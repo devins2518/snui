@@ -37,8 +37,8 @@ impl<'d> Damage<'d> {
     pub fn new<W: Widget>(x: f32, y: f32, widget: &'d W) -> Damage {
         Damage {
             widget: widget,
-            x,
-            y,
+            x: x - 1.,
+            y: y - 1.,
         }
     }
 }
@@ -106,7 +106,8 @@ impl Canvas {
             }
         }
     }
-    pub fn report(&self) -> &[DamageReport] {
+    pub fn report(&mut self) -> &[DamageReport] {
+        self.damage.clear();
         &self.damage
     }
 }

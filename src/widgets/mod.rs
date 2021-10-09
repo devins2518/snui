@@ -65,6 +65,7 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
 
 pub struct Actionnable<W: Widget> {
     widget: W,
+    focused: bool,
     cb: Rc<dyn FnMut(&mut W, Dispatch) -> Option<Damage>>,
 }
 
@@ -72,6 +73,7 @@ impl<W: Widget> Actionnable<W> {
     pub fn new(widget: W, cb: impl FnMut(&mut W, Dispatch) -> Option<Damage> + 'static) -> Self {
         Self {
             widget,
+            focused: false,
             cb: Rc::new(cb),
         }
     }
@@ -108,13 +110,29 @@ impl<W: Widget> Widget for Actionnable<W> {
         dispatched: &Dispatch,
     ) -> Option<Damage> {
         if let Dispatch::Pointer(x, y, pointer) = dispatched {
-            if (*x > widget_x
+            if *x > widget_x
                 && *y > widget_y
                 && *x < widget_x + self.width()
-                && *y < widget_y + self.height()) || Pointer::Leave.eq(pointer)
+                && *y < widget_y + self.height()
             {
+                if !self.focused {
+                    self.focused = true;
+                    if let Some(cb) = Rc::get_mut(&mut self.cb) {
+                        cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, Pointer::Enter))
+                    } else {
+                        None
+                    }
+                } else {
+                    if let Some(cb) = Rc::get_mut(&mut self.cb) {
+                        cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, *pointer))
+                    } else {
+                        None
+                    }
+                }
+            } else if self.focused {
+                self.focused = false;
                 if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                    cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, *pointer))
+                    cb(&mut self.widget, Dispatch::Pointer(widget_x, widget_y, Pointer::Leave))
                 } else {
                     None
                 }

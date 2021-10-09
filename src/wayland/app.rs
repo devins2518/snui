@@ -62,12 +62,7 @@ impl<W: Widget> Application<W> {
         }
     }
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
-        let width = self.widget.width();
-        let height = self.widget.height();
         if let Some(damage) = self.widget.roundtrip(0., 0., &dispatch) {
-            if self.canvas.width() != width && self.canvas.height() != height {
-                self.canvas = Canvas::new(width as u32, height as u32);
-            }
             if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, pool) {
                 damage.widget.draw(buffer.canvas(), damage.x, damage.y);
                 self.buffer = Some(wlbuf);
@@ -81,12 +76,6 @@ impl<W: Widget> Application<W> {
                 buffer.merge();
                 self.surface.commit();
             }
-        } else {
-            self.widget.roundtrip(0., 0., &Dispatch::Commit);
-            if self.widget.damaged() {
-                self.render(pool);
-                self.show();
-            }
         }
     }
     pub fn show(&self) {
@@ -94,21 +83,15 @@ impl<W: Widget> Application<W> {
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        let width = self.widget.width();
-        let height = self.widget.height();
-        if self.canvas.width() != width
-        && self.canvas.height() != height {
-            self.canvas = Canvas::new(width as u32, height as u32);
-        }
         if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, mempool)
         {
             let canvas = buffer.canvas();
             if let Some(layer_surface) = &self.layer_surface {
                 layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
             }
+            self.layer_surface = None;
             self.widget.draw(canvas, 0., 0.);
             for damage in canvas.report() {
-                println!("{:?}", damage);
                 self.surface.damage(
                     damage.x as i32,
                     damage.y as i32,
@@ -118,6 +101,12 @@ impl<W: Widget> Application<W> {
             }
             buffer.merge();
             self.buffer = Some(wlbuf);
+        }
+    }
+    pub fn resize(&mut self, width: u32, height: u32) {
+        if self.canvas.width() as u32 != width
+        && self.canvas.height() as u32 != height {
+            self.canvas = Canvas::new(width as u32, height as u32);
         }
     }
     pub fn hide(&mut self) {
