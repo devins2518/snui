@@ -1,9 +1,7 @@
 # snui
 
-It's pronounced sss nou oui.
-
-My attempt at writting a toolkit. The main focus is on Wayland.
+**snui** is a simple 2D ui library.
 
 ## Supported backends
-- [x] layershell
 - [ ] xdg-shell
+- [x] layershell

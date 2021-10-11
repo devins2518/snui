@@ -79,7 +79,7 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Self {
             target: DrawTarget::new(width as i32, height as i32),
             damage: Vec::new(),
@@ -203,12 +203,7 @@ pub trait Widget: Drawable + Geometry {
         self.roundtrip(0., 0., &Dispatch::Commit);
     }
     fn damaged(&self) -> bool;
-    fn roundtrip<'d>(
-        &'d mut self,
-        widget_x: f32,
-        widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage>;
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage>;
 }
 
 impl Error {

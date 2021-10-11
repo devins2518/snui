@@ -30,10 +30,36 @@ pub struct WidgetShell<W: Widget> {
 
 impl<W: Widget> Geometry for WidgetShell<W> {
     fn width(&self) -> f32 {
-        self.child.width() + (self.border_width * 2.) + self.padding[1] + self.padding[3]
+        match self.shape {
+            Shape::Circle => {
+                let diameter = if self.child.width() > self.child.height() {
+                    self.child.width()
+                } else {
+                    self.child.height()
+                };
+                diameter + (self.border_width * 2.) + self.padding[1] + self.padding[3]
+            }
+            Shape::Rectangle => {
+                self.child.width() + (self.border_width * 2.) + self.padding[1] + self.padding[3]
+            }
+            Shape::Triangle => self.child.width(),
+        }
     }
     fn height(&self) -> f32 {
-        self.child.height() + (self.border_width * 2.) + self.padding[0] + self.padding[2]
+        match self.shape {
+            Shape::Circle => {
+                let diameter = if self.child.width() > self.child.height() {
+                    self.child.width()
+                } else {
+                    self.child.height()
+                };
+                diameter + (self.border_width * 2.) + self.padding[1] + self.padding[3]
+            }
+            Shape::Rectangle => {
+                self.child.height() + (self.border_width * 2.) + self.padding[0] + self.padding[2]
+            }
+            Shape::Triangle => self.child.height(),
+        }
     }
 }
 
@@ -70,11 +96,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                         x + self.border_width,
                         y + self.border_width,
                     );
-                    Circle::new(radius, self.border_color).draw(
-                        canvas,
-                        x + self.border_width,
-                        y + self.border_width,
-                    );
+                    Circle::new(radius, self.border_color).draw(canvas, x, y);
                 }
                 _ => {}
             }
@@ -94,18 +116,13 @@ impl<W: Widget> Widget for WidgetShell<W> {
     fn damaged(&self) -> bool {
         self.child.damaged()
     }
-    fn roundtrip<'d>(
-        &'d mut self,
-        widget_x: f32,
-        widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
         if let Dispatch::Commit = dispatch {
             self.damaged = self.damaged == false;
         }
         self.child.roundtrip(
-            widget_x + self.padding[3] + self.border_width / 2. + self.border_width % 2.,
-            widget_y + self.padding[0] + self.border_width / 2. + self.border_width % 2.,
+            wx + self.padding[3] + self.border_width / 2. + self.border_width % 2.,
+            wy + self.padding[0] + self.border_width / 2. + self.border_width % 2.,
             dispatch,
         )
     }
@@ -173,7 +190,12 @@ impl<W: Widget> WidgetShell<W> {
         }
     }
     pub fn set_padding(&mut self, padding: [u32; 4]) {
-        self.padding = [padding[0] as f32, padding[1] as f32, padding[2] as f32, padding[3] as f32];
+        self.padding = [
+            padding[0] as f32,
+            padding[1] as f32,
+            padding[2] as f32,
+            padding[3] as f32,
+        ];
     }
 }
 

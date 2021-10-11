@@ -1,7 +1,7 @@
+use crate::widgets::primitives::*;
 use crate::*;
 use raqote::*;
 use std::f32::consts::PI;
-use crate::widgets::primitives::*;
 
 impl Style {
     pub fn fill(color: u32) -> Self {
@@ -37,7 +37,7 @@ impl Style {
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
     blend_mode: BlendMode::SrcOver,
     alpha: 1.,
-    antialias: AntialiasMode::Gray
+    antialias: AntialiasMode::Gray,
 };
 
 pub struct Rectangle {
@@ -165,12 +165,7 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn roundtrip<'d>(
-        &'d mut self,
-        _widget_x: f32,
-        _widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, dispatch: &Dispatch) -> Option<Damage> {
         if let Dispatch::Commit = dispatch {
             self.damaged = self.damaged == false;
         }
@@ -227,7 +222,7 @@ impl Drawable for Circle {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if !self.style.is_empty() {
+        if !self.style.is_empty() && self.damaged() {
             let dt = canvas.target();
             let mut pb = PathBuilder::new();
             let mut cursor = (x as f32, y as f32);
@@ -266,12 +261,7 @@ impl Drawable for Circle {
 }
 
 impl Widget for Circle {
-    fn roundtrip<'d>(
-        &'d mut self,
-        _widget_x: f32,
-        _widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, dispatch: &Dispatch) -> Option<Damage> {
         if let Dispatch::Commit = dispatch {
             self.damaged = self.damaged == false;
         }

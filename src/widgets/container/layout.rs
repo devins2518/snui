@@ -202,12 +202,7 @@ impl Widget for WidgetLayout {
         }
         false
     }
-    fn roundtrip<'d>(
-        &'d mut self,
-        widget_x: f32,
-        widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
         match dispatch {
             Dispatch::Commit => {
                 for w in self.widgets.iter_mut() {
@@ -220,7 +215,7 @@ impl Widget for WidgetLayout {
                     if w.mapped {
                         let widwidth = w.widget.width();
                         let widheight = w.widget.height();
-                        let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatch);
+                        let ev = w.widget.roundtrip(wx + dx, wy + dy, dispatch);
                         if ev.is_some() {
                             return ev;
                         }

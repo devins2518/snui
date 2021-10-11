@@ -3,11 +3,10 @@ pub mod image;
 pub mod label;
 pub mod primitives;
 
-use crate::*;
-use std::rc::Rc;
-use std::io::Write;
 pub use self::image::Image;
+use crate::*;
 pub use container::{layout::WidgetLayout, Wbox};
+use std::io::Write;
 
 pub fn render(canvas: &mut Canvas, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
@@ -67,15 +66,18 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
 pub struct Actionnable<W: Geometry + Drawable> {
     widget: W,
     focused: bool,
-    cb: Rc<dyn FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage>>,
+    cb: Box<dyn FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage>>,
 }
 
 impl<W: Widget> Actionnable<W> {
-    pub fn new(widget: W, cb: impl FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage> + 'static) -> Self {
+    pub fn new(
+        widget: W,
+        cb: impl FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage> + 'static,
+    ) -> Self {
         Self {
             widget,
             focused: false,
-            cb: Rc::new(cb),
+            cb: Box::new(cb),
         }
     }
 }
@@ -94,9 +96,7 @@ impl<W: Widget> Drawable for Actionnable<W> {
         self.widget.set_color(color);
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if self.damaged() {
-            self.widget.draw(canvas, x, y)
-        }
+        self.widget.draw(canvas, x, y)
     }
 }
 
@@ -104,69 +104,38 @@ impl<W: Widget> Widget for Actionnable<W> {
     fn damaged(&self) -> bool {
         self.widget.damaged()
     }
-    fn roundtrip<'d>(
-        &'d mut self,
-        widget_x: f32,
-        widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
         if let Dispatch::Pointer(x, y, pointer) = dispatch {
-            if *x > widget_x
-                && *y > widget_y
-                && *x < widget_x + self.width()
-                && *y < widget_y + self.height()
-            {
+            if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                 if !self.focused {
                     self.focused = true;
-                    if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                        cb(
-                            &mut self.widget,
-                            Dispatch::Pointer(*x, *y, Pointer::Enter),
-                            widget_x,
-                            widget_y
-                        )
-                    } else {
-                        None
-                    }
+                    (self.cb)(
+                        &mut self.widget,
+                        Dispatch::Pointer(*x, *y, Pointer::Enter),
+                        wx,
+                        wy,
+                    )
                 } else {
-                    if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                        cb(
-                            &mut self.widget,
-                            Dispatch::Pointer(*x, *y, *pointer),
-                            widget_x,
-                            widget_y
-                        )
-                    } else {
-                        None
-                    }
+                    (self.cb)(
+                        &mut self.widget,
+                        Dispatch::Pointer(*x, *y, *pointer),
+                        wx,
+                        wy,
+                    )
                 }
             } else if self.focused {
                 self.focused = false;
-                if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                    cb(
-                        &mut self.widget,
-                        Dispatch::Pointer(*x, *y, Pointer::Leave),
-                        widget_x,
-                        widget_y
-                    )
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                cb(
+                (self.cb)(
                     &mut self.widget,
-                    *dispatch,
-                    widget_x,
-                    widget_y
+                    Dispatch::Pointer(*x, *y, Pointer::Leave),
+                    wx,
+                    wy,
                 )
             } else {
                 None
             }
+        } else {
+            (self.cb)(&mut self.widget, *dispatch, wx, wy)
         }
     }
 }
-

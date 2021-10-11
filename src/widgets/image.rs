@@ -82,12 +82,7 @@ impl Widget for Image {
     fn damaged(&self) -> bool {
         self.damaged
     }
-    fn roundtrip<'d>(
-        &'d mut self,
-        _widget_x: f32,
-        _widget_y: f32,
-        _dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _dispatch: &Dispatch) -> Option<Damage> {
         None
     }
 }

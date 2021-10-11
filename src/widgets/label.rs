@@ -5,15 +5,15 @@ use fontdue::{
     Font,
 };
 use raqote::*;
-use std::rc::Rc;
+use std::cell::RefCell;
 use std::fs::read;
 use std::path::Path;
-use std::cell::RefCell;
+use std::rc::Rc;
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
     blend_mode: BlendMode::SrcOver,
     alpha: 1.,
-    antialias: AntialiasMode::Gray
+    antialias: AntialiasMode::Gray,
 };
 
 #[derive(Clone)]
@@ -272,12 +272,7 @@ impl Widget for Label {
     fn damaged(&self) -> bool {
         self.damaged
     }
-    fn roundtrip<'d>(
-        &'d mut self,
-        _widget_x: f32,
-        _widget_y: f32,
-        _dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _dispatch: &Dispatch) -> Option<Damage> {
         None
     }
 }

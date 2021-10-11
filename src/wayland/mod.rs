@@ -1,9 +1,9 @@
 pub mod app;
 
-use crate::*;
-use std::io::Write;
 use crate::Canvas;
+use crate::*;
 use smithay_client_toolkit::shm::{Format, MemPool};
+use std::io::Write;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 
 const FORMAT: Format = Format::Argb8888;

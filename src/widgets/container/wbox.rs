@@ -49,13 +49,8 @@ impl Widget for Inner {
     fn damaged(&self) -> bool {
         self.mapped
     }
-    fn roundtrip<'d>(
-        &'d mut self,
-        widget_x: f32,
-        widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage> {
-        self.widget.roundtrip(widget_x, widget_y, dispatch)
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
+        self.widget.roundtrip(wx, wy, dispatch)
     }
 }
 
@@ -259,12 +254,7 @@ impl Widget for Wbox {
         }
         false
     }
-    fn roundtrip<'d>(
-        &'d mut self,
-        widget_x: f32,
-        widget_y: f32,
-        dispatch: &Dispatch,
-    ) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
         match dispatch {
             Dispatch::Commit => {
                 for w in self.widgets.iter_mut() {
@@ -276,7 +266,7 @@ impl Widget for Wbox {
                 let height = self.height();
                 for l in &mut self.widgets {
                     let (dx, dy) = l.location(width, height).unwrap();
-                    let ev = l.roundtrip(widget_x + dx, widget_y + dy, dispatch);
+                    let ev = l.roundtrip(wx + dx, wy + dy, dispatch);
                     if ev.is_some() {
                         return ev;
                     }
