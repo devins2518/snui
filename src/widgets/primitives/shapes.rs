@@ -1,8 +1,7 @@
-use crate::widgets::primitives::*;
 use crate::*;
 use raqote::*;
-
-const PI: f32 = 3.14159;
+use std::f32::consts::PI;
+use crate::widgets::primitives::*;
 
 impl Style {
     pub fn fill(color: u32) -> Self {
@@ -34,6 +33,12 @@ impl Style {
         }
     }
 }
+
+const DRAW_OPTIONS: DrawOptions = DrawOptions {
+    blend_mode: BlendMode::SrcOver,
+    alpha: 1.,
+    antialias: AntialiasMode::Gray
+};
 
 pub struct Rectangle {
     damaged: bool,
@@ -97,7 +102,7 @@ impl Drawable for Rectangle {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if !self.style.is_empty() {
+        if !self.style.is_empty() && self.damaged {
             canvas.push(x, y, self, false);
             let dt = canvas.target();
             let mut pb = PathBuilder::new();
@@ -140,7 +145,7 @@ impl Drawable for Rectangle {
 
             match &self.style {
                 Style::Fill(source) => {
-                    dt.fill(&path, &Source::Solid(*source), &DrawOptions::new());
+                    dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
                 }
                 Style::Border(source, border) => {
                     let stroke = StrokeStyle {
@@ -151,7 +156,7 @@ impl Drawable for Rectangle {
                         dash_array: Vec::new(),
                         dash_offset: 0.,
                     };
-                    dt.stroke(&path, &Source::Solid(*source), &stroke, &DrawOptions::new());
+                    dt.stroke(&path, &Source::Solid(*source), &stroke, &DRAW_OPTIONS);
                 }
                 Style::Empty => {}
             }

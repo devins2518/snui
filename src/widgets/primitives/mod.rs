@@ -113,11 +113,11 @@ impl<W: Widget> Widget for WidgetShell<W> {
 
 impl<W: Widget> WidgetShell<W> {
     pub fn rect(
+        child: W,
         padding: u32,
         border_width: u32,
         background_color: u32,
         border_color: u32,
-        child: W,
     ) -> Self {
         Self {
             child,
@@ -164,15 +164,15 @@ impl<W: Widget> WidgetShell<W> {
             damaged: true,
         }
     }
-    pub fn set_radius(&mut self, radius: f32) {
-        self.radius = [radius; 4];
+    pub fn set_radius(&mut self, radius: [f32; 4]) {
+        self.radius = radius;
     }
     pub fn set_border_color(&mut self, color: u32) {
         if let Style::Border(_, width) = &self.border_color {
             self.border_color = Style::border(color, *width);
         }
     }
-    pub fn set_padding(&mut self, padding: u32) {
-        self.padding = [padding as f32; 4];
+    pub fn set_padding(&mut self, padding: [u32; 4]) {
+        self.padding = [padding[0] as f32, padding[1] as f32, padding[2] as f32, padding[3] as f32];
     }
 }

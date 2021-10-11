@@ -3,11 +3,11 @@ pub mod image;
 pub mod label;
 pub mod primitives;
 
-pub use self::image::Image;
 use crate::*;
-pub use container::{layout::WidgetLayout, Wbox};
-use std::io::Write;
 use std::rc::Rc;
+use std::io::Write;
+pub use self::image::Image;
+pub use container::{layout::WidgetLayout, Wbox};
 
 pub fn render(canvas: &mut Canvas, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
@@ -39,6 +39,7 @@ pub fn render(canvas: &mut Canvas, buffer: &[u8], width: f32, x: f32, y: f32) {
         }
     }
 }
+
 pub fn blend(pix_a: &[u8], pix_b: &[u8], t: f32) -> [u8; 4] {
     let (r_a, g_a, b_a, a_a) = (
         pix_a[0] as f32,
@@ -63,14 +64,14 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
     a + ((b - a) * r)
 }
 
-pub struct Actionnable<W: Widget> {
+pub struct Actionnable<W: Geometry + Drawable> {
     widget: W,
     focused: bool,
-    cb: Rc<dyn FnMut(&mut W, Dispatch) -> Option<Damage>>,
+    cb: Rc<dyn FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage>>,
 }
 
 impl<W: Widget> Actionnable<W> {
-    pub fn new(widget: W, cb: impl FnMut(&mut W, Dispatch) -> Option<Damage> + 'static) -> Self {
+    pub fn new(widget: W, cb: impl FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage> + 'static) -> Self {
         Self {
             widget,
             focused: false,
@@ -120,7 +121,9 @@ impl<W: Widget> Widget for Actionnable<W> {
                     if let Some(cb) = Rc::get_mut(&mut self.cb) {
                         cb(
                             &mut self.widget,
-                            Dispatch::Pointer(widget_x, widget_y, Pointer::Enter),
+                            Dispatch::Pointer(*x, *y, Pointer::Enter),
+                            widget_x,
+                            widget_y
                         )
                     } else {
                         None
@@ -129,7 +132,9 @@ impl<W: Widget> Widget for Actionnable<W> {
                     if let Some(cb) = Rc::get_mut(&mut self.cb) {
                         cb(
                             &mut self.widget,
-                            Dispatch::Pointer(widget_x, widget_y, *pointer),
+                            Dispatch::Pointer(*x, *y, *pointer),
+                            widget_x,
+                            widget_y
                         )
                     } else {
                         None
@@ -140,7 +145,9 @@ impl<W: Widget> Widget for Actionnable<W> {
                 if let Some(cb) = Rc::get_mut(&mut self.cb) {
                     cb(
                         &mut self.widget,
-                        Dispatch::Pointer(widget_x, widget_y, Pointer::Leave),
+                        Dispatch::Pointer(*x, *y, Pointer::Leave),
+                        widget_x,
+                        widget_y
                     )
                 } else {
                     None
@@ -150,7 +157,12 @@ impl<W: Widget> Widget for Actionnable<W> {
             }
         } else {
             if let Some(cb) = Rc::get_mut(&mut self.cb) {
-                cb(&mut self.widget, *dispatched)
+                cb(
+                    &mut self.widget,
+                    *dispatched,
+                    widget_x,
+                    widget_y
+                )
             } else {
                 None
             }

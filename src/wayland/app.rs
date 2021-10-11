@@ -20,6 +20,7 @@ pub struct Application<W: Widget> {
     canvas: Canvas,
     pub widget: W,
     pub running: bool,
+    pub resized: bool,
     pub surface: WlSurface,
     pub receiver: Receiver<Dispatch>,
     pub layer_surface: Option<ZwlrLayerSurfaceV1>,
@@ -34,6 +35,7 @@ impl<W: Widget> Application<W> {
     ) -> Application<W> {
         Application {
             running: false,
+            resized: false,
             shm,
             surface,
             receiver,
@@ -88,9 +90,11 @@ impl<W: Widget> Application<W> {
         if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, mempool) {
             let canvas = buffer.canvas();
             if let Some(layer_surface) = &self.layer_surface {
-                layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                if !self.resized {
+                    layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                    self.resized = true;
+                }
             }
-            self.layer_surface = None;
             self.widget.draw(canvas, 0., 0.);
             for damage in canvas.report() {
                 self.surface.damage(
@@ -108,19 +112,19 @@ impl<W: Widget> Application<W> {
         let width = self.widget.width() as u32;
         let height = self.widget.height() as u32;
         if self.canvas.width() as u32 != width && self.canvas.height() as u32 != height {
-            if let Some(layer_surface) = &self.layer_surface {
-                layer_surface.set_size(width, height);
-            }
             self.canvas = Canvas::new(width as u32, height as u32);
+            self.widget.damage();
         }
+        self.resized = false;
     }
     pub fn init(&mut self, pool: &mut MemPool) {
         self.render(pool);
         self.show();
-        self.widget.roundtrip(0., 0., &Dispatch::Commit);
+        self.widget.damage();
     }
     pub fn hide(&mut self) {
         self.buffer = None;
+        self.resized = false;
         self.show();
     }
     pub fn destroy(&mut self) {

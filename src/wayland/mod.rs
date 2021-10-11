@@ -1,28 +1,29 @@
 pub mod app;
 
-use crate::Canvas;
 use crate::*;
-use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
+use crate::Canvas;
+use smithay_client_toolkit::shm::{Format, MemPool};
 use wayland_client::protocol::wl_buffer::WlBuffer;
 
 const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
-    slice: &'b mut [u8],
+    mmap: &'b mut [u8],
     canvas: &'b mut Canvas,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(slice: &'b mut [u8], canvas: &'b mut Canvas) -> Self {
-        Self { slice, canvas }
+    fn new(mmap: &'b mut [u8], canvas: &'b mut Canvas) -> Self {
+        Self { mmap, canvas }
     }
     pub fn canvas(&mut self) -> &mut Canvas {
         &mut self.canvas
     }
     pub fn merge(mut self) {
-        self.slice.write_all(&self.canvas).unwrap();
-        self.slice.flush().unwrap();
+        self.mmap.write_all(&self.canvas).unwrap();
+        self.mmap.flush().unwrap();
+        self.canvas.clear();
     }
 }
 

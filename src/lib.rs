@@ -37,8 +37,8 @@ impl<'d> Damage<'d> {
     pub fn new<W: Widget>(x: f32, y: f32, widget: &'d W) -> Damage {
         Damage {
             widget: widget,
-            x: (x - 1.).abs(),
-            y: (y - 1.).abs(),
+            x: x.round(),
+            y: y.round(),
         }
     }
 }
@@ -90,11 +90,11 @@ impl Canvas {
     }
     pub fn push<W: Geometry>(&mut self, x: f32, y: f32, widget: &W, container: bool) {
         if let Some(last) = self.damage.last() {
-            if !(last.container
+            if last.container
                 && last.x > x
                 && last.y > y
                 && last.x < x + widget.width()
-                && last.y < y + widget.height())
+                && last.y < y + widget.height()
             {
                 self.damage.push(DamageReport {
                     x,
@@ -104,10 +104,20 @@ impl Canvas {
                     height: widget.height(),
                 });
             }
+        } else {
+            self.damage.push(DamageReport {
+                x,
+                y,
+                container,
+                width: widget.width(),
+                height: widget.height(),
+            });
         }
     }
-    pub fn report(&mut self) -> &[DamageReport] {
+    pub fn clear(&mut self) {
         self.damage.clear();
+    }
+    pub fn report(&mut self) -> &[DamageReport] {
         &self.damage
     }
 }
@@ -189,6 +199,9 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
+    fn damage(&mut self) {
+        self.roundtrip(0., 0., &Dispatch::Commit);
+    }
     fn damaged(&self) -> bool;
     fn roundtrip<'d>(
         &'d mut self,

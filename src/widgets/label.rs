@@ -5,9 +5,16 @@ use fontdue::{
     Font,
 };
 use raqote::*;
+use std::rc::Rc;
 use std::fs::read;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+
+const DRAW_OPTIONS: DrawOptions = DrawOptions {
+    blend_mode: BlendMode::SrcOver,
+    alpha: 1.,
+    antialias: AntialiasMode::Gray
+};
 
 #[derive(Clone)]
 pub struct Label {
@@ -16,7 +23,7 @@ pub struct Label {
     font_size: f32,
     size: (f32, f32),
     font: fontdue::Font,
-    layout: Arc<Mutex<Layout>>,
+    layout: Rc<RefCell<Layout>>,
 }
 
 #[derive(Debug, Clone)]
@@ -86,7 +93,7 @@ impl Drawable for Glyph {
             x.round() + self.position.0,
             y.round() + self.position.1,
             &image,
-            &DrawOptions::default(),
+            &DRAW_OPTIONS,
         );
     }
 }
@@ -100,7 +107,7 @@ impl Label {
             size: (0., 0.),
             font_size,
             font: Font::from_bytes(font, fontdue::FontSettings::default()).unwrap(),
-            layout: Arc::new(Mutex::new(Layout::new(CoordinateSystem::PositiveYDown))),
+            layout: Rc::new(RefCell::new(Layout::new(CoordinateSystem::PositiveYDown))),
         }
     }
     pub fn new(text: &str, path: &Path, font_size: f32, color: u32) -> Label {
@@ -125,7 +132,7 @@ impl Label {
                 },
                 layout.height() as f32,
             ),
-            layout: Arc::new(Mutex::new(layout)),
+            layout: Rc::new(RefCell::new(layout)),
         }
     }
     pub fn from(text: &str, font: &[u8], font_size: f32, color: u32) -> Label {
@@ -149,7 +156,7 @@ impl Label {
                 },
                 layout.height() as f32,
             ),
-            layout: Arc::new(Mutex::new(layout)),
+            layout: Rc::new(RefCell::new(layout)),
         }
     }
     pub fn max_width<'f>(
@@ -174,7 +181,7 @@ impl Label {
             damaged: true,
             font_size,
             size: (width, layout.height() as f32),
-            layout: Arc::new(Mutex::new(layout)),
+            layout: Rc::new(RefCell::new(layout)),
         }
     }
     pub fn max_height<'f>(
@@ -210,35 +217,33 @@ impl Label {
                 },
                 layout.height() as f32,
             ),
-            layout: Arc::new(Mutex::new(layout)),
+            layout: Rc::new(RefCell::new(layout)),
         }
     }
     pub fn write(&mut self, text: &str) {
         let font = &self.font;
-        if let Ok(mut layout) = self.layout.lock() {
-            layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
-            self.size.0 = 0.;
-            for gp in layout.glyphs().iter() {
-                if self.size.0 < gp.width as f32 + gp.x as f32 {
-                    self.size.0 = gp.width as f32 + gp.x as f32
-                }
+        let mut layout = self.layout.borrow_mut();
+        layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
+        self.size.0 = 0.;
+        for gp in layout.glyphs().iter() {
+            if self.size.0 < gp.width as f32 + gp.x as f32 {
+                self.size.0 = gp.width as f32 + gp.x as f32
             }
-            self.size.1 = layout.height() as f32;
         }
+        self.size.1 = layout.height() as f32;
     }
     pub fn edit(&mut self, text: &str) {
         let font = &self.font;
-        if let Ok(mut layout) = self.layout.lock() {
-            layout.reset(&DEFAULT);
-            layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
-            self.size.0 = 0.;
-            for gp in layout.glyphs().iter() {
-                if self.size.0 < gp.width as f32 + gp.x as f32 {
-                    self.size.0 = gp.width as f32 + gp.x as f32
-                }
+        let mut layout = self.layout.borrow_mut();
+        layout.reset(&DEFAULT);
+        layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
+        self.size.0 = 0.;
+        for gp in layout.glyphs().iter() {
+            if self.size.0 < gp.width as f32 + gp.x as f32 {
+                self.size.0 = gp.width as f32 + gp.x as f32
             }
-            self.size.1 = layout.height() as f32;
         }
+        self.size.1 = layout.height() as f32;
     }
 }
 
@@ -256,11 +261,9 @@ impl Drawable for Label {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if let Ok(mut layout) = self.layout.lock() {
-            canvas.push(x, y, self, false);
-            for glyph in layout.glyphs() {
-                Glyph::new(&self.font, glyph.key, self.color, glyph.x, glyph.y).draw(canvas, x, y);
-            }
+        canvas.push(x, y, self, false);
+        for glyph in self.layout.borrow_mut().glyphs() {
+            Glyph::new(&self.font, glyph.key, self.color, glyph.x, glyph.y).draw(canvas, x, y);
         }
     }
 }
