@@ -53,9 +53,9 @@ impl Widget for Inner {
         &'d mut self,
         widget_x: f32,
         widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        self.widget.roundtrip(widget_x, widget_y, dispatched)
+        self.widget.roundtrip(widget_x, widget_y, dispatch)
     }
 }
 
@@ -263,9 +263,9 @@ impl Widget for Wbox {
         &'d mut self,
         widget_x: f32,
         widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        match dispatched {
+        match dispatch {
             Dispatch::Commit => {
                 for w in self.widgets.iter_mut() {
                     w.mapped = w.mapped == false;
@@ -276,7 +276,7 @@ impl Widget for Wbox {
                 let height = self.height();
                 for l in &mut self.widgets {
                     let (dx, dy) = l.location(width, height).unwrap();
-                    let ev = l.roundtrip(widget_x + dx, widget_y + dy, dispatched);
+                    let ev = l.roundtrip(widget_x + dx, widget_y + dy, dispatch);
                     if ev.is_some() {
                         return ev;
                     }

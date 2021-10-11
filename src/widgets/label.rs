@@ -276,7 +276,7 @@ impl Widget for Label {
         &'d mut self,
         _widget_x: f32,
         _widget_y: f32,
-        _dispatched: &Dispatch,
+        _dispatch: &Dispatch,
     ) -> Option<Damage> {
         None
     }

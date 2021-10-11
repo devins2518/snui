@@ -206,9 +206,9 @@ impl Widget for WidgetLayout {
         &'d mut self,
         widget_x: f32,
         widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        match dispatched {
+        match dispatch {
             Dispatch::Commit => {
                 for w in self.widgets.iter_mut() {
                     w.mapped = w.mapped == false;
@@ -220,7 +220,7 @@ impl Widget for WidgetLayout {
                     if w.mapped {
                         let widwidth = w.widget.width();
                         let widheight = w.widget.height();
-                        let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatched);
+                        let ev = w.widget.roundtrip(widget_x + dx, widget_y + dy, dispatch);
                         if ev.is_some() {
                             return ev;
                         }

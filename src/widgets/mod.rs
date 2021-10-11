@@ -108,9 +108,9 @@ impl<W: Widget> Widget for Actionnable<W> {
         &'d mut self,
         widget_x: f32,
         widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        if let Dispatch::Pointer(x, y, pointer) = dispatched {
+        if let Dispatch::Pointer(x, y, pointer) = dispatch {
             if *x > widget_x
                 && *y > widget_y
                 && *x < widget_x + self.width()
@@ -159,7 +159,7 @@ impl<W: Widget> Widget for Actionnable<W> {
             if let Some(cb) = Rc::get_mut(&mut self.cb) {
                 cb(
                     &mut self.widget,
-                    *dispatched,
+                    *dispatch,
                     widget_x,
                     widget_y
                 )

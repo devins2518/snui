@@ -98,15 +98,15 @@ impl<W: Widget> Widget for WidgetShell<W> {
         &'d mut self,
         widget_x: f32,
         widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        if let Dispatch::Commit = dispatched {
+        if let Dispatch::Commit = dispatch {
             self.damaged = self.damaged == false;
         }
         self.child.roundtrip(
             widget_x + self.padding[3] + self.border_width,
             widget_y + self.padding[0] + self.border_width,
-            dispatched,
+            dispatch,
         )
     }
 }

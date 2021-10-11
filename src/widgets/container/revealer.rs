@@ -66,16 +66,16 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
         &'d mut self,
         widget_x: f32,
         widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        if let Dispatch::Commit = dispatched {
+        if let Dispatch::Commit = dispatch {
             self.toggle();
             None
         } else {
             if self.state {
-                self.reveal.roundtrip(widget_x, widget_y, dispatched)
+                self.reveal.roundtrip(widget_x, widget_y, dispatch)
             } else {
-                self.normal.roundtrip(widget_x, widget_y, dispatched)
+                self.normal.roundtrip(widget_x, widget_y, dispatch)
             }
         }
     }

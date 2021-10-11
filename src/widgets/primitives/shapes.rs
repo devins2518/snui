@@ -169,9 +169,9 @@ impl Widget for Rectangle {
         &'d mut self,
         _widget_x: f32,
         _widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        if let Dispatch::Commit = dispatched {
+        if let Dispatch::Commit = dispatch {
             self.damaged = self.damaged == false;
         }
         None
@@ -270,9 +270,9 @@ impl Widget for Circle {
         &'d mut self,
         _widget_x: f32,
         _widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage> {
-        if let Dispatch::Commit = dispatched {
+        if let Dispatch::Commit = dispatch {
             self.damaged = self.damaged == false;
         }
         None

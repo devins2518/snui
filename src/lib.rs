@@ -207,7 +207,7 @@ pub trait Widget: Drawable + Geometry {
         &'d mut self,
         widget_x: f32,
         widget_y: f32,
-        dispatched: &Dispatch,
+        dispatch: &Dispatch,
     ) -> Option<Damage>;
 }
 
