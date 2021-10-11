@@ -37,8 +37,8 @@ impl<'d> Damage<'d> {
     pub fn new<W: Widget>(x: f32, y: f32, widget: &'d W) -> Damage {
         Damage {
             widget: widget,
-            x: x.round(),
-            y: y.round(),
+            x,
+            y,
         }
     }
 }

@@ -18,7 +18,7 @@ pub enum Shape {
 }
 
 pub struct WidgetShell<W: Widget> {
-    pub child: W,
+    child: W,
     damaged: bool,
     shape: Shape,
     radius: [f32; 4],
@@ -104,8 +104,8 @@ impl<W: Widget> Widget for WidgetShell<W> {
             self.damaged = self.damaged == false;
         }
         self.child.roundtrip(
-            widget_x + self.padding[3] + self.border_width,
-            widget_y + self.padding[0] + self.border_width,
+            widget_x + self.padding[3] + self.border_width / 2. + self.border_width % 2.,
+            widget_y + self.padding[0] + self.border_width / 2. + self.border_width % 2.,
             dispatch,
         )
     }
@@ -174,5 +174,18 @@ impl<W: Widget> WidgetShell<W> {
     }
     pub fn set_padding(&mut self, padding: [u32; 4]) {
         self.padding = [padding[0] as f32, padding[1] as f32, padding[2] as f32, padding[3] as f32];
+    }
+}
+
+impl<W: Widget> Deref for WidgetShell<W> {
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.child
+    }
+}
+
+impl<W: Widget> DerefMut for WidgetShell<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.child
     }
 }
