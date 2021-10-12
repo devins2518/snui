@@ -3,6 +3,12 @@ use crate::*;
 use raqote::*;
 use std::f32::consts::PI;
 
+const DRAW_OPTIONS: DrawOptions = DrawOptions {
+    blend_mode: BlendMode::SrcOver,
+    alpha: 1.,
+    antialias: AntialiasMode::Gray,
+};
+
 impl Style {
     pub fn fill(color: u32) -> Self {
         let color = color.to_be_bytes();
@@ -34,12 +40,7 @@ impl Style {
     }
 }
 
-const DRAW_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::SrcOver,
-    alpha: 1.,
-    antialias: AntialiasMode::Gray,
-};
-
+#[derive(Copy, Clone, Debug)]
 pub struct Rectangle {
     damaged: bool,
     width: f32,
@@ -176,6 +177,7 @@ impl Widget for Rectangle {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct Circle {
     damaged: bool,
     style: Style,

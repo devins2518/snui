@@ -129,6 +129,18 @@ impl<W: Widget> Widget for WidgetShell<W> {
 }
 
 impl<W: Widget> WidgetShell<W> {
+    pub fn default(child: W) -> Self {
+        WidgetShell {
+            child,
+            damaged: true,
+            background_color: Style::Empty,
+            border_color: Style::Empty,
+            border_width: 0.,
+            shape: Shape::Rectangle,
+            radius: [0.; 4],
+            padding: [0.; 4]
+        }
+    }
     pub fn rect(
         child: W,
         padding: u32,
@@ -184,10 +196,23 @@ impl<W: Widget> WidgetShell<W> {
     pub fn set_radius(&mut self, radius: [f32; 4]) {
         self.radius = radius;
     }
+    pub fn set_border_width(&mut self, border_width: f32) {
+        self.border_width = border_width;
+        if let Style::Border(color, _) = &self.border_color {
+            self.border_color = Style::Border(*color, border_width);
+        } else {
+            self.border_color = Style::border(0, border_width);
+        }
+    }
     pub fn set_border_color(&mut self, color: u32) {
         if let Style::Border(_, width) = &self.border_color {
             self.border_color = Style::border(color, *width);
+        } else {
+            self.border_color = Style::border(color, 0.);
         }
+    }
+    pub fn set_background_color(&mut self, color: u32) {
+        self.background_color = Style::fill(color);
     }
     pub fn set_padding(&mut self, padding: [u32; 4]) {
         self.padding = [

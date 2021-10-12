@@ -1,4 +1,5 @@
 use crate::*;
+use crate::widgets::primitives::WidgetShell;
 
 pub struct Revealer<N: Widget, R: Widget> {
     normal: N,
@@ -42,12 +43,12 @@ impl<N: Widget, R: Widget> Geometry for Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Revealer<N, R> {
-    pub fn new(normal: N, reveal: R) -> Revealer<N, R> {
-        Revealer {
+    pub fn new(normal: N, reveal: R) -> WidgetShell<Revealer<N, R>> {
+        WidgetShell::default(Revealer {
             state: false,
             normal,
             reveal,
-        }
+        })
     }
     pub fn toggle(&mut self) {
         self.state = self.state == false;
@@ -63,15 +64,10 @@ impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
         }
     }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
-        if let Dispatch::Commit = dispatch {
-            self.toggle();
-            None
+        if self.state {
+            self.reveal.roundtrip(wx, wy, dispatch)
         } else {
-            if self.state {
-                self.reveal.roundtrip(wx, wy, dispatch)
-            } else {
-                self.normal.roundtrip(wx, wy, dispatch)
-            }
+            self.normal.roundtrip(wx, wy, dispatch)
         }
     }
 }

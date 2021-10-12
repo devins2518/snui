@@ -15,14 +15,14 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 };
 
 pub struct Application<W: Widget> {
+    running: bool,
     shm: WlShm,
-    buffer: Option<WlBuffer>,
     canvas: Canvas,
+    buffer: Option<WlBuffer>,
+    receiver: Receiver<Dispatch>,
     pub widget: W,
-    pub running: bool,
     pub resized: bool,
     pub surface: WlSurface,
-    pub receiver: Receiver<Dispatch>,
     pub layer_surface: Option<ZwlrLayerSurfaceV1>,
 }
 

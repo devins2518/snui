@@ -1,6 +1,6 @@
 pub mod container;
 pub mod image;
-pub mod label;
+pub mod text;
 pub mod primitives;
 
 pub use self::image::Image;

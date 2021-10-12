@@ -85,7 +85,7 @@ impl Canvas {
             damage: Vec::new(),
         }
     }
-    fn target(&mut self) -> &mut DrawTarget {
+    pub fn target(&mut self) -> &mut DrawTarget {
         &mut self.target
     }
     pub fn push<W: Geometry>(&mut self, x: f32, y: f32, widget: &W, container: bool) {

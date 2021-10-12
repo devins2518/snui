@@ -1,4 +1,5 @@
 use crate::*;
+use crate::widgets::primitives::WidgetShell;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Anchor {
@@ -71,7 +72,6 @@ impl Inner {
             y,
             anchor,
             mapped: true,
-            // entered: false,
             widget: Box::new(widget),
         }
     }
@@ -206,12 +206,12 @@ impl Container for Wbox {
 }
 
 impl Wbox {
-    pub fn new(width: u32, height: u32) -> Self {
-        Wbox {
+    pub fn new(width: u32, height: u32) -> WidgetShell<Self> {
+        WidgetShell::default(Wbox {
             width: width as f32,
             height: height as f32,
             widgets: Vec::new(),
-        }
+        })
     }
 
     pub fn anchor(&mut self, widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) {
