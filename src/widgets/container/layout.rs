@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::primitives::WidgetShell;
+use crate::*;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -153,7 +153,7 @@ impl WidgetLayout {
         })
     }
     pub fn vertical(spacing: u32) -> WidgetShell<Self> {
-       WidgetShell::default(WidgetLayout {
+        WidgetShell::default(WidgetLayout {
             spacing: spacing as f32,
             widgets: Vec::new(),
             alignment: Alignment::Start,

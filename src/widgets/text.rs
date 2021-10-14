@@ -1,11 +1,9 @@
 use crate::*;
-use fontdue::{
-    layout,
-    layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle},
-};
 pub use fontdue::{
+    layout,
     Font,
-    FontSettings
+    FontSettings,
+    layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle},
 };
 use raqote::*;
 use std::fs::read;
@@ -95,7 +93,7 @@ impl Drawable for Glyph {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Label {
     damaged: bool,
     width: f32,
@@ -119,8 +117,10 @@ impl Drawable for Label {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        for glyph in &self.glyphs {
-            glyph.draw(canvas, x, y);
+        if self.damaged {
+            for glyph in &self.glyphs {
+                glyph.draw(canvas, x, y);
+            }
         }
     }
 }
@@ -138,32 +138,34 @@ impl Widget for Label {
 }
 
 impl Label {
-    pub fn new(text:&str, font: &Font, font_size: f32, color: u32) -> WidgetShell<Label> {
+    pub fn new(text: &str, font: &Font, font_size: f32, color: u32) -> WidgetShell<Label> {
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.append(&[font], &TextStyle::new(text, font_size, 0));
         let mut width = 0;
         let glyphs;
-        glyphs = layout.glyphs().iter().map(|gp| {
-            if width < gp.width + gp.x as usize {
-                width = gp.width + gp.x as usize
-            }
-            Glyph::new(&font, gp.key, color, gp.x, gp.y)
-        }).collect();
-        WidgetShell::default(
-            Label {
-                damaged: true,
-                width: width as f32,
-                height: layout.height(),
-                glyphs,
-            }
-        )
+        glyphs = layout
+            .glyphs()
+            .iter()
+            .map(|gp| {
+                if width < gp.width + gp.x as usize {
+                    width = gp.width + gp.x as usize
+                }
+                Glyph::new(&font, gp.key, color, gp.x, gp.y)
+            })
+            .collect();
+        WidgetShell::default(Label {
+            damaged: true,
+            width: width as f32,
+            height: layout.height(),
+            glyphs,
+        })
     }
 }
 
 pub struct TextField {
     color: u32,
     damaged: bool,
-    font: fontdue::Font,
+    font: Font,
     layout: Layout,
     font_size: f32,
     size: (f32, f32),
@@ -194,12 +196,16 @@ impl TextField {
         let size = (
             {
                 let mut w = 0;
-                glyphs = layout.glyphs().iter().map(|gp| {
-                    if w < gp.width + gp.x as usize {
-                        w = gp.width + gp.x as usize
-                    }
-                    Glyph::new(&font, gp.key, color, gp.x, gp.y)
-                }).collect();
+                glyphs = layout
+                    .glyphs()
+                    .iter()
+                    .map(|gp| {
+                        if w < gp.width + gp.x as usize {
+                            w = gp.width + gp.x as usize
+                        }
+                        Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                    })
+                    .collect();
                 w as f32
             },
             layout.height() as f32,
@@ -223,12 +229,16 @@ impl TextField {
         let size = (
             {
                 let mut w = 0;
-                glyphs = layout.glyphs().iter().map(|gp| {
-                    if w < gp.width + gp.x as usize {
-                        w = gp.width + gp.x as usize
-                    }
-                    Glyph::new(&font, gp.key, color, gp.x, gp.y)
-                }).collect();
+                glyphs = layout
+                    .glyphs()
+                    .iter()
+                    .map(|gp| {
+                        if w < gp.width + gp.x as usize {
+                            w = gp.width + gp.x as usize
+                        }
+                        Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                    })
+                    .collect();
                 w as f32
             },
             layout.height() as f32,
@@ -262,9 +272,11 @@ impl TextField {
         let glyphs;
         let size = (
             {
-                glyphs = layout.glyphs().iter().map(|gp| {
-                    Glyph::new(&font, gp.key, color, gp.x, gp.y)
-                }).collect();
+                glyphs = layout
+                    .glyphs()
+                    .iter()
+                    .map(|gp| Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                    .collect();
                 width
             },
             layout.height() as f32,
@@ -278,8 +290,8 @@ impl TextField {
             font_size,
             damaged: true,
             setting: layout_setting,
-            size
-       })
+            size,
+        })
     }
     pub fn max_height<'f>(
         text: &'f str,
@@ -300,15 +312,19 @@ impl TextField {
         let size = (
             {
                 let mut w = 0;
-                glyphs = layout.glyphs().iter().map(|gp| {
-                    if w < gp.width + gp.x as usize {
-                        w = gp.width + gp.x as usize
-                    }
-                    Glyph::new(&font, gp.key, color, gp.x, gp.y)
-                }).collect();
+                glyphs = layout
+                    .glyphs()
+                    .iter()
+                    .map(|gp| {
+                        if w < gp.width + gp.x as usize {
+                            w = gp.width + gp.x as usize
+                        }
+                        Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                    })
+                    .collect();
                 w as f32
             },
-            height
+            height,
         );
 
         WidgetShell::default(TextField {
@@ -319,20 +335,26 @@ impl TextField {
             font_size,
             damaged: true,
             setting: layout_setting,
-            size
+            size,
         })
     }
     pub fn write(&mut self, text: &str) {
         let mut w = 0;
         let color = self.color;
         let font = &self.font;
-        self.layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
-        self.glyphs = self.layout.glyphs().iter().map(|gp| {
-            if w < gp.width + gp.x as usize {
-                w = gp.width + gp.x as usize
-            }
-            Glyph::new(&font, gp.key, color, gp.x, gp.y)
-        }).collect();
+        self.layout
+            .append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
+        self.glyphs = self
+            .layout
+            .glyphs()
+            .iter()
+            .map(|gp| {
+                if w < gp.width + gp.x as usize {
+                    w = gp.width + gp.x as usize
+                }
+                Glyph::new(&font, gp.key, color, gp.x, gp.y)
+            })
+            .collect();
         self.size = (w as f32, self.layout.height());
     }
     pub fn edit(&mut self, text: &str) {
@@ -340,13 +362,19 @@ impl TextField {
         let color = self.color;
         let font = &self.font;
         self.layout.reset(&self.setting);
-        self.layout.append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
-        self.glyphs = self.layout.glyphs().iter().map(|gp| {
-            if w < gp.width + gp.x as usize {
-                w = gp.width + gp.x as usize
-            }
-            Glyph::new(&font, gp.key, color, gp.x, gp.y)
-        }).collect();
+        self.layout
+            .append(&[font], &TextStyle::new(text, self.font_size as f32, 0));
+        self.glyphs = self
+            .layout
+            .glyphs()
+            .iter()
+            .map(|gp| {
+                if w < gp.width + gp.x as usize {
+                    w = gp.width + gp.x as usize
+                }
+                Glyph::new(&font, gp.key, color, gp.x, gp.y)
+            })
+            .collect();
         self.size = (w as f32, self.layout.height());
     }
 }
@@ -365,8 +393,10 @@ impl Drawable for TextField {
         self.color = color;
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        for glyph in &self.glyphs {
-            glyph.draw(canvas, x, y);
+        if self.damaged {
+            for glyph in &self.glyphs {
+                glyph.draw(canvas, x, y);
+            }
         }
     }
 }

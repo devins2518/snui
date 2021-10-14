@@ -1,7 +1,7 @@
 pub mod container;
 pub mod image;
-pub mod text;
 pub mod primitives;
+pub mod text;
 
 pub use self::image::Image;
 use crate::*;
@@ -137,5 +137,18 @@ impl<W: Widget> Widget for Actionnable<W> {
         } else {
             (self.cb)(&mut self.widget, *dispatch, wx, wy)
         }
+    }
+}
+
+impl<W: Widget> Deref for Actionnable<W> {
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.widget
+    }
+}
+
+impl<W: Widget> DerefMut for Actionnable<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.widget
     }
 }

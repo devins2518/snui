@@ -138,7 +138,7 @@ impl<W: Widget> WidgetShell<W> {
             border_width: 0.,
             shape: Shape::Rectangle,
             radius: [0.; 4],
-            padding: [0.; 4]
+            padding: [0.; 4],
         }
     }
     pub fn rect(

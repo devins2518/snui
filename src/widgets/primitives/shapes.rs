@@ -4,7 +4,7 @@ use raqote::*;
 use std::f32::consts::PI;
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::SrcOver,
+    blend_mode: BlendMode::Src,
     alpha: 1.,
     antialias: AntialiasMode::Gray,
 };

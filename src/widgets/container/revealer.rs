@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::primitives::WidgetShell;
+use crate::*;
 
 pub struct Revealer<N: Widget, R: Widget> {
     normal: N,
