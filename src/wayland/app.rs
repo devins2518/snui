@@ -1,5 +1,6 @@
-use crate::wayland::buffer;
 use crate::*;
+use raqote::*;
+use crate::wayland::buffer;
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use std::sync::mpsc::{Receiver, SyncSender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -17,7 +18,7 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 pub struct Application<W: Widget> {
     running: bool,
     shm: WlShm,
-    canvas: Canvas,
+    canvas: DrawTarget,
     buffer: Option<WlBuffer>,
     receiver: Receiver<Dispatch>,
     pub widget: W,
@@ -39,7 +40,7 @@ impl<W: Widget> Application<W> {
             shm,
             surface,
             receiver,
-            canvas: Canvas::new(widget.width() as u32, widget.height() as u32),
+            canvas: DrawTarget::new(widget.width() as i32, widget.height() as i32),
             buffer: None,
             layer_surface: None,
             widget,

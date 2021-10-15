@@ -10,7 +10,7 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    canvas: &'b mut Canvas,
+    canvas: &'b mut Canvas<'b>,
 }
 
 impl<'b> Buffer<'b> {

@@ -5,6 +5,7 @@ pub mod text;
 
 pub use self::image::Image;
 use crate::*;
+use std::ops::{Deref, DerefMut};
 pub use container::{layout::WidgetLayout, Wbox};
 use std::io::Write;
 

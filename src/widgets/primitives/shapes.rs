@@ -1,13 +1,6 @@
-use crate::widgets::primitives::*;
 use crate::*;
 use raqote::*;
-use std::f32::consts::PI;
-
-const DRAW_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::Src,
-    alpha: 1.,
-    antialias: AntialiasMode::Gray,
-};
+use crate::widgets::primitives::*;
 
 impl Style {
     pub fn fill(color: u32) -> Self {
@@ -104,63 +97,14 @@ impl Drawable for Rectangle {
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if !self.style.is_empty() && self.damaged {
-            canvas.push(x, y, self, false);
-            let dt = canvas.target();
-            let mut pb = PathBuilder::new();
-            let mut cursor = (x as f32, y as f32);
-
-            // Sides length
-            let top = self.width - self.radius[0] - self.radius[1];
-            let right = self.height - self.radius[1] - self.radius[2];
-            let left = self.height - self.radius[0] - self.radius[3];
-            let bottom = self.width - self.radius[2] - self.radius[3];
-
-            // Positioning the cursor
-            cursor.0 += self.radius[0];
-            cursor.1 += self.radius[0];
-
-            // Drawing the outline
-            pb.arc(cursor.0, cursor.1, self.radius[0], PI, PI / 2.);
-            cursor.0 += top;
-            cursor.1 -= self.radius[0];
-            pb.line_to(cursor.0, cursor.1);
-            cursor.1 += self.radius[1];
-            pb.arc(cursor.0, cursor.1, self.radius[1], -PI / 2., PI / 2.);
-            cursor.0 += self.radius[1];
-            cursor.1 += right;
-            pb.line_to(cursor.0, cursor.1);
-            cursor.0 -= self.radius[2];
-            pb.arc(cursor.0, cursor.1, self.radius[2], 0., PI / 2.);
-            cursor.1 += self.radius[2];
-            cursor.0 -= bottom;
-            pb.line_to(cursor.0, cursor.1);
-            cursor.1 -= self.radius[3];
-            pb.arc(cursor.0, cursor.1, self.radius[3], PI / 2., PI / 2.);
-            cursor.0 -= self.radius[3];
-            cursor.1 -= left;
-            pb.line_to(cursor.0, cursor.1);
-
-            // Closing path
-            pb.close();
-            let path = pb.finish();
-
-            match &self.style {
-                Style::Fill(source) => {
-                    dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
-                }
-                Style::Border(source, border) => {
-                    let stroke = StrokeStyle {
-                        width: *border,
-                        cap: LineCap::Round,
-                        join: LineJoin::Miter,
-                        miter_limit: 10.,
-                        dash_array: Vec::new(),
-                        dash_offset: 0.,
-                    };
-                    dt.stroke(&path, &Source::Solid(*source), &stroke, &DRAW_OPTIONS);
-                }
-                Style::Empty => {}
-            }
+            canvas.draw_rectangle(
+                x,
+                y,
+                self.width(),
+                self.height(),
+                self.radius,
+                &self.style,
+            );
         }
     }
 }
@@ -225,39 +169,13 @@ impl Drawable for Circle {
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if !self.style.is_empty() && self.damaged() {
-            let dt = canvas.target();
-            let mut pb = PathBuilder::new();
-            let mut cursor = (x as f32, y as f32);
-
-            // Positioning the cursor
-            cursor.0 += self.radius;
-            cursor.1 += self.radius;
-            pb.move_to(cursor.0, cursor.1);
-
-            // Drawing the outline
-            pb.arc(cursor.0, cursor.1, self.radius, 0., 2. * PI);
-
-            // Closing path
-            pb.close();
-            let path = pb.finish();
-
-            match &self.style {
-                Style::Fill(source) => {
-                    dt.fill(&path, &Source::Solid(*source), &DrawOptions::new());
-                }
-                Style::Border(source, border) => {
-                    let stroke = StrokeStyle {
-                        width: *border,
-                        cap: LineCap::Round,
-                        join: LineJoin::Bevel,
-                        miter_limit: 10.,
-                        dash_array: Vec::new(),
-                        dash_offset: 0.,
-                    };
-                    dt.stroke(&path, &Source::Solid(*source), &stroke, &DrawOptions::new());
-                }
-                Style::Empty => {}
-            }
+            canvas.draw_ellipse(
+                x,
+                y,
+                self.width(),
+                self.height(),
+                &self.style
+            );
         }
     }
 }

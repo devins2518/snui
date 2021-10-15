@@ -2,7 +2,7 @@ pub mod shapes;
 
 use crate::*;
 use raqote::*;
-use shapes::*;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Style {
@@ -30,36 +30,10 @@ pub struct WidgetShell<W: Widget> {
 
 impl<W: Widget> Geometry for WidgetShell<W> {
     fn width(&self) -> f32 {
-        match self.shape {
-            Shape::Circle => {
-                let diameter = if self.child.width() > self.child.height() {
-                    self.child.width()
-                } else {
-                    self.child.height()
-                };
-                diameter + (self.border_width * 2.) + self.padding[1] + self.padding[3]
-            }
-            Shape::Rectangle => {
-                self.child.width() + (self.border_width * 2.) + self.padding[1] + self.padding[3]
-            }
-            Shape::Triangle => self.child.width(),
-        }
+        self.child.width() + (self.border_width * 2.) + self.padding[1] + self.padding[3]
     }
     fn height(&self) -> f32 {
-        match self.shape {
-            Shape::Circle => {
-                let diameter = if self.child.width() > self.child.height() {
-                    self.child.width()
-                } else {
-                    self.child.height()
-                };
-                diameter + (self.border_width * 2.) + self.padding[1] + self.padding[3]
-            }
-            Shape::Rectangle => {
-                self.child.height() + (self.border_width * 2.) + self.padding[0] + self.padding[2]
-            }
-            Shape::Triangle => self.child.height(),
-        }
+        self.child.height() + (self.border_width * 2.) + self.padding[0] + self.padding[2]
     }
 }
 
@@ -73,30 +47,38 @@ impl<W: Widget> Drawable for WidgetShell<W> {
             let height = self.child.height() + self.padding[0] + self.padding[2];
             match self.shape {
                 Shape::Rectangle => {
-                    let mut background =
-                        Rectangle::new(width as f32, height as f32, self.background_color);
-                    background.set_radius(self.radius);
-                    background.draw(canvas, x + self.border_width, y + self.border_width);
-                    let mut border = Rectangle::new(width as f32, height as f32, self.border_color);
-                    border.set_radius(self.radius);
-                    border.draw(
-                        canvas,
+                    canvas.draw_rectangle(
+                        x,
+                        y,
+                        width,
+                        height,
+                        self.radius,
+                        &Style::fill(self.background_color),
+                    );
+                    canvas.draw_rectangle(
                         x + self.border_width / 2.,
                         y + self.border_width / 2.,
+                        width,
+                        height,
+                        self.radius,
+                        &Style::border(self.border_color, self.border_width),
                     );
                 }
                 Shape::Circle => {
-                    let radius = if width > height {
-                        width as f32
-                    } else {
-                        height as f32
-                    };
-                    Circle::new(radius, self.background_color).draw(
-                        canvas,
-                        x + self.border_width,
-                        y + self.border_width,
+                    canvas.draw_ellipse(
+                        x,
+                        y,
+                        width,
+                        height,
+                        &Style::fill(self.background_color),
                     );
-                    Circle::new(radius, self.border_color).draw(canvas, x, y);
+                    canvas.draw_ellipse(
+                        x + self.border_width / 2.,
+                        y + self.border_width / 2.,
+                        width,
+                        height,
+                        &Style::border(self.border_color, self.border_width),
+                    );
                 }
                 _ => {}
             }
