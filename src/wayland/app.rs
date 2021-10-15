@@ -1,6 +1,7 @@
 use crate::*;
 use raqote::*;
-use crate::wayland::buffer;
+use crate::wayland::Buffer;
+use crate::canvas::Backend;
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use std::sync::mpsc::{Receiver, SyncSender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -66,7 +67,7 @@ impl<W: Widget> Application<W> {
     }
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
         if let Some(damage) = self.widget.roundtrip(0., 0., &dispatch) {
-            if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, pool) {
+            if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, Backend::Raqote(&mut self.canvas)) {
                 damage.widget.draw(buffer.canvas(), damage.x, damage.y);
                 self.buffer = Some(wlbuf);
                 self.surface.attach(self.buffer.as_ref(), 0, 0);
@@ -88,7 +89,7 @@ impl<W: Widget> Application<W> {
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        if let Ok((mut buffer, wlbuf)) = buffer(&mut self.canvas, mempool) {
+        if let Ok((mut buffer, wlbuf)) = Buffer::new(mempool, Backend::Raqote(&mut self.canvas)) {
             let canvas = buffer.canvas();
             if let Some(layer_surface) = &self.layer_surface {
                 if !self.resized {
@@ -113,7 +114,7 @@ impl<W: Widget> Application<W> {
         let width = self.widget.width() as u32;
         let height = self.widget.height() as u32;
         if self.canvas.width() as u32 != width && self.canvas.height() as u32 != height {
-            self.canvas = Canvas::new(width as u32, height as u32);
+            self.canvas = DrawTarget::new(width as i32, height as i32);
             self.widget.damage();
         }
         self.resized = false;

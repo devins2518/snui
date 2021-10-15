@@ -16,7 +16,6 @@ impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        canvas.push(x, y, self, false);
         if self.state {
             self.reveal.draw(canvas, x, y)
         } else {

@@ -211,22 +211,28 @@ impl Widget for WidgetLayout {
                 }
             }
             _ => {
+                let size = match &self.orientation {
+                    Orientation::Vertical => self.width(),
+                    Orientation::Horizontal => self.height()
+                };
                 let (mut dx, mut dy) = (0., 0.);
                 for w in &mut self.widgets {
                     if w.mapped {
+                        let ev;
                         let widwidth = w.widget.width();
                         let widheight = w.widget.height();
-                        let ev = w.widget.roundtrip(wx + dx, wy + dy, dispatch);
-                        if ev.is_some() {
-                            return ev;
-                        }
                         match self.orientation {
                             Orientation::Horizontal => {
+                                ev = w.widget.roundtrip(wx + dx, wy + ((size - widheight)/2.), dispatch);
                                 dx += widwidth + self.spacing;
                             }
                             Orientation::Vertical => {
+                                ev = w.widget.roundtrip(wx + ((size - widwidth)/2.), wy + dy, dispatch);
                                 dy += widheight + self.spacing;
                             }
+                        }
+                        if ev.is_some() {
+                            return ev;
                         }
                     }
                 }

@@ -1,4 +1,3 @@
-use crate::widgets::render;
 use crate::*;
 use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
@@ -73,8 +72,18 @@ impl Drawable for Image {
     }
 
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        canvas.push(x, y, self, false);
-        render(canvas, self.image.as_raw(), self.image.width() as f32, x, y);
+        let buf = self.image.as_raw();
+        let p = buf.as_ptr();
+        let len = buf.len();
+        let data= unsafe {
+            std::slice::from_raw_parts(p as *mut u32, len / std::mem::size_of::<u32>())
+        };
+        let image = raqote::Image {
+            width: self.image.width() as i32,
+            height: self.image.height() as i32,
+            data
+        };
+        canvas.draw_image(x, y, image);
     }
 }
 

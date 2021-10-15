@@ -53,7 +53,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                         width,
                         height,
                         self.radius,
-                        &Style::fill(self.background_color),
+                        &self.background_color,
                     );
                     canvas.draw_rectangle(
                         x + self.border_width / 2.,
@@ -61,7 +61,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                         width,
                         height,
                         self.radius,
-                        &Style::border(self.border_color, self.border_width),
+                        &self.border_color,
                     );
                 }
                 Shape::Circle => {
@@ -70,14 +70,14 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                         y,
                         width,
                         height,
-                        &Style::fill(self.background_color),
+                        &self.background_color,
                     );
                     canvas.draw_ellipse(
                         x + self.border_width / 2.,
                         y + self.border_width / 2.,
                         width,
                         height,
-                        &Style::border(self.border_color, self.border_width),
+                        &self.border_color,
                     );
                 }
                 _ => {}
@@ -87,7 +87,6 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                 x + self.padding[3] + self.border_width / 2. + self.border_width % 2.,
                 y + self.padding[0] + self.border_width / 2. + self.border_width % 2.,
             );
-            canvas.push(x, y, self, true);
         } else {
             self.child.draw(canvas, x, y);
         }

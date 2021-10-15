@@ -4,25 +4,25 @@ use std::f32::consts::PI;
 use widgets::primitives::Style;
 use std::ops::{Deref, DerefMut};
 use euclid::default::{Box2D, Point2D};
-use euclid::{point2, vec2, Angle, Transform2D, UnknownUnit};
+use lyon_geom::euclid::{point2, vec2, Angle};
 
-enum Backend<'b> {
+pub enum Backend<'b> {
     Raqote(&'b mut DrawTarget)
 }
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::Src,
+    blend_mode: BlendMode::SrcOver,
     alpha: 1.,
     antialias: AntialiasMode::Gray,
 };
 
 #[derive(Debug, Copy, Clone)]
 pub struct DamageReport {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-    container: bool,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    // container: bool,
 }
 
 pub struct Canvas<'b> {
@@ -33,29 +33,34 @@ pub struct Canvas<'b> {
 }
 
 impl<'b> Canvas<'b> {
-    pub fn push<W: Geometry>(&mut self, x: f32, y: f32, widget: &W, container: bool) {
+    pub fn new(backend: Backend<'b>) -> Self {
+        Self {
+            backend,
+            damage: Vec::new()
+        }
+    }
+    pub fn push(&mut self, x: f32, y: f32, width: f32, height: f32) {
         if let Some(last) = self.damage.last() {
-            if last.container
-                && last.x > x
-                && last.y > y
-                && last.x < x + widget.width()
-                && last.y < y + widget.height()
+            if last.x > x
+               && last.y > y
+               && last.x < x + width
+               && last.y < y + height
             {
                 self.damage.push(DamageReport {
                     x,
                     y,
-                    container,
-                    width: widget.width(),
-                    height: widget.height(),
+                    // container,
+                    width,
+                    height,
                 });
             }
         } else {
             self.damage.push(DamageReport {
                 x,
                 y,
-                container,
-                width: widget.width(),
-                height: widget.height(),
+                // container,
+                width,
+                height,
             });
         }
     }
@@ -84,9 +89,25 @@ impl<'b> Canvas<'b> {
             pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
         });
 
+        self.push(x, y, width, height);
+
         let path = pb.finish();
-        match self.backend {
+        match &mut self.backend {
             Backend::Raqote(dt) => fill_target(dt, &path, style),
+            _ => {}
+        }
+    }
+    pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
+        self.push(x, y, image.width as f32, image.height as f32);
+        match &mut self.backend {
+            Backend::Raqote(dt) => {
+                dt.draw_image_at(
+                    x,
+                    y,
+                    &image,
+                    &DRAW_OPTIONS
+                )
+            }
             _ => {}
         }
     }
@@ -128,15 +149,16 @@ impl<'b> Canvas<'b> {
         // Closing path
         pb.close();
         let path = pb.finish();
+        self.push(x, y, width, height);
 
-        match self.backend {
+        match &mut self.backend {
             Backend::Raqote(dt) => fill_target(dt, &path, style),
             _ => {}
         }
     }
 }
 
-fn fill_target(dt: &mut DrawTarget, path: &Path, style: Style) {
+fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
     match style {
         Style::Fill(source) => {
             dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
@@ -158,7 +180,7 @@ fn fill_target(dt: &mut DrawTarget, path: &Path, style: Style) {
 
 impl<'b> Geometry for Canvas<'b> {
     fn width(&self) -> f32 {
-        match self.backend {
+        match &self.backend {
             Backend::Raqote(dt) => {
                 dt.width() as f32
             }
@@ -166,7 +188,7 @@ impl<'b> Geometry for Canvas<'b> {
         }
     }
     fn height(&self) -> f32 {
-        match self.backend {
+        match &self.backend {
             Backend::Raqote(dt) => {
                 dt.height() as f32
             }
@@ -178,13 +200,13 @@ impl<'b> Geometry for Canvas<'b> {
 impl<'b> Drawable for Canvas<'b> {
     fn set_color(&mut self, color: u32) {
         let color = color.to_be_bytes();
-        match self.backend {
+        match &mut self.backend {
             Backend::Raqote(dt) => {
                 dt.fill_rect(
                     0.,
                     0.,
-                    self.target.width() as f32,
-                    self.target.height() as f32,
+                    dt.width() as f32,
+                    dt.height() as f32,
                     &Source::Solid(SolidSource {
                         a: color[0],
                         r: color[1],
@@ -197,12 +219,12 @@ impl<'b> Drawable for Canvas<'b> {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        while self.damage.len() > 0 {
-            canvas.damage.push(self.damage.remove(0));
+        for d in &self.damage {
+            canvas.damage.push(*d);
         }
-        match canvas.backend {
+        match &mut canvas.backend {
             Backend::Raqote(dt) => {
-                match self.backend {
+                match &self.backend {
                     Backend::Raqote(st) => {
                         dt.blend_surface(
                             &st,
@@ -225,9 +247,9 @@ impl<'b> Drawable for Canvas<'b> {
 impl<'b> Deref for Canvas<'b> {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
-        match self.backend {
+        match &self.backend {
             Backend::Raqote(dt) => {
-                self.target.get_data_u8()
+                dt.get_data_u8()
             }
         }
     }
@@ -235,9 +257,9 @@ impl<'b> Deref for Canvas<'b> {
 
 impl<'b> DerefMut for Canvas<'b> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        match self.backend {
+        match &mut self.backend {
             Backend::Raqote(dt) => {
-                self.target.get_data_u8_mut()
+                dt.get_data_u8_mut()
             }
         }
     }

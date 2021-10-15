@@ -1,7 +1,7 @@
 pub mod app;
 
-use crate::Canvas;
 use crate::*;
+use crate::canvas::{Canvas, Backend};
 use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -10,34 +10,30 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    canvas: &'b mut Canvas<'b>,
+    canvas: Canvas<'b>,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mmap: &'b mut [u8], canvas: &'b mut Canvas) -> Self {
-        Self { mmap, canvas }
+    fn new(mempool: &'b mut MemPool, backend: Backend<'b>) -> Result<(Self, WlBuffer), ()> {
+        let canvas = Canvas::new(backend);
+        let width = canvas.width() as i32;
+        let height = canvas.height() as i32;
+        let stride = width * 4;
+        if mempool.resize((stride * height) as usize).is_ok() {
+            let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
+            Ok(
+                (Self { mmap: mempool.mmap(), canvas }, wlbuf)
+            )
+        } else {
+            Err(())
+        }
     }
-    pub fn canvas(&mut self) -> &mut Canvas {
+    pub fn canvas(&mut self) -> &mut Canvas<'b> {
         &mut self.canvas
     }
     pub fn merge(mut self) {
         self.mmap.write_all(&self.canvas).unwrap();
         self.mmap.flush().unwrap();
         self.canvas.clear();
-    }
-}
-
-pub fn buffer<'b>(
-    canvas: &'b mut Canvas,
-    mempool: &'b mut MemPool,
-) -> Result<(Buffer<'b>, WlBuffer), ()> {
-    let width = canvas.width() as i32;
-    let height = canvas.height() as i32;
-    let stride = width * 4;
-    if mempool.resize((stride * height) as usize).is_ok() {
-        let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
-        Ok((Buffer::new(mempool.mmap(), canvas), wlbuf))
-    } else {
-        Err(())
     }
 }

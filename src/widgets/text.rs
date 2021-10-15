@@ -1,4 +1,5 @@
 use crate::*;
+use crate::canvas::Backend;
 pub use fontdue::{
     layout,
     Font,
@@ -84,11 +85,11 @@ impl Drawable for Glyph {
             height: self.metrics.height as i32,
             data: &pixmap,
         };
-        canvas.target.draw_image_at(
+        // TO-DO have draw_image be a method of Canvas
+        canvas.draw_image(
             x.round() + self.position.0,
             y.round() + self.position.1,
-            &image,
-            &DRAW_OPTIONS,
+            image,
         );
     }
 }
