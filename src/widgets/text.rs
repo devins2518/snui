@@ -1,5 +1,4 @@
 use crate::*;
-use crate::canvas::Backend;
 pub use fontdue::{
     layout,
     Font,
@@ -10,12 +9,6 @@ use raqote::*;
 use std::fs::read;
 use std::path::Path;
 use crate::widgets::primitives::WidgetShell;
-
-const DRAW_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::SrcOver,
-    alpha: 1.,
-    antialias: AntialiasMode::Gray,
-};
 
 pub fn font_from_path(path: &Path) -> Font {
     let font = read(path).unwrap();

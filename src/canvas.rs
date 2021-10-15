@@ -49,7 +49,6 @@ impl<'b> Canvas<'b> {
                 self.damage.push(DamageReport {
                     x,
                     y,
-                    // container,
                     width,
                     height,
                 });
@@ -58,7 +57,6 @@ impl<'b> Canvas<'b> {
             self.damage.push(DamageReport {
                 x,
                 y,
-                // container,
                 width,
                 height,
             });
