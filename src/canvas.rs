@@ -1,13 +1,15 @@
 use raqote::*;
 use crate::*;
+use crate::widgets::text::{GlyphCache, GlyphPosition, Font};
 use std::f32::consts::PI;
 use widgets::primitives::Style;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
 
-pub enum Backend<'b> {
-    Raqote(&'b mut DrawTarget)
+pub enum Backend {
+    Raqote(DrawTarget)
 }
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
@@ -25,17 +27,18 @@ pub struct DamageReport {
     // container: bool,
 }
 
-pub struct Canvas<'b> {
-    backend: Backend<'b>,
+pub struct Canvas {
+    backend: Backend,
     damage: Vec<DamageReport>,
     // TO-DO
-    // font_cache: FontCache
+    font_cache: HashMap<String,GlyphCache>,
 }
 
-impl<'b> Canvas<'b> {
-    pub fn new(backend: Backend<'b>) -> Self {
+impl Canvas {
+    pub fn new(backend: Backend) -> Self {
         Self {
             backend,
+            font_cache: HashMap::new(),
             damage: Vec::new()
         }
     }
@@ -62,7 +65,7 @@ impl<'b> Canvas<'b> {
             });
         }
     }
-    pub fn clear(&mut self) {
+    pub fn flush_damage(&mut self) {
         self.damage.clear();
     }
     pub fn report(&self) -> &[DamageReport] {
@@ -154,6 +157,57 @@ impl<'b> Canvas<'b> {
             _ => {}
         }
     }
+    pub fn reset(&mut self, width: i32, height: i32) {
+        match &mut self.backend {
+            Backend::Raqote(dt) => {
+                *dt = DrawTarget::new(width, height);
+            }
+            _ => {}
+        }
+    }
+    pub fn clear(&mut self) {
+        match &mut self.backend {
+            Backend::Raqote(dt) => {
+                dt.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
+            }
+            _ => {}
+        }
+    }
+    pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
+        if let Ok(glyph_cache) = GlyphCache::load(path) {
+            self.font_cache.insert(name.to_owned(), glyph_cache);
+        }
+    }
+    pub fn get_font(&mut self, font: &str) -> Option<&Font> {
+        if let Some(glyph_cache) = self.font_cache.get(font) {
+            Some(&glyph_cache.font)
+        } else {
+            None
+        }
+    }
+    pub fn draw_label(&mut self, x: f32, y: f32, font: &str, glyphs: &Vec<GlyphPosition>, source: SolidSource) {
+        if let Some(glyph_cache) = self.font_cache.get_mut(font) {
+            for gp in glyphs {
+                if let Some(pixmap) = glyph_cache.render_glyph(gp, source) {
+                    match &mut self.backend {
+                        Backend::Raqote(dt) => {
+                            dt.draw_image_at(
+                                x,
+                                y,
+                                &Image {
+                                    data: &pixmap,
+                                    width: gp.width as i32,
+                                    height: gp.height as i32,
+                                },
+                                &DRAW_OPTIONS
+                            )
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
@@ -176,7 +230,7 @@ fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
     }
 }
 
-impl<'b> Geometry for Canvas<'b> {
+impl Geometry for Canvas {
     fn width(&self) -> f32 {
         match &self.backend {
             Backend::Raqote(dt) => {
@@ -195,7 +249,7 @@ impl<'b> Geometry for Canvas<'b> {
     }
 }
 
-impl<'b> Drawable for Canvas<'b> {
+impl Drawable for Canvas {
     fn set_color(&mut self, color: u32) {
         let color = color.to_be_bytes();
         match &mut self.backend {
@@ -242,7 +296,7 @@ impl<'b> Drawable for Canvas<'b> {
     }
 }
 
-impl<'b> Deref for Canvas<'b> {
+impl Deref for Canvas {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         match &self.backend {
@@ -253,7 +307,7 @@ impl<'b> Deref for Canvas<'b> {
     }
 }
 
-impl<'b> DerefMut for Canvas<'b> {
+impl DerefMut for Canvas {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.backend {
             Backend::Raqote(dt) => {

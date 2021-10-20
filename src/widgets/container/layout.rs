@@ -196,44 +196,38 @@ impl WidgetLayout {
 
 impl Widget for WidgetLayout {
     fn damaged(&self) -> bool {
-        for w in &self.widgets {
-            if w.mapped {
-                return true;
-            }
-        }
-        false
+        // for w in &self.widgets {
+        //     if w.mapped {
+        //         return true;
+        //     }
+        // }
+        // false
+        true
     }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
-        match dispatch {
-            Dispatch::Commit => {
-                for w in self.widgets.iter_mut() {
-                    w.mapped = w.mapped == false;
-                }
-            }
-            _ => {
-                let size = match &self.orientation {
-                    Orientation::Vertical => self.width(),
-                    Orientation::Horizontal => self.height()
-                };
-                let (mut dx, mut dy) = (0., 0.);
-                for w in &mut self.widgets {
-                    if w.mapped {
-                        let ev;
-                        let widwidth = w.widget.width();
-                        let widheight = w.widget.height();
-                        match self.orientation {
-                            Orientation::Horizontal => {
-                                ev = w.widget.roundtrip(wx + dx, wy + ((size - widheight)/2.), dispatch);
-                                dx += widwidth + self.spacing;
-                            }
-                            Orientation::Vertical => {
-                                ev = w.widget.roundtrip(wx + ((size - widwidth)/2.), wy + dy, dispatch);
-                                dy += widheight + self.spacing;
-                            }
+        let sw = self.width();
+        let sh = self.height();
+        let (mut dx, mut dy) = (0., 0.);
+        for w in &mut self.widgets {
+            if w.mapped {
+                match self.orientation {
+                    Orientation::Horizontal => {
+                        match self.alignment {
+                            Alignment::Start => dy = 0.,
+                            Alignment::Center => dy = (sh - w.widget.height()) / 2.,
+                            Alignment::End => dy = sh - w.widget.height(),
                         }
-                        if ev.is_some() {
-                            return ev;
+                        w.widget.roundtrip(wx + dx, wy + dy, dispatch);
+                        dx += w.widget.width() + self.spacing;
+                    }
+                    Orientation::Vertical => {
+                        match self.alignment {
+                            Alignment::Start => dx = 0.,
+                            Alignment::Center => dx = (sw - w.widget.width()) / 2.,
+                            Alignment::End => dx = sw - w.widget.width(),
                         }
+                        w.widget.roundtrip(wx + dx, wy + dy, dispatch);
+                        dy += w.widget.height() + self.spacing;
                     }
                 }
             }

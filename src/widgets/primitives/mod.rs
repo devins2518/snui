@@ -19,7 +19,6 @@ pub enum Shape {
 
 pub struct WidgetShell<W: Widget> {
     child: W,
-    damaged: bool,
     shape: Shape,
     radius: [f32; 4],
     border: Style,
@@ -41,7 +40,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
         self.background = Style::fill(color);
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if self.damaged {
+        if self.child.damaged() {
             let width = self.child.width() + self.padding[1] + self.padding[3];
             let height = self.child.height() + self.padding[0] + self.padding[2];
             match self.shape {
@@ -101,9 +100,6 @@ impl<W: Widget> Widget for WidgetShell<W> {
         self.child.damaged()
     }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
-        if let Dispatch::Commit = dispatch {
-            self.damaged = self.damaged == false;
-        }
         self.child.roundtrip(
             wx + self.padding[3],
             wy + self.padding[0],
@@ -116,7 +112,6 @@ impl<W: Widget> WidgetShell<W> {
     pub fn default(child: W) -> Self {
         WidgetShell {
             child,
-            damaged: true,
             background: Style::Empty,
             border: Style::Empty,
             shape: Shape::Rectangle,
@@ -146,7 +141,6 @@ impl<W: Widget> WidgetShell<W> {
             shape: Shape::Rectangle,
             radius: [0.; 4],
             padding: [padding as f32; 4],
-            damaged: true,
         }
     }
     pub fn circle(
@@ -171,7 +165,6 @@ impl<W: Widget> WidgetShell<W> {
             shape: Shape::Circle,
             radius: [0.; 4],
             padding: [padding as f32; 4],
-            damaged: true,
         }
     }
     pub fn set_radius(&mut self, radius: [f32; 4]) {

@@ -19,7 +19,7 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 pub struct Application<W: Widget> {
     running: bool,
     shm: WlShm,
-    canvas: DrawTarget,
+    canvas: Canvas,
     buffer: Option<WlBuffer>,
     receiver: Receiver<Dispatch>,
     pub widget: W,
@@ -41,7 +41,7 @@ impl<W: Widget> Application<W> {
             shm,
             surface,
             receiver,
-            canvas: DrawTarget::new(widget.width() as i32, widget.height() as i32),
+            canvas: Canvas::new(Backend::Raqote(DrawTarget::new(widget.width() as i32, widget.height() as i32))),
             buffer: None,
             layer_surface: None,
             widget,
@@ -67,7 +67,7 @@ impl<W: Widget> Application<W> {
     }
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
         if let Some(damage) = self.widget.roundtrip(0., 0., &dispatch) {
-            if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, Backend::Raqote(&mut self.canvas)) {
+            if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, &mut self.canvas) {
                 damage.widget.draw(buffer.canvas(), damage.x, damage.y);
                 self.buffer = Some(wlbuf);
                 self.surface.attach(self.buffer.as_ref(), 0, 0);
@@ -89,7 +89,7 @@ impl<W: Widget> Application<W> {
         self.surface.commit();
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
-        if let Ok((mut buffer, wlbuf)) = Buffer::new(mempool, Backend::Raqote(&mut self.canvas)) {
+        if let Ok((mut buffer, wlbuf)) = Buffer::new(mempool, &mut self.canvas) {
             let canvas = buffer.canvas();
             if let Some(layer_surface) = &self.layer_surface {
                 if !self.resized {
@@ -111,12 +111,12 @@ impl<W: Widget> Application<W> {
         }
     }
     pub fn clear(&mut self) {
-        self.canvas.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
+        // self.canvas.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
     }
     pub fn resize(&mut self) {
         let width = self.widget.width() as u32;
         let height = self.widget.height() as u32;
-        self.canvas = DrawTarget::new(width as i32, height as i32);
+        self.canvas.reset(width as i32, height as i32);
         // self.widget.damage();
         if let Some(layer_surface) = &self.layer_surface {
             layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);

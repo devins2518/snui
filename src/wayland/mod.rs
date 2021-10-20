@@ -10,12 +10,11 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    canvas: Canvas<'b>,
+    canvas: &'b mut Canvas,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut MemPool, backend: Backend<'b>) -> Result<(Self, WlBuffer), ()> {
-        let canvas = Canvas::new(backend);
+    fn new(mempool: &'b mut MemPool, canvas: &'b mut Canvas) -> Result<(Self, WlBuffer), ()> {
         let width = canvas.width() as i32;
         let height = canvas.height() as i32;
         let stride = width * 4;
@@ -28,8 +27,8 @@ impl<'b> Buffer<'b> {
             Err(())
         }
     }
-    pub fn canvas(&mut self) -> &mut Canvas<'b> {
-        &mut self.canvas
+    pub fn canvas(&mut self) -> &mut Canvas {
+        self.canvas
     }
     pub fn merge(mut self) {
         self.mmap.write_all(&self.canvas).unwrap();
