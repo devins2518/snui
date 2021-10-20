@@ -10,9 +10,9 @@ edition = "2018"
 fontdue = "0.5.2"
 image = "0.23.14"
 euclid = "0.20.0"
-raqote = "0.7.14"
 lyon_geom = "0.17.5"
 wayland-client = "0.28.5"
 wayland-commons = "0.28.5"
 smithay-client-toolkit = "0.14.0"
+raqote = { version="0.7.14", features=["default"] }
 wayland-protocols = { version="0.28.5", features=["unstable_protocols", "client"] }

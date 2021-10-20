@@ -62,6 +62,15 @@ impl Rectangle {
             radius: [0.; 4],
         }
     }
+    pub fn empty(width: f32, height: f32) -> Self {
+        Rectangle {
+            damaged: true,
+            width,
+            height,
+            style: Style::Empty,
+            radius: [0.; 4],
+        }
+    }
     pub fn set_radius(&mut self, radius: [f32; 4]) {
         self.radius = radius;
     }
@@ -134,7 +143,7 @@ impl Circle {
         Circle {
             damaged: true,
             style,
-            radius: radius,
+            radius,
         }
     }
 }

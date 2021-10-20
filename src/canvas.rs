@@ -164,9 +164,9 @@ fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
         Style::Border(source, border) => {
             let stroke = StrokeStyle {
                 width: *border,
-                cap: LineCap::Round,
+                cap: LineCap::Butt,
                 join: LineJoin::Miter,
-                miter_limit: 10.,
+                miter_limit: 1.,
                 dash_array: Vec::new(),
                 dash_offset: 0.,
             };

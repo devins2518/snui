@@ -22,24 +22,23 @@ pub struct WidgetShell<W: Widget> {
     damaged: bool,
     shape: Shape,
     radius: [f32; 4],
-    border_color: Style,
-    background_color: Style,
-    border_width: f32,
+    border: Style,
+    background: Style,
     padding: [f32; 4],
 }
 
 impl<W: Widget> Geometry for WidgetShell<W> {
     fn width(&self) -> f32 {
-        self.child.width() + (self.border_width * 2.) + self.padding[1] + self.padding[3]
+        self.child.width() + self.padding[1] + self.padding[3]
     }
     fn height(&self) -> f32 {
-        self.child.height() + (self.border_width * 2.) + self.padding[0] + self.padding[2]
+        self.child.height() + self.padding[0] + self.padding[2]
     }
 }
 
 impl<W: Widget> Drawable for WidgetShell<W> {
     fn set_color(&mut self, color: u32) {
-        self.background_color = Style::fill(color);
+        self.background = Style::fill(color);
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if self.damaged {
@@ -53,39 +52,43 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                         width,
                         height,
                         self.radius,
-                        &self.background_color,
+                        &self.background,
                     );
-                    canvas.draw_rectangle(
-                        x + self.border_width / 2.,
-                        y + self.border_width / 2.,
-                        width,
-                        height,
-                        self.radius,
-                        &self.border_color,
-                    );
+                    if let Style::Border(_, border_width) = &self.border {
+                        canvas.draw_rectangle(
+                            x + border_width/2.,
+                            y + border_width/2.,
+                            width - border_width,
+                            height - border_width,
+                            self.radius,
+                            &self.border,
+                        );
+                    }
                 }
                 Shape::Circle => {
                     canvas.draw_ellipse(
-                        x,
-                        y,
+                        x + width/2.,
+                        y + height/2.,
                         width,
                         height,
-                        &self.background_color,
+                        &self.background,
                     );
-                    canvas.draw_ellipse(
-                        x + self.border_width / 2.,
-                        y + self.border_width / 2.,
-                        width,
-                        height,
-                        &self.border_color,
-                    );
+                    if let Style::Border(_, border_width) = &self.border {
+                        canvas.draw_ellipse(
+                            x + width/2. + border_width/2.,
+                            y + height/2. + border_width/2.,
+                            width - border_width,
+                            height - border_width,
+                            &self.border,
+                        );
+                    }
                 }
                 _ => {}
             }
             self.child.draw(
                 canvas,
-                x + self.padding[3] + self.border_width / 2. + self.border_width % 2.,
-                y + self.padding[0] + self.border_width / 2. + self.border_width % 2.,
+                x + self.padding[3],
+                y + self.padding[0],
             );
         } else {
             self.child.draw(canvas, x, y);
@@ -102,8 +105,8 @@ impl<W: Widget> Widget for WidgetShell<W> {
             self.damaged = self.damaged == false;
         }
         self.child.roundtrip(
-            wx + self.padding[3] + self.border_width / 2. + self.border_width % 2.,
-            wy + self.padding[0] + self.border_width / 2. + self.border_width % 2.,
+            wx + self.padding[3],
+            wy + self.padding[0],
             dispatch,
         )
     }
@@ -114,9 +117,8 @@ impl<W: Widget> WidgetShell<W> {
         WidgetShell {
             child,
             damaged: true,
-            background_color: Style::Empty,
-            border_color: Style::Empty,
-            border_width: 0.,
+            background: Style::Empty,
+            border: Style::Empty,
             shape: Shape::Rectangle,
             radius: [0.; 4],
             padding: [0.; 4],
@@ -126,22 +128,21 @@ impl<W: Widget> WidgetShell<W> {
         child: W,
         padding: u32,
         border_width: u32,
-        background_color: u32,
-        border_color: u32,
+        background: u32,
+        border: u32,
     ) -> Self {
         Self {
             child,
-            background_color: if background_color != 0 {
-                Style::fill(background_color)
+            background: if background != 0 {
+                Style::fill(background)
             } else {
                 Style::Empty
             },
-            border_color: if border_color != 0 {
-                Style::border(border_color, border_width as f32)
+            border: if border != 0 {
+                Style::border(border, border_width as f32)
             } else {
                 Style::Empty
             },
-            border_width: border_width as f32,
             shape: Shape::Rectangle,
             radius: [0.; 4],
             padding: [padding as f32; 4],
@@ -151,23 +152,22 @@ impl<W: Widget> WidgetShell<W> {
     pub fn circle(
         padding: u32,
         border_width: u32,
-        background_color: u32,
-        border_color: u32,
+        background: u32,
+        border: u32,
         child: W,
     ) -> Self {
         Self {
             child,
-            background_color: if background_color != 0 {
-                Style::fill(background_color)
+            background: if background != 0 {
+                Style::fill(background)
             } else {
                 Style::Empty
             },
-            border_color: if border_color != 0 {
-                Style::border(border_color, border_width as f32)
+            border: if border != 0 {
+                Style::border(border, border_width as f32)
             } else {
                 Style::Empty
             },
-            border_width: border_width as f32,
             shape: Shape::Circle,
             radius: [0.; 4],
             padding: [padding as f32; 4],
@@ -178,22 +178,21 @@ impl<W: Widget> WidgetShell<W> {
         self.radius = radius;
     }
     pub fn set_border_width(&mut self, border_width: f32) {
-        self.border_width = border_width;
-        if let Style::Border(color, _) = &self.border_color {
-            self.border_color = Style::Border(*color, border_width);
+        if let Style::Border(color, _) = &self.border {
+            self.border = Style::Border(*color, border_width);
         } else {
-            self.border_color = Style::border(0, border_width);
+            self.border = Style::border(0, border_width);
         }
     }
     pub fn set_border_color(&mut self, color: u32) {
-        if let Style::Border(_, width) = &self.border_color {
-            self.border_color = Style::border(color, *width);
+        if let Style::Border(_, width) = &self.border {
+            self.border = Style::border(color, *width);
         } else {
-            self.border_color = Style::border(color, 0.);
+            self.border = Style::border(color, 0.);
         }
     }
-    pub fn set_background_color(&mut self, color: u32) {
-        self.background_color = Style::fill(color);
+    pub fn set_background(&mut self, color: u32) {
+        self.background = Style::fill(color);
     }
     pub fn set_padding(&mut self, padding: [u32; 4]) {
         self.padding = [

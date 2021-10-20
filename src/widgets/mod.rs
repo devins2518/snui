@@ -67,13 +67,13 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
 pub struct Actionnable<W: Geometry + Drawable> {
     widget: W,
     focused: bool,
-    cb: Box<dyn FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage>>,
+    cb: Box<dyn for<'d> FnMut(&'d mut W, &Dispatch, f32, f32) -> Option<Damage<'d>> + 'static>,
 }
 
 impl<W: Widget> Actionnable<W> {
     pub fn new(
         widget: W,
-        cb: impl FnMut(&mut W, Dispatch, f32, f32) -> Option<Damage> + 'static,
+        cb: impl for<'d> FnMut(&'d mut W, &Dispatch, f32, f32) -> Option<Damage<'d>> + 'static,
     ) -> Self {
         Self {
             widget,
@@ -112,14 +112,14 @@ impl<W: Widget> Widget for Actionnable<W> {
                     self.focused = true;
                     (self.cb)(
                         &mut self.widget,
-                        Dispatch::Pointer(*x, *y, Pointer::Enter),
+                        &Dispatch::Pointer(*x, *y, Pointer::Enter),
                         wx,
                         wy,
                     )
                 } else {
                     (self.cb)(
                         &mut self.widget,
-                        Dispatch::Pointer(*x, *y, *pointer),
+                        &Dispatch::Pointer(*x, *y, *pointer),
                         wx,
                         wy,
                     )
@@ -128,7 +128,7 @@ impl<W: Widget> Widget for Actionnable<W> {
                 self.focused = false;
                 (self.cb)(
                     &mut self.widget,
-                    Dispatch::Pointer(*x, *y, Pointer::Leave),
+                    &Dispatch::Pointer(*x, *y, Pointer::Leave),
                     wx,
                     wy,
                 )
@@ -136,7 +136,7 @@ impl<W: Widget> Widget for Actionnable<W> {
                 None
             }
         } else {
-            (self.cb)(&mut self.widget, *dispatch, wx, wy)
+            (self.cb)(&mut self.widget, dispatch, wx, wy)
         }
     }
 }

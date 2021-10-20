@@ -110,12 +110,16 @@ impl<W: Widget> Application<W> {
             self.buffer = Some(wlbuf);
         }
     }
+    pub fn clear(&mut self) {
+        self.canvas.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
+    }
     pub fn resize(&mut self) {
         let width = self.widget.width() as u32;
         let height = self.widget.height() as u32;
-        if self.canvas.width() as u32 != width && self.canvas.height() as u32 != height {
-            self.canvas = DrawTarget::new(width as i32, height as i32);
-            self.widget.damage();
+        self.canvas = DrawTarget::new(width as i32, height as i32);
+        // self.widget.damage();
+        if let Some(layer_surface) = &self.layer_surface {
+            layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
         }
         self.resized = false;
     }
@@ -134,7 +138,6 @@ impl<W: Widget> Application<W> {
         if let Some(layer_surface) = &self.layer_surface {
             layer_surface.destroy();
         }
-        self.running = false;
     }
 }
 

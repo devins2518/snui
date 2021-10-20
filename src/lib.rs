@@ -19,12 +19,27 @@ pub struct Key {
     pressed: bool,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub enum Dispatch {
     Message(&'static str),
     Pointer(f32, f32, Pointer),
+    Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
     Keyboard(Key),
     Commit,
+}
+
+impl Dispatch {
+    pub fn data(name: &'static str, data: impl std::any::Any + Send + Sync) -> Self {
+        Self::Data(name, Box::new(data))
+    }
+    pub fn get<T: std::any::Any + Send + Sync>(&self, name: &str) -> Option<&T> {
+        match self {
+            Dispatch::Data(n, data) => if &name == n {
+                data.downcast_ref()
+            } else { None }
+            _ => None
+        }
+    }
 }
 
 pub struct Damage<'d> {

@@ -8,11 +8,22 @@ pub use fontdue::{
 use raqote::*;
 use std::fs::read;
 use std::path::Path;
+use std::collections::HashMap;
 use crate::widgets::primitives::WidgetShell;
 
 pub fn font_from_path(path: &Path) -> Font {
     let font = read(path).unwrap();
     Font::from_bytes(font, fontdue::FontSettings::default()).unwrap()
+}
+
+pub struct GlyphCache {
+    font: Font,
+    glyphs: HashMap<GlyphRasterConfig, Vec<u8>>
+}
+
+impl GlyphCache {
+    fn draw_text(&mut self, glyphs: &mut [layout::GlyphPosition]) {
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -140,16 +151,41 @@ impl Label {
         glyphs = layout
             .glyphs()
             .iter()
-            .map(|gp| {
+            .filter_map(|gp| {
                 if width < gp.width + gp.x as usize {
                     width = gp.width + gp.x as usize
                 }
-                Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                if !gp.char_data.is_missing() {
+                    Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                } else { None }
             })
             .collect();
         WidgetShell::default(Label {
             damaged: true,
             width: width as f32,
+            height: layout.height(),
+            glyphs,
+        })
+    }
+    pub fn max_width(text: &str, font: &Font, font_size: f32, width: f32, color: u32) -> WidgetShell<Label> {
+        let mut layout_setting = DEFAULT;
+        layout_setting.max_width = Some(width);
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.reset(&layout_setting);
+        layout.append(&[font], &TextStyle::new(text, font_size, 0));
+        let glyphs;
+        glyphs = layout
+            .glyphs()
+            .iter()
+            .filter_map(|gp| {
+                if !gp.char_data.is_missing() {
+                    Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                } else { None }
+            })
+            .collect();
+        WidgetShell::default(Label {
+            damaged: true,
+            width,
             height: layout.height(),
             glyphs,
         })
@@ -193,11 +229,13 @@ impl TextField {
                 glyphs = layout
                     .glyphs()
                     .iter()
-                    .map(|gp| {
+                    .filter_map(|gp| {
                         if w < gp.width + gp.x as usize {
                             w = gp.width + gp.x as usize
                         }
-                        Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                        if !gp.char_data.is_missing() {
+                            Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                        } else { None }
                     })
                     .collect();
                 w as f32
@@ -226,11 +264,13 @@ impl TextField {
                 glyphs = layout
                     .glyphs()
                     .iter()
-                    .map(|gp| {
+                    .filter_map(|gp| {
                         if w < gp.width + gp.x as usize {
                             w = gp.width + gp.x as usize
                         }
-                        Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                        if !gp.char_data.is_missing() {
+                            Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                        } else { None }
                     })
                     .collect();
                 w as f32
@@ -269,7 +309,11 @@ impl TextField {
                 glyphs = layout
                     .glyphs()
                     .iter()
-                    .map(|gp| Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                    .filter_map(
+                        |gp| if !gp.char_data.is_missing() {
+                            Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                        } else { None }
+                    )
                     .collect();
                 width
             },
@@ -309,11 +353,13 @@ impl TextField {
                 glyphs = layout
                     .glyphs()
                     .iter()
-                    .map(|gp| {
+                    .filter_map(|gp| {
                         if w < gp.width + gp.x as usize {
                             w = gp.width + gp.x as usize
                         }
-                        Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                        if !gp.char_data.is_missing() {
+                            Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                        } else { None }
                     })
                     .collect();
                 w as f32
@@ -342,11 +388,13 @@ impl TextField {
             .layout
             .glyphs()
             .iter()
-            .map(|gp| {
+            .filter_map(|gp| {
                 if w < gp.width + gp.x as usize {
                     w = gp.width + gp.x as usize
                 }
-                Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                if !gp.char_data.is_missing() {
+                    Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                } else { None }
             })
             .collect();
         self.size = (w as f32, self.layout.height());
@@ -362,14 +410,24 @@ impl TextField {
             .layout
             .glyphs()
             .iter()
-            .map(|gp| {
+            .filter_map(|gp| {
                 if w < gp.width + gp.x as usize {
                     w = gp.width + gp.x as usize
                 }
-                Glyph::new(&font, gp.key, color, gp.x, gp.y)
+                if !gp.char_data.is_missing() {
+                    Some(Glyph::new(&font, gp.key, color, gp.x, gp.y))
+                } else { None }
             })
             .collect();
         self.size = (w as f32, self.layout.height());
+    }
+    pub fn to_label(&self) -> Label {
+        Label {
+            damaged: true,
+            width: self.width(),
+            height: self.height(),
+            glyphs: self.glyphs.clone(),
+        }
     }
 }
 
