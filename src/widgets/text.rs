@@ -1,17 +1,17 @@
+use crate::widgets::primitives::WidgetShell;
 use crate::*;
 pub use fontdue::{
     layout,
-    Font,
-    FontSettings,
-    FontResult,
-    layout::{CoordinateSystem, GlyphRasterConfig, Layout, LayoutSettings, TextStyle, GlyphPosition},
+    layout::{
+        CoordinateSystem, GlyphPosition, GlyphRasterConfig, Layout, LayoutSettings, TextStyle,
+    },
+    Font, FontResult, FontSettings,
 };
 use raqote::*;
 use std::clone::Clone;
+use std::collections::HashMap;
 use std::fs::read;
 use std::path::Path;
-use std::collections::HashMap;
-use crate::widgets::primitives::WidgetShell;
 
 pub fn font_from_path(path: &Path) -> Font {
     let font = read(path).unwrap();
@@ -20,14 +20,14 @@ pub fn font_from_path(path: &Path) -> Font {
 
 pub struct GlyphCache {
     pub font: Font,
-    glyphs: HashMap<GlyphRasterConfig, Vec<u8>>
+    glyphs: HashMap<GlyphRasterConfig, Vec<u8>>,
 }
 
 impl GlyphCache {
     pub fn new(font: Font) -> Self {
         Self {
             font,
-            glyphs: HashMap::new()
+            glyphs: HashMap::new(),
         }
     }
     pub fn load(path: &Path) -> FontResult<Self> {
@@ -35,7 +35,7 @@ impl GlyphCache {
             if let Ok(font) = Font::from_bytes(bytes, fontdue::FontSettings::default()) {
                 Ok(Self {
                     font,
-                    glyphs: HashMap::new()
+                    glyphs: HashMap::new(),
                 })
             } else {
                 FontResult::Err("Isn't a font")
@@ -74,7 +74,7 @@ impl GlyphCache {
                     .collect();
                 self.glyphs.insert(glyph.key, coverage);
             }
-            return Some(pixmap)
+            return Some(pixmap);
         }
         None
     }
@@ -135,14 +135,19 @@ impl Drawable for Label {
 impl Widget for Label {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         match dispatch {
-            Dispatch::Commit => if self.write_buffer.is_none() {
-                self.draw(canvas, wx, wy);
+            Dispatch::Commit => {
+                if self.write_buffer.is_none() {
+                    self.draw(canvas, wx, wy);
+                }
             }
-            Dispatch::Prepare => if let Some(font) = canvas.get_font(&self.font) {
-                if let Some(text) = self.write_buffer.as_ref() {
-                    self.layout.append(&[font], &TextStyle::new(text, self.font_size, 0));
-                    self.width = get_width(&mut self.layout.glyphs());
-                    self.write_buffer = None;
+            Dispatch::Prepare => {
+                if let Some(font) = canvas.get_font(&self.font) {
+                    if let Some(text) = self.write_buffer.as_ref() {
+                        self.layout
+                            .append(&[font], &TextStyle::new(text, self.font_size, 0));
+                        self.width = get_width(&mut self.layout.glyphs());
+                        self.write_buffer = None;
+                    }
                 }
             }
             _ => {}
@@ -160,7 +165,7 @@ fn create_layout(max_width: Option<f32>, max_height: Option<f32>) -> (LayoutSett
         horizontal_align: layout::HorizontalAlign::Left,
         vertical_align: layout::VerticalAlign::Middle,
         wrap_style: layout::WrapStyle::Word,
-        wrap_hard_breaks: true
+        wrap_hard_breaks: true,
     };
     layout.reset(&setting);
     (setting, layout)
@@ -197,10 +202,16 @@ impl Label {
             font_size,
             settings,
             write_buffer: Some(text.to_owned()),
-            layout
+            layout,
         })
     }
-    pub fn max_width(text: &str, font: &str, font_size: f32, width: f32, color: u32) -> WidgetShell<Label> {
+    pub fn max_width(
+        text: &str,
+        font: &str,
+        font_size: f32,
+        width: f32,
+        color: u32,
+    ) -> WidgetShell<Label> {
         let (settings, mut layout) = create_layout(Some(width), None);
         WidgetShell::default(Label {
             glyphs: layout.glyphs().clone(),
@@ -210,7 +221,7 @@ impl Label {
             font_size,
             settings,
             write_buffer: Some(text.to_owned()),
-            layout
+            layout,
         })
     }
     pub fn write(&mut self, text: &str) {

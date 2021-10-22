@@ -1,7 +1,7 @@
 pub mod app;
 
+use crate::canvas::Canvas;
 use crate::*;
-use crate::canvas::{Canvas};
 use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -20,9 +20,13 @@ impl<'b> Buffer<'b> {
         let stride = width * 4;
         if mempool.resize((stride * height) as usize).is_ok() {
             let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
-            Ok(
-                (Self { mmap: mempool.mmap(), canvas }, wlbuf)
-            )
+            Ok((
+                Self {
+                    mmap: mempool.mmap(),
+                    canvas,
+                },
+                wlbuf,
+            ))
         } else {
             Err(())
         }

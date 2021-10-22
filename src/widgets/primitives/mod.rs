@@ -44,18 +44,11 @@ impl<W: Widget> Drawable for WidgetShell<W> {
         let height = self.child.height() + self.padding[0] + self.padding[2];
         match self.shape {
             Shape::Rectangle => {
-                canvas.draw_rectangle(
-                    x,
-                    y,
-                    width,
-                    height,
-                    self.radius,
-                    &self.background,
-                );
+                canvas.draw_rectangle(x, y, width, height, self.radius, &self.background);
                 if let Style::Border(_, border_width) = &self.border {
                     canvas.draw_rectangle(
-                        x + border_width/2.,
-                        y + border_width/2.,
+                        x + border_width / 2.,
+                        y + border_width / 2.,
                         width - border_width,
                         height - border_width,
                         self.radius,
@@ -65,16 +58,16 @@ impl<W: Widget> Drawable for WidgetShell<W> {
             }
             Shape::Circle => {
                 canvas.draw_ellipse(
-                    x + width/2.,
-                    y + height/2.,
+                    x + width / 2.,
+                    y + height / 2.,
                     width,
                     height,
                     &self.background,
                 );
                 if let Style::Border(_, border_width) = &self.border {
                     canvas.draw_ellipse(
-                        x + width/2. + border_width/2.,
-                        y + height/2. + border_width/2.,
+                        x + width / 2. + border_width / 2.,
+                        y + height / 2. + border_width / 2.,
                         width - border_width,
                         height - border_width,
                         &self.border,
@@ -83,22 +76,15 @@ impl<W: Widget> Drawable for WidgetShell<W> {
             }
             _ => {}
         }
-        self.child.draw(
-            canvas,
-            x + self.padding[3],
-            y + self.padding[0],
-        );
+        self.child
+            .draw(canvas, x + self.padding[3], y + self.padding[0]);
     }
 }
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
-        self.child.roundtrip(
-            wx + self.padding[3],
-            wy + self.padding[0],
-            canvas,
-            dispatch,
-        );
+        self.child
+            .roundtrip(wx + self.padding[3], wy + self.padding[0], canvas, dispatch);
     }
 }
 
@@ -113,13 +99,7 @@ impl<W: Widget> WidgetShell<W> {
             padding: [0.; 4],
         }
     }
-    pub fn rect(
-        child: W,
-        padding: u32,
-        border_width: u32,
-        background: u32,
-        border: u32,
-    ) -> Self {
+    pub fn rect(child: W, padding: u32, border_width: u32, background: u32, border: u32) -> Self {
         Self {
             child,
             background: if background != 0 {
@@ -137,13 +117,7 @@ impl<W: Widget> WidgetShell<W> {
             padding: [padding as f32; 4],
         }
     }
-    pub fn circle(
-        padding: u32,
-        border_width: u32,
-        background: u32,
-        border: u32,
-        child: W,
-    ) -> Self {
+    pub fn circle(padding: u32, border_width: u32, background: u32, border: u32, child: W) -> Self {
         Self {
             child,
             background: if background != 0 {

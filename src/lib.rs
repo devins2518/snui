@@ -37,10 +37,14 @@ impl Dispatch {
     }
     pub fn get<T: std::any::Any + Send + Sync>(&self, name: &str) -> Option<&T> {
         match self {
-            Dispatch::Data(n, data) => if &name == n {
-                data.downcast_ref()
-            } else { None }
-            _ => None
+            Dispatch::Data(n, data) => {
+                if &name == n {
+                    data.downcast_ref()
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 }

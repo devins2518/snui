@@ -1,7 +1,7 @@
+use crate::canvas::Backend;
+use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
-use crate::wayland::Buffer;
-use crate::canvas::Backend;
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use std::sync::mpsc::{Receiver, SyncSender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -41,7 +41,10 @@ impl<W: Widget> Application<W> {
             shm,
             surface,
             receiver,
-            canvas: Canvas::new(Backend::Raqote(DrawTarget::new(widget.width() as i32, widget.height() as i32))),
+            canvas: Canvas::new(Backend::Raqote(DrawTarget::new(
+                widget.width() as i32,
+                widget.height() as i32,
+            ))),
             buffer: None,
             layer_surface: None,
             widget,
@@ -73,7 +76,8 @@ impl<W: Widget> Application<W> {
                 if self.canvas.is_damaged() {
                     false
                 } else {
-                    self.widget.roundtrip(0., 0., &mut self.canvas, &Dispatch::Commit);
+                    self.widget
+                        .roundtrip(0., 0., &mut self.canvas, &Dispatch::Commit);
                     self.canvas.is_damaged()
                 }
             }

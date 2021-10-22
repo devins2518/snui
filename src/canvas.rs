@@ -1,15 +1,15 @@
-use raqote::*;
+use crate::widgets::text::{Font, GlyphCache, GlyphPosition};
 use crate::*;
-use crate::widgets::text::{GlyphCache, GlyphPosition, Font};
-use std::f32::consts::PI;
-use widgets::primitives::Style;
-use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
 use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
+use raqote::*;
+use std::collections::HashMap;
+use std::f32::consts::PI;
+use std::ops::{Deref, DerefMut};
+use widgets::primitives::Style;
 
 pub enum Backend {
-    Raqote(DrawTarget)
+    Raqote(DrawTarget),
 }
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
@@ -29,7 +29,7 @@ pub struct DamageReport {
 pub struct Canvas {
     backend: Backend,
     damage: Vec<DamageReport>,
-    font_cache: HashMap<String,GlyphCache>,
+    font_cache: HashMap<String, GlyphCache>,
 }
 
 impl Canvas {
@@ -42,11 +42,7 @@ impl Canvas {
     }
     pub fn push(&mut self, x: f32, y: f32, width: f32, height: f32) {
         if let Some(last) = self.damage.last() {
-            if last.x > x
-               && last.y > y
-               && last.x < x + width
-               && last.y < y + height
-            {
+            if last.x > x && last.y > y && last.x < x + width && last.y < y + height {
                 self.damage.push(DamageReport {
                     x,
                     y,
@@ -99,18 +95,19 @@ impl Canvas {
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
         self.push(x, y, image.width as f32, image.height as f32);
         match &mut self.backend {
-            Backend::Raqote(dt) => {
-                dt.draw_image_at(
-                    x,
-                    y,
-                    &image,
-                    &DRAW_OPTIONS
-                )
-            }
+            Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
             _ => {}
         }
     }
-    pub fn draw_rectangle(&mut self, x: f32, y: f32, width: f32, height: f32, radius: [f32; 4], style: &Style) {
+    pub fn draw_rectangle(
+        &mut self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        radius: [f32; 4],
+        style: &Style,
+    ) {
         let mut pb = PathBuilder::new();
         let mut cursor = (x, y);
 
@@ -187,23 +184,28 @@ impl Canvas {
             None
         }
     }
-    pub fn draw_label(&mut self, x: f32, y: f32, font: &str, glyphs: &Vec<GlyphPosition>, source: SolidSource) {
+    pub fn draw_label(
+        &mut self,
+        x: f32,
+        y: f32,
+        font: &str,
+        glyphs: &Vec<GlyphPosition>,
+        source: SolidSource,
+    ) {
         if let Some(glyph_cache) = self.font_cache.get_mut(font) {
             for gp in glyphs {
                 if let Some(pixmap) = glyph_cache.render_glyph(gp, source) {
                     match &mut self.backend {
-                        Backend::Raqote(dt) => {
-                            dt.draw_image_at(
-                                x,
-                                y,
-                                &Image {
-                                    data: &pixmap,
-                                    width: gp.width as i32,
-                                    height: gp.height as i32,
-                                },
-                                &DRAW_OPTIONS
-                            )
-                        }
+                        Backend::Raqote(dt) => dt.draw_image_at(
+                            x,
+                            y,
+                            &Image {
+                                data: &pixmap,
+                                width: gp.width as i32,
+                                height: gp.height as i32,
+                            },
+                            &DRAW_OPTIONS,
+                        ),
                         _ => {}
                     }
                 }
@@ -235,18 +237,14 @@ fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
 impl Geometry for Canvas {
     fn width(&self) -> f32 {
         match &self.backend {
-            Backend::Raqote(dt) => {
-                dt.width() as f32
-            }
-            _ => 0.
+            Backend::Raqote(dt) => dt.width() as f32,
+            _ => 0.,
         }
     }
     fn height(&self) -> f32 {
         match &self.backend {
-            Backend::Raqote(dt) => {
-                dt.height() as f32
-            }
-            _ => 0.
+            Backend::Raqote(dt) => dt.height() as f32,
+            _ => 0.,
         }
     }
 }
@@ -255,21 +253,19 @@ impl Drawable for Canvas {
     fn set_color(&mut self, color: u32) {
         let color = color.to_be_bytes();
         match &mut self.backend {
-            Backend::Raqote(dt) => {
-                dt.fill_rect(
-                    0.,
-                    0.,
-                    dt.width() as f32,
-                    dt.height() as f32,
-                    &Source::Solid(SolidSource {
-                        a: color[0],
-                        r: color[1],
-                        g: color[2],
-                        b: color[3],
-                    }),
-                    &DrawOptions::new(),
-                )
-            }
+            Backend::Raqote(dt) => dt.fill_rect(
+                0.,
+                0.,
+                dt.width() as f32,
+                dt.height() as f32,
+                &Source::Solid(SolidSource {
+                    a: color[0],
+                    r: color[1],
+                    g: color[2],
+                    b: color[3],
+                }),
+                &DrawOptions::new(),
+            ),
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
@@ -280,22 +276,18 @@ impl Drawable for Canvas {
             height: canvas.height(),
         });
         match &mut canvas.backend {
-            Backend::Raqote(dt) => {
-                match &self.backend {
-                    Backend::Raqote(st) => {
-                        dt.blend_surface(
-                            &st,
-                            Box2D::new(
-                                euclid::point2(x as i32, y as i32),
-                                euclid::point2((x + self.width()) as i32, (y + self.height()) as i32),
-                            ),
-                            Point2D::new(x as i32, y as i32),
-                            BlendMode::Add,
-                        )
-                    }
-                    _ => {}
-                }
-            }
+            Backend::Raqote(dt) => match &self.backend {
+                Backend::Raqote(st) => dt.blend_surface(
+                    &st,
+                    Box2D::new(
+                        euclid::point2(x as i32, y as i32),
+                        euclid::point2((x + self.width()) as i32, (y + self.height()) as i32),
+                    ),
+                    Point2D::new(x as i32, y as i32),
+                    BlendMode::Add,
+                ),
+                _ => {}
+            },
             _ => {}
         }
     }
@@ -305,9 +297,7 @@ impl Deref for Canvas {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         match &self.backend {
-            Backend::Raqote(dt) => {
-                dt.get_data_u8()
-            }
+            Backend::Raqote(dt) => dt.get_data_u8(),
         }
     }
 }
@@ -315,10 +305,7 @@ impl Deref for Canvas {
 impl DerefMut for Canvas {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.backend {
-            Backend::Raqote(dt) => {
-                dt.get_data_u8_mut()
-            }
+            Backend::Raqote(dt) => dt.get_data_u8_mut(),
         }
     }
 }
-

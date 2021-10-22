@@ -1,6 +1,6 @@
+use crate::widgets::primitives::*;
 use crate::*;
 use raqote::*;
-use crate::widgets::primitives::*;
 
 impl Style {
     pub fn fill(color: u32) -> Self {
@@ -102,22 +102,14 @@ impl Drawable for Rectangle {
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if !self.style.is_empty() {
-            canvas.draw_rectangle(
-                x,
-                y,
-                self.width(),
-                self.height(),
-                self.radius,
-                &self.style,
-            );
+            canvas.draw_rectangle(x, y, self.width(), self.height(), self.radius, &self.style);
         }
     }
 }
 
 impl Widget for Rectangle {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
-        if let Dispatch::Commit = dispatch {
-        }
+        if let Dispatch::Commit = dispatch {}
     }
 }
 
@@ -130,10 +122,7 @@ pub struct Circle {
 
 impl Circle {
     pub fn new(radius: f32, style: Style) -> Self {
-        Circle {
-            style,
-            radius,
-        }
+        Circle { style, radius }
     }
 }
 
@@ -167,20 +156,13 @@ impl Drawable for Circle {
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if !self.style.is_empty() {
-            canvas.draw_ellipse(
-                x,
-                y,
-                self.width(),
-                self.height(),
-                &self.style
-            );
+            canvas.draw_ellipse(x, y, self.width(), self.height(), &self.style);
         }
     }
 }
 
 impl Widget for Circle {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
-        if let Dispatch::Commit = dispatch {
-        }
+        if let Dispatch::Commit = dispatch {}
     }
 }

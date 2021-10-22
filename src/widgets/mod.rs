@@ -5,9 +5,9 @@ pub mod text;
 
 pub use self::image::Image;
 use crate::*;
-use std::ops::{Deref, DerefMut};
 pub use container::{layout::WidgetLayout, Wbox};
 use std::io::Write;
+use std::ops::{Deref, DerefMut};
 
 pub fn render(canvas: &mut Canvas, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
