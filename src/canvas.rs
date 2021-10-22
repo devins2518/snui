@@ -30,7 +30,6 @@ pub struct DamageReport {
 pub struct Canvas {
     backend: Backend,
     damage: Vec<DamageReport>,
-    // TO-DO
     font_cache: HashMap<String,GlyphCache>,
 }
 
@@ -185,6 +184,7 @@ impl Canvas {
             None
         }
     }
+
     pub fn draw_label(&mut self, x: f32, y: f32, font: &str, glyphs: &Vec<GlyphPosition>, source: SolidSource) {
         if let Some(glyph_cache) = self.font_cache.get_mut(font) {
             for gp in glyphs {

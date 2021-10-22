@@ -72,6 +72,7 @@ impl GlyphCache {
                         }
                     })
                     .collect();
+                self.glyphs.insert(glyph.key, coverage);
             }
             return Some(pixmap)
         }
@@ -85,7 +86,7 @@ pub struct Label {
     layout: Layout,
     font_size: f32,
     source: SolidSource,
-    font: Option<String>,
+    font: String,
     write_buffer: Option<String>,
     settings: LayoutSettings,
     glyphs: Vec<GlyphPosition>,
@@ -130,9 +131,7 @@ impl Drawable for Label {
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
         if self.damaged {
-            if let Some(font_name) = self.font.as_ref() {
-                canvas.draw_label(x, y, font_name, &self.glyphs, self.source);
-            }
+            canvas.draw_label(x, y, &self.font, &self.glyphs, self.source);
         }
     }
 }
@@ -141,9 +140,15 @@ impl Widget for Label {
     fn damaged(&self) -> bool {
         self.damaged
     }
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, dispatch: &Dispatch) -> Option<Damage> {
-        if let Dispatch::Commit = dispatch {
-            self.damaged = self.damaged == false;
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) -> Option<Damage> {
+        match dispatch {
+            Dispatch::Commit => self.damaged = self.damaged == false,
+            Dispatch::Prepare => if let Some(font) = canvas.get_font(&self.font) {
+                if let Some(text) = self.write_buffer.as_ref() {
+                    self.layout.append(&[font], &TextStyle::new(text, self.font_size, 0));
+                }
+            }
+            _ => {}
         }
         None
     }
@@ -193,24 +198,24 @@ impl Label {
             glyphs: layout.glyphs().clone(),
             width: get_width(layout.glyphs()),
             source: create_source(color),
-            font: Some(font.to_owned()),
+            font: font.to_owned(),
             font_size,
             settings,
-            write_buffer: None,
+            write_buffer: Some(text.to_owned()),
             layout
         })
     }
-    pub fn max_width(text: &str, font: &Font, font_size: f32, width: f32, color: u32) -> WidgetShell<Label> {
+    pub fn max_width(text: &str, font: &str, font_size: f32, width: f32, color: u32) -> WidgetShell<Label> {
         let (settings, mut layout) = create_layout(Some(width), None);
         WidgetShell::default(Label {
             damaged: true,
             glyphs: layout.glyphs().clone(),
             width: get_width(layout.glyphs()),
             source: create_source(color),
-            font: None,
+            font: font.to_owned(),
             font_size,
             settings,
-            write_buffer: None,
+            write_buffer: Some(text.to_owned()),
             layout
         })
     }

@@ -25,7 +25,10 @@ pub enum Dispatch {
     Pointer(f32, f32, Pointer),
     Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
     Keyboard(Key),
+    Prepare,
     Commit,
+    // Proposal
+    // Draw
 }
 
 impl Dispatch {
@@ -100,11 +103,8 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn damage(&mut self) {
-        self.roundtrip(0., 0., &Dispatch::Commit);
-    }
     fn damaged(&self) -> bool;
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage>;
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) -> Option<Damage>;
 }
 
 impl Error {
