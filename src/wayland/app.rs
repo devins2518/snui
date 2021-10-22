@@ -23,21 +23,19 @@ pub struct Application<W: Widget> {
     buffer: Option<WlBuffer>,
     receiver: Receiver<Dispatch>,
     pub widget: W,
-    pub resized: bool,
-    pub surface: WlSurface,
+    pub surface: Option<WlSurface>,
     pub layer_surface: Option<ZwlrLayerSurfaceV1>,
 }
 
 impl<W: Widget> Application<W> {
     pub fn new(
         widget: W,
-        surface: WlSurface,
+        surface: Option<WlSurface>,
         shm: WlShm,
         receiver: Receiver<Dispatch>,
     ) -> Application<W> {
         Application {
             running: false,
-            resized: false,
             shm,
             surface,
             receiver,
@@ -69,11 +67,23 @@ impl<W: Widget> Application<W> {
         }
     }
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
+        let (w, h) = (self.widget.width(), self.widget.height());
         let draw = match &dispatch {
-            Dispatch::Commit => true,
+            Dispatch::Commit => {
+                self.widget.draw(&mut self.canvas, 0., 0.);
+                self.canvas.is_damaged()
+            }
             _ => {
                 self.widget.roundtrip(0., 0., &mut self.canvas, &dispatch);
-                if self.canvas.is_damaged() {
+                if w != self.widget.width() || h != self.widget.height() {
+                    self.canvas.resize(w as i32, h as i32);
+                    self.canvas.resize(w as i32, h as i32);
+                    if let Some(layer_surface) = &self.layer_surface {
+                        layer_surface.set_size(w as u32, h as u32);
+                    }
+                    self.widget.draw(&mut self.canvas, 0., 0.);
+                    true
+                } else if self.canvas.is_damaged() {
                     false
                 } else {
                     self.widget
@@ -82,62 +92,54 @@ impl<W: Widget> Application<W> {
                 }
             }
         };
-        if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, &mut self.canvas) {
-            if draw {
-                self.widget.draw(buffer.canvas(), 0., 0.);
+        if draw {
+            if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, &mut self.canvas) {
+                self.buffer = Some(wlbuf);
+                if let Some(surface) = self.surface.as_ref() {
+                    surface.attach(self.buffer.as_ref(), 0, 0);
+                    for damage in buffer.canvas().report() {
+                        surface.damage(
+                            damage.x as i32,
+                            damage.y as i32,
+                            damage.width as i32,
+                            damage.height as i32,
+                        );
+                    }
+                    buffer.merge();
+                    surface.commit();
+                }
             }
-            self.buffer = Some(wlbuf);
-            self.surface.attach(self.buffer.as_ref(), 0, 0);
-            for damage in buffer.canvas().report() {
-                self.surface.damage(
-                    damage.x as i32,
-                    damage.y as i32,
-                    damage.width as i32,
-                    damage.height as i32,
-                );
-            }
-            buffer.merge();
-            self.surface.commit();
         }
     }
     pub fn show(&self) {
-        self.surface.attach(self.buffer.as_ref(), 0, 0);
-        self.surface.commit();
+        if let Some(surface) = self.surface.as_ref() {
+            surface.attach(self.buffer.as_ref(), 0, 0);
+            surface.commit();
+        }
     }
     pub fn render(&mut self, mempool: &mut MemPool) {
         if let Ok((mut buffer, wlbuf)) = Buffer::new(mempool, &mut self.canvas) {
             let canvas = buffer.canvas();
             if let Some(layer_surface) = &self.layer_surface {
-                if !self.resized {
-                    layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-                    self.resized = true;
-                }
+                layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
             }
             self.widget.draw(canvas, 0., 0.);
-            for damage in canvas.report() {
-                self.surface.damage(
-                    damage.x as i32,
-                    damage.y as i32,
-                    damage.width as i32,
-                    damage.height as i32,
-                );
+            if let Some(surface) = self.surface.as_ref() {
+                for damage in canvas.report() {
+                    surface.damage(
+                        damage.x as i32,
+                        damage.y as i32,
+                        damage.width as i32,
+                        damage.height as i32,
+                    );
+                }
             }
             buffer.merge();
             self.buffer = Some(wlbuf);
         }
     }
     pub fn clear(&mut self) {
-        // self.canvas.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
-    }
-    pub fn resize(&mut self) {
-        let width = self.widget.width() as u32;
-        let height = self.widget.height() as u32;
-        self.canvas.reset(width as i32, height as i32);
-        // self.widget.damage();
-        if let Some(layer_surface) = &self.layer_surface {
-            layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-        }
-        self.resized = false;
+        self.canvas.clear();
     }
     pub fn init(&mut self, pool: &mut MemPool) {
         self.render(pool);
@@ -145,14 +147,19 @@ impl<W: Widget> Application<W> {
     }
     pub fn hide(&mut self) {
         self.buffer = None;
-        self.resized = false;
         self.show();
     }
-    pub fn destroy(&mut self) {
-        self.surface.destroy();
+    pub fn destroy(&self) {
+        if let Some(surface) = &self.surface {
+            surface.destroy();
+        }
         if let Some(layer_surface) = &self.layer_surface {
             layer_surface.destroy();
         }
+    }
+    pub fn close(&mut self) {
+        self.destroy();
+        self.running = false;
     }
 }
 

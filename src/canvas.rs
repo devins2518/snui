@@ -152,7 +152,7 @@ impl Canvas {
             _ => {}
         }
     }
-    pub fn reset(&mut self, width: i32, height: i32) {
+    pub fn resize(&mut self, width: i32, height: i32) {
         match &mut self.backend {
             Backend::Raqote(dt) => {
                 *dt = DrawTarget::new(width, height);
