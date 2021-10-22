@@ -6,7 +6,6 @@ use std::path::Path;
 
 #[derive(Clone)]
 pub struct Image {
-    damaged: bool,
     image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }
 
@@ -17,7 +16,6 @@ impl Image {
         let image = dyn_image.to_bgra8();
 
         Ok(Self {
-            damaged: true,
             image,
         })
     }
@@ -33,14 +31,12 @@ impl Image {
         let image = scaled_image.to_bgra8();
 
         Ok(Self {
-            damaged: true,
             image,
         })
     }
 
     pub fn thumbnail(&self, width: u32, height: u32) -> Image {
         Image {
-            damaged: true,
             image: imageops::thumbnail(&self.image, width, height),
         }
     }
@@ -51,7 +47,6 @@ impl Image {
 
     pub fn resize(&self, width: u32, height: u32) -> Self {
         Self {
-            damaged: true,
             image: imageops::resize(&self.image, width, height, FilterType::Triangle),
         }
     }
@@ -88,13 +83,8 @@ impl Drawable for Image {
 }
 
 impl Widget for Image {
-    fn damaged(&self) -> bool {
-        self.damaged
-    }
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, dispatch: &Dispatch) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         if let Dispatch::Commit = dispatch {
-            self.damaged = self.damaged == false;
         }
-        None
     }
 }

@@ -102,10 +102,7 @@ impl<W: Widget> Drawable for Actionnable<W> {
 }
 
 impl<W: Widget> Widget for Actionnable<W> {
-    fn damaged(&self) -> bool {
-        self.widget.damaged()
-    }
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         if let Dispatch::Pointer(x, y, pointer) = dispatch {
             if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                 if !self.focused {
@@ -115,14 +112,14 @@ impl<W: Widget> Widget for Actionnable<W> {
                         &Dispatch::Pointer(*x, *y, Pointer::Enter),
                         wx,
                         wy,
-                    )
+                    );
                 } else {
                     (self.cb)(
                         &mut self.widget,
                         &Dispatch::Pointer(*x, *y, *pointer),
                         wx,
                         wy,
-                    )
+                    );
                 }
             } else if self.focused {
                 self.focused = false;
@@ -131,12 +128,10 @@ impl<W: Widget> Widget for Actionnable<W> {
                     &Dispatch::Pointer(*x, *y, Pointer::Leave),
                     wx,
                     wy,
-                )
-            } else {
-                None
+                );
             }
         } else {
-            (self.cb)(&mut self.widget, dispatch, wx, wy)
+            (self.cb)(&mut self.widget, dispatch, wx, wy);
         }
     }
 }

@@ -1,7 +1,7 @@
 pub mod app;
 
 use crate::*;
-use crate::canvas::{Canvas, Backend};
+use crate::canvas::{Canvas};
 use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
 use wayland_client::protocol::wl_buffer::WlBuffer;

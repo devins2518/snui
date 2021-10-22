@@ -195,16 +195,7 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
-    fn damaged(&self) -> bool {
-        // for w in &self.widgets {
-        //     if w.mapped {
-        //         return true;
-        //     }
-        // }
-        // false
-        true
-    }
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         let sw = self.width();
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
@@ -217,7 +208,7 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dy = (sh - w.widget.height()) / 2.,
                             Alignment::End => dy = sh - w.widget.height(),
                         }
-                        w.widget.roundtrip(wx + dx, wy + dy, dispatch);
+                        w.widget.roundtrip(wx + dx, wy + dy, canvas, dispatch);
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -226,12 +217,11 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dx = (sw - w.widget.width()) / 2.,
                             Alignment::End => dx = sw - w.widget.width(),
                         }
-                        w.widget.roundtrip(wx + dx, wy + dy, dispatch);
+                        w.widget.roundtrip(wx + dx, wy + dy, canvas, dispatch);
                         dy += w.widget.height() + self.spacing;
                     }
                 }
             }
         }
-        None
     }
 }

@@ -24,7 +24,6 @@ pub struct DamageReport {
     pub y: f32,
     pub width: f32,
     pub height: f32,
-    // container: bool,
 }
 
 pub struct Canvas {
@@ -37,8 +36,8 @@ impl Canvas {
     pub fn new(backend: Backend) -> Self {
         Self {
             backend,
+            damage: Vec::new(),
             font_cache: HashMap::new(),
-            damage: Vec::new()
         }
     }
     pub fn push(&mut self, x: f32, y: f32, width: f32, height: f32) {
@@ -160,6 +159,7 @@ impl Canvas {
         match &mut self.backend {
             Backend::Raqote(dt) => {
                 *dt = DrawTarget::new(width, height);
+                self.damage.clear();
             }
             _ => {}
         }
@@ -171,6 +171,9 @@ impl Canvas {
             }
             _ => {}
         }
+    }
+    pub fn is_damaged(&self) -> bool {
+        self.damage.len() > 0
     }
     pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
         if let Ok(glyph_cache) = GlyphCache::load(path) {
@@ -184,7 +187,6 @@ impl Canvas {
             None
         }
     }
-
     pub fn draw_label(&mut self, x: f32, y: f32, font: &str, glyphs: &Vec<GlyphPosition>, source: SolidSource) {
         if let Some(glyph_cache) = self.font_cache.get_mut(font) {
             for gp in glyphs {
@@ -271,9 +273,12 @@ impl Drawable for Canvas {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        for d in &self.damage {
-            canvas.damage.push(*d);
-        }
+        canvas.damage.push(DamageReport {
+            x,
+            y,
+            width: canvas.width(),
+            height: canvas.height(),
+        });
         match &mut canvas.backend {
             Backend::Raqote(dt) => {
                 match &self.backend {

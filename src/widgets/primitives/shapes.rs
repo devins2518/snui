@@ -35,7 +35,6 @@ impl Style {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Rectangle {
-    damaged: bool,
     width: f32,
     height: f32,
     style: Style,
@@ -46,7 +45,6 @@ pub struct Rectangle {
 impl Rectangle {
     pub fn new(width: f32, height: f32, style: Style) -> Self {
         Rectangle {
-            damaged: true,
             width,
             height,
             style,
@@ -55,7 +53,6 @@ impl Rectangle {
     }
     pub fn square(size: f32, style: Style) -> Self {
         Rectangle {
-            damaged: true,
             width: size,
             height: size,
             style,
@@ -64,7 +61,6 @@ impl Rectangle {
     }
     pub fn empty(width: f32, height: f32) -> Self {
         Rectangle {
-            damaged: true,
             width,
             height,
             style: Style::Empty,
@@ -105,7 +101,7 @@ impl Drawable for Rectangle {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if !self.style.is_empty() && self.damaged {
+        if !self.style.is_empty() {
             canvas.draw_rectangle(
                 x,
                 y,
@@ -119,20 +115,14 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, dispatch: &Dispatch) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         if let Dispatch::Commit = dispatch {
-            self.damaged = self.damaged == false;
         }
-        None
-    }
-    fn damaged(&self) -> bool {
-        self.damaged
     }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Circle {
-    damaged: bool,
     style: Style,
     // (tl, tr, br, bl)
     radius: f32,
@@ -141,7 +131,6 @@ pub struct Circle {
 impl Circle {
     pub fn new(radius: f32, style: Style) -> Self {
         Circle {
-            damaged: true,
             style,
             radius,
         }
@@ -177,7 +166,7 @@ impl Drawable for Circle {
         }
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        if !self.style.is_empty() && self.damaged() {
+        if !self.style.is_empty() {
             canvas.draw_ellipse(
                 x,
                 y,
@@ -190,13 +179,8 @@ impl Drawable for Circle {
 }
 
 impl Widget for Circle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, dispatch: &Dispatch) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         if let Dispatch::Commit = dispatch {
-            self.damaged = self.damaged == false;
         }
-        None
-    }
-    fn damaged(&self) -> bool {
-        self.damaged
     }
 }

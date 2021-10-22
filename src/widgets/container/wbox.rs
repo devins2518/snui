@@ -23,6 +23,7 @@ pub struct Wbox {
 pub struct Inner {
     x: f32,
     y: f32,
+    mapped: bool,
     anchor: Anchor,
     widget: Box<dyn Widget>,
 }
@@ -46,11 +47,8 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
-    fn damaged(&self) -> bool {
-        self.widget.damaged()
-    }
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
-        self.widget.roundtrip(wx, wy, dispatch)
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
+        self.widget.roundtrip(wx, wy, canvas, dispatch)
     }
 }
 
@@ -59,7 +57,7 @@ impl Inner {
         Inner {
             x: 0.,
             y: 0.,
-            // entered: false,
+            mapped: true,
             anchor: Anchor::TopLeft,
             widget: Box::new(widget),
         }
@@ -69,6 +67,7 @@ impl Inner {
             x,
             y,
             anchor,
+            mapped: true,
             widget: Box::new(widget),
         }
     }
@@ -243,25 +242,12 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
-    fn damaged(&self) -> bool {
-        // for w in &self.widgets {
-        //     if w.damaged() {
-        //         return true;
-        //     }
-        // }
-        // false
-        true
-    }
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, dispatch: &Dispatch) -> Option<Damage> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         let width = self.width();
         let height = self.height();
         for l in &mut self.widgets {
             let (dx, dy) = l.location(width, height).unwrap();
-            let ev = l.roundtrip(wx + dx, wy + dy, dispatch);
-            if ev.is_some() {
-                return ev;
-            }
+            l.roundtrip(wx + dx, wy + dy, canvas, dispatch);
         }
-        None
     }
 }

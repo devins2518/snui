@@ -66,22 +66,34 @@ impl<W: Widget> Application<W> {
         }
     }
     pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
-        if let Some(damage) = self.widget.roundtrip(0., 0., &dispatch) {
-            if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, &mut self.canvas) {
-                damage.widget.draw(buffer.canvas(), damage.x, damage.y);
-                self.buffer = Some(wlbuf);
-                self.surface.attach(self.buffer.as_ref(), 0, 0);
-                for damage in buffer.canvas().report() {
-                    self.surface.damage(
-                        damage.x as i32,
-                        damage.y as i32,
-                        damage.width as i32,
-                        damage.height as i32,
-                    );
+        let draw = match &dispatch {
+            Dispatch::Commit => true,
+            _ => {
+                self.widget.roundtrip(0., 0., &mut self.canvas, &dispatch);
+                if self.canvas.is_damaged() {
+                    false
+                } else {
+                    self.widget.roundtrip(0., 0., &mut self.canvas, &Dispatch::Commit);
+                    self.canvas.is_damaged()
                 }
-                buffer.merge();
-                self.surface.commit();
             }
+        };
+        if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, &mut self.canvas) {
+            if draw {
+                self.widget.draw(buffer.canvas(), 0., 0.);
+            }
+            self.buffer = Some(wlbuf);
+            self.surface.attach(self.buffer.as_ref(), 0, 0);
+            for damage in buffer.canvas().report() {
+                self.surface.damage(
+                    damage.x as i32,
+                    damage.y as i32,
+                    damage.width as i32,
+                    damage.height as i32,
+                );
+            }
+            buffer.merge();
+            self.surface.commit();
         }
     }
     pub fn show(&self) {
@@ -126,7 +138,6 @@ impl<W: Widget> Application<W> {
     pub fn init(&mut self, pool: &mut MemPool) {
         self.render(pool);
         self.show();
-        self.widget.damage();
     }
     pub fn hide(&mut self) {
         self.buffer = None;
