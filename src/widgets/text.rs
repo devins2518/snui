@@ -93,7 +93,11 @@ pub struct Label {
 
 impl Geometry for Label {
     fn width(&self) -> f32 {
-        self.width
+        if let Some(width) = self.settings.max_width {
+            width
+        } else {
+            self.width
+        }
     }
     fn height(&self) -> f32 {
         self.layout.height()
@@ -140,9 +144,7 @@ impl Widget for Label {
                     if let Some(font) = canvas.get_font(&self.font) {
                         self.layout
                             .append(&[font], &TextStyle::new(text, self.font_size, 0));
-                        if self.settings.max_width.is_none() {
-                            self.width = get_width(&mut self.layout.glyphs());
-                        }
+                        self.width = get_width(&mut self.layout.glyphs());
                         self.glyphs = self.layout.glyphs().clone();
                         self.write_buffer = None;
                     }
