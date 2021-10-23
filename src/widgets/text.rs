@@ -135,17 +135,13 @@ impl Drawable for Label {
 impl Widget for Label {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         match dispatch {
-            Dispatch::Commit => {
-                if self.write_buffer.is_none() {
-                    self.draw(canvas, wx, wy);
-                }
-            }
             Dispatch::Prepare => {
                 if let Some(font) = canvas.get_font(&self.font) {
                     if let Some(text) = self.write_buffer.as_ref() {
                         self.layout
                             .append(&[font], &TextStyle::new(text, self.font_size, 0));
                         self.width = get_width(&mut self.layout.glyphs());
+                        self.glyphs = self.layout.glyphs().clone();
                         self.write_buffer = None;
                     }
                 }
@@ -225,7 +221,9 @@ impl Label {
         })
     }
     pub fn write(&mut self, text: &str) {
-        self.write_buffer = Some(text.to_owned());
+        if let Some(buffer) = self.write_buffer.as_mut() {
+            buffer.push_str(text);
+        }
     }
     pub fn edit(&mut self, text: &str) {
         self.write_buffer = Some(text.to_owned());

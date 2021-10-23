@@ -37,6 +37,6 @@ impl<'b> Buffer<'b> {
     pub fn merge(mut self) {
         self.mmap.write_all(&self.canvas).unwrap();
         self.mmap.flush().unwrap();
-        self.canvas.clear();
+        self.canvas.flush_damage();
     }
 }

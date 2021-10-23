@@ -107,32 +107,49 @@ impl<W: Widget> Widget for Actionnable<W> {
             if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                 if !self.focused {
                     self.focused = true;
-                    (self.cb)(
+                    if !handle_damage((self.cb)(
                         &mut self.widget,
                         &Dispatch::Pointer(*x, *y, Pointer::Enter),
                         wx,
                         wy,
-                    );
+                    ), canvas) {
+                        self.widget.roundtrip(wx, wy, canvas, dispatch);
+                    }
                 } else {
-                    (self.cb)(
+                    if !handle_damage((self.cb)(
                         &mut self.widget,
                         &Dispatch::Pointer(*x, *y, *pointer),
                         wx,
                         wy,
-                    );
+                    ), canvas) {
+                        self.widget.roundtrip(wx, wy, canvas, dispatch);
+                    }
                 }
             } else if self.focused {
                 self.focused = false;
-                (self.cb)(
+                if !handle_damage((self.cb)(
                     &mut self.widget,
                     &Dispatch::Pointer(*x, *y, Pointer::Leave),
                     wx,
                     wy,
-                );
+                ), canvas) {
+                    self.widget.roundtrip(wx, wy, canvas, dispatch);
+                }
             }
         } else {
-            (self.cb)(&mut self.widget, dispatch, wx, wy);
+            if !handle_damage((self.cb)(&mut self.widget, dispatch, wx, wy), canvas) {
+               self.widget.roundtrip(wx, wy, canvas, dispatch);
+            }
         }
+    }
+}
+
+fn handle_damage(damage: Option<Damage>, canvas: &mut Canvas) -> bool {
+    if let Some(damage) = damage {
+        damage.widget.draw(canvas, damage.x, damage.y);
+        true
+    } else {
+        false
     }
 }
 

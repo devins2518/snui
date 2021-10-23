@@ -169,8 +169,11 @@ impl Canvas {
             _ => {}
         }
     }
+    pub fn len(&self) -> usize {
+        self.damage.len()
+    }
     pub fn is_damaged(&self) -> bool {
-        self.damage.len() > 0
+        !self.damage.is_empty()
     }
     pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
         if let Ok(glyph_cache) = GlyphCache::load(path) {
@@ -197,8 +200,8 @@ impl Canvas {
                 if let Some(pixmap) = glyph_cache.render_glyph(gp, source) {
                     match &mut self.backend {
                         Backend::Raqote(dt) => dt.draw_image_at(
-                            x,
-                            y,
+                            x.round() + gp.x,
+                            y.round() + gp.y,
                             &Image {
                                 data: &pixmap,
                                 width: gp.width as i32,

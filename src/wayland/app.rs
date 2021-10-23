@@ -19,10 +19,10 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 pub struct Application<W: Widget> {
     running: bool,
     shm: WlShm,
-    canvas: Canvas,
     buffer: Option<WlBuffer>,
     receiver: Receiver<Dispatch>,
     pub widget: W,
+    pub canvas: Canvas,
     pub surface: Option<WlSurface>,
     pub layer_surface: Option<ZwlrLayerSurfaceV1>,
 }
@@ -66,7 +66,7 @@ impl<W: Widget> Application<W> {
             }
         }
     }
-    pub fn damage(&mut self, dispatch: Dispatch, pool: &mut MemPool) {
+    pub fn damage(&mut self, dispatch: &Dispatch, pool: &mut MemPool) {
         let (w, h) = (self.widget.width(), self.widget.height());
         let draw = match &dispatch {
             Dispatch::Commit => {
@@ -84,7 +84,7 @@ impl<W: Widget> Application<W> {
                     self.widget.draw(&mut self.canvas, 0., 0.);
                     true
                 } else if self.canvas.is_damaged() {
-                    false
+                    true
                 } else {
                     self.widget
                         .roundtrip(0., 0., &mut self.canvas, &Dispatch::Commit);
@@ -98,7 +98,7 @@ impl<W: Widget> Application<W> {
                 if let Some(surface) = self.surface.as_ref() {
                     surface.attach(self.buffer.as_ref(), 0, 0);
                     for damage in buffer.canvas().report() {
-                        surface.damage(
+                       surface.damage(
                             damage.x as i32,
                             damage.y as i32,
                             damage.width as i32,
@@ -142,6 +142,7 @@ impl<W: Widget> Application<W> {
         self.canvas.clear();
     }
     pub fn init(&mut self, pool: &mut MemPool) {
+        self.damage(&Dispatch::Prepare, pool);
         self.render(pool);
         self.show();
     }
@@ -157,7 +158,7 @@ impl<W: Widget> Application<W> {
             layer_surface.destroy();
         }
     }
-    pub fn close(&mut self) {
+    pub fn close(mut self) {
         self.destroy();
         self.running = false;
     }
