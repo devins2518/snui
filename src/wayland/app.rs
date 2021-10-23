@@ -77,7 +77,6 @@ impl<W: Widget> Application<W> {
                 self.widget.roundtrip(0., 0., &mut self.canvas, &dispatch);
                 if w != self.widget.width() || h != self.widget.height() {
                     self.canvas.resize(w as i32, h as i32);
-                    self.canvas.resize(w as i32, h as i32);
                     if let Some(layer_surface) = &self.layer_surface {
                         layer_surface.set_size(w as u32, h as u32);
                     }

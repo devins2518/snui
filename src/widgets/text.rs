@@ -136,11 +136,13 @@ impl Widget for Label {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
         match dispatch {
             Dispatch::Prepare => {
-                if let Some(font) = canvas.get_font(&self.font) {
-                    if let Some(text) = self.write_buffer.as_ref() {
+                if let Some(text) = self.write_buffer.as_ref() {
+                    if let Some(font) = canvas.get_font(&self.font) {
                         self.layout
                             .append(&[font], &TextStyle::new(text, self.font_size, 0));
-                        self.width = get_width(&mut self.layout.glyphs());
+                        if self.settings.max_width.is_none() {
+                            self.width = get_width(&mut self.layout.glyphs());
+                        }
                         self.glyphs = self.layout.glyphs().clone();
                         self.write_buffer = None;
                     }
@@ -211,7 +213,7 @@ impl Label {
         let (settings, mut layout) = create_layout(Some(width), None);
         WidgetShell::default(Label {
             glyphs: layout.glyphs().clone(),
-            width: get_width(layout.glyphs()),
+            width,
             source: create_source(color),
             font: font.to_owned(),
             font_size,
