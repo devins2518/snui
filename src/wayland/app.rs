@@ -2,6 +2,8 @@ use crate::canvas::Backend;
 use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, atomic::AtomicBool};
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use std::sync::mpsc::{Receiver, SyncSender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -11,58 +13,173 @@ use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::{Display, Main};
+use wayland_client::protocol::wl_compositor::{self, WlCompositor};
+use wayland_client::protocol::wl_output::{self, WlOutput};
+use wayland_client::{Display, Main, Attached, QueueToken, EventQueue};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
+    zwlr_layer_shell_v1, zwlr_layer_shell_v1::ZwlrLayerShellV1,
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
-pub struct Application<W: Widget> {
-    running: bool,
-    shm: WlShm,
+pub struct InnerApplication {
+    configured: bool,
+    token: QueueToken,
     buffer: Option<WlBuffer>,
-    receiver: Receiver<Dispatch>,
+    output: Option<WlOutput>,
+    compositor: Attached<WlCompositor>,
+    shell: Option<Attached<ZwlrLayerShellV1>>,
+    surface: Option<WlSurface>,
+    shell_surface: Option<ZwlrLayerSurfaceV1>,
+}
+
+impl InnerApplication {
+    fn new(compositor: &WlCompositor, token: QueueToken) -> Self {
+        InnerApplication {
+            compositor: compositor.as_ref().attach(token.clone()),
+            token,
+            configured: false,
+            buffer: None,
+            output: None,
+            shell: None,
+            surface: None,
+            shell_surface: None,
+        }
+    }
+    pub fn attach_shell(&mut self, shell: &ZwlrLayerShellV1) {
+        self.shell = Some(shell.as_ref().attach(self.token.clone()));
+    }
+    pub fn create_shell_surface(&mut self, namespace: &str, output: Option<&WlOutput>) -> Option<(Main<WlSurface>, Main<ZwlrLayerSurfaceV1>)> {
+        if let Some(shell) = &self.shell {
+            self.output = output.cloned();
+
+            let surface = self.compositor.create_surface();
+
+            let shell_surface = shell.get_layer_surface(
+                &surface,
+                output,
+                zwlr_layer_shell_v1::Layer::Top,
+                namespace.to_string()
+            );
+
+    		surface.quick_assign(|_, _, _| {});
+    		let surface_handle = surface.detach();
+            shell_surface.set_size(1, 1);
+            shell_surface.quick_assign(move |shell_surface, event, mut inner| match event {
+                zwlr_layer_surface_v1::Event::Configure {
+                    serial,
+                    width: _,
+                    height: _,
+                } => {
+                    shell_surface.ack_configure(serial);
+                	if let Some(mut inner) = inner.get::<InnerApplication>() {
+                    	inner.configured = true;
+                    	inner.surface = Some(surface_handle.clone());
+                    	inner.shell_surface = Some(shell_surface.detach());
+                	}
+                }
+                _ => unreachable!()
+            });
+            surface.commit();
+
+            return Some((surface, shell_surface))
+        }
+        None
+    }
+    fn set_size(&self, width: u32, height: u32) {
+       if let Some(shell_surface) = &self.shell_surface {
+           shell_surface.set_size(width, height);
+       }
+    }
+    fn swap_buffer(&mut self, wl_buffer: WlBuffer) {
+        self.buffer = Some(wl_buffer);
+    }
+    pub fn destroy(&mut self) {
+        if let Some(surface) = &self.surface {
+            surface.destroy();
+        }
+        if let Some(shell_surface) = &self.shell_surface {
+            shell_surface.destroy()
+        }
+        self.surface = None;
+        self.shell_surface = None;
+    }
+    pub fn hide(&mut self) {
+        self.buffer = None;
+    }
+    pub fn get_layer_surface(&self) -> &ZwlrLayerSurfaceV1 {
+        self.shell_surface.as_ref().unwrap()
+    }
+    pub fn show(&self) {
+        if let Some(surface) = self.surface.as_ref() {
+            surface.attach(self.buffer.as_ref(), 0, 0);
+            surface.commit();
+        }
+    }
+}
+
+pub struct Application<W: Widget> {
     pub widget: W,
+    event_queue: EventQueue,
+    running: bool,
     pub canvas: Canvas,
-    pub surface: Option<WlSurface>,
-    pub layer_surface: Option<ZwlrLayerSurfaceV1>,
+    inner: InnerApplication,
+    receiver: Receiver<Dispatch>,
 }
 
 impl<W: Widget> Application<W> {
     pub fn new(
         widget: W,
-        surface: Option<WlSurface>,
-        shm: WlShm,
+        display: Display,
+        compositor: &WlCompositor,
         receiver: Receiver<Dispatch>,
     ) -> Application<W> {
+        let event_queue = display.create_event_queue();
         Application {
-            running: false,
-            shm,
-            surface,
             receiver,
+            running: false,
+            inner: InnerApplication::new(compositor, event_queue.token()),
+            event_queue,
             canvas: Canvas::new(Backend::Raqote(DrawTarget::new(
                 widget.width() as i32,
                 widget.height() as i32,
             ))),
-            buffer: None,
-            layer_surface: None,
             widget,
         }
     }
-    pub fn run(mut self, display: Display, mut cb: impl FnMut(&mut Self, &mut MemPool, Dispatch)) {
-        let mut event_queue = display.create_event_queue();
-        let attached = self.shm.as_ref().attach(event_queue.token());
+    pub fn run(mut self, shm: WlShm, mut cb: impl FnMut(&mut Self, &mut MemPool, Dispatch)) {
+        let attached = shm.as_ref().attach(self.event_queue.token());
         let mut mempool = DoubleMemPool::new(attached, |_| {}).unwrap();
 
         self.running = true;
+        self.widget.roundtrip(0., 0., &mut self.canvas, &Dispatch::Prepare);
 
         while self.running {
-            if let Ok(dispatch) = self.receiver.recv() {
-                if let Some(mut pool) = mempool.pool() {
-                    cb(&mut self, &mut pool, dispatch);
-                    event_queue
-                        .sync_roundtrip(&mut (), |_, _, _| unreachable!())
+            if self.inner.surface.is_some() {
+                if self.inner.configured {
+                    self.inner.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                    if let Some(pool) = mempool.pool() {
+                        cb(&mut self, pool, Dispatch::Commit);
+                        self.render(pool);
+                        self.inner.show();
+                    }
+                    self.inner.configured = false;
+                    self.event_queue
+                        .sync_roundtrip(&mut self.inner, |_, _, _| unreachable!())
                         .unwrap();
+                } else {
+                    if let Ok(dispatch) = self.receiver.recv() {
+                        if let Some(mut pool) = mempool.pool() {
+                            cb(&mut self, &mut pool, dispatch);
+                            self.event_queue
+                                .sync_roundtrip(&mut (), |_, _, _| unreachable!())
+                                .unwrap();
+                        }
+                    }
                 }
+            } else {
+                self.event_queue
+                    .dispatch(&mut self.inner, |_, _, _| unreachable!())
+                    .unwrap();
             }
         }
     }
@@ -77,9 +194,7 @@ impl<W: Widget> Application<W> {
                 self.widget.roundtrip(0., 0., &mut self.canvas, &dispatch);
                 if w != self.widget.width() || h != self.widget.height() {
                     self.canvas.resize(self.widget.width() as i32, self.widget.height() as i32);
-                    if let Some(layer_surface) = &self.layer_surface {
-                        layer_surface.set_size(self.widget.width() as u32, self.widget.width() as u32);
-                    }
+                    self.inner.set_size(self.widget.width() as u32, self.widget.width() as u32);
                     self.widget.draw(&mut self.canvas, 0., 0.);
                     true
                 } else if self.canvas.is_damaged() {
@@ -93,9 +208,9 @@ impl<W: Widget> Application<W> {
         };
         if draw {
             if let Ok((mut buffer, wlbuf)) = Buffer::new(pool, &mut self.canvas) {
-                self.buffer = Some(wlbuf);
-                if let Some(surface) = self.surface.as_ref() {
-                    surface.attach(self.buffer.as_ref(), 0, 0);
+                self.inner.swap_buffer(wlbuf);
+                if let Some(surface) = self.inner.surface.as_ref() {
+                    surface.attach(self.inner.buffer.as_ref(), 0, 0);
                     for damage in buffer.canvas().report() {
                        surface.damage(
                             damage.x as i32,
@@ -110,17 +225,11 @@ impl<W: Widget> Application<W> {
             }
         }
     }
-    pub fn show(&self) {
-        if let Some(surface) = self.surface.as_ref() {
-            surface.attach(self.buffer.as_ref(), 0, 0);
-            surface.commit();
-        }
-    }
     pub fn render(&mut self, mempool: &mut MemPool) {
         if let Ok((mut buffer, wlbuf)) = Buffer::new(mempool, &mut self.canvas) {
             let canvas = buffer.canvas();
             self.widget.draw(canvas, 0., 0.);
-            if let Some(surface) = self.surface.as_ref() {
+            if let Some(surface) = self.inner.surface.as_ref() {
                 for damage in canvas.report() {
                     surface.damage(
                         damage.x as i32,
@@ -131,39 +240,24 @@ impl<W: Widget> Application<W> {
                 }
             }
             buffer.merge();
-            self.buffer = Some(wlbuf);
+            self.inner.swap_buffer(wlbuf);
         }
     }
     pub fn clear(&mut self) {
         self.canvas.clear();
     }
-    pub fn init(&mut self, pool: &mut MemPool) {
-        let (w, h) = (self.widget.width(), self.widget.height());
-        self.damage(&Dispatch::Prepare, pool);
-        if w != self.widget.width() || h != self.widget.height() {
-            self.canvas.resize(self.widget.width() as i32, self.widget.height() as i32);
-            if let Some(layer_surface) = &self.layer_surface {
-                layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-            }
-        }
-        self.render(pool);
-        self.show();
+}
+
+impl<W: Widget> Deref for Application<W> {
+    type Target = InnerApplication;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
-    pub fn hide(&mut self) {
-        self.buffer = None;
-        self.show();
-    }
-    pub fn destroy(&self) {
-        if let Some(surface) = &self.surface {
-            surface.destroy();
-        }
-        if let Some(layer_surface) = &self.layer_surface {
-            layer_surface.destroy();
-        }
-    }
-    pub fn close(mut self) {
-        self.destroy();
-        self.running = false;
+}
+
+impl<W: Widget> DerefMut for Application<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 
@@ -180,9 +274,8 @@ fn get_sender(
 }
 
 pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
+    layer_surface.set_size(1, 1);
     let surface_handle = surface.clone();
-    let (mut sender, receiver) = sync_channel(1);
-    surface_handle.commit();
     layer_surface.quick_assign(move |layer_surface, event, mut senders| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
@@ -190,7 +283,6 @@ pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerS
             height,
         } => {
             layer_surface.ack_configure(serial);
-            // layer_surface.set_size(width, height);
             if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
                 for (wlsurface, sender) in senders {
                     if wlsurface == &surface_handle {
