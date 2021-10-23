@@ -76,9 +76,9 @@ impl<W: Widget> Application<W> {
             _ => {
                 self.widget.roundtrip(0., 0., &mut self.canvas, &dispatch);
                 if w != self.widget.width() || h != self.widget.height() {
-                    self.canvas.resize(w as i32, h as i32);
+                    self.canvas.resize(self.widget.width() as i32, self.widget.height() as i32);
                     if let Some(layer_surface) = &self.layer_surface {
-                        layer_surface.set_size(w as u32, h as u32);
+                        layer_surface.set_size(self.widget.width() as u32, self.widget.width() as u32);
                     }
                     self.widget.draw(&mut self.canvas, 0., 0.);
                     true
@@ -119,9 +119,6 @@ impl<W: Widget> Application<W> {
     pub fn render(&mut self, mempool: &mut MemPool) {
         if let Ok((mut buffer, wlbuf)) = Buffer::new(mempool, &mut self.canvas) {
             let canvas = buffer.canvas();
-            if let Some(layer_surface) = &self.layer_surface {
-                layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-            }
             self.widget.draw(canvas, 0., 0.);
             if let Some(surface) = self.surface.as_ref() {
                 for damage in canvas.report() {
@@ -141,7 +138,14 @@ impl<W: Widget> Application<W> {
         self.canvas.clear();
     }
     pub fn init(&mut self, pool: &mut MemPool) {
+        let (w, h) = (self.widget.width(), self.widget.height());
         self.damage(&Dispatch::Prepare, pool);
+        if w != self.widget.width() || h != self.widget.height() {
+            self.canvas.resize(self.widget.width() as i32, self.widget.height() as i32);
+            if let Some(layer_surface) = &self.layer_surface {
+                layer_surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+            }
+        }
         self.render(pool);
         self.show();
     }
@@ -177,7 +181,7 @@ fn get_sender(
 
 pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
     let surface_handle = surface.clone();
-    layer_surface.set_size(1 << 10, 1 << 10);
+    let (mut sender, receiver) = sync_channel(1);
     surface_handle.commit();
     layer_surface.quick_assign(move |layer_surface, event, mut senders| match event {
         zwlr_layer_surface_v1::Event::Configure {
@@ -186,7 +190,7 @@ pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerS
             height,
         } => {
             layer_surface.ack_configure(serial);
-            layer_surface.set_size(width, height);
+            // layer_surface.set_size(width, height);
             if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
                 for (wlsurface, sender) in senders {
                     if wlsurface == &surface_handle {
