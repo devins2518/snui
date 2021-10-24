@@ -12,8 +12,8 @@ use wayland_client::protocol::wl_pointer;
 use wayland_client::protocol::wl_pointer::ButtonState;
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::protocol::wl_compositor::{self, WlCompositor};
-use wayland_client::protocol::wl_output::{self, WlOutput};
+use wayland_client::protocol::wl_compositor::WlCompositor;
+use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::{Display, Main, Attached, QueueToken, EventQueue};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1, zwlr_layer_shell_v1::ZwlrLayerShellV1,
@@ -91,7 +91,7 @@ impl InnerApplication {
         }
         None
     }
-    fn set_size(&self, width: u32, height: u32) {
+    pub fn set_size(&self, width: u32, height: u32) {
        if let Some(shell_surface) = &self.shell_surface {
            shell_surface.set_size(width, height);
        }
