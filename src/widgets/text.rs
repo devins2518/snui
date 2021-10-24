@@ -18,6 +18,7 @@ pub fn font_from_path(path: &Path) -> Font {
     Font::from_bytes(font, fontdue::FontSettings::default()).unwrap()
 }
 
+#[derive(Debug, Clone)]
 pub struct GlyphCache {
     pub font: Font,
     glyphs: HashMap<GlyphRasterConfig, Vec<u8>>,
@@ -85,7 +86,7 @@ pub struct Label {
     layout: Layout,
     font_size: f32,
     source: SolidSource,
-    font: String,
+    fonts: Vec<String>,
     write_buffer: Option<String>,
     settings: LayoutSettings,
     glyphs: Vec<GlyphPosition>,
@@ -113,7 +114,7 @@ impl Clone for Label {
             layout,
             font_size: self.font_size,
             source: self.source,
-            font: self.font.clone(),
+            fonts: self.fonts.clone(),
             glyphs: self.glyphs.clone(),
             write_buffer: self.write_buffer.clone(),
             settings: self.settings,
@@ -132,7 +133,7 @@ impl Drawable for Label {
         };
     }
     fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        canvas.draw_label(x, y, &self.font, &self.glyphs, self.source);
+        canvas.draw_label(x, y, &self.fonts, &self.glyphs, self.source);
     }
 }
 
@@ -141,9 +142,17 @@ impl Widget for Label {
         match dispatch {
             Dispatch::Prepare => {
                 if let Some(text) = self.write_buffer.as_ref() {
-                    if let Some(font) = canvas.get_font(&self.font) {
-                        self.layout
-                            .append(&[font], &TextStyle::new(text, self.font_size, 0));
+                    let fonts = canvas.get_fonts(&self.fonts);
+                    if !fonts.is_empty()  {
+                        for c in text.chars() {
+                            for (i, font) in fonts.iter().enumerate() {
+                                if font.lookup_glyph_index(c) != 0 {
+                                    self.layout
+                                        .append(&fonts, &TextStyle::new(&c.to_string(), self.font_size, i));
+                                    break;
+                                }
+                            }
+                        }
                         self.width = get_width(&mut self.layout.glyphs());
                         self.glyphs = self.layout.glyphs().clone();
                         self.write_buffer = None;
@@ -198,7 +207,27 @@ impl Label {
             glyphs: layout.glyphs().clone(),
             width: get_width(layout.glyphs()),
             source: create_source(color),
-            font: font.to_owned(),
+            fonts: vec![font.to_owned()],
+            font_size,
+            settings,
+            write_buffer: Some(text.to_owned()),
+            layout,
+        })
+    }
+    pub fn new_with_size(
+        text: &str,
+        font: &str,
+        font_size: f32,
+        width: f32,
+        height: f32,
+        color: u32,
+    ) -> WidgetShell<Label> {
+        let (settings, mut layout) = create_layout(Some(width), Some(height));
+        WidgetShell::default(Label {
+            glyphs: layout.glyphs().clone(),
+            width,
+            source: create_source(color),
+            fonts: vec![font.to_owned()],
             font_size,
             settings,
             write_buffer: Some(text.to_owned()),
@@ -217,12 +246,15 @@ impl Label {
             glyphs: layout.glyphs().clone(),
             width,
             source: create_source(color),
-            font: font.to_owned(),
+            fonts: vec![font.to_owned()],
             font_size,
             settings,
             write_buffer: Some(text.to_owned()),
             layout,
         })
+    }
+    pub fn add_font(&mut self, font: &str) {
+        self.fonts.push(font.to_string());
     }
     pub fn write(&mut self, text: &str) {
         if let Some(buffer) = self.write_buffer.as_mut() {

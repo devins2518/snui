@@ -175,23 +175,24 @@ impl Canvas {
             self.font_cache.insert(name.to_owned(), glyph_cache);
         }
     }
-    pub fn get_font(&mut self, font: &str) -> Option<&Font> {
-        if let Some(glyph_cache) = self.font_cache.get(font) {
-            Some(&glyph_cache.font)
-        } else {
+    pub fn get_fonts(&self, fonts: &[String]) -> Vec<&Font> {
+        fonts.iter().filter_map(|font| {
+            if let Some(glyph_cache) = self.font_cache.get(font) {
+                return Some(&glyph_cache.font)
+            }
             None
-        }
+        }).collect()
     }
     pub fn draw_label(
         &mut self,
         x: f32,
         y: f32,
-        font: &str,
+        fonts: &[String],
         glyphs: &Vec<GlyphPosition>,
         source: SolidSource,
     ) {
-        if let Some(glyph_cache) = self.font_cache.get_mut(font) {
-            for gp in glyphs {
+        for gp in glyphs {
+            if let Some(glyph_cache) = self.font_cache.get_mut(&fonts[gp.key.font_index as usize]) {
                 if let Some(pixmap) = glyph_cache.render_glyph(gp, source) {
                     match &mut self.backend {
                         Backend::Raqote(dt) => dt.draw_image_at(
