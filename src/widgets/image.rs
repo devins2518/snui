@@ -78,7 +78,7 @@ impl Drawable for Image {
 }
 
 impl Widget for Image {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _canvas: &mut Canvas, dispatch: &Dispatch) {
         if let Dispatch::Commit = dispatch {}
     }
 }

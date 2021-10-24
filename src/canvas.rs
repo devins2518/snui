@@ -89,14 +89,12 @@ impl Canvas {
         let path = pb.finish();
         match &mut self.backend {
             Backend::Raqote(dt) => fill_target(dt, &path, style),
-            _ => {}
         }
     }
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
         self.push(x, y, image.width as f32, image.height as f32);
         match &mut self.backend {
             Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
-            _ => {}
         }
     }
     pub fn draw_rectangle(
@@ -149,7 +147,6 @@ impl Canvas {
 
         match &mut self.backend {
             Backend::Raqote(dt) => fill_target(dt, &path, style),
-            _ => {}
         }
     }
     pub fn resize(&mut self, width: i32, height: i32) {
@@ -158,7 +155,6 @@ impl Canvas {
                 *dt = DrawTarget::new(width, height);
                 self.damage.clear();
             }
-            _ => {}
         }
     }
     pub fn clear(&mut self) {
@@ -166,7 +162,6 @@ impl Canvas {
             Backend::Raqote(dt) => {
                 dt.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
             }
-            _ => {}
         }
     }
     pub fn len(&self) -> usize {
@@ -209,7 +204,6 @@ impl Canvas {
                             },
                             &DRAW_OPTIONS,
                         ),
-                        _ => {}
                     }
                 }
             }
@@ -241,13 +235,11 @@ impl Geometry for Canvas {
     fn width(&self) -> f32 {
         match &self.backend {
             Backend::Raqote(dt) => dt.width() as f32,
-            _ => 0.,
         }
     }
     fn height(&self) -> f32 {
         match &self.backend {
             Backend::Raqote(dt) => dt.height() as f32,
-            _ => 0.,
         }
     }
 }
@@ -289,9 +281,7 @@ impl Drawable for Canvas {
                     Point2D::new(x as i32, y as i32),
                     BlendMode::Add,
                 ),
-                _ => {}
             },
-            _ => {}
         }
     }
 }

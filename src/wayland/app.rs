@@ -3,7 +3,6 @@ use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
 use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, atomic::AtomicBool};
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use std::sync::mpsc::{Receiver, SyncSender};
 use wayland_client::protocol::wl_buffer::WlBuffer;
@@ -30,6 +29,7 @@ pub struct InnerApplication {
     shell: Option<Attached<ZwlrLayerShellV1>>,
     surface: Option<WlSurface>,
     shell_surface: Option<ZwlrLayerSurfaceV1>,
+    old_surface: Option<(WlSurface, ZwlrLayerSurfaceV1)>
 }
 
 impl InnerApplication {
@@ -43,6 +43,7 @@ impl InnerApplication {
             shell: None,
             surface: None,
             shell_surface: None,
+            old_surface: None,
         }
     }
     pub fn attach_shell(&mut self, shell: &ZwlrLayerShellV1) {
@@ -62,6 +63,7 @@ impl InnerApplication {
             );
 
     		surface.quick_assign(|_, _, _| {});
+        	self.configured = true;
     		let surface_handle = surface.detach();
             shell_surface.set_size(1, 1);
             shell_surface.quick_assign(move |shell_surface, event, mut inner| match event {
@@ -72,7 +74,11 @@ impl InnerApplication {
                 } => {
                     shell_surface.ack_configure(serial);
                 	if let Some(mut inner) = inner.get::<InnerApplication>() {
-                    	inner.configured = true;
+                    	if inner.shell_surface.is_some() {
+                        	inner.old_surface = Some(
+                            	(inner.surface.clone().unwrap(), inner.shell_surface.clone().unwrap())
+                        	);
+                    	}
                     	inner.surface = Some(surface_handle.clone());
                     	inner.shell_surface = Some(shell_surface.detach());
                 	}
@@ -105,6 +111,9 @@ impl InnerApplication {
     }
     pub fn hide(&mut self) {
         self.buffer = None;
+    }
+    pub fn get_surface(&self) -> &WlSurface {
+        self.surface.as_ref().unwrap()
     }
     pub fn get_layer_surface(&self) -> &ZwlrLayerSurfaceV1 {
         self.shell_surface.as_ref().unwrap()
@@ -154,32 +163,37 @@ impl<W: Widget> Application<W> {
         self.widget.roundtrip(0., 0., &mut self.canvas, &Dispatch::Prepare);
 
         while self.running {
-            if self.inner.surface.is_some() {
-                if self.inner.configured {
+            if self.inner.configured {
+                if self.inner.surface.is_some() {
                     self.inner.set_size(self.widget.width() as u32, self.widget.height() as u32);
                     if let Some(pool) = mempool.pool() {
                         cb(&mut self, pool, Dispatch::Commit);
                         self.render(pool);
                         self.inner.show();
                     }
+                    if let Some((surface, shell_surface)) = &self.inner.old_surface {
+                        surface.destroy();
+                        shell_surface.destroy();
+                        self.inner.old_surface = None;
+                    }
                     self.inner.configured = false;
                     self.event_queue
                         .sync_roundtrip(&mut self.inner, |_, _, _| unreachable!())
                         .unwrap();
                 } else {
-                    if let Ok(dispatch) = self.receiver.recv() {
-                        if let Some(mut pool) = mempool.pool() {
-                            cb(&mut self, &mut pool, dispatch);
-                            self.event_queue
-                                .sync_roundtrip(&mut (), |_, _, _| unreachable!())
-                                .unwrap();
-                        }
-                    }
+                    self.event_queue
+                        .dispatch(&mut self.inner, |_, _, _| unreachable!())
+                        .unwrap();
                 }
             } else {
-                self.event_queue
-                    .dispatch(&mut self.inner, |_, _, _| unreachable!())
-                    .unwrap();
+                if let Ok(dispatch) = self.receiver.recv() {
+                    if let Some(mut pool) = mempool.pool() {
+                        cb(&mut self, &mut pool, dispatch);
+                        self.event_queue
+                            .sync_roundtrip(&mut self.inner, |_, _, _| unreachable!())
+                            .unwrap();
+                    }
+                }
             }
         }
     }
@@ -271,39 +285,6 @@ fn get_sender(
         }
     }
     None
-}
-
-pub fn assign_layer_surface(surface: &WlSurface, layer_surface: &Main<ZwlrLayerSurfaceV1>) {
-    layer_surface.set_size(1, 1);
-    let surface_handle = surface.clone();
-    layer_surface.quick_assign(move |layer_surface, event, mut senders| match event {
-        zwlr_layer_surface_v1::Event::Configure {
-            serial,
-            width,
-            height,
-        } => {
-            layer_surface.ack_configure(serial);
-            if let Some(senders) = senders.get::<Vec<(WlSurface, SyncSender<Dispatch>)>>() {
-                for (wlsurface, sender) in senders {
-                    if wlsurface == &surface_handle {
-                        if !sender.send(Dispatch::Commit).is_ok() {
-                            surface_handle.commit();
-                        }
-                        break;
-                    }
-                }
-            } else if let Some(sender) = senders.get::<SyncSender<Dispatch>>() {
-                if !sender.send(Dispatch::Commit).is_ok() {
-                    surface_handle.commit();
-                }
-            }
-        }
-        zwlr_layer_surface_v1::Event::Closed => {
-            surface_handle.destroy();
-            layer_surface.destroy();
-        }
-        _ => {}
-    });
 }
 
 pub fn quick_assign_keyboard(keyboard: &Main<wl_keyboard::WlKeyboard>) {
