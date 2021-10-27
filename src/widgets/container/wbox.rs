@@ -1,5 +1,6 @@
 use crate::widgets::primitives::WidgetShell;
 use crate::*;
+use crate::context::DamageType;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Anchor {
@@ -245,9 +246,18 @@ impl Widget for Wbox {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let width = self.width();
         let height = self.height();
+        let mut draw = false;
         for l in &mut self.widgets {
-            let (dx, dy) = l.location(width, height).unwrap();
-            l.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+            if let Ok((dx, dy)) = l.location(width, height) {
+                l.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+                if let DamageType::Resize = ctx.damage_type() {
+                    draw = true;
+                }
+            }
+        }
+        if draw {
+            self.draw(ctx, wx, wy);
+            ctx.partial_damage();
         }
     }
 }

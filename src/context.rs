@@ -11,7 +11,7 @@ use widgets::primitives::Style;
 #[derive(Debug, Clone, Copy)]
 pub enum Dispatch {
     Prepare,
-    ForceDraw,
+    Commit,
     Keyboard(Key),
     Message(&'static str),
     Pointer(f32, f32, Pointer),
@@ -35,7 +35,7 @@ const DRAW_OPTIONS: DrawOptions = DrawOptions {
 };
 
 #[derive(Debug, Copy, Clone)]
-pub struct DamageReport {
+pub struct Region {
     pub x: f32,
     pub y: f32,
     pub width: f32,
@@ -43,10 +43,11 @@ pub struct DamageReport {
 }
 
 pub struct Context {
-    running: bool,
+    pub running: bool,
     backend: Backend,
+    input_regions: Vec<Region>,
     damage_type: DamageType,
-    damage: Vec<DamageReport>,
+    damage_regions: Vec<Region>,
     font_cache: HashMap<String, GlyphCache>,
 }
 
@@ -54,39 +55,32 @@ impl Context {
     pub fn new(backend: Backend) -> Self {
         Self {
             backend,
-            running: false,
-            damage: Vec::new(),
+            running: true,
+            input_regions: Vec::new(),
+            damage_regions: Vec::new(),
             font_cache: HashMap::new(),
             damage_type: DamageType::Partial,
         }
     }
+    pub fn add_input_region(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        add_region(&mut self.input_regions, x, y, width, height);
+    }
     pub fn push(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        if let Some(last) = self.damage.last() {
-            if last.x > x && last.y > y && last.x < x + width && last.y < y + height {
-                self.damage.push(DamageReport {
-                    x,
-                    y,
-                    width,
-                    height,
-                });
-            }
-        } else {
-            self.damage.push(DamageReport {
-                x,
-                y,
-                width,
-                height,
-            });
-        }
+        add_region(&mut self.damage_regions, x, y, width, height);
     }
     pub fn damage_type(&self) -> DamageType {
         self.damage_type
     }
     pub fn flush(&mut self) {
-        self.damage.clear();
+        self.damage_type = DamageType::Partial;
+        self.input_regions.clear();
+        self.damage_regions.clear();
     }
-    pub fn report(&self) -> &[DamageReport] {
-        &self.damage
+    pub fn report_input(&self) -> &[Region] {
+        &self.input_regions
+    }
+    pub fn report_damage(&self) -> &[Region] {
+        &self.damage_regions
     }
     pub fn draw_ellipse(&mut self, x: f32, y: f32, width: f32, height: f32, style: &Style) {
         // from https://github.com/ritobanrc/p5-rs/src/backend/raqote.rs
@@ -176,8 +170,17 @@ impl Context {
         match &mut self.backend {
             Backend::Raqote(dt) => {
                 *dt = DrawTarget::new(width, height);
-                self.damage.clear();
+                self.damage_regions.clear();
             }
+        }
+    }
+    pub fn full_damage(&mut self) {
+        self.damage_type = DamageType::Full;
+    }
+    pub fn partial_damage(&mut self) {
+        match &self.damage_type {
+            DamageType::Full => {}
+            _ => self.damage_type = DamageType::Partial,
         }
     }
     pub fn request_resize(&mut self) {
@@ -194,10 +197,10 @@ impl Context {
         }
     }
     pub fn len(&self) -> usize {
-        self.damage.len()
+        self.damage_regions.len()
     }
     pub fn is_damaged(&self) -> bool {
-        !self.damage.is_empty()
+        !self.damage_regions.is_empty()
     }
     pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
         if let Ok(glyph_cache) = GlyphCache::load(path) {
@@ -297,7 +300,7 @@ impl Drawable for Context {
         }
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        ctx.damage.push(DamageReport {
+        ctx.damage_regions.push(Region {
             x,
             y,
             width: ctx.width(),
@@ -316,6 +319,26 @@ impl Drawable for Context {
                 ),
             },
         }
+    }
+}
+
+fn add_region(vec: &mut Vec<Region>, x: f32, y: f32, width: f32, height: f32) {
+    if let Some(last) = vec.last() {
+        if last.x > x && last.y > y && last.x < x + width && last.y < y + height {
+            vec.push(Region {
+                x,
+                y,
+                width,
+                height,
+            });
+        }
+    } else {
+        vec.push(Region {
+            x,
+            y,
+            width,
+            height,
+        });
     }
 }
 

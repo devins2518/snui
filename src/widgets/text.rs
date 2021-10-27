@@ -139,31 +139,26 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, context: &mut Context, dispatch: &Dispatch) {
-        match dispatch {
-            Dispatch::ForceDraw => self.draw(context, wx, wy),
-            Dispatch::Prepare => {
-                if let Some(text) = self.write_buffer.as_ref() {
-                    let fonts = context.get_fonts(&self.fonts);
-                    if !fonts.is_empty() {
-                        for c in text.chars() {
-                            for (i, font) in fonts.iter().enumerate() {
-                                if font.lookup_glyph_index(c) != 0 {
-                                    self.layout.append(
-                                        &fonts,
-                                        &TextStyle::new(&c.to_string(), self.font_size, i),
-                                    );
-                                    break;
-                                }
-                            }
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+        if let Some(text) = self.write_buffer.as_ref() {
+            let fonts = ctx.get_fonts(&self.fonts);
+            if !fonts.is_empty() {
+                for c in text.chars() {
+                    for (i, font) in fonts.iter().enumerate() {
+                        if font.lookup_glyph_index(c) != 0 {
+                            self.layout.append(
+                                &fonts,
+                                &TextStyle::new(&c.to_string(), self.font_size, i),
+                            );
+                            break;
                         }
-                        self.width = get_width(&mut self.layout.glyphs());
-                        self.glyphs = self.layout.glyphs().clone();
-                        self.write_buffer = None;
                     }
                 }
+                ctx.request_resize();
+                self.width = get_width(&mut self.layout.glyphs());
+                self.glyphs = self.layout.glyphs().clone();
+                self.write_buffer = None;
             }
-            _ => {}
         }
     }
 }

@@ -10,20 +10,20 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    context: &'b mut Context,
+    ctx: &'b mut Context,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut MemPool, context: &'b mut Context) -> Result<(Self, WlBuffer), ()> {
-        let width = context.width() as i32;
-        let height = context.height() as i32;
+    fn new(mempool: &'b mut MemPool, ctx: &'b mut Context) -> Result<(Self, WlBuffer), ()> {
+        let width = ctx.width() as i32;
+        let height = ctx.height() as i32;
         let stride = width * 4;
         if mempool.resize((stride * height) as usize).is_ok() {
             let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
             Ok((
                 Self {
                     mmap: mempool.mmap(),
-                    context,
+                    ctx,
                 },
                 wlbuf,
             ))
@@ -31,12 +31,12 @@ impl<'b> Buffer<'b> {
             Err(())
         }
     }
-    pub fn context(&mut self) -> &mut Context {
-        self.context
+    pub fn ctx(&mut self) -> &mut Context {
+        self.ctx
     }
     pub fn merge(mut self) {
-        self.mmap.write_all(&self.context).unwrap();
+        self.mmap.write_all(&self.ctx).unwrap();
         self.mmap.flush().unwrap();
-        self.context.flush();
+        self.ctx.flush();
     }
 }

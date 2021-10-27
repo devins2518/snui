@@ -64,16 +64,16 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
     a + ((b - a) * r)
 }
 
-pub struct Actionnable<W: Geometry + Drawable> {
+pub struct Button<W: Geometry + Drawable> {
     widget: W,
     focused: bool,
-    cb: Box<dyn for<'d> FnMut(&'d mut W, &Dispatch, f32, f32) -> Option<Damage<'d>> + 'static>,
+    cb: Box<dyn for<'d> FnMut(&'d mut W, Pointer) -> bool + 'static>,
 }
 
-impl<W: Widget> Actionnable<W> {
+impl<W: Widget> Button<W> {
     pub fn new(
         widget: W,
-        cb: impl for<'d> FnMut(&'d mut W, &Dispatch, f32, f32) -> Option<Damage<'d>> + 'static,
+        cb: impl for<'d> FnMut(&'d mut W, Pointer) -> bool + 'static,
     ) -> Self {
         Self {
             widget,
@@ -83,7 +83,7 @@ impl<W: Widget> Actionnable<W> {
     }
 }
 
-impl<W: Widget> Geometry for Actionnable<W> {
+impl<W: Widget> Geometry for Button<W> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -92,7 +92,7 @@ impl<W: Widget> Geometry for Actionnable<W> {
     }
 }
 
-impl<W: Widget> Drawable for Actionnable<W> {
+impl<W: Widget> Drawable for Button<W> {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color);
     }
@@ -101,75 +101,59 @@ impl<W: Widget> Drawable for Actionnable<W> {
     }
 }
 
-impl<W: Widget> Widget for Actionnable<W> {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Context, dispatch: &Dispatch) {
-        if let Dispatch::Pointer(x, y, pointer) = dispatch {
-            if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
-                if !self.focused {
-                    self.focused = true;
-                    if !handle_damage(
-                        (self.cb)(
+impl<W: Widget> Widget for Button<W> {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+        match dispatch {
+            Dispatch::Pointer(x, y, pointer) => {
+                if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
+                    if !self.focused {
+                        self.focused = true;
+                        self.widget.roundtrip(wx, wy, ctx, dispatch);
+                        if (self.cb)(
                             &mut self.widget,
-                            &Dispatch::Pointer(*x, *y, Pointer::Enter),
-                            wx,
-                            wy,
-                        ),
-                        canvas,
-                    ) {
-                        self.widget.roundtrip(wx, wy, canvas, dispatch);
-                    }
-                } else {
-                    if !handle_damage(
-                        (self.cb)(
+                            Pointer::Enter,
+                        ) {
+                            self.widget.draw(ctx, wx, wy);
+                        }
+                    } else {
+                        self.widget.roundtrip(wx, wy, ctx, dispatch);
+                        if (self.cb)(
                             &mut self.widget,
-                            &Dispatch::Pointer(*x, *y, *pointer),
-                            wx,
-                            wy,
-                        ),
-                        canvas,
-                    ) {
-                        self.widget.roundtrip(wx, wy, canvas, dispatch);
+                            *pointer
+                        ) {
+                            self.widget.draw(ctx, wx, wy);
+                        }
                     }
-                }
-            } else if self.focused {
-                self.focused = false;
-                if !handle_damage(
-                    (self.cb)(
+                } else if self.focused {
+                    self.focused = false;
+                    self.widget.roundtrip(wx, wy, ctx, dispatch);
+                    if (self.cb)(
                         &mut self.widget,
-                        &Dispatch::Pointer(*x, *y, Pointer::Leave),
-                        wx,
-                        wy,
-                    ),
-                    canvas,
-                ) {
-                    self.widget.roundtrip(wx, wy, canvas, dispatch);
+                        Pointer::Leave,
+                    ) {
+                        self.widget.draw(ctx, wx, wy);
+                    }
                 }
             }
-        } else {
-            if !handle_damage((self.cb)(&mut self.widget, dispatch, wx, wy), canvas) {
-                self.widget.roundtrip(wx, wy, canvas, dispatch);
+            Dispatch::Commit => {
+                self.widget.roundtrip(wx, wy, ctx, dispatch);
+                ctx.add_input_region(wx, wy, self.width(), self.height());
+            }
+            _ => {
+                self.widget.roundtrip(wx, wy, ctx, dispatch);
             }
         }
     }
 }
 
-fn handle_damage(damage: Option<Damage>, canvas: &mut Context) -> bool {
-    if let Some(damage) = damage {
-        damage.widget.draw(canvas, damage.x, damage.y);
-        true
-    } else {
-        false
-    }
-}
-
-impl<W: Widget> Deref for Actionnable<W> {
+impl<W: Widget> Deref for Button<W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.widget
     }
 }
 
-impl<W: Widget> DerefMut for Actionnable<W> {
+impl<W: Widget> DerefMut for Button<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.widget
     }
