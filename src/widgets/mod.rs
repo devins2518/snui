@@ -71,10 +71,7 @@ pub struct Button<W: Geometry + Drawable> {
 }
 
 impl<W: Widget> Button<W> {
-    pub fn new(
-        widget: W,
-        cb: impl for<'d> FnMut(&'d mut W, Pointer) -> bool + 'static,
-    ) -> Self {
+    pub fn new(widget: W, cb: impl for<'d> FnMut(&'d mut W, Pointer) -> bool + 'static) -> Self {
         Self {
             widget,
             focused: false,
@@ -103,45 +100,39 @@ impl<W: Widget> Drawable for Button<W> {
 
 impl<W: Widget> Widget for Button<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+        self.widget.roundtrip(wx, wy, ctx, dispatch);
         match dispatch {
-            Dispatch::Pointer(x, y, pointer) => {
-                if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
-                    if !self.focused {
-                        self.focused = true;
-                        self.widget.roundtrip(wx, wy, ctx, dispatch);
-                        if (self.cb)(
-                            &mut self.widget,
-                            Pointer::Enter,
-                        ) {
-                            self.widget.draw(ctx, wx, wy);
-                        }
-                    } else {
-                        self.widget.roundtrip(wx, wy, ctx, dispatch);
-                        if (self.cb)(
-                            &mut self.widget,
-                            *pointer
-                        ) {
-                            self.widget.draw(ctx, wx, wy);
-                        }
-                    }
-                } else if self.focused {
+            Dispatch::Pointer(x, y, pointer) => match pointer {
+                Pointer::Leave => if self.focused {
                     self.focused = false;
-                    self.widget.roundtrip(wx, wy, ctx, dispatch);
-                    if (self.cb)(
-                        &mut self.widget,
-                        Pointer::Leave,
-                    ) {
+                    if (self.cb)(&mut self.widget, *pointer) {
                         self.widget.draw(ctx, wx, wy);
                     }
                 }
-            }
+                _ => {
+                    if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
+                        if self.focused {
+                            if (self.cb)(&mut self.widget, *pointer) {
+                                self.widget.draw(ctx, wx, wy);
+                            }
+                        } else {
+                            self.focused = true;
+                            if (self.cb)(&mut self.widget, Pointer::Enter) {
+                                self.widget.draw(ctx, wx, wy);
+                            }
+                        }
+                    } else if self.focused {
+                        self.focused = false;
+                        if (self.cb)(&mut self.widget, Pointer::Leave) {
+                            self.widget.draw(ctx, wx, wy);
+                        }
+                    }
+                }
+            },
             Dispatch::Commit => {
-                self.widget.roundtrip(wx, wy, ctx, dispatch);
                 ctx.add_input_region(wx, wy, self.width(), self.height());
             }
-            _ => {
-                self.widget.roundtrip(wx, wy, ctx, dispatch);
-            }
+            _ => {}
         }
     }
 }

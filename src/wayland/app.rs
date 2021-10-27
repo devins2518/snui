@@ -1,8 +1,9 @@
 use crate::context::Backend;
-use crate::context::{Context, Region, DamageType};
+use crate::context::{Context, DamageType, Region};
 use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
+use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use smithay_client_toolkit::WaylandSource;
 use std::collections::HashMap;
@@ -10,57 +11,86 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_keyboard;
 use wayland_client::protocol::wl_keyboard::KeyState;
+use wayland_client::protocol::wl_keyboard::{self, WlKeyboard};
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_pointer::ButtonState;
-use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
 use wayland_client::protocol::wl_pointer::{self, WlPointer};
+use wayland_client::protocol::wl_region::{self, WlRegion};
+use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
-use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 use wayland_client::{
-    Attached, Display, EventQueue, GlobalError, GlobalManager, Interface, Main, Proxy, QueueToken, DispatchData
+    Attached, DispatchData, Display, EventQueue, GlobalError, GlobalManager, Interface, Main,
+    Proxy, QueueToken,
 };
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1, zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
-    zwlr_layer_surface_v1, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, zwlr_layer_surface_v1::Anchor
+    zwlr_layer_surface_v1, zwlr_layer_surface_v1::Anchor,
+    zwlr_layer_surface_v1::KeyboardInteractivity, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
 #[derive(Debug, Clone)]
 pub enum Shell {
     LayerShell {
+        config: ShellConfig,
+        surface: Main<ZwlrLayerSurfaceV1>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct ShellConfig {
+    pub layer: Layer,
+    pub anchor: Option<Anchor>,
+    pub output: Option<WlOutput>,
+    pub namespace: String,
+    pub exclusive: i32,
+    pub interactivity: KeyboardInteractivity,
+    pub margin: [i32; 4],
+}
+
+impl ShellConfig {
+    fn default_layer_shell() -> Self {
+        ShellConfig {
+            layer: Layer::Top,
+            anchor: None,
+            output: None,
+            exclusive: 0,
+            interactivity: KeyboardInteractivity::None,
+            namespace: "".to_string(),
+            margin: [0; 4],
+        }
+    }
+    fn layer_shell(
         layer: Layer,
         anchor: Option<Anchor>,
-        namespace: String,
-        margin: [i32;4],
-        surface: Main<ZwlrLayerSurfaceV1>
+        output: Option<WlOutput>,
+        namespace: &str,
+        margin: [i32; 4],
+    ) -> Self {
+        ShellConfig {
+            layer,
+            anchor,
+            output,
+            exclusive: 0,
+            interactivity: KeyboardInteractivity::None,
+            namespace: namespace.to_string(),
+            margin,
+        }
     }
 }
 
 impl Shell {
     fn destroy(&self) {
         match self {
-            Shell::LayerShell {
-                layer:_,
-                anchor:_,
-                namespace:_,
-                margin:_,
-                surface
-            } => {
+            Shell::LayerShell { config: _, surface } => {
                 surface.destroy();
             }
         }
     }
     fn set_size(&self, width: u32, height: u32) {
         match self {
-            Shell::LayerShell {
-                layer:_,
-                anchor:_,
-                namespace:_,
-                margin:_,
-                surface
-            } => {
+            Shell::LayerShell { config: _, surface } => {
                 surface.set_size(width, height);
             }
         }
@@ -69,8 +99,9 @@ impl Shell {
 
 #[derive(Debug, Clone)]
 struct Surface {
-    surface: Main<WlSurface>,
     shell: Shell,
+    region: Main<WlRegion>,
+    surface: Main<WlSurface>,
     buffer: Option<WlBuffer>,
     previous: Option<Box<Self>>,
 }
@@ -102,8 +133,7 @@ pub struct Application {
     global_manager: GlobalManager,
     pub inner: Vec<InnerApplication>,
     token: RegistrationToken,
-    event_loop: EventLoop<'static, Vec<InnerApplication>>
-    // wayland_source: WaylandSource,
+    event_loop: EventLoop<'static, Vec<InnerApplication>>,
 }
 
 pub struct CoreApplication {
@@ -123,11 +153,13 @@ impl Surface {
     fn new(
         surface: Main<WlSurface>,
         shell: Shell,
+        region: Main<WlRegion>,
         previous: Option<Surface>,
     ) -> Self {
         Surface {
             surface,
             shell,
+            region,
             previous: if let Some(surface) = previous {
                 Some(Box::new(surface))
             } else {
@@ -142,12 +174,22 @@ impl Surface {
     }
     fn destroy(&mut self) {
         self.surface.destroy();
+        self.region.destroy();
         self.shell.destroy();
         self.buffer = None;
         self.previous = None;
     }
     fn set_size(&self, width: u32, height: u32) {
         self.shell.set_size(width, height);
+    }
+    fn add_input(&self, report: &[Region]) {
+        if !report.is_empty() {
+            for r in report {
+                self.region
+                    .add(r.x as i32, r.y as i32, r.width as i32, r.height as i32);
+            }
+            self.surface.set_input_region(Some(&self.region));
+        }
     }
     fn damage(&self, report: &[Region]) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
@@ -177,16 +219,18 @@ impl Globals {
         namespace: &str,
         layer: Layer,
         anchor: Option<Anchor>,
-        margin: [i32;4],
+        output: Option<WlOutput>,
+        margin: [i32; 4],
         previous: Option<Surface>,
     ) -> Option<Surface> {
         if self.compositor.is_none() || self.shell.is_none() {
             None
         } else {
+            let region = self.compositor.as_ref().unwrap().create_region();
             let surface = self.compositor.as_ref().unwrap().create_surface();
             let shell = self.shell.as_ref().unwrap().get_layer_surface(
                 &surface,
-                None,
+                output.as_ref(),
                 layer,
                 namespace.to_string(),
             );
@@ -198,62 +242,58 @@ impl Globals {
             shell.set_margin(margin[0], margin[1], margin[2], margin[3]);
             assign_surface(&shell);
             surface.commit();
-            Some(
-                Surface::new(
-                    surface,
-                    Shell::LayerShell {
-                        layer,
-                        surface: shell,
-                        margin,
-                        namespace: namespace.to_string(),
-                        anchor
-                    },
-                    previous
-                )
-            )
+            Some(Surface::new(
+                surface,
+                Shell::LayerShell {
+                    surface: shell,
+                    config: ShellConfig::layer_shell(layer, anchor, output, namespace, margin),
+                },
+                region,
+                previous,
+            ))
         }
     }
     pub fn create_shell_surface_from(
         &self,
         geometry: &dyn Widget,
-        shell: Shell,
+        config: ShellConfig,
         previous: Option<Surface>,
     ) -> Option<Surface> {
         if self.compositor.is_none() || self.shell.is_none() {
             None
         } else {
+            let region = self.compositor.as_ref().unwrap().create_region();
             let surface = self.compositor.as_ref().unwrap().create_surface();
-            surface.quick_assign(|_, _, _| {});
-            match shell {
-                Shell::LayerShell { layer, anchor, namespace, margin, surface:_ } => {
-                    let shell = self.shell.as_ref().unwrap().get_layer_surface(
-                        &surface,
-                        None,
-                        layer,
-                        namespace.clone(),
-                    );
-                    if let Some(anchor) = &anchor {
-                        shell.set_anchor(*anchor);
-                    }
-                    shell.set_size(geometry.width() as u32, geometry.height() as u32);
-                    shell.set_margin(margin[0], margin[1], margin[2], margin[3]);
-                    surface.commit();
-                    assign_surface(&shell);
-                    Some(
-                        Surface::new(
-                            surface,
-                            Shell::LayerShell {
-                                layer,
-                                surface: shell,
-                                margin,
-                                namespace,
-                                anchor
-                            },
-                            previous
-                        )
-                    )
-                }
+            let shell = self.shell.as_ref().unwrap().get_layer_surface(
+                &surface,
+                config.output.as_ref(),
+                config.layer,
+                config.namespace.clone(),
+            );
+            if let Some(anchor) = &config.anchor {
+                shell.set_anchor(*anchor);
             }
+            surface.quick_assign(|_, _, _| {});
+            shell.set_exclusive_zone(config.exclusive);
+            shell.set_keyboard_interactivity(config.interactivity);
+            shell.set_size(geometry.width() as u32, geometry.height() as u32);
+            shell.set_margin(
+                config.margin[0],
+                config.margin[1],
+                config.margin[2],
+                config.margin[3],
+            );
+            surface.commit();
+            assign_surface(&shell);
+            Some(Surface::new(
+                surface,
+                Shell::LayerShell {
+                    surface: shell,
+                    config,
+                },
+                region,
+                previous,
+            ))
         }
     }
     pub fn create_mempool(&self) -> DoubleMemPool {
@@ -275,8 +315,7 @@ impl Output {
 }
 
 impl Application {
-    pub fn new(pointer: bool, keyboard: bool) -> Self
-     {
+    pub fn new(pointer: bool, keyboard: bool) -> Self {
         let display = Display::connect_to_env().unwrap();
         let mut event_queue = display.create_event_queue();
         let attached_display = (*display).clone().attach(event_queue.token());
@@ -314,7 +353,7 @@ impl Application {
                     seat.quick_assign(move |seat, event, mut globals| match event {
                         wl_seat::Event::Capabilities { capabilities } => {
                             if let Some(globals) = globals.get::<Globals>() {
-                                globals.seats.push(Seat {capabilities, seat});
+                                globals.seats.push(Seat { capabilities, seat });
                             }
                         }
                         _ => {}
@@ -381,26 +420,31 @@ impl Application {
             ),
         );
 
-		for _ in 0..3 {
+        for _ in 0..2 {
             event_queue
                 .sync_roundtrip(&mut globals, |_, _, _| {})
                 .unwrap();
-		}
+        }
 
-        if pointer {
-            // This is done purely for testing purposes
-            // It shouldn't be like this in the realease.
-            // I need to check the Capabilities mask
-            for seat in &globals.seats {
-                let pointer = seat.seat.get_pointer();
-                assign_pointer(&pointer);
+        for seat in &globals.seats {
+            if pointer {
+                if seat.capabilities & Capability::Pointer == Capability::Pointer {
+                    let pointer = seat.seat.get_pointer();
+                    assign_pointer(&pointer);
+                }
+            }
+            if keyboard {
+                if seat.capabilities & Capability::Keyboard == Capability::Keyboard {
+                    let keyboard = seat.seat.get_keyboard();
+                    assign_keyboard(&keyboard);
+                }
             }
         }
 
-        if keyboard {}
-
         let event_loop = EventLoop::try_new().expect("Failed to initialize the event loop!");
-        let token = WaylandSource::new(event_queue).quick_insert(event_loop.handle()).unwrap();
+        let token = WaylandSource::new(event_queue)
+            .quick_insert(event_loop.handle())
+            .unwrap();
 
         Application {
             display,
@@ -408,7 +452,7 @@ impl Application {
             global_manager,
             inner: Vec::new(),
             token,
-            event_loop
+            event_loop,
         }
     }
     pub fn get_outputs(&self) -> &[Output] {
@@ -428,18 +472,30 @@ impl Application {
     {
         self.global_manager.instantiate_range::<I>(0, 1 << 8)
     }
+    pub fn create_inner_application_from(
+        &mut self,
+        config: ShellConfig,
+        widget: impl Widget + 'static,
+        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+    ) {
+        let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
+        let iapp = InnerApplication::new(
+            widget,
+            Backend::Raqote(dt),
+            config,
+            self.globals.clone(),
+            cb,
+        );
+        self.inner.push(iapp);
+        self.event_loop.handle().update(&self.token).unwrap();
+    }
     pub fn create_inner_application(
         &mut self,
         widget: impl Widget + 'static,
         cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
     ) {
         let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
-        let iapp = InnerApplication::default(
-            widget,
-            Backend::Raqote(dt),
-            self.globals.clone(),
-            cb
-        );
+        let iapp = InnerApplication::default(widget, Backend::Raqote(dt), self.globals.clone(), cb);
         self.inner.push(iapp);
         self.event_loop.handle().update(&self.token).unwrap();
     }
@@ -484,21 +540,21 @@ impl CoreApplication {
     pub fn quick_roundtrip(&mut self, ev: Dispatch) {
         self.widget.roundtrip(0., 0., &mut self.ctx, &ev);
     }
+    pub fn get_layer_surface(&self) -> ZwlrLayerSurfaceV1 {
+        match &self.surface.as_ref().unwrap().shell {
+            Shell::LayerShell { config: _, surface } => surface.detach(),
+        }
+    }
     pub fn replace_surface(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
             match &surface.shell {
-                Shell::LayerShell{
-                    layer,
-                    anchor,
-                    namespace,
-                    margin,
-                    surface:_
-                } => {
-                self.surface =
-                    self.globals
-                        .as_ref()
-                        .create_shell_surface(self.widget.deref(), namespace, *layer, *anchor, *margin, Some(surface.clone()));
+                Shell::LayerShell { config, surface: _ } => {
+                    self.surface = self.globals.as_ref().create_shell_surface_from(
+                        self.widget.deref(),
+                        config.clone(),
+                        Some(surface.clone()),
+                    );
                 }
             }
         }
@@ -525,29 +581,34 @@ impl InnerApplication {
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
     ) -> Self {
-        globals.as_ref().create_shell_surface(&widget, "", Layer::Top, None, [0;4], None);
         InnerApplication {
             core: CoreApplication {
                 ctx: Context::new(backend),
-                surface: globals.as_ref().create_shell_surface(&widget, "", Layer::Top, None, [0;4], None),
+                surface: globals.as_ref().create_shell_surface_from(
+                    &widget,
+                    ShellConfig::default_layer_shell(),
+                    None,
+                ),
                 widget: Box::new(widget),
                 mempool: globals.as_ref().create_mempool(),
                 globals,
             },
-            cb: Box::new(cb)
+            cb: Box::new(cb),
         }
     }
     fn new(
         widget: impl Widget + 'static,
         backend: Backend,
-        shell: Shell,
+        config: ShellConfig,
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
                 ctx: Context::new(backend),
-                surface: globals.as_ref().create_shell_surface_from(&widget, shell, None),
+                surface: globals
+                    .as_ref()
+                    .create_shell_surface_from(&widget, config, None),
                 widget: Box::new(widget),
                 mempool: globals.as_ref().create_mempool(),
                 globals,
@@ -564,17 +625,21 @@ impl InnerApplication {
     pub fn dispatch(&mut self, ev: Dispatch) {
         self.core.widget.roundtrip(0., 0., &mut self.core.ctx, &ev);
 
-		let mut show = true;
+        let mut show = true;
         match self.core.ctx.damage_type() {
             DamageType::Full => {
                 self.core.widget.draw(&mut self.core.ctx, 0., 0.);
             }
-            DamageType::Partial => if !self.core.ctx.is_damaged() {
-                show = false;
+            DamageType::Partial => {
+                if !self.core.ctx.is_damaged() {
+                    show = false;
+                }
             }
-            DamageType::Resize => if let Some(surface) = &self.surface {
-                surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-                self.core.widget.draw(&mut self.core.ctx, 0., 0.);
+            DamageType::Resize => {
+                if let Some(surface) = &self.surface {
+                    surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                    self.core.widget.draw(&mut self.core.ctx, 0., 0.);
+                }
             }
         }
 
@@ -583,6 +648,7 @@ impl InnerApplication {
         if self.core.ctx.running && show {
             if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
+                    surface.add_input(self.core.ctx.report_input());
                     if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
                         buffer.merge();
                         surface.attach_buffer(wl_buffer, 0, 0);
@@ -601,72 +667,132 @@ impl InnerApplication {
     }
 }
 
+fn assign_keyboard(keyboard: &Main<WlKeyboard>) {
+    let mut index = 0;
+    let mut kb_key: Option<Key> = None;
+    keyboard.quick_assign(move |_, event, mut inner| match event {
+        wl_keyboard::Event::Leave { serial, surface } => {
+            kb_key = None;
+        }
+        wl_keyboard::Event::Modifiers {
+            serial,
+            mods_depressed,
+            mods_latched,
+            mods_locked,
+            group,
+        } => {}
+        wl_keyboard::Event::Enter {
+            serial,
+            surface,
+            keys,
+        } => {
+            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                index = Application::get_index(inner, &surface);
+            }
+        }
+        wl_keyboard::Event::Key {
+            serial,
+            time,
+            key,
+            state,
+        } => {
+            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                if let Some(kb_key) = kb_key.as_mut() {
+                    kb_key.value = key;
+                    kb_key.pressed = state == wl_keyboard::KeyState::Pressed;
+                    inner[index].dispatch(Dispatch::Keyboard(*kb_key));
+                } else {
+                    kb_key = Some(Key {
+                        value: key,
+                        pressed: state == wl_keyboard::KeyState::Pressed,
+                        modifier: None,
+                    });
+                    inner[index].dispatch(Dispatch::Keyboard(kb_key.clone().unwrap()));
+                }
+            }
+        }
+        wl_keyboard::Event::RepeatInfo { rate, delay } => {}
+        _ => {}
+    });
+}
+
 fn assign_pointer(pointer: &Main<WlPointer>) {
     let mut index = 0;
     let mut input = Pointer::Enter;
     let (mut x, mut y) = (0., 0.);
-    pointer.quick_assign(move |_, event, mut inner| {
-        match event {
-            wl_pointer::Event::Leave { serial:_, surface } => {
-                input = Pointer::Leave;
-                if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                    inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
-                }
+    pointer.quick_assign(move |_, event, mut inner| match event {
+        wl_pointer::Event::Leave { serial: _, surface } => {
+            input = Pointer::Leave;
+            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                index = Application::get_index(inner, &surface);
+                inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
             }
-            wl_pointer::Event::Button { serial, time, button, state } => {
-                input = Pointer::MouseClick {
-                    time,
-                    button,
-                    pressed: state == wl_pointer::ButtonState::Pressed,
-                };
+        }
+        wl_pointer::Event::Button {
+            serial,
+            time,
+            button,
+            state,
+        } => {
+            input = Pointer::MouseClick {
+                time,
+                button,
+                pressed: state == wl_pointer::ButtonState::Pressed,
+            };
+        }
+        wl_pointer::Event::Frame => {
+            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
             }
-            wl_pointer::Event::Frame => {
-                if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                    inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
-                }
-            }
-            wl_pointer::Event::Enter { serial, surface, surface_x, surface_y } => {
-                if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                    x = surface_x;
-                    y = surface_y;
-                    index = Application::get_index(&inner, &surface);
-                }
-            }
-            wl_pointer::Event::Motion { time, surface_x, surface_y } => {
+        }
+        wl_pointer::Event::Enter {
+            serial,
+            surface,
+            surface_x,
+            surface_y,
+        } => {
+            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
                 x = surface_x;
                 y = surface_y;
-                input = Pointer::Hover;
+                index = Application::get_index(&inner, &surface);
             }
-            _ => {}
         }
+        wl_pointer::Event::Motion {
+            time,
+            surface_x,
+            surface_y,
+        } => {
+            x = surface_x;
+            y = surface_y;
+            input = Pointer::Hover;
+        }
+        _ => {}
     });
 }
 
 fn assign_surface(shell: &Main<ZwlrLayerSurfaceV1>) {
-    shell.quick_assign(|shell, event, mut inner| {
-        match event {
-            zwlr_layer_surface_v1::Event::Configure {
-                serial,
-                width:_,
-                height:_
-            } => {
-                shell.ack_configure(serial);
-                if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                    for a in inner {
-                        if let Some(surface) = &a.surface {
-                            match &surface.shell {
-                                Shell::LayerShell { layer:_, anchor:_, namespace:_, margin:_, surface } => {
-                                    if shell.eq(surface) {
-                                        a.full_damage();
-                                        a.dispatch(Dispatch::Commit);
-                                    }
+    shell.quick_assign(|shell, event, mut inner| match event {
+        zwlr_layer_surface_v1::Event::Configure {
+            serial,
+            width: _,
+            height: _,
+        } => {
+            shell.ack_configure(serial);
+            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                for a in inner {
+                    if let Some(surface) = &a.surface {
+                        match &surface.shell {
+                            Shell::LayerShell { config: _, surface } => {
+                                if shell.eq(surface) {
+                                    a.full_damage();
+                                    a.dispatch(Dispatch::Commit);
                                 }
                             }
                         }
                     }
                 }
             }
-            _ => unreachable!()
         }
+        _ => unreachable!(),
     });
 }

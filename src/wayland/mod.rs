@@ -37,6 +37,5 @@ impl<'b> Buffer<'b> {
     pub fn merge(mut self) {
         self.mmap.write_all(&self.ctx).unwrap();
         self.mmap.flush().unwrap();
-        self.ctx.flush();
     }
 }

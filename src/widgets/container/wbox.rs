@@ -1,6 +1,6 @@
+use crate::context::DamageType;
 use crate::widgets::primitives::WidgetShell;
 use crate::*;
-use crate::context::DamageType;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Anchor {

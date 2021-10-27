@@ -1,5 +1,6 @@
-use crate::widgets::primitives::WidgetShell;
 use crate::*;
+use crate::context::DamageType;
+use crate::widgets::primitives::WidgetShell;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -16,6 +17,7 @@ pub enum Alignment {
 
 pub struct Element {
     mapped: bool,
+    hidden: bool,
     pub widget: Box<dyn Widget>,
 }
 
@@ -23,6 +25,7 @@ impl Element {
     fn new(widget: impl Widget + 'static) -> Element {
         Element {
             mapped: true,
+            hidden: false,
             widget: Box::new(widget),
         }
     }
@@ -107,7 +110,9 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dy = (sh - w.widget.height()) / 2.,
                             Alignment::End => dy = sh - w.widget.height(),
                         }
-                        w.widget.draw(ctx, x + dx, y + dy);
+                        if !w.hidden {
+                            w.widget.draw(ctx, x + dx, y + dy);
+                        }
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -116,7 +121,9 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dx = (sw - w.widget.width()) / 2.,
                             Alignment::End => dx = sw - w.widget.width(),
                         }
-                        w.widget.draw(ctx, x + dx, y + dy);
+                        if !w.hidden {
+                            w.widget.draw(ctx, x + dx, y + dy);
+                        }
                         dy += w.widget.height() + self.spacing;
                     }
                 }
@@ -196,10 +203,12 @@ impl WidgetLayout {
 
 impl Widget for WidgetLayout {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+        let mut index = 0;
+        let mut draw = false;
         let sw = self.width();
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
-        for w in &mut self.widgets {
+        for (i, w) in &mut self.widgets.iter_mut().enumerate() {
             let ww = w.widget.width();
             let wh = w.widget.height();
             if w.mapped {
@@ -211,8 +220,13 @@ impl Widget for WidgetLayout {
                             Alignment::End => dy = sh - wh,
                         }
                         w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if ww != w.widget.width() || wh != w.widget.height() {
-                            ctx.request_resize();
+                        if let DamageType::Resize = ctx.damage_type() {
+                            if ww != w.widget.width() || wh != w.widget.height() {
+                                ctx.request_resize();
+                            } else {
+                                index = i;
+                                draw = true;
+                            }
                         }
                         dx += w.widget.width() + self.spacing;
                     }
@@ -223,12 +237,26 @@ impl Widget for WidgetLayout {
                             Alignment::End => dx = sw - ww,
                         }
                         w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if ww != w.widget.width() || wh != w.widget.height() {
-                            ctx.request_resize();
+                        if let DamageType::Resize = ctx.damage_type() {
+                            if ww != w.widget.width() || wh != w.widget.height() {
+                                ctx.request_resize();
+                            } else {
+                                index = i;
+                                draw = true;
+                            }
                         }
                         dy += w.widget.height() + self.spacing;
                     }
                 }
+            }
+        }
+        if draw {
+            for i in 0..index {
+                self.widgets[i].hidden = true;
+            }
+            self.draw(ctx, wx, wy);
+            for i in 0..index {
+                self.widgets[i].hidden = false;
             }
         }
     }

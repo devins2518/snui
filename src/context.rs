@@ -1,12 +1,13 @@
-use crate::widgets::text::{Font, GlyphCache, GlyphPosition};
 use crate::*;
-use euclid::default::{Box2D, Point2D};
-use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
-use std::collections::HashMap;
+use std::any::Any;
 use std::f32::consts::PI;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use widgets::primitives::Style;
+use euclid::default::{Box2D, Point2D};
+use lyon_geom::euclid::{point2, vec2, Angle};
+use crate::widgets::text::{Font, GlyphCache, GlyphPosition};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Dispatch {
@@ -48,6 +49,7 @@ pub struct Context {
     input_regions: Vec<Region>,
     damage_type: DamageType,
     damage_regions: Vec<Region>,
+    values: HashMap<String, Box<dyn Any>>,
     font_cache: HashMap<String, GlyphCache>,
 }
 
@@ -56,6 +58,7 @@ impl Context {
         Self {
             backend,
             running: true,
+            values: HashMap::new(),
             input_regions: Vec::new(),
             damage_regions: Vec::new(),
             font_cache: HashMap::new(),
@@ -170,7 +173,7 @@ impl Context {
         match &mut self.backend {
             Backend::Raqote(dt) => {
                 *dt = DrawTarget::new(width, height);
-                self.damage_regions.clear();
+                self.flush();
             }
         }
     }
@@ -205,6 +208,21 @@ impl Context {
     pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
         if let Ok(glyph_cache) = GlyphCache::load(path) {
             self.font_cache.insert(name.to_owned(), glyph_cache);
+        }
+    }
+    pub fn store_value<T: Any>(&mut self, name: &str, value: T) {
+        if let Some(inner_value) = self.values.get_mut(name) {
+            *inner_value.downcast_mut::<T>()
+            	.expect("Invalid Type") = value;
+        } else {
+            self.values.insert(name.to_string(), Box::new(value));
+        }
+    }
+    pub fn get_value<T: Any>(&mut self, name: &str) -> Option<&T> {
+        if let Some(value) = self.values.get(name) {
+            value.downcast_ref()
+        } else {
+            None
         }
     }
     pub fn get_fonts(&self, fonts: &[String]) -> Vec<&Font> {
@@ -324,7 +342,11 @@ impl Drawable for Context {
 
 fn add_region(vec: &mut Vec<Region>, x: f32, y: f32, width: f32, height: f32) {
     if let Some(last) = vec.last() {
-        if last.x > x && last.y > y && last.x < x + width && last.y < y + height {
+        if !(last.x <= x
+            && last.y <= y
+            && last.x + last.width > x + width
+            && last.y + last.height > y + height)
+        {
             vec.push(Region {
                 x,
                 y,

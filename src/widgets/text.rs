@@ -146,10 +146,8 @@ impl Widget for Label {
                 for c in text.chars() {
                     for (i, font) in fonts.iter().enumerate() {
                         if font.lookup_glyph_index(c) != 0 {
-                            self.layout.append(
-                                &fonts,
-                                &TextStyle::new(&c.to_string(), self.font_size, i),
-                            );
+                            self.layout
+                                .append(&fonts, &TextStyle::new(&c.to_string(), self.font_size, i));
                             break;
                         }
                     }
