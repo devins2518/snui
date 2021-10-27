@@ -132,23 +132,27 @@ impl Drawable for Label {
             b: color[3],
         };
     }
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        canvas.draw_label(x, y, &self.fonts, &self.glyphs, self.source);
+    fn draw(&self, context: &mut Context, x: f32, y: f32) {
+        context.push(x, y, self.width(), self.height());
+        context.draw_label(x, y, &self.fonts, &self.glyphs, self.source);
     }
 }
 
 impl Widget for Label {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, context: &mut Context, dispatch: &Dispatch) {
         match dispatch {
+            Dispatch::ForceDraw => self.draw(context, wx, wy),
             Dispatch::Prepare => {
                 if let Some(text) = self.write_buffer.as_ref() {
-                    let fonts = canvas.get_fonts(&self.fonts);
-                    if !fonts.is_empty()  {
+                    let fonts = context.get_fonts(&self.fonts);
+                    if !fonts.is_empty() {
                         for c in text.chars() {
                             for (i, font) in fonts.iter().enumerate() {
                                 if font.lookup_glyph_index(c) != 0 {
-                                    self.layout
-                                        .append(&fonts, &TextStyle::new(&c.to_string(), self.font_size, i));
+                                    self.layout.append(
+                                        &fonts,
+                                        &TextStyle::new(&c.to_string(), self.font_size, i),
+                                    );
                                     break;
                                 }
                             }

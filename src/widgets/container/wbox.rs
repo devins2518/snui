@@ -41,14 +41,14 @@ impl Drawable for Inner {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color)
     }
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
-        self.widget.draw(canvas, x, y);
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
+        self.widget.draw(ctx, x, y);
     }
 }
 
 impl Widget for Inner {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
-        self.widget.roundtrip(wx, wy, canvas, dispatch)
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+        self.widget.roundtrip(wx, wy, ctx, dispatch)
     }
 }
 
@@ -176,14 +176,14 @@ impl Geometry for Wbox {
 
 impl Drawable for Wbox {
     fn set_color(&mut self, _color: u32) {}
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         let sw = self.width();
         let sh = self.height();
         for w in &self.widgets {
             match w.location(sw, sh) {
                 Ok((dx, dy)) => {
                     if w.is_mapped() && dx <= sw && dy <= sh {
-                        w.draw(canvas, x + dx, y + dy)
+                        w.draw(ctx, x + dx, y + dy)
                     }
                 }
                 Err(e) => e.debug(),
@@ -242,12 +242,12 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let width = self.width();
         let height = self.height();
         for l in &mut self.widgets {
             let (dx, dy) = l.location(width, height).unwrap();
-            l.roundtrip(wx + dx, wy + dy, canvas, dispatch);
+            l.roundtrip(wx + dx, wy + dy, ctx, dispatch);
         }
     }
 }

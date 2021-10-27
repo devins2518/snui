@@ -100,17 +100,15 @@ impl Drawable for Rectangle {
             };
         }
     }
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         if !self.style.is_empty() {
-            canvas.draw_rectangle(x, y, self.width(), self.height(), self.radius, &self.style);
+            ctx.draw_rectangle(x, y, self.width(), self.height(), self.radius, &self.style);
         }
     }
 }
 
 impl Widget for Rectangle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _canvas: &mut Canvas, dispatch: &Dispatch) {
-        if let Dispatch::Commit = dispatch {}
-    }
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, dispatch: &Dispatch) {}
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -154,15 +152,13 @@ impl Drawable for Circle {
             };
         }
     }
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         if !self.style.is_empty() {
-            canvas.draw_ellipse(x, y, self.width(), self.height(), &self.style);
+            ctx.draw_ellipse(x, y, self.width(), self.height(), &self.style);
         }
     }
 }
 
 impl Widget for Circle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _canvas: &mut Canvas, dispatch: &Dispatch) {
-        if let Dispatch::Commit = dispatch {}
-    }
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, dispatch: &Dispatch) {}
 }

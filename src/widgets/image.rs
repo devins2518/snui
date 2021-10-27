@@ -62,7 +62,7 @@ impl Drawable for Image {
         eprintln!("Attempted to perform illegal operation on image!");
     }
 
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+    fn draw(&self, canvas: &mut Context, x: f32, y: f32) {
         let buf = self.image.as_raw();
         let p = buf.as_ptr();
         let len = buf.len();
@@ -78,7 +78,5 @@ impl Drawable for Image {
 }
 
 impl Widget for Image {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _canvas: &mut Canvas, dispatch: &Dispatch) {
-        if let Dispatch::Commit = dispatch {}
-    }
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, dispatch: &Dispatch) {}
 }

@@ -8,6 +8,22 @@ use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
 use widgets::primitives::Style;
 
+#[derive(Debug, Clone, Copy)]
+pub enum Dispatch {
+    Prepare,
+    ForceDraw,
+    Keyboard(Key),
+    Message(&'static str),
+    Pointer(f32, f32, Pointer),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum DamageType {
+    Full,
+    Resize,
+    Partial,
+}
+
 pub enum Backend {
     Raqote(DrawTarget),
 }
@@ -27,7 +43,9 @@ pub struct DamageReport {
 }
 
 pub struct Context {
+    running: bool,
     backend: Backend,
+    damage_type: DamageType,
     damage: Vec<DamageReport>,
     font_cache: HashMap<String, GlyphCache>,
 }
@@ -36,8 +54,10 @@ impl Context {
     pub fn new(backend: Backend) -> Self {
         Self {
             backend,
+            running: false,
             damage: Vec::new(),
             font_cache: HashMap::new(),
+            damage_type: DamageType::Partial,
         }
     }
     pub fn push(&mut self, x: f32, y: f32, width: f32, height: f32) {
@@ -58,6 +78,9 @@ impl Context {
                 height,
             });
         }
+    }
+    pub fn damage_type(&self) -> DamageType {
+        self.damage_type
     }
     pub fn flush(&mut self) {
         self.damage.clear();
@@ -157,6 +180,12 @@ impl Context {
             }
         }
     }
+    pub fn request_resize(&mut self) {
+        match &self.damage_type {
+            DamageType::Partial => self.damage_type = DamageType::Resize,
+            _ => {}
+        }
+    }
     pub fn clear(&mut self) {
         match &mut self.backend {
             Backend::Raqote(dt) => {
@@ -176,19 +205,22 @@ impl Context {
         }
     }
     pub fn get_fonts(&self, fonts: &[String]) -> Vec<&Font> {
-        fonts.iter().filter_map(|font| {
-            if let Some(glyph_cache) = self.font_cache.get(font) {
-                return Some(&glyph_cache.font)
-            }
-            None
-        }).collect()
+        fonts
+            .iter()
+            .filter_map(|font| {
+                if let Some(glyph_cache) = self.font_cache.get(font) {
+                    return Some(&glyph_cache.font);
+                }
+                None
+            })
+            .collect()
     }
     pub fn draw_label(
         &mut self,
         x: f32,
         y: f32,
         fonts: &[String],
-        glyphs: &Vec<GlyphPosition>,
+        glyphs: &[GlyphPosition],
         source: SolidSource,
     ) {
         for gp in glyphs {
@@ -264,14 +296,14 @@ impl Drawable for Context {
             ),
         }
     }
-    fn draw(&self, canvas: &mut Context, x: f32, y: f32) {
-        canvas.damage.push(DamageReport {
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
+        ctx.damage.push(DamageReport {
             x,
             y,
-            width: canvas.width(),
-            height: canvas.height(),
+            width: ctx.width(),
+            height: ctx.height(),
         });
-        match &mut canvas.backend {
+        match &mut ctx.backend {
             Backend::Raqote(dt) => match &self.backend {
                 Backend::Raqote(st) => dt.blend_surface(
                     &st,

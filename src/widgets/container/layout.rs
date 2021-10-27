@@ -94,7 +94,7 @@ impl Geometry for WidgetLayout {
 
 impl Drawable for WidgetLayout {
     fn set_color(&mut self, _color: u32) {}
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         let sw = self.width();
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
@@ -107,7 +107,7 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dy = (sh - w.widget.height()) / 2.,
                             Alignment::End => dy = sh - w.widget.height(),
                         }
-                        w.widget.draw(canvas, x + dx, y + dy);
+                        w.widget.draw(ctx, x + dx, y + dy);
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -116,7 +116,7 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dx = (sw - w.widget.width()) / 2.,
                             Alignment::End => dx = sw - w.widget.width(),
                         }
-                        w.widget.draw(canvas, x + dx, y + dy);
+                        w.widget.draw(ctx, x + dx, y + dy);
                         dy += w.widget.height() + self.spacing;
                     }
                 }
@@ -195,29 +195,37 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let sw = self.width();
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
         for w in &mut self.widgets {
+            let ww = w.widget.width();
+            let wh = w.widget.height();
             if w.mapped {
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {
                             Alignment::Start => dy = 0.,
-                            Alignment::Center => dy = (sh - w.widget.height()) / 2.,
-                            Alignment::End => dy = sh - w.widget.height(),
+                            Alignment::Center => dy = (sh - wh) / 2.,
+                            Alignment::End => dy = sh - wh,
                         }
-                        w.widget.roundtrip(wx + dx, wy + dy, canvas, dispatch);
+                        w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+                        if ww != w.widget.width() || wh != w.widget.height() {
+                            ctx.request_resize();
+                        }
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
                         match self.alignment {
                             Alignment::Start => dx = 0.,
-                            Alignment::Center => dx = (sw - w.widget.width()) / 2.,
-                            Alignment::End => dx = sw - w.widget.width(),
+                            Alignment::Center => dx = (sw - ww) / 2.,
+                            Alignment::End => dx = sw - ww,
                         }
-                        w.widget.roundtrip(wx + dx, wy + dy, canvas, dispatch);
+                        w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+                        if ww != w.widget.width() || wh != w.widget.height() {
+                            ctx.request_resize();
+                        }
                         dy += w.widget.height() + self.spacing;
                     }
                 }

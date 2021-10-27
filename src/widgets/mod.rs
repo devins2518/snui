@@ -9,7 +9,7 @@ pub use container::{layout::WidgetLayout, Wbox};
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
 
-pub fn render(canvas: &mut Canvas, buffer: &[u8], width: f32, x: f32, y: f32) {
+pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
     let mut index = ((x + (y * canvas.width())) * 4.) as usize;
     for buf in buffer.chunks(width as usize * 4) {
@@ -96,55 +96,64 @@ impl<W: Widget> Drawable for Actionnable<W> {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color);
     }
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+    fn draw(&self, canvas: &mut Context, x: f32, y: f32) {
         self.widget.draw(canvas, x, y)
     }
 }
 
 impl<W: Widget> Widget for Actionnable<W> {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Context, dispatch: &Dispatch) {
         if let Dispatch::Pointer(x, y, pointer) = dispatch {
             if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                 if !self.focused {
                     self.focused = true;
-                    if !handle_damage((self.cb)(
-                        &mut self.widget,
-                        &Dispatch::Pointer(*x, *y, Pointer::Enter),
-                        wx,
-                        wy,
-                    ), canvas) {
+                    if !handle_damage(
+                        (self.cb)(
+                            &mut self.widget,
+                            &Dispatch::Pointer(*x, *y, Pointer::Enter),
+                            wx,
+                            wy,
+                        ),
+                        canvas,
+                    ) {
                         self.widget.roundtrip(wx, wy, canvas, dispatch);
                     }
                 } else {
-                    if !handle_damage((self.cb)(
-                        &mut self.widget,
-                        &Dispatch::Pointer(*x, *y, *pointer),
-                        wx,
-                        wy,
-                    ), canvas) {
+                    if !handle_damage(
+                        (self.cb)(
+                            &mut self.widget,
+                            &Dispatch::Pointer(*x, *y, *pointer),
+                            wx,
+                            wy,
+                        ),
+                        canvas,
+                    ) {
                         self.widget.roundtrip(wx, wy, canvas, dispatch);
                     }
                 }
             } else if self.focused {
                 self.focused = false;
-                if !handle_damage((self.cb)(
-                    &mut self.widget,
-                    &Dispatch::Pointer(*x, *y, Pointer::Leave),
-                    wx,
-                    wy,
-                ), canvas) {
+                if !handle_damage(
+                    (self.cb)(
+                        &mut self.widget,
+                        &Dispatch::Pointer(*x, *y, Pointer::Leave),
+                        wx,
+                        wy,
+                    ),
+                    canvas,
+                ) {
                     self.widget.roundtrip(wx, wy, canvas, dispatch);
                 }
             }
         } else {
             if !handle_damage((self.cb)(&mut self.widget, dispatch, wx, wy), canvas) {
-               self.widget.roundtrip(wx, wy, canvas, dispatch);
+                self.widget.roundtrip(wx, wy, canvas, dispatch);
             }
         }
     }
 }
 
-fn handle_damage(damage: Option<Damage>, canvas: &mut Canvas) -> bool {
+fn handle_damage(damage: Option<Damage>, canvas: &mut Context) -> bool {
     if let Some(damage) = damage {
         damage.widget.draw(canvas, damage.x, damage.y);
         true

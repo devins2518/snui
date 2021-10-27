@@ -15,11 +15,11 @@ impl<N: Widget, R: Widget> Drawable for Revealer<N, R> {
             self.normal.set_color(color);
         }
     }
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32) {
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         if self.state {
-            self.reveal.draw(canvas, x, y)
+            self.reveal.draw(ctx, x, y)
         } else {
-            self.normal.draw(canvas, x, y)
+            self.normal.draw(ctx, x, y)
         }
     }
 }
@@ -55,11 +55,11 @@ impl<N: Widget, R: Widget> Revealer<N, R> {
 }
 
 impl<N: Widget, R: Widget> Widget for Revealer<N, R> {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch) {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         if self.state {
-            self.reveal.roundtrip(wx, wy, canvas, dispatch)
+            self.reveal.roundtrip(wx, wy, ctx, dispatch)
         } else {
-            self.normal.roundtrip(wx, wy, canvas, dispatch)
+            self.normal.roundtrip(wx, wy, ctx, dispatch)
         }
     }
 }

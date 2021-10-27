@@ -1,8 +1,8 @@
-pub mod canvas;
+pub mod context;
 pub mod wayland;
 pub mod widgets;
 
-use canvas::Canvas;
+use context::{Context, Dispatch};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
@@ -17,36 +17,6 @@ pub struct Key {
     pub value: u32,
     modifier: Option<u32>,
     pressed: bool,
-}
-
-#[derive(Debug)]
-pub enum Dispatch {
-    Message(&'static str),
-    Pointer(f32, f32, Pointer),
-    Data(&'static str, Box<dyn std::any::Any + Send + Sync>),
-    Keyboard(Key),
-    Prepare,
-    Commit,
-    // Proposal
-    // Draw
-}
-
-impl Dispatch {
-    pub fn data(name: &'static str, data: impl std::any::Any + Send + Sync) -> Self {
-        Self::Data(name, Box::new(data))
-    }
-    pub fn get<T: std::any::Any + Send + Sync>(&self, name: &str) -> Option<&T> {
-        match self {
-            Dispatch::Data(n, data) => {
-                if &name == n {
-                    data.downcast_ref()
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
 }
 
 pub struct Damage<'d> {
@@ -99,15 +69,15 @@ pub trait Geometry {
 }
 
 /*
- * A trait for types that can be drawn on a Canvas.
+ * A trait for types that can be drawn on a Context.
  */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
-    fn draw(&self, canvas: &mut Canvas, x: f32, y: f32);
+    fn draw(&self, context: &mut Context, x: f32, y: f32);
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, canvas: &mut Canvas, dispatch: &Dispatch);
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, context: &mut Context, dispatch: &Dispatch);
 }
 
 impl Error {

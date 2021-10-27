@@ -1,6 +1,6 @@
 pub mod app;
 
-use crate::canvas::Canvas;
+use crate::context::Context;
 use crate::*;
 use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
@@ -10,20 +10,20 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    canvas: &'b mut Canvas,
+    context: &'b mut Context,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut MemPool, canvas: &'b mut Canvas) -> Result<(Self, WlBuffer), ()> {
-        let width = canvas.width() as i32;
-        let height = canvas.height() as i32;
+    fn new(mempool: &'b mut MemPool, context: &'b mut Context) -> Result<(Self, WlBuffer), ()> {
+        let width = context.width() as i32;
+        let height = context.height() as i32;
         let stride = width * 4;
         if mempool.resize((stride * height) as usize).is_ok() {
             let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
             Ok((
                 Self {
                     mmap: mempool.mmap(),
-                    canvas,
+                    context,
                 },
                 wlbuf,
             ))
@@ -31,12 +31,12 @@ impl<'b> Buffer<'b> {
             Err(())
         }
     }
-    pub fn canvas(&mut self) -> &mut Canvas {
-        self.canvas
+    pub fn context(&mut self) -> &mut Context {
+        self.context
     }
     pub fn merge(mut self) {
-        self.mmap.write_all(&self.canvas).unwrap();
+        self.mmap.write_all(&self.context).unwrap();
         self.mmap.flush().unwrap();
-        self.canvas.flush_damage();
+        self.context.flush();
     }
 }
