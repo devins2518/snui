@@ -14,7 +14,6 @@ pub enum Style {
 pub enum Shape {
     Rectangle,
     Circle,
-    Triangle,
 }
 
 pub struct WidgetShell<W: Widget> {
