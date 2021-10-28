@@ -168,6 +168,9 @@ impl<W: Widget> WidgetShell<W> {
             padding[3] as f32,
         ];
     }
+    pub fn unwrap(self) -> W {
+        self.child
+    }
 }
 
 impl<W: Widget> Deref for WidgetShell<W> {

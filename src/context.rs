@@ -1,22 +1,13 @@
+use crate::widgets::text::{Font, GlyphCache, GlyphPosition};
 use crate::*;
-use raqote::*;
-use std::any::Any;
-use std::f32::consts::PI;
-use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
-use widgets::primitives::Style;
 use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
-use crate::widgets::text::{Font, GlyphCache, GlyphPosition};
-
-#[derive(Debug, Clone, Copy)]
-pub enum Dispatch {
-    Prepare,
-    Commit,
-    Keyboard(Key),
-    Message(&'static str),
-    Pointer(f32, f32, Pointer),
-}
+use raqote::*;
+use std::any::Any;
+use std::collections::HashMap;
+use std::f32::consts::PI;
+use std::ops::{Deref, DerefMut};
+use widgets::primitives::Style;
 
 #[derive(Debug, Clone, Copy)]
 pub enum DamageType {
@@ -212,8 +203,7 @@ impl Context {
     }
     pub fn store_value<T: Any>(&mut self, name: &str, value: T) {
         if let Some(inner_value) = self.values.get_mut(name) {
-            *inner_value.downcast_mut::<T>()
-            	.expect("Invalid Type") = value;
+            *inner_value.downcast_mut::<T>().expect("Invalid Type") = value;
         } else {
             self.values.insert(name.to_string(), Box::new(value));
         }

@@ -4,6 +4,9 @@ use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
 use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
+use smithay_client_toolkit::seat::keyboard::{
+    keysyms, map_keyboard_repeat, KeyState, RepeatKind, RMLVO, ModifiersState, self
+};
 use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
 use smithay_client_toolkit::WaylandSource;
 use std::collections::HashMap;
@@ -11,11 +14,9 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_keyboard::KeyState;
 use wayland_client::protocol::wl_keyboard::{self, WlKeyboard};
 use wayland_client::protocol::wl_output::{self, WlOutput};
-use wayland_client::protocol::wl_pointer::ButtonState;
-use wayland_client::protocol::wl_pointer::{self, WlPointer};
+use wayland_client::protocol::wl_pointer::{self, WlPointer, ButtonState};
 use wayland_client::protocol::wl_region::{self, WlRegion};
 use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
@@ -426,25 +427,85 @@ impl Application {
                 .unwrap();
         }
 
-        for seat in &globals.seats {
-            if pointer {
-                if seat.capabilities & Capability::Pointer == Capability::Pointer {
-                    let pointer = seat.seat.get_pointer();
-                    assign_pointer(&pointer);
-                }
-            }
-            if keyboard {
-                if seat.capabilities & Capability::Keyboard == Capability::Keyboard {
-                    let keyboard = seat.seat.get_keyboard();
-                    assign_keyboard(&keyboard);
-                }
-            }
-        }
-
         let event_loop = EventLoop::try_new().expect("Failed to initialize the event loop!");
         let token = WaylandSource::new(event_queue)
             .quick_insert(event_loop.handle())
             .unwrap();
+
+        for seat in &globals.seats {
+            let mut index = 0;
+            let mut ch = None;
+            if keyboard && (seat.capabilities & Capability::Keyboard == Capability::Keyboard) {
+                let _ = map_keyboard_repeat(
+                    event_loop.handle(),
+                    &Attached::from(seat.seat.clone()),
+                    None,
+                    RepeatKind::System,
+                    move |ev, _, mut inner| match ev {
+                        keyboard::Event::Modifiers {
+                            modifiers
+                        } => {
+                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                                inner[index].dispatch(Dispatch::Keyboard(Key {
+                                    utf8: ch.as_ref(),
+                                    value: &[],
+                                    modifiers: Modifiers::from(modifiers),
+                            		pressed: true,
+                                }));
+                            }
+                        }
+                        keyboard::Event::Enter {
+                            serial,
+                            surface,
+                            rawkeys,
+                            keysyms
+                        } => {
+                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                                index = Application::get_index(inner, &surface);
+                            }
+                        }
+                        keyboard::Event::Key {
+                            serial: _,
+                            time,
+                            rawkey,
+                            keysym,
+                            state,
+                            utf8,
+                        } => {
+                            ch = utf8;
+                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                                inner[index].dispatch(Dispatch::Keyboard(Key {
+                                    utf8: ch.as_ref(),
+                                    value: &[rawkey],
+                                    modifiers: Modifiers::default(),
+                            		pressed: state == keyboard::KeyState::Pressed,
+                                }));
+                            }
+                        }
+                        keyboard::Event::Repeat {
+                            time,
+                            rawkey,
+                            keysym,
+                            utf8
+                        } => {
+                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+                                inner[index].dispatch(Dispatch::Keyboard(Key {
+                                    utf8: ch.as_ref(),
+                                    value: &[keysym],
+                                    modifiers: Modifiers::default(),
+                            		pressed: true,
+                                }));
+                            }
+                        }
+                        _ => {}
+                    },
+                ).unwrap();
+            }
+            if pointer && seat.capabilities & Capability::Pointer == Capability::Pointer {
+                let pointer = seat.seat.get_pointer();
+                assign_pointer(&pointer);
+            }
+        }
 
         Application {
             display,
@@ -629,7 +690,12 @@ impl InnerApplication {
         match self.core.ctx.damage_type() {
             DamageType::Full => {
                 self.core.widget.draw(&mut self.core.ctx, 0., 0.);
-                self.core.surface.as_ref().unwrap().region.subtract(0, 0,  1 << 31, 1 << 31);
+                self.core
+                    .surface
+                    .as_ref()
+                    .unwrap()
+                    .region
+                    .subtract(0, 0, 1 << 30, 1 << 30);
             }
             DamageType::Partial => {
                 if !self.core.ctx.is_damaged() {
@@ -668,12 +734,26 @@ impl InnerApplication {
     }
 }
 
+
+impl Modifiers {
+    fn from(modifer_state: ModifiersState) -> Modifiers {
+        Modifiers {
+            ctrl: modifer_state.ctrl,
+            alt: modifer_state.alt,
+            shift: modifer_state.shift,
+            caps_lock: modifer_state.caps_lock,
+            logo: modifer_state.logo,
+            num_lock: modifer_state.num_lock,
+        }
+    }
+}
+
+/* TO-DO
 fn assign_keyboard(keyboard: &Main<WlKeyboard>) {
     let mut index = 0;
     let mut kb_key: Option<Key> = None;
     keyboard.quick_assign(move |_, event, mut inner| match event {
         wl_keyboard::Event::Leave { serial, surface } => {
-            kb_key = None;
         }
         wl_keyboard::Event::Modifiers {
             serial,
@@ -698,24 +778,13 @@ fn assign_keyboard(keyboard: &Main<WlKeyboard>) {
             state,
         } => {
             if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                if let Some(kb_key) = kb_key.as_mut() {
-                    kb_key.value = key;
-                    kb_key.pressed = state == wl_keyboard::KeyState::Pressed;
-                    inner[index].dispatch(Dispatch::Keyboard(*kb_key));
-                } else {
-                    kb_key = Some(Key {
-                        value: key,
-                        pressed: state == wl_keyboard::KeyState::Pressed,
-                        modifier: None,
-                    });
-                    inner[index].dispatch(Dispatch::Keyboard(kb_key.clone().unwrap()));
-                }
             }
         }
         wl_keyboard::Event::RepeatInfo { rate, delay } => {}
         _ => {}
     });
 }
+*/
 
 fn assign_pointer(pointer: &Main<WlPointer>) {
     let mut index = 0;
@@ -737,7 +806,7 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
         } => {
             input = Pointer::MouseClick {
                 time,
-                button,
+                button: MouseButton::new(button),
                 pressed: state == wl_pointer::ButtonState::Pressed,
             };
         }

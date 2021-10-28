@@ -1,4 +1,3 @@
-use crate::widgets::primitives::WidgetShell;
 use crate::*;
 pub use fontdue::{
     layout,
@@ -198,9 +197,9 @@ fn create_source(color: u32) -> SolidSource {
 }
 
 impl Label {
-    pub fn new(text: &str, font: &str, font_size: f32, color: u32) -> WidgetShell<Label> {
+    pub fn new(text: &str, font: &str, font_size: f32, color: u32) -> Label {
         let (settings, mut layout) = create_layout(None, None);
-        WidgetShell::default(Label {
+        Label {
             glyphs: layout.glyphs().clone(),
             width: get_width(layout.glyphs()),
             source: create_source(color),
@@ -209,7 +208,7 @@ impl Label {
             settings,
             write_buffer: Some(text.to_owned()),
             layout,
-        })
+        }
     }
     pub fn new_with_size(
         text: &str,
@@ -218,9 +217,9 @@ impl Label {
         width: f32,
         height: f32,
         color: u32,
-    ) -> WidgetShell<Label> {
+    ) -> Label {
         let (settings, mut layout) = create_layout(Some(width), Some(height));
-        WidgetShell::default(Label {
+        Label {
             glyphs: layout.glyphs().clone(),
             width,
             source: create_source(color),
@@ -229,17 +228,11 @@ impl Label {
             settings,
             write_buffer: Some(text.to_owned()),
             layout,
-        })
+        }
     }
-    pub fn max_width(
-        text: &str,
-        font: &str,
-        font_size: f32,
-        width: f32,
-        color: u32,
-    ) -> WidgetShell<Label> {
+    pub fn max_width(text: &str, font: &str, font_size: f32, width: f32, color: u32) -> Label {
         let (settings, mut layout) = create_layout(Some(width), None);
-        WidgetShell::default(Label {
+        Label {
             glyphs: layout.glyphs().clone(),
             width,
             source: create_source(color),
@@ -248,7 +241,7 @@ impl Label {
             settings,
             write_buffer: Some(text.to_owned()),
             layout,
-        })
+        }
     }
     pub fn add_font(&mut self, font: &str) {
         self.fonts.push(font.to_string());

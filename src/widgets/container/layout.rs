@@ -1,6 +1,5 @@
-use crate::*;
 use crate::context::DamageType;
-use crate::widgets::primitives::WidgetShell;
+use crate::*;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -143,37 +142,37 @@ impl Container for WidgetLayout {
 }
 
 impl WidgetLayout {
-    pub fn new(orientation: Orientation) -> WidgetShell<Self> {
-        WidgetShell::default(WidgetLayout {
+    pub fn new(orientation: Orientation) -> Self {
+        WidgetLayout {
             spacing: 0.,
             orientation,
             widgets: Vec::new(),
             alignment: Alignment::Start,
-        })
+        }
     }
-    pub fn horizontal(spacing: u32) -> WidgetShell<Self> {
-        WidgetShell::default(WidgetLayout {
+    pub fn horizontal(spacing: u32) -> Self {
+        WidgetLayout {
             spacing: spacing as f32,
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,
-        })
+        }
     }
-    pub fn vertical(spacing: u32) -> WidgetShell<Self> {
-        WidgetShell::default(WidgetLayout {
+    pub fn vertical(spacing: u32) -> Self {
+        WidgetLayout {
             spacing: spacing as f32,
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Vertical,
-        })
+        }
     }
-    pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> WidgetShell<Self> {
-        WidgetShell::default(WidgetLayout {
+    pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
+        WidgetLayout {
             spacing: spacing as f32,
             orientation,
             widgets: Vec::new(),
             alignment: Alignment::Start,
-        })
+        }
     }
     pub fn set_spacing(&mut self, spacing: u32) {
         self.spacing = spacing as f32;

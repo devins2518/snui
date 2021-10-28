@@ -3,11 +3,11 @@ pub mod image;
 pub mod primitives;
 pub mod text;
 
-use crate::*;
-use std::io::Write;
 pub use self::image::Image;
-use std::ops::{Deref, DerefMut};
+use crate::*;
 pub use container::{layout::WidgetLayout, Wbox};
+use std::io::Write;
+use std::ops::{Deref, DerefMut};
 
 pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
@@ -104,10 +104,12 @@ impl<W: Widget> Widget for Button<W> {
         let (w, h) = (self.width(), self.height());
         match dispatch {
             Dispatch::Pointer(x, y, pointer) => match pointer {
-                Pointer::Leave => if self.focused {
-                    self.focused = false;
-                    if (self.cb)(&mut self.widget, *pointer) {
-                        draw = true;
+                Pointer::Leave => {
+                    if self.focused {
+                        self.focused = false;
+                        if (self.cb)(&mut self.widget, *pointer) {
+                            draw = true;
+                        }
                     }
                 }
                 _ => {

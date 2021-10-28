@@ -1,5 +1,4 @@
 use crate::context::DamageType;
-use crate::widgets::primitives::WidgetShell;
 use crate::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -203,12 +202,12 @@ impl Container for Wbox {
 }
 
 impl Wbox {
-    pub fn new(width: u32, height: u32) -> WidgetShell<Self> {
-        WidgetShell::default(Wbox {
+    pub fn new(width: u32, height: u32) -> Self {
+        Wbox {
             width: width as f32,
             height: height as f32,
             widgets: Vec::new(),
-        })
+        }
     }
 
     pub fn anchor(&mut self, widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) {

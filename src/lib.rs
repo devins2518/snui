@@ -2,7 +2,80 @@ pub mod context;
 pub mod wayland;
 pub mod widgets;
 
-use context::{Context, Dispatch};
+use context::Context;
+use widgets::primitives::WidgetShell;
+
+#[derive(Copy, Clone, Debug)]
+pub struct Modifiers {
+    pub ctrl: bool,
+    pub alt: bool,
+    pub shift: bool,
+    pub caps_lock: bool,
+    pub logo: bool,
+    pub num_lock: bool,
+}
+
+impl Modifiers {
+    pub fn default() -> Self {
+        Modifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+            caps_lock: false,
+            logo: false,
+            num_lock: false,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Key<'k> {
+    pub utf8: Option<&'k String>,
+    pub value: &'k [u32],
+    pub modifiers: Modifiers,
+    pub pressed: bool,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Pointer {
+    MouseClick {
+        time: u32,
+        button: MouseButton,
+        pressed: bool,
+    },
+    Hover,
+    Enter,
+    Leave,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MouseButton {
+    Left,
+    Middle,
+    Right,
+    Extra(u32),
+}
+
+impl MouseButton {
+    fn new(button: u32) -> MouseButton {
+        let button = button % 272;
+        match button {
+            0 => MouseButton::Left,
+            1 => MouseButton::Middle,
+            2 => MouseButton::Right,
+            _ => MouseButton::Extra(button),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Dispatch<'d> {
+    Prepare,
+    Commit,
+    Keyboard(Key<'d>),
+    Message(&'d str),
+    Pointer(f32, f32, Pointer),
+}
 
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
@@ -10,13 +83,6 @@ pub enum Error {
     Overflow(&'static str, u32),
     Dimension(&'static str, f32, f32),
     Message(&'static str),
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Key {
-    pub value: u32,
-    modifier: Option<u32>,
-    pressed: bool,
 }
 
 pub struct Damage<'d> {
@@ -27,11 +93,7 @@ pub struct Damage<'d> {
 
 impl<'d> Damage<'d> {
     pub fn new<W: Widget>(x: f32, y: f32, widget: &'d W) -> Damage {
-        Damage {
-            widget: widget,
-            x,
-            y,
-        }
+        Damage { widget, x, y }
     }
 }
 
@@ -44,17 +106,6 @@ impl<'d> Geometry for Damage<'d> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Pointer {
-    MouseClick {
-        time: u32,
-        button: u32,
-        pressed: bool,
-    },
-    Hover,
-    Enter,
-    Leave,
-}
 pub trait Container {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
@@ -78,6 +129,19 @@ pub trait Drawable {
 
 pub trait Widget: Drawable + Geometry {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, context: &mut Context, dispatch: &Dispatch);
+}
+
+pub trait Wrapable: Widget + Sized {
+    fn wrap(self) -> WidgetShell<Self>;
+}
+
+impl<W> Wrapable for W
+where
+    W: Widget,
+{
+    fn wrap(self) -> WidgetShell<W> {
+        WidgetShell::default(self)
+    }
 }
 
 impl Error {
