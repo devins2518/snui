@@ -38,7 +38,6 @@ pub struct Rectangle {
     width: f32,
     height: f32,
     style: Style,
-    // (tl, tr, br, bl)
     radius: [f32; 4],
 }
 
@@ -114,7 +113,6 @@ impl Widget for Rectangle {
 #[derive(Copy, Clone, Debug)]
 pub struct Circle {
     style: Style,
-    // (tl, tr, br, bl)
     radius: f32,
 }
 

@@ -629,6 +629,7 @@ impl InnerApplication {
         match self.core.ctx.damage_type() {
             DamageType::Full => {
                 self.core.widget.draw(&mut self.core.ctx, 0., 0.);
+                self.core.surface.as_ref().unwrap().region.subtract(0, 0,  1 << 31, 1 << 31);
             }
             DamageType::Partial => {
                 if !self.core.ctx.is_damaged() {
@@ -691,7 +692,7 @@ fn assign_keyboard(keyboard: &Main<WlKeyboard>) {
             }
         }
         wl_keyboard::Event::Key {
-            serial,
+            serial: _,
             time,
             key,
             state,
@@ -729,7 +730,7 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
             }
         }
         wl_pointer::Event::Button {
-            serial,
+            serial: _,
             time,
             button,
             state,
@@ -746,7 +747,7 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
             }
         }
         wl_pointer::Event::Enter {
-            serial,
+            serial: _,
             surface,
             surface_x,
             surface_y,

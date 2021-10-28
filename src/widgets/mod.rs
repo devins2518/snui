@@ -3,11 +3,11 @@ pub mod image;
 pub mod primitives;
 pub mod text;
 
-pub use self::image::Image;
 use crate::*;
-pub use container::{layout::WidgetLayout, Wbox};
 use std::io::Write;
+pub use self::image::Image;
 use std::ops::{Deref, DerefMut};
+pub use container::{layout::WidgetLayout, Wbox};
 
 pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
@@ -100,31 +100,32 @@ impl<W: Widget> Drawable for Button<W> {
 
 impl<W: Widget> Widget for Button<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        self.widget.roundtrip(wx, wy, ctx, dispatch);
+        let mut draw = false;
+        let (w, h) = (self.width(), self.height());
         match dispatch {
             Dispatch::Pointer(x, y, pointer) => match pointer {
                 Pointer::Leave => if self.focused {
                     self.focused = false;
                     if (self.cb)(&mut self.widget, *pointer) {
-                        self.widget.draw(ctx, wx, wy);
+                        draw = true;
                     }
                 }
                 _ => {
                     if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                         if self.focused {
                             if (self.cb)(&mut self.widget, *pointer) {
-                                self.widget.draw(ctx, wx, wy);
+                                draw = true;
                             }
                         } else {
                             self.focused = true;
                             if (self.cb)(&mut self.widget, Pointer::Enter) {
-                                self.widget.draw(ctx, wx, wy);
+                                draw = true;
                             }
                         }
                     } else if self.focused {
                         self.focused = false;
                         if (self.cb)(&mut self.widget, Pointer::Leave) {
-                            self.widget.draw(ctx, wx, wy);
+                            draw = true;
                         }
                     }
                 }
@@ -133,6 +134,13 @@ impl<W: Widget> Widget for Button<W> {
                 ctx.add_input_region(wx, wy, self.width(), self.height());
             }
             _ => {}
+        }
+        self.widget.roundtrip(wx, wy, ctx, dispatch);
+        if w != self.width() || h != self.height() {
+            ctx.request_resize();
+            ctx.add_input_region(wx, wy, self.width(), self.height());
+        } else if draw {
+            self.draw(ctx, wx, wy);
         }
     }
 }
