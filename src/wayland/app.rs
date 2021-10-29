@@ -3,21 +3,21 @@ use crate::context::{Context, DamageType, Region};
 use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
-use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
+use smithay_client_toolkit::reexports::calloop::{EventLoop, RegistrationToken};
 use smithay_client_toolkit::seat::keyboard::{
     keysyms, map_keyboard_repeat, KeyState, RepeatKind, RMLVO, ModifiersState, self
 };
-use smithay_client_toolkit::shm::{DoubleMemPool, MemPool};
+use smithay_client_toolkit::shm::{DoubleMemPool};
 use smithay_client_toolkit::WaylandSource;
-use std::collections::HashMap;
+
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_keyboard::{self, WlKeyboard};
+
 use wayland_client::protocol::wl_output::{self, WlOutput};
-use wayland_client::protocol::wl_pointer::{self, WlPointer, ButtonState};
-use wayland_client::protocol::wl_region::{self, WlRegion};
+use wayland_client::protocol::wl_pointer::{self, WlPointer};
+use wayland_client::protocol::wl_region::{WlRegion};
 use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
@@ -26,7 +26,7 @@ use wayland_client::{
     Proxy, QueueToken,
 };
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
-    zwlr_layer_shell_v1, zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
+    zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
     zwlr_layer_surface_v1, zwlr_layer_surface_v1::Anchor,
     zwlr_layer_surface_v1::KeyboardInteractivity, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
@@ -199,7 +199,7 @@ impl Surface {
                 .damage(d.x as i32, d.y as i32, d.width as i32, d.height as i32);
         }
     }
-    fn attach_buffer(&mut self, buffer: WlBuffer, x: i32, y: i32) {
+    fn attach_buffer(&mut self, buffer: WlBuffer, _x: i32, _y: i32) {
         self.buffer = Some(buffer);
     }
 }
@@ -455,10 +455,10 @@ impl Application {
                             }
                         }
                         keyboard::Event::Enter {
-                            serial,
+                            serial: _,
                             surface,
-                            rawkeys,
-                            keysyms
+                            rawkeys: _,
+                            keysyms: _
                         } => {
                             if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
                                 index = Application::get_index(inner, &surface);
@@ -466,9 +466,9 @@ impl Application {
                         }
                         keyboard::Event::Key {
                             serial: _,
-                            time,
+                            time: _,
                             rawkey,
-                            keysym,
+                            keysym: _,
                             state,
                             utf8,
                         } => {
@@ -483,10 +483,10 @@ impl Application {
                             }
                         }
                         keyboard::Event::Repeat {
-                            time,
-                            rawkey,
+                            time: _,
+                            rawkey: _,
                             keysym,
-                            utf8
+                            utf8: _
                         } => {
                             if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
                                 inner[index].dispatch(Dispatch::Keyboard(Key {
@@ -828,7 +828,7 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
             }
         }
         wl_pointer::Event::Motion {
-            time,
+            time: _,
             surface_x,
             surface_y,
         } => {

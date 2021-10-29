@@ -107,7 +107,7 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, dispatch: &Dispatch) {}
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, _dispatch: &Dispatch) {}
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -158,5 +158,5 @@ impl Drawable for Circle {
 }
 
 impl Widget for Circle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, dispatch: &Dispatch) {}
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, _dispatch: &Dispatch) {}
 }

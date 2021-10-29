@@ -3,6 +3,7 @@ pub mod wayland;
 pub mod widgets;
 
 use context::Context;
+use widgets::Button;
 use widgets::primitives::WidgetShell;
 
 #[derive(Copy, Clone, Debug)]
@@ -128,11 +129,13 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, context: &mut Context, dispatch: &Dispatch);
+    // fn aware(&self) -> bool;
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch);
 }
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetShell<Self>;
+    fn into_button(self, cb: impl FnMut(&mut Self, Pointer) -> bool + 'static) -> Button<Self>;
 }
 
 impl<W> Wrapable for W
@@ -141,6 +144,9 @@ where
 {
     fn wrap(self) -> WidgetShell<W> {
         WidgetShell::default(self)
+    }
+    fn into_button(self, cb: impl FnMut(&mut W, Pointer) -> bool + 'static) -> Button<Self> {
+        Button::new(self, cb)
     }
 }
 

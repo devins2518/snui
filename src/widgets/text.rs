@@ -138,7 +138,7 @@ impl Drawable for Label {
 }
 
 impl Widget for Label {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, ctx: &mut Context, _dispatch: &Dispatch) {
         if let Some(text) = self.write_buffer.as_ref() {
             let fonts = ctx.get_fonts(&self.fonts);
             if !fonts.is_empty() {

@@ -73,7 +73,6 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                     );
                 }
             }
-            _ => {}
         }
         self.child
             .draw(ctx, x + self.padding[3], y + self.padding[0]);

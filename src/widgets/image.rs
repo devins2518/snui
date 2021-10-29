@@ -78,5 +78,5 @@ impl Drawable for Image {
 }
 
 impl Widget for Image {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, dispatch: &Dispatch) {}
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, _dispatch: &Dispatch) {}
 }
