@@ -36,7 +36,7 @@ impl<W: Widget> Geometry for WidgetShell<W> {
 
 impl<W: Widget> Drawable for WidgetShell<W> {
     fn set_color(&mut self, color: u32) {
-        self.background = Style::fill(color);
+        self.child.set_color(color);
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         let width = self.child.width() + self.padding[1] + self.padding[3];

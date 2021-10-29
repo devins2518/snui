@@ -3,7 +3,7 @@ use crate::context::{Context, DamageType, Region};
 use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
-use smithay_client_toolkit::reexports::calloop::{EventLoop, RegistrationToken};
+use smithay_client_toolkit::reexports::calloop::{EventLoop, RegistrationToken, LoopHandle};
 use smithay_client_toolkit::seat::keyboard::{
     keysyms, map_keyboard_repeat, KeyState, RepeatKind, RMLVO, ModifiersState, self
 };
@@ -51,7 +51,7 @@ pub struct ShellConfig {
 }
 
 impl ShellConfig {
-    fn default_layer_shell() -> Self {
+    pub fn default_layer_shell() -> Self {
         ShellConfig {
             layer: Layer::Top,
             anchor: None,
@@ -62,7 +62,7 @@ impl ShellConfig {
             margin: [0; 4],
         }
     }
-    fn layer_shell(
+    pub fn layer_shell(
         layer: Layer,
         anchor: Option<Anchor>,
         output: Option<WlOutput>,
@@ -107,17 +107,19 @@ struct Surface {
     previous: Option<Box<Self>>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Output {
-    width: i32,
-    height: i32,
-    scale: i32,
-    name: String,
-    output: Main<WlOutput>,
+    pub width: i32,
+    pub height: i32,
+    pub scale: i32,
+    pub name: String,
+    pub output: Main<WlOutput>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Seat {
-    seat: Main<WlSeat>,
-    capabilities: Capability,
+    pub seat: Main<WlSeat>,
+    pub capabilities: Capability,
 }
 
 struct Globals {
@@ -134,7 +136,6 @@ pub struct Application {
     global_manager: GlobalManager,
     pub inner: Vec<InnerApplication>,
     token: RegistrationToken,
-    event_loop: EventLoop<'static, Vec<InnerApplication>>,
 }
 
 pub struct CoreApplication {
@@ -316,7 +317,10 @@ impl Output {
 }
 
 impl Application {
-    pub fn new(pointer: bool, keyboard: bool) -> Self {
+    pub fn new(pointer: bool, keyboard: bool) -> (
+        Self,
+        EventLoop<'static, Application>
+    ) {
         let display = Display::connect_to_env().unwrap();
         let mut event_queue = display.create_event_queue();
         let attached_display = (*display).clone().attach(event_queue.token());
@@ -445,8 +449,8 @@ impl Application {
                         keyboard::Event::Modifiers {
                             modifiers
                         } => {
-                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                                inner[index].dispatch(Dispatch::Keyboard(Key {
+                            if let Some(application) = inner.get::<Application>() {
+                                application.inner[index].dispatch(Dispatch::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[],
                                     modifiers: Modifiers::from(modifiers),
@@ -460,8 +464,8 @@ impl Application {
                             rawkeys: _,
                             keysyms: _
                         } => {
-                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                                index = Application::get_index(inner, &surface);
+                            if let Some(application) = inner.get::<Application>() {
+                                index = application.get_index(&surface);
                             }
                         }
                         keyboard::Event::Key {
@@ -473,8 +477,8 @@ impl Application {
                             utf8,
                         } => {
                             ch = utf8;
-                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                                inner[index].dispatch(Dispatch::Keyboard(Key {
+                            if let Some(application) = inner.get::<Application>() {
+                                application.inner[index].dispatch(Dispatch::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[rawkey],
                                     modifiers: Modifiers::default(),
@@ -488,8 +492,8 @@ impl Application {
                             keysym,
                             utf8: _
                         } => {
-                            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                                inner[index].dispatch(Dispatch::Keyboard(Key {
+                            if let Some(application) = inner.get::<Application>() {
+                                application.inner[index].dispatch(Dispatch::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[keysym],
                                     modifiers: Modifiers::default(),
@@ -507,25 +511,38 @@ impl Application {
             }
         }
 
-        Application {
-            display,
-            globals: Rc::new(globals),
-            global_manager,
-            inner: Vec::new(),
-            token,
+        (
+            Application {
+                display,
+                globals: Rc::new(globals),
+                global_manager,
+                inner: Vec::new(),
+                token,
+            },
             event_loop,
-        }
+        )
     }
     pub fn get_outputs(&self) -> &[Output] {
         &self.globals.as_ref().outputs
     }
-    fn get_index(inner: &[InnerApplication], surface: &WlSurface) -> usize {
-        for i in 0..inner.len() {
-            if inner[i].eq(surface) {
+    pub fn get_seats(&self) -> &[Seat] {
+        &self.globals.as_ref().seats
+    }
+    fn get_index(&self, surface: &WlSurface) -> usize {
+        for i in 0..self.inner.len() {
+            if self.inner[i].eq(surface) {
                 return i;
             }
         }
         0
+    }
+    fn get_application(&mut self, surface: &WlSurface) -> Option<&mut InnerApplication> {
+        for inner in &mut self.inner {
+            if inner.eq(surface) {
+                return Some(inner)
+            }
+        }
+        None
     }
     pub fn get_global<I>(&self) -> Result<Main<I>, GlobalError>
     where
@@ -533,10 +550,11 @@ impl Application {
     {
         self.global_manager.instantiate_range::<I>(0, 1 << 8)
     }
-    pub fn create_inner_application_from(
+    pub fn create_inner_application_from<Data:'static>(
         &mut self,
         config: ShellConfig,
         widget: impl Widget + 'static,
+        handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
     ) {
         let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
@@ -548,22 +566,26 @@ impl Application {
             cb,
         );
         self.inner.push(iapp);
-        self.event_loop.handle().update(&self.token).unwrap();
+        handle.update(&self.token).unwrap();
     }
-    pub fn create_inner_application(
+    pub fn create_inner_application<Data:'static>(
         &mut self,
         widget: impl Widget + 'static,
+        handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
     ) {
         let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
         let iapp = InnerApplication::default(widget, Backend::Raqote(dt), self.globals.clone(), cb);
         self.inner.push(iapp);
-        self.event_loop.handle().update(&self.token).unwrap();
+        handle.update(&self.token).unwrap();
     }
-    pub fn run(mut self) {
+    pub fn run(
+        mut self,
+        event_loop: &mut EventLoop<'static, Application>,
+    ) {
         loop {
             self.display.flush().unwrap();
-            self.event_loop.dispatch(None, &mut self.inner).unwrap();
+            event_loop.dispatch(None, &mut self).unwrap();
         }
     }
 }
@@ -593,6 +615,9 @@ impl CoreApplication {
                 surface.damage(self.ctx.report_damage());
             }
         }
+    }
+    pub fn is_running(&self) -> bool {
+        self.ctx.running
     }
     pub fn destroy(&mut self) {
         self.ctx.running = false;
@@ -684,11 +709,18 @@ impl InnerApplication {
         false
     }
     pub fn dispatch(&mut self, ev: Dispatch) {
+        let (w, h) = (self.widget.width(), self.widget.height());
         self.core.widget.roundtrip(0., 0., &mut self.core.ctx, &ev);
 
         let mut show = true;
         match self.core.ctx.damage_type() {
             DamageType::Full => {
+                if self.widget.width() != w || self.widget.height() != h {
+                    self.core.ctx.resize(self.widget.width() as i32, self.widget.height() as i32);
+                    if let Some(surface) = &self.surface {
+                        surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                    }
+                }
                 self.core.widget.draw(&mut self.core.ctx, 0., 0.);
                 self.core
                     .surface
@@ -703,6 +735,7 @@ impl InnerApplication {
                 }
             }
             DamageType::Resize => {
+                self.core.ctx.resize(self.widget.width() as i32, self.widget.height() as i32);
                 if let Some(surface) = &self.surface {
                     surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
                     self.core.widget.draw(&mut self.core.ctx, 0., 0.);
@@ -793,9 +826,10 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
     pointer.quick_assign(move |_, event, mut inner| match event {
         wl_pointer::Event::Leave { serial: _, surface } => {
             input = Pointer::Leave;
-            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                index = Application::get_index(inner, &surface);
-                inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
+            if let Some(application) = inner.get::<Application>() {
+                if let Some(inner) = application.get_application(&surface) {
+                    inner.dispatch(Dispatch::Pointer(x as f32, y as f32, input));
+                }
             }
         }
         wl_pointer::Event::Button {
@@ -811,8 +845,8 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
             };
         }
         wl_pointer::Event::Frame => {
-            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
+            if let Some(application) = inner.get::<Application>() {
+                application.inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
             }
         }
         wl_pointer::Event::Enter {
@@ -821,10 +855,10 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
             surface_x,
             surface_y,
         } => {
-            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
+            if let Some(application) = inner.get::<Application>() {
                 x = surface_x;
                 y = surface_y;
-                index = Application::get_index(&inner, &surface);
+                index = application.get_index(&surface);
             }
         }
         wl_pointer::Event::Motion {
@@ -848,8 +882,8 @@ fn assign_surface(shell: &Main<ZwlrLayerSurfaceV1>) {
             height: _,
         } => {
             shell.ack_configure(serial);
-            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                for a in inner {
+            if let Some(application) = inner.get::<Application>() {
+                for a in &mut application.inner {
                     if let Some(surface) = &a.surface {
                         match &surface.shell {
                             Shell::LayerShell { config: _, surface } => {

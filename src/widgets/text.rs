@@ -82,6 +82,7 @@ impl GlyphCache {
 
 pub struct Label {
     width: f32,
+    height: f32,
     layout: Layout,
     font_size: f32,
     source: SolidSource,
@@ -100,7 +101,11 @@ impl Geometry for Label {
         }
     }
     fn height(&self) -> f32 {
-        self.layout.height()
+        if let Some(height) = self.settings.max_height {
+            height
+        } else {
+            self.height
+        }
     }
 }
 
@@ -110,6 +115,7 @@ impl Clone for Label {
         layout.reset(&self.settings);
         Label {
             width: self.width,
+            height: self.height,
             layout,
             font_size: self.font_size,
             source: self.source,
@@ -152,7 +158,9 @@ impl Widget for Label {
                     }
                 }
                 ctx.request_resize();
-                self.width = get_width(&mut self.layout.glyphs());
+                let (width, height) = get_size(&mut self.layout.glyphs());
+                self.width = width;
+                self.height = height;
                 self.glyphs = self.layout.glyphs().clone();
                 self.write_buffer = None;
             }
@@ -176,14 +184,18 @@ fn create_layout(max_width: Option<f32>, max_height: Option<f32>) -> (LayoutSett
     (setting, layout)
 }
 
-fn get_width<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> f32 {
+fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
     let mut width = 0;
+    let mut height = 0;
     for gp in glyphs {
         if width < gp.width + gp.x as usize {
             width = gp.width + gp.x as usize
         }
+        if height < gp.height + gp.y as usize {
+            height = gp.height + gp.y as usize
+        }
     }
-    width as f32
+    (width as f32, height as f32)
 }
 
 fn create_source(color: u32) -> SolidSource {
@@ -199,9 +211,11 @@ fn create_source(color: u32) -> SolidSource {
 impl Label {
     pub fn new(text: &str, font: &str, font_size: f32, color: u32) -> Label {
         let (settings, mut layout) = create_layout(None, None);
+        let (width, height) = get_size(layout.glyphs());
         Label {
             glyphs: layout.glyphs().clone(),
-            width: get_width(layout.glyphs()),
+            width,
+            height,
             source: create_source(color),
             fonts: vec![font.to_owned()],
             font_size,
@@ -222,6 +236,7 @@ impl Label {
         Label {
             glyphs: layout.glyphs().clone(),
             width,
+            height,
             source: create_source(color),
             fonts: vec![font.to_owned()],
             font_size,
@@ -232,9 +247,11 @@ impl Label {
     }
     pub fn max_width(text: &str, font: &str, font_size: f32, width: f32, color: u32) -> Label {
         let (settings, mut layout) = create_layout(Some(width), None);
+        let (_, height) = get_size(layout.glyphs());
         Label {
             glyphs: layout.glyphs().clone(),
             width,
+            height,
             source: create_source(color),
             fonts: vec![font.to_owned()],
             font_size,

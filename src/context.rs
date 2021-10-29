@@ -108,6 +108,12 @@ impl Context {
             Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
         }
     }
+    pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
+        self.push(x, y, width, height);
+        match &mut self.backend {
+            Backend::Raqote(dt) => dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS),
+        }
+    }
     pub fn draw_rectangle(
         &mut self,
         x: f32,

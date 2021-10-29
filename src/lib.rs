@@ -62,8 +62,8 @@ impl MouseButton {
         let button = button % 272;
         match button {
             0 => MouseButton::Left,
-            1 => MouseButton::Middle,
-            2 => MouseButton::Right,
+            1 => MouseButton::Right,
+            2 => MouseButton::Middle,
             _ => MouseButton::Extra(button),
         }
     }

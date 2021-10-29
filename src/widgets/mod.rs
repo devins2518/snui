@@ -3,11 +3,12 @@ pub mod image;
 pub mod primitives;
 pub mod text;
 
-pub use self::image::Image;
 use crate::*;
-pub use container::{layout::WidgetLayout, Wbox};
 use std::io::Write;
+pub use text::Label;
 use std::ops::{Deref, DerefMut};
+pub use self::image::{Image, DynamicImage};
+pub use container::{layout::WidgetLayout, Wbox};
 
 pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
