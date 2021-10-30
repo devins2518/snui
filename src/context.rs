@@ -9,7 +9,7 @@ use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
 use widgets::primitives::Style;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy,PartialEq, Eq)]
 pub enum DamageType {
     Full,
     Resize,
@@ -19,6 +19,12 @@ pub enum DamageType {
 pub enum Backend {
     Raqote(DrawTarget),
 }
+
+const ATOP_OPTIONS: DrawOptions = DrawOptions {
+    blend_mode: BlendMode::SrcAtop,
+    alpha: 1.,
+    antialias: AntialiasMode::Gray,
+};
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
     blend_mode: BlendMode::SrcOver,
@@ -32,6 +38,30 @@ pub struct Region {
     pub y: f32,
     pub width: f32,
     pub height: f32,
+}
+
+fn add_region(vec: &mut Vec<Region>, x: f32, y: f32, width: f32, height: f32) {
+    if let Some(last) = vec.last() {
+        if !(last.x <= x
+            && last.y <= y
+            && last.x + last.width >= x + width
+            && last.y + last.height >= y + height)
+        {
+            vec.push(Region {
+                x,
+                y,
+                width,
+                height,
+            });
+        }
+    } else {
+        vec.push(Region {
+            x,
+            y,
+            width,
+            height,
+        });
+    }
 }
 
 pub struct Context {
@@ -77,41 +107,47 @@ impl Context {
         &self.damage_regions
     }
     pub fn draw_ellipse(&mut self, x: f32, y: f32, width: f32, height: f32, style: &Style) {
-        // from https://github.com/ritobanrc/p5-rs/src/backend/raqote.rs
-        let arc = lyon_geom::Arc {
-            center: point2(x, y),
-            radii: vec2(width / 2., height / 2.),
-            start_angle: Angle::zero(),
-            sweep_angle: Angle::two_pi(),
-            x_rotation: Angle::zero(),
-        };
+        if self.damage_type != DamageType::Resize {
+            // from https://github.com/ritobanrc/p5-rs/src/backend/raqote.rs
+            let arc = lyon_geom::Arc {
+                center: point2(x, y),
+                radii: vec2(width / 2., height / 2.),
+                start_angle: Angle::zero(),
+                sweep_angle: Angle::two_pi(),
+                x_rotation: Angle::zero(),
+            };
 
-        let mut pb = PathBuilder::new();
+            let mut pb = PathBuilder::new();
 
-        let start = arc.from();
-        pb.line_to(start.x, start.y);
+            let start = arc.from();
+            pb.line_to(start.x, start.y);
 
-        arc.for_each_quadratic_bezier(&mut |q| {
-            pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
-        });
+            arc.for_each_quadratic_bezier(&mut |q| {
+                pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
+            });
 
-        self.push(x, y, width, height);
+            self.push(x, y, width, height);
 
-        let path = pb.finish();
-        match &mut self.backend {
-            Backend::Raqote(dt) => fill_target(dt, &path, style),
+            let path = pb.finish();
+            match &mut self.backend {
+                Backend::Raqote(dt) => fill_target(dt, &path, style),
+            }
         }
     }
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
-        self.push(x, y, image.width as f32, image.height as f32);
-        match &mut self.backend {
-            Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
+        if self.damage_type != DamageType::Resize {
+            self.push(x, y, image.width as f32, image.height as f32);
+            match &mut self.backend {
+                Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
+            }
         }
     }
     pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
-        self.push(x, y, width, height);
-        match &mut self.backend {
-            Backend::Raqote(dt) => dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS),
+        if self.damage_type != DamageType::Resize {
+            self.push(x, y, width, height);
+            match &mut self.backend {
+                Backend::Raqote(dt) => dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS),
+            }
         }
     }
     pub fn draw_rectangle(
@@ -123,50 +159,53 @@ impl Context {
         radius: [f32; 4],
         style: &Style,
     ) {
-        let mut pb = PathBuilder::new();
-        let mut cursor = (x, y);
+        if self.damage_type != DamageType::Resize {
+            let mut pb = PathBuilder::new();
+            let mut cursor = (x, y);
 
-        // Sides length
-        let top = width - radius[0] - radius[1];
-        let right = height - radius[1] - radius[2];
-        let left = height - radius[0] - radius[3];
-        let bottom = width - radius[2] - radius[3];
+            // Sides length
+            let top = width - radius[0] - radius[1];
+            let right = height - radius[1] - radius[2];
+            let left = height - radius[0] - radius[3];
+            let bottom = width - radius[2] - radius[3];
 
-        // Positioning the cursor
-        cursor.0 += radius[0];
-        cursor.1 += radius[0];
+            // Positioning the cursor
+            cursor.0 += radius[0];
+            cursor.1 += radius[0];
 
-        // Drawing the outline
-        pb.arc(cursor.0, cursor.1, radius[0], PI, PI / 2.);
-        cursor.0 += top;
-        cursor.1 -= radius[0];
-        pb.line_to(cursor.0, cursor.1);
-        cursor.1 += radius[1];
-        pb.arc(cursor.0, cursor.1, radius[1], -PI / 2., PI / 2.);
-        cursor.0 += radius[1];
-        cursor.1 += right;
-        pb.line_to(cursor.0, cursor.1);
-        cursor.0 -= radius[2];
-        pb.arc(cursor.0, cursor.1, radius[2], 0., PI / 2.);
-        cursor.1 += radius[2];
-        cursor.0 -= bottom;
-        pb.line_to(cursor.0, cursor.1);
-        cursor.1 -= radius[3];
-        pb.arc(cursor.0, cursor.1, radius[3], PI / 2., PI / 2.);
-        cursor.0 -= radius[3];
-        cursor.1 -= left;
-        pb.line_to(cursor.0, cursor.1);
+            // Drawing the outline
+            pb.arc(cursor.0, cursor.1, radius[0], PI, PI / 2.);
+            cursor.0 += top;
+            cursor.1 -= radius[0];
+            pb.line_to(cursor.0, cursor.1);
+            cursor.1 += radius[1];
+            pb.arc(cursor.0, cursor.1, radius[1], -PI / 2., PI / 2.);
+            cursor.0 += radius[1];
+            cursor.1 += right;
+            pb.line_to(cursor.0, cursor.1);
+            cursor.0 -= radius[2];
+            pb.arc(cursor.0, cursor.1, radius[2], 0., PI / 2.);
+            cursor.1 += radius[2];
+            cursor.0 -= bottom;
+            pb.line_to(cursor.0, cursor.1);
+            cursor.1 -= radius[3];
+            pb.arc(cursor.0, cursor.1, radius[3], PI / 2., PI / 2.);
+            cursor.0 -= radius[3];
+            cursor.1 -= left;
+            pb.line_to(cursor.0, cursor.1);
 
-        // Closing path
-        pb.close();
-        let path = pb.finish();
-        self.push(x, y, width, height);
+            // Closing path
+            pb.close();
+            let path = pb.finish();
+            self.push(x, y, width, height);
 
-        match &mut self.backend {
-            Backend::Raqote(dt) => fill_target(dt, &path, style),
+            match &mut self.backend {
+                Backend::Raqote(dt) => fill_target(dt, &path, style),
+            }
         }
     }
     pub fn resize(&mut self, width: i32, height: i32) {
+        self.partial_damage();
         match &mut self.backend {
             Backend::Raqote(dt) => {
                 *dt = DrawTarget::new(width, height);
@@ -240,20 +279,22 @@ impl Context {
         glyphs: &[GlyphPosition],
         source: SolidSource,
     ) {
-        for gp in glyphs {
-            if let Some(glyph_cache) = self.font_cache.get_mut(&fonts[gp.key.font_index as usize]) {
-                if let Some(pixmap) = glyph_cache.render_glyph(gp, source) {
-                    match &mut self.backend {
-                        Backend::Raqote(dt) => dt.draw_image_at(
-                            x.round() + gp.x,
-                            y.round() + gp.y,
-                            &Image {
-                                data: &pixmap,
-                                width: gp.width as i32,
-                                height: gp.height as i32,
-                            },
-                            &DRAW_OPTIONS,
-                        ),
+        if self.damage_type != DamageType::Resize {
+            for gp in glyphs {
+                if let Some(glyph_cache) = self.font_cache.get_mut(&fonts[gp.key.font_index as usize]) {
+                    if let Some(pixmap) = glyph_cache.render_glyph(gp, source) {
+                        match &mut self.backend {
+                            Backend::Raqote(dt) => dt.draw_image_at(
+                                x.round() + gp.x,
+                                y.round() + gp.y,
+                                &Image {
+                                    data: &pixmap,
+                                    width: gp.width as i32,
+                                    height: gp.height as i32,
+                                },
+                                &ATOP_OPTIONS,
+                            ),
+                        }
                     }
                 }
             }
@@ -269,13 +310,13 @@ fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
         Style::Border(source, border) => {
             let stroke = StrokeStyle {
                 width: *border,
-                cap: LineCap::Butt,
+                cap: LineCap::Round,
                 join: LineJoin::Miter,
                 miter_limit: 1.,
                 dash_array: Vec::new(),
                 dash_offset: 0.,
             };
-            dt.stroke(&path, &Source::Solid(*source), &stroke, &DRAW_OPTIONS);
+            dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
         }
         _ => {}
     }
@@ -333,30 +374,6 @@ impl Drawable for Context {
                 ),
             },
         }
-    }
-}
-
-fn add_region(vec: &mut Vec<Region>, x: f32, y: f32, width: f32, height: f32) {
-    if let Some(last) = vec.last() {
-        if !(last.x <= x
-            && last.y <= y
-            && last.x + last.width > x + width
-            && last.y + last.height > y + height)
-        {
-            vec.push(Region {
-                x,
-                y,
-                width,
-                height,
-            });
-        }
-    } else {
-        vec.push(Region {
-            x,
-            y,
-            width,
-            height,
-        });
     }
 }
 

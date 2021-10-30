@@ -185,13 +185,15 @@ impl Surface {
         self.shell.set_size(width, height);
     }
     fn add_input(&self, report: &[Region]) {
-        if !report.is_empty() {
-            for r in report {
-                self.region
-                    .add(r.x as i32, r.y as i32, r.width as i32, r.height as i32);
-            }
-            self.surface.set_input_region(Some(&self.region));
-        }
+        // if !report.is_empty() {
+        //     for r in report {
+        //         self.region
+        //             .add(r.x as i32, r.y as i32, r.width as i32, r.height as i32);
+        //     }
+        //     self.surface.set_input_region(Some(&self.region));
+        // } else {
+        //     self.surface.set_input_region(Some(&self.region));
+        // }
     }
     fn damage(&self, report: &[Region]) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
@@ -381,7 +383,13 @@ impl Application {
                             } => {
                                 if let Some(globals) = globals.get::<Globals>() {
                                     if let Some(output) = globals.outputs.last_mut() {
-                                        output.name = make;
+                                        if wl_output == output.output {
+                                            output.name = make;
+                                        } else {
+                                            let mut output = Output::new(wl_output);
+                                            output.name = make;
+                                            globals.outputs.push(output);
+                                        }
                                     } else {
                                         let mut output = Output::new(wl_output);
                                         output.name = make;
@@ -397,8 +405,15 @@ impl Application {
                             } => {
                                 if let Some(globals) = globals.get::<Globals>() {
                                     if let Some(output) = globals.outputs.last_mut() {
-                                        output.width = width;
-                                        output.height = height;
+                                        if wl_output == output.output {
+                                            output.width = width;
+                                            output.height = height;
+                                        } else {
+                                            let mut output = Output::new(wl_output);
+                                            output.width = width;
+                                            output.height = height;
+                                            globals.outputs.push(output);
+                                        }
                                     } else {
                                         let mut output = Output::new(wl_output);
                                         output.width = width;
@@ -410,7 +425,13 @@ impl Application {
                             wl_output::Event::Scale { factor } => {
                                 if let Some(globals) = globals.get::<Globals>() {
                                     if let Some(output) = globals.outputs.last_mut() {
-                                        output.scale = factor;
+                                        if wl_output == output.output {
+                                            output.scale = factor;
+                                        } else {
+                                            let mut output = Output::new(wl_output);
+                                            output.scale = factor;
+                                            globals.outputs.push(output);
+                                        }
                                     } else {
                                         let mut output = Output::new(wl_output);
                                         output.scale = factor;
@@ -522,8 +543,8 @@ impl Application {
             event_loop,
         )
     }
-    pub fn get_outputs(&self) -> &[Output] {
-        &self.globals.as_ref().outputs
+    pub fn get_outputs(&self) -> Vec<Output> {
+        self.globals.outputs.clone()
     }
     pub fn get_seats(&self) -> &[Seat] {
         &self.globals.as_ref().seats
@@ -731,8 +752,7 @@ impl InnerApplication {
             }
             DamageType::Partial => {
                 if !self.core.ctx.is_damaged() {
-                    show = false;
-                }
+                    show = false; }
             }
             DamageType::Resize => {
                 self.core.ctx.resize(self.widget.width() as i32, self.widget.height() as i32);

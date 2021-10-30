@@ -7,7 +7,7 @@ pub enum Orientation {
     Horizontal,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Alignment {
     Start,
     Center,
@@ -101,13 +101,15 @@ impl Drawable for WidgetLayout {
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
         for w in &self.widgets {
+            let ww = w.widget.width();
+            let wh = w.widget.height();
             if w.mapped {
                 match self.orientation {
                     Orientation::Horizontal => {
                         match self.alignment {
                             Alignment::Start => dy = 0.,
-                            Alignment::Center => dy = (sh - w.widget.height()) / 2.,
-                            Alignment::End => dy = sh - w.widget.height(),
+                            Alignment::Center => dy = (sh - wh) / 2.,
+                            Alignment::End => dy = sh - wh,
                         }
                         if !w.hidden {
                             w.widget.draw(ctx, x + dx, y + dy);
@@ -117,8 +119,8 @@ impl Drawable for WidgetLayout {
                     Orientation::Vertical => {
                         match self.alignment {
                             Alignment::Start => dx = 0.,
-                            Alignment::Center => dx = (sw - w.widget.width()) / 2.,
-                            Alignment::End => dx = sw - w.widget.width(),
+                            Alignment::Center => dx = (sw - ww) / 2.,
+                            Alignment::End => dx = sw - ww,
                         }
                         if !w.hidden {
                             w.widget.draw(ctx, x + dx, y + dy);
@@ -202,12 +204,11 @@ impl WidgetLayout {
 
 impl Widget for WidgetLayout {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let mut index = 0;
-        let mut draw = false;
+        // let mut index = 0;
         let sw = self.width();
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
-        for (i, w) in &mut self.widgets.iter_mut().enumerate() {
+        for w in &mut self.widgets.iter_mut() {
             let ww = w.widget.width();
             let wh = w.widget.height();
             if w.mapped {
@@ -219,14 +220,13 @@ impl Widget for WidgetLayout {
                             Alignment::End => dy = sh - wh,
                         }
                         w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if let DamageType::Resize = ctx.damage_type() {
-                            if ww != w.widget.width() || wh != w.widget.height() {
-                                ctx.request_resize();
-                            } else {
-                                index = i;
-                                draw = true;
-                            }
-                        }
+                        // if let DamageType::Resize = ctx.damage_type() {
+                        // } else {
+                        //     if ww < w.widget.width() && wh == w.widget.height() {
+                        //         ctx.partial_damage();
+                        //         w.widget.draw(ctx, wx + dx, wy + dy);
+                        //     }
+                        // }
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -236,26 +236,16 @@ impl Widget for WidgetLayout {
                             Alignment::End => dx = sw - ww,
                         }
                         w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if let DamageType::Resize = ctx.damage_type() {
-                            if ww != w.widget.width() || wh != w.widget.height() {
-                                ctx.request_resize();
-                            } else {
-                                index = i;
-                                draw = true;
-                            }
-                        }
+                        // if let DamageType::Resize = ctx.damage_type() {
+                        // } else {
+                        //     if ww < w.widget.width() && wh == w.widget.height() {
+                        //         w.widget.draw(ctx, wx + dx, wy + dy);
+                        //         ctx.partial_damage();
+                        //     }
+                        // }
                         dy += w.widget.height() + self.spacing;
                     }
                 }
-            }
-        }
-        if draw {
-            for i in 0..index {
-                self.widgets[i].hidden = true;
-            }
-            self.draw(ctx, wx, wy);
-            for i in 0..index {
-                self.widgets[i].hidden = false;
             }
         }
     }

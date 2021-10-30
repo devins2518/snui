@@ -81,13 +81,8 @@ impl<W: Widget> Drawable for WidgetShell<W> {
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let ww = self.child.width();
-        let wh = self.child.height();
         self.child
             .roundtrip(wx + self.padding[3], wy + self.padding[0], ctx, dispatch);
-        if self.child.width() != ww || self.child.height() != wh {
-            ctx.request_resize();
-        }
     }
 }
 

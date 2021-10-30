@@ -2,11 +2,11 @@ pub mod context;
 pub mod wayland;
 pub mod widgets;
 
-use context::Context;
 use widgets::Button;
+use context::{Context, DamageType};
 use widgets::primitives::WidgetShell;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Modifiers {
     pub ctrl: bool,
     pub alt: bool,
@@ -29,7 +29,7 @@ impl Modifiers {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Key<'k> {
     pub utf8: Option<&'k String>,
     pub value: &'k [u32],
@@ -69,10 +69,10 @@ impl MouseButton {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Dispatch<'d> {
-    Prepare,
     Commit,
+    Prepare,
     Keyboard(Key<'d>),
     Message(&'d str),
     Pointer(f32, f32, Pointer),
@@ -107,7 +107,7 @@ impl<'d> Geometry for Damage<'d> {
     }
 }
 
-pub trait Container {
+pub trait Container: Geometry {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
@@ -135,7 +135,7 @@ pub trait Widget: Drawable + Geometry {
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetShell<Self>;
-    fn into_button(self, cb: impl FnMut(&mut Self, Pointer) -> bool + 'static) -> Button<Self>;
+    fn into_button(self, cb: impl FnMut(&mut Self, Pointer) -> Option<DamageType> + 'static) -> Button<Self>;
 }
 
 impl<W> Wrapable for W
@@ -145,7 +145,7 @@ where
     fn wrap(self) -> WidgetShell<W> {
         WidgetShell::default(self)
     }
-    fn into_button(self, cb: impl FnMut(&mut W, Pointer) -> bool + 'static) -> Button<Self> {
+    fn into_button(self, cb: impl FnMut(&mut W, Pointer) -> Option<DamageType> + 'static) -> Button<Self> {
         Button::new(self, cb)
     }
 }

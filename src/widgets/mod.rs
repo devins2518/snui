@@ -6,6 +6,7 @@ pub mod text;
 use crate::*;
 use std::io::Write;
 pub use text::Label;
+use crate::context::DamageType;
 use std::ops::{Deref, DerefMut};
 pub use self::image::{Image, DynamicImage};
 pub use container::{layout::WidgetLayout, Wbox};
@@ -68,11 +69,11 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
 pub struct Button<W: Geometry + Drawable> {
     widget: W,
     focused: bool,
-    cb: Box<dyn for<'d> FnMut(&'d mut W, Pointer) -> bool + 'static>,
+    cb: Box<dyn for<'d> FnMut(&'d mut W, Pointer) -> Option<DamageType> + 'static>,
 }
 
 impl<W: Widget> Button<W> {
-    pub fn new(widget: W, cb: impl for<'d> FnMut(&'d mut W, Pointer) -> bool + 'static) -> Self {
+    pub fn new(widget: W, cb: impl for<'d> FnMut(&'d mut W, Pointer) -> Option<DamageType> + 'static) -> Self {
         Self {
             widget,
             focused: false,
@@ -108,28 +109,20 @@ impl<W: Widget> Widget for Button<W> {
                 Pointer::Leave => {
                     if self.focused {
                         self.focused = false;
-                        if (self.cb)(&mut self.widget, *pointer) {
-                            draw = true;
-                        }
+                        draw = handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
                     }
                 }
                 _ => {
                     if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                         if self.focused {
-                            if (self.cb)(&mut self.widget, *pointer) {
-                                draw = true;
-                            }
+                           draw = handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
                         } else {
                             self.focused = true;
-                            if (self.cb)(&mut self.widget, Pointer::Enter) {
-                                draw = true;
-                            }
+                        	draw = handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
                         }
                     } else if self.focused {
-                        self.focused = false;
-                        if (self.cb)(&mut self.widget, Pointer::Leave) {
-                            draw = true;
-                        }
+                    	self.focused = false;
+                    	draw = handle_damage((self.cb)(&mut self.widget, Pointer::Leave), ctx);
                     }
                 }
             },
@@ -146,6 +139,17 @@ impl<W: Widget> Widget for Button<W> {
             self.draw(ctx, wx, wy);
         }
     }
+}
+
+fn handle_damage(damage_type: Option<DamageType>, ctx: &mut Context) -> bool {
+    if let Some(damage_type) = damage_type {
+        match damage_type {
+            DamageType::Partial => return true,
+            DamageType::Full => ctx.full_damage(),
+            DamageType::Resize => ctx.request_resize()
+        }
+    }
+    false
 }
 
 impl<W: Widget> Deref for Button<W> {
