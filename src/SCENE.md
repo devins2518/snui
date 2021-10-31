@@ -15,9 +15,14 @@ but in order to do so, you need to know what was is under the widget. The scene 
 ### My ideas so far
 
 - Make all **Container**s wrap their childs in a **WidgetShell**
-	The idea is to use WidgetShell to communicate the information about the context to Widgets.
+
+    The idea is to use WidgetShell to communicate the information about the context to Widgets.
 	It will reduce the burden of the Context.
+	
 - Make **Widget**s aware they are wrapped.
+ 
 	This way they can delegate the drawing to their parents which is the WidgetShell
+	
 - Merge _input regions_ and _damage regions_.
+ 
 	Their nature should be a property of the **Region** not different fields of the Context.
