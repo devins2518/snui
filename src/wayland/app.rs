@@ -217,7 +217,7 @@ impl Globals {
             shell: None,
         }
     }
-    fn create_shell_surface(
+    pub fn create_shell_surface(
         &self,
         geometry: &dyn Widget,
         namespace: &str,

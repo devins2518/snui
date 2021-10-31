@@ -4,6 +4,7 @@ use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use std::any::Any;
+use crate::widgets::text::Label;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
@@ -87,10 +88,22 @@ impl Context {
         }
     }
     pub fn add_input_region(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        add_region(&mut self.input_regions, x, y, width, height);
+        self.input_regions
+            .push(Region {
+                x,
+                y,
+                width,
+                height,
+            });
     }
-    pub fn push(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        add_region(&mut self.damage_regions, x, y, width, height);
+    pub fn add_region(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        self.damage_regions
+            .push(Region {
+                x,
+                y,
+                width,
+                height,
+            });
     }
     pub fn damage_type(&self) -> DamageType {
         self.damage_type
@@ -126,7 +139,7 @@ impl Context {
                 pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
             });
 
-            self.push(x, y, width, height);
+            self.add_region(x, y, width, height);
 
             let path = pb.finish();
             match &mut self.backend {
@@ -136,7 +149,7 @@ impl Context {
     }
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
         if self.damage_type != DamageType::Resize {
-            self.push(x, y, image.width as f32, image.height as f32);
+            self.add_region(x, y, image.width as f32, image.height as f32);
             match &mut self.backend {
                 Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
             }
@@ -144,7 +157,7 @@ impl Context {
     }
     pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
         if self.damage_type != DamageType::Resize {
-            self.push(x, y, width, height);
+            self.add_region(x, y, width, height);
             match &mut self.backend {
                 Backend::Raqote(dt) => dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS),
             }
@@ -197,7 +210,7 @@ impl Context {
             // Closing path
             pb.close();
             let path = pb.finish();
-            self.push(x, y, width, height);
+            self.add_region(x, y, width, height);
 
             match &mut self.backend {
                 Backend::Raqote(dt) => fill_target(dt, &path, style),
@@ -275,14 +288,15 @@ impl Context {
         &mut self,
         x: f32,
         y: f32,
-        fonts: &[String],
-        glyphs: &[GlyphPosition],
-        source: SolidSource,
+        label: &Label,
     ) {
+        let fonts = &label.fonts;
+        let source = label.source;
+        self.add_region(x, y, label.width(), label.height());
         if self.damage_type != DamageType::Resize {
-            for gp in glyphs {
+            for gp in &label.glyphs {
                 if let Some(glyph_cache) = self.font_cache.get_mut(&fonts[gp.key.font_index as usize]) {
-                    if let Some(pixmap) = glyph_cache.render_glyph(gp, source) {
+                    if let Some(pixmap) = glyph_cache.render_glyph(&gp, source) {
                         match &mut self.backend {
                             Backend::Raqote(dt) => dt.draw_image_at(
                                 x.round() + gp.x,

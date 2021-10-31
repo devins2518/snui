@@ -84,11 +84,11 @@ pub struct Label {
     width: f32,
     layout: Layout,
     font_size: f32,
-    source: SolidSource,
-    fonts: Vec<String>,
+    pub source: SolidSource,
+    pub fonts: Vec<String>,
     write_buffer: Option<String>,
     settings: LayoutSettings,
-    glyphs: Vec<GlyphPosition>,
+    pub glyphs: Vec<GlyphPosition>,
 }
 
 impl Geometry for Label {
@@ -137,7 +137,7 @@ impl Drawable for Label {
     }
     fn draw(&self, context: &mut Context, x: f32, y: f32) {
         context.push(x, y, self.width(), self.height());
-        context.draw_label(x, y, &self.fonts, &self.glyphs, self.source);
+        context.draw_label(x, y, self);
     }
 }
 
