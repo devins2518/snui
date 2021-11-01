@@ -36,8 +36,8 @@ not totally because there's not yet a way to set the background color of a paren
 
 My ideas regarding how to solve that are:
 
-	- add some kind of *background* field to the **Context**. **WidgetShell** could check it on a roundtrip
-	- not rely on the **WidgetShell** and dynamically use the *background* field to draw a background on widgets with no background 
+- Add some kind of *background* field to the **Context**. **WidgetShell** could check it on a roundtrip
+- Not rely on the **WidgetShell** and dynamically use the *background* field to draw a background on widgets with no background 
 
 I'm more in favor of the second approach however this means I would have to scrap the first idea I implemented. Namely, 
 > Make all **Container**s wrap their childs in a **WidgetShell**

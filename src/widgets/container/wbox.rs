@@ -1,5 +1,5 @@
-use crate::*;
 use crate::context::DamageType;
+use crate::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Anchor {
@@ -17,7 +17,7 @@ pub enum Anchor {
 pub struct Wbox {
     width: f32,
     height: f32,
-    pub widgets: Vec<WidgetShell<Inner>>,
+    pub widgets: Vec<Inner>,
 }
 
 pub struct Inner {
@@ -200,7 +200,7 @@ impl Container for Wbox {
     }
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
         self.widgets
-            .push(Inner::new_at(widget, Anchor::Center, 0., 0.).wrap());
+            .push(Inner::new_at(widget, Anchor::Center, 0., 0.));
         Ok(())
     }
 }
@@ -216,7 +216,7 @@ impl Wbox {
 
     pub fn anchor(&mut self, widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) {
         self.widgets
-            .push(Inner::new_at(widget, anchor, x as f32, y as f32).wrap());
+            .push(Inner::new_at(widget, anchor, x as f32, y as f32));
     }
 
     pub fn unmap(&mut self, i: usize) {
@@ -252,7 +252,6 @@ impl Widget for Wbox {
         for l in &mut self.widgets {
             if let Ok((dx, dy)) = l.location(width, height) {
                 l.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                // Do some magic
             }
         }
     }

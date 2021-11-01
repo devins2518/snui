@@ -58,7 +58,7 @@ impl Widget for Element {
 
 pub struct WidgetLayout {
     spacing: f32,
-    pub widgets: Vec<WidgetShell<Element>>,
+    pub widgets: Vec<Element>,
     orientation: Orientation,
     alignment: Alignment,
 }
@@ -160,7 +160,7 @@ impl Container for WidgetLayout {
         self.widgets.len()
     }
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
-        self.widgets.push(Element::new(widget).wrap());
+        self.widgets.push(Element::new(widget));
         Ok(())
     }
 }
