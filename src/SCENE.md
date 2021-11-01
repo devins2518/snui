@@ -35,9 +35,10 @@ to know if they're are wrapped in a **WidgetShell**. This addresses background a
 not totally because there's not yet a way to set the background color of a parent and propagate it to it's transparent childs.
 
 My ideas regarding how to solve that are:
+
 	- add some kind of *background* field to the **Context**. **WidgetShell** could check it on a roundtrip
 	- not rely on the **WidgetShell** and dynamically use the *background* field to draw a background on widgets with no background 
 
-I'm more in favor of the second approach however this means I would have to scrap the second idea I implemented. Namely, 
-> Make **Widget**s aware they are wrapped.
+I'm more in favor of the second approach however this means I would have to scrap the first idea I implemented. Namely, 
+> Make all **Container**s wrap their childs in a **WidgetShell**
 
