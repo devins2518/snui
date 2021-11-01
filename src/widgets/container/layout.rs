@@ -17,7 +17,7 @@ pub enum Alignment {
 pub struct Element {
     mapped: bool,
     hidden: bool,
-    pub widget: Box<dyn Widget>,
+    widget: Box<dyn Widget>,
 }
 
 impl Element {
@@ -30,9 +30,35 @@ impl Element {
     }
 }
 
+impl Geometry for Element {
+    fn width(&self) -> f32 {
+        self.widget.width()
+    }
+    fn height(&self) -> f32 {
+        self.widget.height()
+    }
+}
+
+impl Drawable for Element {
+    fn set_color(&mut self, color: u32) {
+        self.widget.set_color(color);
+    }
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
+        if !self.hidden {
+            self.widget.draw(ctx, x, y);
+        }
+    }
+}
+
+impl Widget for Element {
+    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+        self.widget.roundtrip(wx, wy, ctx, dispatch);
+    }
+}
+
 pub struct WidgetLayout {
     spacing: f32,
-    pub widgets: Vec<Element>,
+    pub widgets: Vec<WidgetShell<Element>>,
     orientation: Orientation,
     alignment: Alignment,
 }
@@ -44,7 +70,7 @@ impl Geometry for WidgetLayout {
             Orientation::Horizontal => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lwidth = w.widget.width();
+                        let lwidth = w.width();
                         width += lwidth + self.spacing;
                     }
                 }
@@ -55,7 +81,7 @@ impl Geometry for WidgetLayout {
             Orientation::Vertical => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lwidth = w.widget.width();
+                        let lwidth = w.width();
                         if lwidth > width {
                             width = lwidth;
                         }
@@ -71,7 +97,7 @@ impl Geometry for WidgetLayout {
             Orientation::Horizontal => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lheight = w.widget.height();
+                        let lheight = w.height();
                         if lheight > height {
                             height = lheight;
                         }
@@ -81,7 +107,7 @@ impl Geometry for WidgetLayout {
             Orientation::Vertical => {
                 for w in &self.widgets {
                     if w.mapped {
-                        let lheight = w.widget.height();
+                        let lheight = w.height();
                         height += lheight + self.spacing;
                     }
                 }
@@ -101,8 +127,8 @@ impl Drawable for WidgetLayout {
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
         for w in &self.widgets {
-            let ww = w.widget.width();
-            let wh = w.widget.height();
+            let ww = w.width();
+            let wh = w.height();
             if w.mapped {
                 match self.orientation {
                     Orientation::Horizontal => {
@@ -111,9 +137,7 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dy = (sh - wh) / 2.,
                             Alignment::End => dy = sh - wh,
                         }
-                        if !w.hidden {
-                            w.widget.draw(ctx, x + dx, y + dy);
-                        }
+                        w.draw(ctx, x + dx, y + dy);
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -122,9 +146,7 @@ impl Drawable for WidgetLayout {
                             Alignment::Center => dx = (sw - ww) / 2.,
                             Alignment::End => dx = sw - ww,
                         }
-                        if !w.hidden {
-                            w.widget.draw(ctx, x + dx, y + dy);
-                        }
+                        w.draw(ctx, x + dx, y + dy);
                         dy += w.widget.height() + self.spacing;
                     }
                 }
@@ -138,7 +160,7 @@ impl Container for WidgetLayout {
         self.widgets.len()
     }
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
-        self.widgets.push(Element::new(widget));
+        self.widgets.push(Element::new(widget).wrap());
         Ok(())
     }
 }
@@ -204,13 +226,12 @@ impl WidgetLayout {
 
 impl Widget for WidgetLayout {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        // let mut index = 0;
         let sw = self.width();
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
         for w in &mut self.widgets.iter_mut() {
-            let ww = w.widget.width();
-            let wh = w.widget.height();
+            let ww = w.width();
+            let wh = w.height();
             if w.mapped {
                 match self.orientation {
                     Orientation::Horizontal => {
@@ -219,14 +240,7 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dy = (sh - wh) / 2.,
                             Alignment::End => dy = sh - wh,
                         }
-                        w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        // if let DamageType::Resize = ctx.damage_type() {
-                        // } else {
-                        //     if ww < w.widget.width() && wh == w.widget.height() {
-                        //         ctx.partial_damage();
-                        //         w.widget.draw(ctx, wx + dx, wy + dy);
-                        //     }
-                        // }
+                        w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -235,14 +249,7 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dx = (sw - ww) / 2.,
                             Alignment::End => dx = sw - ww,
                         }
-                        w.widget.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        // if let DamageType::Resize = ctx.damage_type() {
-                        // } else {
-                        //     if ww < w.widget.width() && wh == w.widget.height() {
-                        //         w.widget.draw(ctx, wx + dx, wy + dy);
-                        //         ctx.partial_damage();
-                        //     }
-                        // }
+                        w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
                         dy += w.widget.height() + self.spacing;
                     }
                 }

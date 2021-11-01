@@ -125,7 +125,7 @@ pub trait Geometry {
  */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
-    fn draw(&self, context: &mut Context, x: f32, y: f32);
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32);
 }
 
 pub trait Widget: Drawable + Geometry {

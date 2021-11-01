@@ -95,61 +95,57 @@ impl<W: Widget> Drawable for Button<W> {
     fn set_color(&mut self, color: u32) {
         self.widget.set_color(color);
     }
-    fn draw(&self, canvas: &mut Context, x: f32, y: f32) {
-        self.widget.draw(canvas, x, y)
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
+        self.widget.draw(ctx, x, y)
     }
 }
 
 impl<W: Widget> Widget for Button<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let mut draw = false;
-        let (w, h) = (self.width(), self.height());
+        let width = self.width();
+        let height = self.height();
         match dispatch {
             Dispatch::Pointer(x, y, pointer) => match pointer {
                 Pointer::Leave => {
                     if self.focused {
                         self.focused = false;
-                        draw = handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
+                        handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
                     }
                 }
                 _ => {
                     if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                         if self.focused {
-                           draw = handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
+                        	handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
                         } else {
                             self.focused = true;
-                        	draw = handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
+                        	handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
                         }
                     } else if self.focused {
                     	self.focused = false;
-                    	draw = handle_damage((self.cb)(&mut self.widget, Pointer::Leave), ctx);
+                    	handle_damage((self.cb)(&mut self.widget, Pointer::Leave), ctx);
                     }
                 }
             },
             Dispatch::Commit => {
-                ctx.add_input_region(wx, wy, self.width(), self.height());
+                // ctx.add_input_region(wx, wy, self.width(), self.height());
             }
             _ => {}
         }
         self.widget.roundtrip(wx, wy, ctx, dispatch);
-        if w != self.width() || h != self.height() {
+        if width != self.width() || height != self.height() {
             ctx.request_resize();
-            ctx.add_input_region(wx, wy, self.width(), self.height());
-        } else if draw {
-            self.draw(ctx, wx, wy);
         }
     }
 }
 
-fn handle_damage(damage_type: Option<DamageType>, ctx: &mut Context) -> bool {
+fn handle_damage(damage_type: Option<DamageType>, ctx: &mut Context) {
     if let Some(damage_type) = damage_type {
         match damage_type {
-            DamageType::Partial => return true,
             DamageType::Full => ctx.full_damage(),
-            DamageType::Resize => ctx.request_resize()
+            DamageType::Resize => ctx.request_resize(),
+            DamageType::Partial => ctx.request_resize(),
         }
     }
-    false
 }
 
 impl<W: Widget> Deref for Button<W> {

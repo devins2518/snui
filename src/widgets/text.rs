@@ -135,9 +135,8 @@ impl Drawable for Label {
             b: color[3],
         };
     }
-    fn draw(&self, context: &mut Context, x: f32, y: f32) {
-        context.push(x, y, self.width(), self.height());
-        context.draw_label(x, y, self);
+    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
+        ctx.draw_label(x, y, self);
     }
 }
 

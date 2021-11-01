@@ -67,8 +67,8 @@ fn add_region(vec: &mut Vec<Region>, x: f32, y: f32, width: f32, height: f32) {
 
 pub struct Context {
     pub running: bool,
+    pub wrapped: bool,
     backend: Backend,
-    input_regions: Vec<Region>,
     damage_type: DamageType,
     damage_regions: Vec<Region>,
     values: HashMap<String, Box<dyn Any>>,
@@ -80,21 +80,30 @@ impl Context {
         Self {
             backend,
             running: true,
+            wrapped: true,
             values: HashMap::new(),
-            input_regions: Vec::new(),
             damage_regions: Vec::new(),
             font_cache: HashMap::new(),
             damage_type: DamageType::Partial,
         }
     }
-    pub fn add_input_region(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        self.input_regions
-            .push(Region {
-                x,
-                y,
-                width,
-                height,
-            });
+    pub fn damage_type(&self) -> DamageType {
+        self.damage_type
+    }
+    pub fn full_damage(&mut self) {
+        self.damage_type = DamageType::Full;
+    }
+    pub fn partial_damage(&mut self) {
+        match &self.damage_type {
+            DamageType::Full => {}
+            _ => self.damage_type = DamageType::Partial,
+        }
+    }
+    pub fn request_resize(&mut self) {
+        match &self.damage_type {
+            DamageType::Partial => self.damage_type = DamageType::Resize,
+            _ => {}
+        }
     }
     pub fn add_region(&mut self, x: f32, y: f32, width: f32, height: f32) {
         self.damage_regions
@@ -105,19 +114,56 @@ impl Context {
                 height,
             });
     }
-    pub fn damage_type(&self) -> DamageType {
-        self.damage_type
+    pub fn resize(&mut self, width: i32, height: i32) {
+        self.partial_damage();
+        match &mut self.backend {
+            Backend::Raqote(dt) => {
+                *dt = DrawTarget::new(width, height);
+                self.flush();
+            }
+        }
+    }
+    pub fn clear(&mut self) {
+        match &mut self.backend {
+            Backend::Raqote(dt) => {
+                dt.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
+            }
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.damage_regions.len()
+    }
+    pub fn is_damaged(&self) -> bool {
+        !self.damage_regions.is_empty()
     }
     pub fn flush(&mut self) {
         self.damage_type = DamageType::Partial;
-        self.input_regions.clear();
         self.damage_regions.clear();
-    }
-    pub fn report_input(&self) -> &[Region] {
-        &self.input_regions
     }
     pub fn report_damage(&self) -> &[Region] {
         &self.damage_regions
+    }
+    pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
+        if self.damage_type != DamageType::Resize {
+			if !self.wrapped {
+                self.add_region(x, y, image.width as f32, image.height as f32);
+			}
+            self.partial_damage();
+            match &mut self.backend {
+                Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
+            }
+        }
+    }
+    pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
+        if self.damage_type != DamageType::Resize {
+			if !self.wrapped {
+                self.add_region(x, y, width, height);
+			}
+            self.partial_damage();
+            match &mut self.backend {
+                Backend::Raqote(dt) => dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS),
+            }
+        }
     }
     pub fn draw_ellipse(&mut self, x: f32, y: f32, width: f32, height: f32, style: &Style) {
         if self.damage_type != DamageType::Resize {
@@ -139,27 +185,14 @@ impl Context {
                 pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
             });
 
-            self.add_region(x, y, width, height);
+			if !self.wrapped {
+                self.add_region(x, y, width, height);
+			}
 
+            self.partial_damage();
             let path = pb.finish();
             match &mut self.backend {
                 Backend::Raqote(dt) => fill_target(dt, &path, style),
-            }
-        }
-    }
-    pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
-        if self.damage_type != DamageType::Resize {
-            self.add_region(x, y, image.width as f32, image.height as f32);
-            match &mut self.backend {
-                Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
-            }
-        }
-    }
-    pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
-        if self.damage_type != DamageType::Resize {
-            self.add_region(x, y, width, height);
-            match &mut self.backend {
-                Backend::Raqote(dt) => dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS),
             }
         }
     }
@@ -210,79 +243,15 @@ impl Context {
             // Closing path
             pb.close();
             let path = pb.finish();
-            self.add_region(x, y, width, height);
+			if !self.wrapped {
+                self.add_region(x, y, width, height);
+			}
 
+            self.partial_damage();
             match &mut self.backend {
                 Backend::Raqote(dt) => fill_target(dt, &path, style),
             }
         }
-    }
-    pub fn resize(&mut self, width: i32, height: i32) {
-        self.partial_damage();
-        match &mut self.backend {
-            Backend::Raqote(dt) => {
-                *dt = DrawTarget::new(width, height);
-                self.flush();
-            }
-        }
-    }
-    pub fn full_damage(&mut self) {
-        self.damage_type = DamageType::Full;
-    }
-    pub fn partial_damage(&mut self) {
-        match &self.damage_type {
-            DamageType::Full => {}
-            _ => self.damage_type = DamageType::Partial,
-        }
-    }
-    pub fn request_resize(&mut self) {
-        match &self.damage_type {
-            DamageType::Partial => self.damage_type = DamageType::Resize,
-            _ => {}
-        }
-    }
-    pub fn clear(&mut self) {
-        match &mut self.backend {
-            Backend::Raqote(dt) => {
-                dt.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
-            }
-        }
-    }
-    pub fn len(&self) -> usize {
-        self.damage_regions.len()
-    }
-    pub fn is_damaged(&self) -> bool {
-        !self.damage_regions.is_empty()
-    }
-    pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
-        if let Ok(glyph_cache) = GlyphCache::load(path) {
-            self.font_cache.insert(name.to_owned(), glyph_cache);
-        }
-    }
-    pub fn store_value<T: Any>(&mut self, name: &str, value: T) {
-        if let Some(inner_value) = self.values.get_mut(name) {
-            *inner_value.downcast_mut::<T>().expect("Invalid Type") = value;
-        } else {
-            self.values.insert(name.to_string(), Box::new(value));
-        }
-    }
-    pub fn get_value<T: Any>(&mut self, name: &str) -> Option<&T> {
-        if let Some(value) = self.values.get(name) {
-            value.downcast_ref()
-        } else {
-            None
-        }
-    }
-    pub fn get_fonts(&self, fonts: &[String]) -> Vec<&Font> {
-        fonts
-            .iter()
-            .filter_map(|font| {
-                if let Some(glyph_cache) = self.font_cache.get(font) {
-                    return Some(&glyph_cache.font);
-                }
-                None
-            })
-            .collect()
     }
     pub fn draw_label(
         &mut self,
@@ -290,6 +259,7 @@ impl Context {
         y: f32,
         label: &Label,
     ) {
+        self.partial_damage();
         let fonts = &label.fonts;
         let source = label.source;
         self.add_region(x, y, label.width(), label.height());
@@ -312,6 +282,36 @@ impl Context {
                     }
                 }
             }
+        }
+    }
+    pub fn get_fonts(&self, fonts: &[String]) -> Vec<&Font> {
+        fonts
+            .iter()
+            .filter_map(|font| {
+                if let Some(glyph_cache) = self.font_cache.get(font) {
+                    return Some(&glyph_cache.font);
+                }
+                None
+            })
+            .collect()
+    }
+    pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
+        if let Ok(glyph_cache) = GlyphCache::load(path) {
+            self.font_cache.insert(name.to_owned(), glyph_cache);
+        }
+    }
+    pub fn store_value<T: Any>(&mut self, name: &str, value: T) {
+        if let Some(inner_value) = self.values.get_mut(name) {
+            *inner_value.downcast_mut::<T>().expect("Invalid Type") = value;
+        } else {
+            self.values.insert(name.to_string(), Box::new(value));
+        }
+    }
+    pub fn get_value<T: Any>(&mut self, name: &str) -> Option<&T> {
+        if let Some(value) = self.values.get(name) {
+            value.downcast_ref()
+        } else {
+            None
         }
     }
 }

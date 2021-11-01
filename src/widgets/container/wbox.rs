@@ -1,5 +1,5 @@
-use crate::context::DamageType;
 use crate::*;
+use crate::context::DamageType;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Anchor {
@@ -17,7 +17,7 @@ pub enum Anchor {
 pub struct Wbox {
     width: f32,
     height: f32,
-    pub widgets: Vec<Inner>,
+    pub widgets: Vec<WidgetShell<Inner>>,
 }
 
 pub struct Inner {
@@ -42,7 +42,9 @@ impl Drawable for Inner {
         self.widget.set_color(color)
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        self.widget.draw(ctx, x, y);
+        if self.mapped {
+        	self.widget.draw(ctx, x, y);
+        }
     }
 }
 
@@ -182,7 +184,7 @@ impl Drawable for Wbox {
         for w in &self.widgets {
             match w.location(sw, sh) {
                 Ok((dx, dy)) => {
-                    if w.is_mapped() && dx <= sw && dy <= sh {
+                    if dx <= sw && dy <= sh {
                         w.draw(ctx, x + dx, y + dy)
                     }
                 }
@@ -196,8 +198,10 @@ impl Container for Wbox {
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, _widget: impl Widget + 'static) -> Result<(), Error> {
-        Err(Error::Message("add is not valid on \"wbox\""))
+    fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
+        self.widgets
+            .push(Inner::new_at(widget, Anchor::Center, 0., 0.).wrap());
+        Ok(())
     }
 }
 
@@ -212,7 +216,7 @@ impl Wbox {
 
     pub fn anchor(&mut self, widget: impl Widget + 'static, anchor: Anchor, x: u32, y: u32) {
         self.widgets
-            .push(Inner::new_at(widget, anchor, x as f32, y as f32));
+            .push(Inner::new_at(widget, anchor, x as f32, y as f32).wrap());
     }
 
     pub fn unmap(&mut self, i: usize) {
@@ -245,18 +249,11 @@ impl Widget for Wbox {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let width = self.width();
         let height = self.height();
-        let mut draw = false;
         for l in &mut self.widgets {
             if let Ok((dx, dy)) = l.location(width, height) {
                 l.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                if let DamageType::Resize = ctx.damage_type() {
-                    draw = true;
-                }
+                // Do some magic
             }
-        }
-        if draw {
-            self.draw(ctx, wx, wy);
-            ctx.partial_damage();
         }
     }
 }

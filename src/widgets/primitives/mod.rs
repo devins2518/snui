@@ -39,8 +39,9 @@ impl<W: Widget> Drawable for WidgetShell<W> {
         self.child.set_color(color);
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        let width = self.child.width() + self.padding[1] + self.padding[3];
-        let height = self.child.height() + self.padding[0] + self.padding[2];
+        let width = self.width();
+        let height = self.height();
+        ctx.add_region(x, y, width, height);
         match self.shape {
             Shape::Rectangle => {
                 ctx.draw_rectangle(x, y, width, height, self.radius, &self.background);
@@ -74,6 +75,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                 }
             }
         }
+        ctx.wrapped = true;
         self.child
             .draw(ctx, x + self.padding[3], y + self.padding[0]);
     }
@@ -81,8 +83,18 @@ impl<W: Widget> Drawable for WidgetShell<W> {
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
+        ctx.wrapped = true;
+        let width = self.child.width();
+        let height = self.child.height();
         self.child
             .roundtrip(wx + self.padding[3], wy + self.padding[0], ctx, dispatch);
+        if let DamageType::Resize = ctx.damage_type() {
+            if width == self.child.width() || height == self.child.height() {
+                ctx.partial_damage();
+                self.draw(ctx, wx, wy);
+            }
+        }
+        ctx.wrapped = false;
     }
 }
 

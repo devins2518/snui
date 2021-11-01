@@ -768,7 +768,7 @@ impl InnerApplication {
         if self.core.ctx.running && show {
             if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
-                    surface.add_input(self.core.ctx.report_input());
+                    // surface.add_input(self.core.ctx.report_input());
                     if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
                         buffer.merge();
                         surface.attach_buffer(wl_buffer, 0, 0);
