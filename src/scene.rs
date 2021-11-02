@@ -1,12 +1,12 @@
 use crate::*;
 use raqote::*;
 use std::cmp::Ordering;
+use crate::widgets::blend;
 use crate::widgets::primitives::{Style, Shape};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Background {
     // Image,
-    Text,
     Transparent,
     Color(SolidSource),
 }
@@ -30,35 +30,37 @@ impl Scene {
             region,
         }
     }
-    fn insert(&mut self, x: f32, y: f32, width: f32, height: f32, background: Background) {
-        let region = Region::new(x, y, width, height);
+    fn insert(&mut self, scene: Scene) {
         if self.subscenes.is_empty() {
-            self.subscenes.push(Scene::new(region, background));
-        } else if self.subscenes[self.last].region.eq(&region) {
-            self.subscenes[self.last].insert(x, y, width, height, background);
+            self.subscenes.push(scene);
+        } else if self.subscenes[self.last].region.eq(&scene.region) {
+            self.subscenes[self.last].insert(scene);
         } else {
             if let Ok(index) = self.subscenes.binary_search_by(|scene| {
-                scene.region.cmp(&region)
+                scene.region.cmp(&scene.region)
             }) {
                 self.last = index;
-                self.subscenes[index].insert(x, y, width, height, background);
+                self.subscenes[index].insert(scene);
             } else {
-                self.subscenes.push(Scene::new(region, background));
+                self.subscenes.push(scene);
             }
         }
     }
-    fn get_background(&mut self, x: f32, y: f32, width: f32, height: f32) -> Background {
-        let region = Region::new(x, y, width, height);
+    fn get_background(&self, region: &Region) -> Background {
         if self.subscenes.is_empty() {
             self.background
-        } else if self.subscenes[self.last].region.eq(&region) {
-            self.subscenes[self.last].background
+        } else if self.subscenes[self.last].region.eq(region) {
+            self.subscenes[self.last].get_background(region)
         } else {
             if let Ok(index) = self.subscenes.binary_search_by(|scene| {
                 scene.region.cmp(&region)
             }) {
                 self.last = index;
-                self.subscenes[index].get_background(x, y, width, height)
+                let bg = self.subscenes[index].get_background(region);
+                if let Background::Transparent = &bg {
+                    return self.background
+                }
+                bg
             } else {
                 self.background
             }
@@ -80,11 +82,15 @@ impl Region {
             x, y, width, height
         }
     }
-    fn contains(&self,x: f32, y: f32) -> bool {
-        self.x <= x
-        && self.y <= y
-        && self.x + self.width >= x
-        && self.y + self.height >= y
+    fn merge(&mut self, other: &Self) {
+        if self.contains(other.x, other.y) {
+            self.width = self.x.max(other.x) + self.width.max(other.width);
+            self.height = self.y.max(other.y) + self.height.max(other.height);
+        }
+    }
+    fn contains(&self, x: f32, y: f32) -> bool {
+        other.x - self.x <= self.width
+        && other.y - self.y <= self.height
     }
 }
 
