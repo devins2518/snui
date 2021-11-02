@@ -1,3 +1,4 @@
+pub mod scene;
 pub mod context;
 pub mod wayland;
 pub mod widgets;

@@ -1,5 +1,5 @@
-use crate::widgets::text::{Font, GlyphCache, GlyphPosition};
 use crate::*;
+use crate::scene::*;
 use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
@@ -8,7 +8,20 @@ use crate::widgets::text::Label;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
-use widgets::primitives::Style;
+use widgets::primitives::{Style, Shape};
+use crate::widgets::text::{Font, GlyphCache};
+
+const ATOP_OPTIONS: DrawOptions = DrawOptions {
+    alpha: 1.,
+    blend_mode: BlendMode::SrcAtop,
+    antialias: AntialiasMode::Gray,
+};
+
+const DRAW_OPTIONS: DrawOptions = DrawOptions {
+    blend_mode: BlendMode::SrcOver,
+    alpha: 1.,
+    antialias: AntialiasMode::Gray,
+};
 
 #[derive(Debug, Clone, Copy,PartialEq, Eq)]
 pub enum DamageType {
@@ -21,25 +34,8 @@ pub enum Backend {
     Raqote(DrawTarget),
 }
 
-const ATOP_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::SrcAtop,
-    alpha: 1.,
-    antialias: AntialiasMode::Gray,
-};
-
-const DRAW_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::SrcOver,
-    alpha: 1.,
-    antialias: AntialiasMode::Gray,
-};
-
-#[derive(Debug, Copy, Clone)]
-pub struct Region {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
+// TO-DO
+// Implement ParitalOrd for Region
 
 fn add_region(vec: &mut Vec<Region>, x: f32, y: f32, width: f32, height: f32) {
     if let Some(last) = vec.last() {

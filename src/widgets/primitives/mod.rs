@@ -11,6 +11,7 @@ pub enum Style {
     Empty,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum Shape {
     Rectangle,
     Circle,

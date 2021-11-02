@@ -184,7 +184,7 @@ impl Surface {
     fn set_size(&self, width: u32, height: u32) {
         self.shell.set_size(width, height);
     }
-    fn add_input(&self, report: &[Region]) {
+    fn add_input(&self, _report: &[Region]) {
         // if !report.is_empty() {
         //     for r in report {
         //         self.region
