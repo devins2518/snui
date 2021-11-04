@@ -1,15 +1,15 @@
-use crate::scene::*;
-use crate::widgets::text::Label;
-use crate::widgets::text::{Font, GlyphCache};
 use crate::*;
-use euclid::default::{Box2D, Point2D};
-use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use std::any::Any;
-use std::collections::HashMap;
+use crate::scene::*;
 use std::f32::consts::PI;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use crate::widgets::text::Label;
 use widgets::primitives::Style;
+use euclid::default::{Box2D, Point2D};
+use crate::widgets::text::{Font, GlyphCache};
+use lyon_geom::euclid::{point2, vec2, Angle};
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
     alpha: 1.,
@@ -76,9 +76,9 @@ impl Context {
         }
     }
     pub fn damage_region(&mut self, region: &Region) {
-        match self.scene.background {
+        self.force_damage();
+        match &self.scene.background {
             Background::Color(source) => {
-                self.force_damage();
                 match &mut self.backend {
                     Backend::Raqote(dt) => {
                         dt.fill_rect(
@@ -86,7 +86,7 @@ impl Context {
                             region.y,
                             region.width,
                             region.height,
-                            &Source::Solid(source),
+                            &Source::Solid(*source),
                             &DRAW_OPTIONS,
                         )
                     }
@@ -113,6 +113,7 @@ impl Context {
                 dt.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
             }
         }
+        self.flush();
     }
     pub fn len(&self) -> usize {
         self.pending_damage.len()

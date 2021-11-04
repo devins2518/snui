@@ -6,7 +6,7 @@ use crate::*;
 use raqote::*;
 use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 use smithay_client_toolkit::seat::keyboard::{
-    self, keysyms, map_keyboard_repeat, KeyState, ModifiersState, RepeatKind, RMLVO,
+    self, map_keyboard_repeat, ModifiersState, RepeatKind,
 };
 use smithay_client_toolkit::shm::DoubleMemPool;
 use smithay_client_toolkit::WaylandSource;
@@ -23,8 +23,7 @@ use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::{
-    Attached, DispatchData, Display, EventQueue, GlobalError, GlobalManager, Interface, Main,
-    Proxy, QueueToken,
+    Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy
 };
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,

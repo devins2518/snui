@@ -1,28 +1,52 @@
 use raqote::*;
 use crate::widgets::blend;
 use std::cmp::Ordering;
+use crate::widgets::primitives::Style;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
+pub struct ImageMask {
+    pub overlay: Background,
+    pub image: crate::widgets::DynamicImage,
+}
+
+#[derive(Clone, Debug)]
 pub enum Background {
     Transparent,
     Color(SolidSource),
+    Image(Box<ImageMask>),
 }
 
 impl Background {
+    pub fn into_style(&self) -> Style {
+        match self {
+            Background::Transparent => Style::Empty,
+            Background::Color(source) => Style::Fill(*source),
+            _ => Style::Empty
+        }
+    }
     pub fn merge(&mut self, other: Self) {
-        if let Background::Color(bsource) = other {
-            match self {
-                Background::Color(asource) => {
-                    let source = blend(&asource.to_u32().to_be_bytes(), &bsource.to_u32().to_be_bytes(), 1.);
-                    *asource = SolidSource {
-                        a: source[0],
-                        r: source[1],
-                        g: source[2],
-                        b: source[3],
-                    };
+        match other {
+            Background::Color(bsource) => {
+                match self {
+                    Background::Color(asource) => {
+                        let source = blend(&asource.to_u32().to_be_bytes(), &bsource.to_u32().to_be_bytes(), 1.);
+                        *asource = SolidSource {
+                            a: source[0],
+                            r: source[1],
+                            g: source[2],
+                            b: source[3],
+                        };
+                    }
+                    Background::Image(mask) => {
+                        mask.overlay.merge(other);
+                    }
+                    Background::Transparent => *self = other,
                 }
-                Background::Transparent => *self = other,
             }
+            Background::Image(_) => {
+                *self = other;
+            }
+            _ => {}
         }
     }
 }

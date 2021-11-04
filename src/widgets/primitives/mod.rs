@@ -1,9 +1,10 @@
 pub mod shapes;
 
-use crate::scene::*;
 use crate::*;
 use raqote::*;
+use crate::scene::*;
 use std::ops::{Deref, DerefMut};
+use crate::widgets::u32_to_source;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Style {
@@ -22,9 +23,9 @@ pub struct WidgetShell<W: Widget> {
     child: W,
     shape: Shape,
     radius: [f32; 4],
-    border: Style,
-    background: Style,
     padding: [f32; 4],
+    border: Style,
+    background: Background,
 }
 
 impl<W: Widget> Geometry for WidgetShell<W> {
@@ -45,7 +46,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
         let height = self.height();
         match self.shape {
             Shape::Rectangle => {
-                ctx.draw_rectangle(x, y, width, height, self.radius, &self.background);
+                ctx.draw_rectangle(x, y, width, height, self.radius, &self.background.into_style());
                 if let Style::Border(_, border_width) = &self.border {
                     ctx.draw_rectangle(
                         x + border_width / 2.,
@@ -63,7 +64,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                     y + height / 2.,
                     width,
                     height,
-                    &self.background,
+                    &self.background.into_style(),
                 );
                 if let Style::Border(_, border_width) = &self.border {
                     ctx.draw_ellipse(
@@ -83,12 +84,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        match self.background {
-            Style::Fill(source) => {
-                ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), Background::Color(source));
-            }
-            _ => {}
-        }
+        ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), self.background.clone());
         self.child
             .roundtrip(wx + self.padding[3], wy + self.padding[0], ctx, dispatch);
     }
@@ -98,7 +94,7 @@ impl<W: Widget> WidgetShell<W> {
     pub fn default(child: W) -> Self {
         WidgetShell {
             child,
-            background: Style::Empty,
+            background: Background::Transparent,
             border: Style::Empty,
             shape: Shape::Rectangle,
             radius: [0.; 4],
@@ -109,9 +105,9 @@ impl<W: Widget> WidgetShell<W> {
         Self {
             child,
             background: if background != 0 {
-                Style::fill(background)
+                Background::Color(u32_to_source(background))
             } else {
-                Style::Empty
+                Background::Transparent
             },
             border: if border != 0 {
                 Style::border(border, border_width as f32)
@@ -127,9 +123,9 @@ impl<W: Widget> WidgetShell<W> {
         Self {
             child,
             background: if background != 0 {
-                Style::fill(background)
+                Background::Color(u32_to_source(background))
             } else {
-                Style::Empty
+                Background::Transparent
             },
             border: if border != 0 {
                 Style::border(border, border_width as f32)
@@ -159,15 +155,10 @@ impl<W: Widget> WidgetShell<W> {
         }
     }
     pub fn set_background(&mut self, color: u32) {
-        self.background = Style::fill(color);
+        self.background = Background::Color(u32_to_source(color));
     }
-    pub fn set_padding(&mut self, padding: [u32; 4]) {
-        self.padding = [
-            padding[0] as f32,
-            padding[1] as f32,
-            padding[2] as f32,
-            padding[3] as f32,
-        ];
+    pub fn set_padding(&mut self, padding: [f32; 4]) {
+        self.padding = padding;
     }
     pub fn unwrap(self) -> W {
         self.child

@@ -5,12 +5,12 @@ use image::{Bgra, ImageBuffer};
 use std::path::Path;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Image {
     image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DynamicImage {
     width: u32,
     height: u32,

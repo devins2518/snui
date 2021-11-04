@@ -1,28 +1,14 @@
-use crate::widgets::primitives::*;
 use crate::*;
 use raqote::*;
+use widgets::u32_to_source;
+use crate::widgets::primitives::*;
 
 impl Style {
     pub fn fill(color: u32) -> Self {
-        let color = color.to_be_bytes();
-        Style::Fill(SolidSource {
-            a: color[0],
-            r: color[1],
-            g: color[2],
-            b: color[3],
-        })
+        Style::Fill(u32_to_source(color))
     }
     pub fn border(color: u32, size: f32) -> Self {
-        let color = color.to_be_bytes();
-        Style::Border(
-            SolidSource {
-                a: color[0],
-                r: color[1],
-                g: color[2],
-                b: color[3],
-            },
-            size,
-        )
+        Style::Border(u32_to_source(color), size)
     }
     pub fn is_empty(&self) -> bool {
         if let Style::Empty = self {

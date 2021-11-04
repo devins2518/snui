@@ -3,6 +3,7 @@ pub mod image;
 pub mod primitives;
 pub mod text;
 
+use raqote::*;
 pub use self::image::{DynamicImage, Image};
 use crate::context::DamageType;
 use crate::*;
@@ -39,6 +40,16 @@ pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
             }
             index += stride;
         }
+    }
+}
+
+pub fn u32_to_source(color: u32) -> SolidSource {
+    let color = color.to_be_bytes();
+    SolidSource {
+        a: color[0],
+        r: color[1],
+        g: color[2],
+        b: color[3],
     }
 }
 
