@@ -272,7 +272,7 @@ impl Widget for WidgetLayout {
             }
         }
         if damage {
-            ctx.partial_damage();
+            ctx.force_damage();
         } else {
             if self.width() != sw || self.height() != sh {
                 self.damage(&Region::new(wx, wy, sw, sh), wx, wy, ctx);

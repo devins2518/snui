@@ -27,6 +27,23 @@ impl Background {
     }
 }
 
+pub struct Scene {
+    pub region: Region,
+    pub background: Background,
+}
+
+impl Scene {
+    pub fn default() -> Scene {
+        Scene {
+            background: Background::Transparent,
+            region: Region::new(0., 0., 1., 1.),
+        }
+    }
+    pub fn new(background: Background, region: Region) -> Self {
+        Self { background, region }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct Region {
     pub x: f32,

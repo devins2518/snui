@@ -49,7 +49,18 @@ impl Drawable for Inner {
 
 impl Widget for Inner {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        self.widget.roundtrip(wx, wy, ctx, dispatch);
+        let sw = self.width();
+        let sh = self.height();
+        if let DamageType::None = ctx.damage_type() {
+            self.widget.roundtrip(wx, wy, ctx, dispatch);
+            if let DamageType::Partial = ctx.damage_type() {
+                if self.width() == sw && self.height() == sh {
+                    self.damage(&Region::new(wx, wy, sw, sh), wx, wy, ctx);
+                }
+            }
+        } else {
+            self.widget.roundtrip(wx, wy, ctx, dispatch);
+        }
     }
 }
 

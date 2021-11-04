@@ -105,33 +105,35 @@ impl<W: Widget> Drawable for Button<W> {
 
 impl<W: Widget> Widget for Button<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        match dispatch {
+        let damage_type  = match dispatch {
             Dispatch::Pointer(x, y, pointer) => match pointer {
                 Pointer::Leave => {
                     if self.focused {
                         self.focused = false;
-                        handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
+                        (self.cb)(&mut self.widget, *pointer)
+                    } else {
+                        DamageType::None
                     }
                 }
                 _ => {
                     if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                         if self.focused {
-                            handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
+                            (self.cb)(&mut self.widget, *pointer)
                         } else {
                             self.focused = true;
-                            handle_damage((self.cb)(&mut self.widget, Pointer::Enter), ctx);
+                            (self.cb)(&mut self.widget, Pointer::Enter)
                         }
                     } else if self.focused {
                         self.focused = false;
-                        handle_damage((self.cb)(&mut self.widget, Pointer::Leave), ctx);
+                        (self.cb)(&mut self.widget, Pointer::Leave)
+                    } else {
+                        DamageType::None
                     }
                 }
             },
-            Dispatch::Commit => {
-                // ctx.add_input_region(wx, wy, self.width(), self.height());
-            }
-            _ => {}
-        }
+            _ => DamageType::None
+        };
+        handle_damage(damage_type, ctx);
         self.widget.roundtrip(wx, wy, ctx, dispatch);
     }
 }
@@ -139,7 +141,7 @@ impl<W: Widget> Widget for Button<W> {
 fn handle_damage(damage_type: DamageType, ctx: &mut Context) {
     match damage_type {
         DamageType::Full => ctx.redraw(),
-        DamageType::Partial => ctx.partial_damage(),
+        DamageType::Partial => ctx.force_damage(),
         DamageType::None => {}
     }
 }

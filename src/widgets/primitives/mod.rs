@@ -25,7 +25,6 @@ pub struct WidgetShell<W: Widget> {
     border: Style,
     background: Style,
     padding: [f32; 4],
-    previous_region: Option<Region>,
 }
 
 impl<W: Widget> Geometry for WidgetShell<W> {
@@ -84,10 +83,9 @@ impl<W: Widget> Drawable for WidgetShell<W> {
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        self.previous_region = Some(Region::new(wx, wy, self.width(), self.height()));
         match self.background {
             Style::Fill(source) => {
-                ctx.add_background(Background::Color(source));
+                ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), Background::Color(source));
             }
             _ => {}
         }
@@ -105,7 +103,6 @@ impl<W: Widget> WidgetShell<W> {
             shape: Shape::Rectangle,
             radius: [0.; 4],
             padding: [0.; 4],
-            previous_region: None,
         }
     }
     pub fn rect(child: W, padding: u32, border_width: u32, background: u32, border: u32) -> Self {
@@ -124,7 +121,6 @@ impl<W: Widget> WidgetShell<W> {
             shape: Shape::Rectangle,
             radius: [0.; 4],
             padding: [padding as f32; 4],
-            previous_region: None,
         }
     }
     pub fn circle(padding: u32, border_width: u32, background: u32, border: u32, child: W) -> Self {
@@ -143,7 +139,6 @@ impl<W: Widget> WidgetShell<W> {
             shape: Shape::Circle,
             radius: [0.; 4],
             padding: [padding as f32; 4],
-            previous_region: None,
         }
     }
     pub fn set_radius(&mut self, radius: [f32; 4]) {

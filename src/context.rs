@@ -37,7 +37,7 @@ pub enum Backend {
 pub struct Context {
     pub running: bool,
     backend: Backend,
-    pub background: Background,
+    scene: Scene,
     damage_type: DamageType,
     pending_damage: Vec<Region>,
     values: HashMap<String, Box<dyn Any>>,
@@ -48,36 +48,37 @@ impl Context {
     pub fn new(backend: Backend) -> Self {
         Self {
             backend,
-            background: Background::Transparent,
             running: true,
+            scene: Scene::default(),
             values: HashMap::new(),
             pending_damage: Vec::new(),
             font_cache: HashMap::new(),
-            damage_type: DamageType::None,
+            damage_type: DamageType::Full,
         }
     }
     pub fn damage_type(&self) -> DamageType {
         self.damage_type
     }
     pub fn redraw(&mut self) {
-        self.background = Background::Transparent;
+        self.scene = Scene::default();
         self.damage_type = DamageType::Full;
     }
-    pub fn partial_damage(&mut self) {
+    pub fn force_damage(&mut self) {
         match &self.damage_type {
             DamageType::Full => {}
             _ => self.damage_type = DamageType::Partial,
         }
     }
-    pub fn add_background(&mut self, background: Background) {
+    pub fn update_scene(&mut self, region: Region, background: Background) {
         if let DamageType::None = self.damage_type {
-            self.background.merge(background);
+            self.scene.region = region;
+            self.scene.background.merge(background);
         }
     }
     pub fn damage_region(&mut self, region: &Region) {
-        match self.background {
+        match self.scene.background {
             Background::Color(source) => {
-                self.partial_damage();
+                self.force_damage();
                 match &mut self.backend {
                     Backend::Raqote(dt) => {
                         dt.fill_rect(

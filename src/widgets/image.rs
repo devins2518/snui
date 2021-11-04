@@ -10,6 +10,7 @@ pub struct Image {
     image: ImageBuffer<Bgra<u8>, Vec<u8>>,
 }
 
+#[derive(Clone)]
 pub struct DynamicImage {
     width: u32,
     height: u32,

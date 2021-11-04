@@ -906,7 +906,6 @@ fn assign_surface(shell: &Main<ZwlrLayerSurfaceV1>) {
                         match &surface.shell {
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
-                                    a.redraw();
                                     a.dispatch(Dispatch::Commit);
                                 }
                             }
