@@ -1,15 +1,15 @@
-use crate::*;
 use crate::scene::*;
+use crate::widgets::text::Label;
+use crate::widgets::text::{Font, GlyphCache};
+use crate::*;
 use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use std::any::Any;
-use crate::widgets::text::Label;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
-use widgets::primitives::{Style, Shape};
-use crate::widgets::text::{Font, GlyphCache};
+use widgets::primitives::Style;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
     alpha: 1.,
@@ -23,50 +23,23 @@ const DRAW_OPTIONS: DrawOptions = DrawOptions {
     antialias: AntialiasMode::Gray,
 };
 
-#[derive(Debug, Clone, Copy,PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DamageType {
-    Full,
-    Resize,
+    None,
     Partial,
+    Full,
 }
 
 pub enum Backend {
     Raqote(DrawTarget),
 }
 
-// TO-DO
-// Implement ParitalOrd for Region
-
-fn add_region(vec: &mut Vec<Region>, x: f32, y: f32, width: f32, height: f32) {
-    if let Some(last) = vec.last() {
-        if !(last.x <= x
-            && last.y <= y
-            && last.x + last.width >= x + width
-            && last.y + last.height >= y + height)
-        {
-            vec.push(Region {
-                x,
-                y,
-                width,
-                height,
-            });
-        }
-    } else {
-        vec.push(Region {
-            x,
-            y,
-            width,
-            height,
-        });
-    }
-}
-
 pub struct Context {
     pub running: bool,
-    pub wrapped: bool,
     backend: Backend,
+    pub background: Background,
     damage_type: DamageType,
-    damage_regions: Vec<Region>,
+    pending_damage: Vec<Region>,
     values: HashMap<String, Box<dyn Any>>,
     font_cache: HashMap<String, GlyphCache>,
 }
@@ -75,18 +48,19 @@ impl Context {
     pub fn new(backend: Backend) -> Self {
         Self {
             backend,
+            background: Background::Transparent,
             running: true,
-            wrapped: true,
             values: HashMap::new(),
-            damage_regions: Vec::new(),
+            pending_damage: Vec::new(),
             font_cache: HashMap::new(),
-            damage_type: DamageType::Partial,
+            damage_type: DamageType::None,
         }
     }
     pub fn damage_type(&self) -> DamageType {
         self.damage_type
     }
-    pub fn full_damage(&mut self) {
+    pub fn redraw(&mut self) {
+        self.background = Background::Transparent;
         self.damage_type = DamageType::Full;
     }
     pub fn partial_damage(&mut self) {
@@ -95,23 +69,36 @@ impl Context {
             _ => self.damage_type = DamageType::Partial,
         }
     }
-    pub fn request_resize(&mut self) {
-        match &self.damage_type {
-            DamageType::Partial => self.damage_type = DamageType::Resize,
+    pub fn add_background(&mut self, background: Background) {
+        if let DamageType::None = self.damage_type {
+            self.background.merge(background);
+        }
+    }
+    pub fn damage_region(&mut self, region: &Region) {
+        match self.background {
+            Background::Color(source) => {
+                self.partial_damage();
+                match &mut self.backend {
+                    Backend::Raqote(dt) => {
+                        dt.fill_rect(
+                            region.x,
+                            region.y,
+                            region.width,
+                            region.height,
+                            &Source::Solid(source),
+                            &DRAW_OPTIONS,
+                        )
+                    }
+                }
+            }
             _ => {}
         }
     }
-    pub fn add_region(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        self.damage_regions
-            .push(Region {
-                x,
-                y,
-                width,
-                height,
-            });
+    pub fn add_region(&mut self, region: Region) {
+        self.pending_damage.push(region);
+        self.damage_type = DamageType::None;
     }
     pub fn resize(&mut self, width: i32, height: i32) {
-        self.partial_damage();
         match &mut self.backend {
             Backend::Raqote(dt) => {
                 *dt = DrawTarget::new(width, height);
@@ -127,69 +114,52 @@ impl Context {
         }
     }
     pub fn len(&self) -> usize {
-        self.damage_regions.len()
+        self.pending_damage.len()
     }
     pub fn is_damaged(&self) -> bool {
-        !self.damage_regions.is_empty()
+        !self.pending_damage.is_empty()
     }
     pub fn flush(&mut self) {
-        self.damage_type = DamageType::Partial;
-        self.damage_regions.clear();
+        self.damage_type = DamageType::None;
+        self.pending_damage.clear();
     }
     pub fn report_damage(&self) -> &[Region] {
-        &self.damage_regions
+        &self.pending_damage
     }
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
-        if self.damage_type != DamageType::Resize {
-			if !self.wrapped {
-                self.add_region(x, y, image.width as f32, image.height as f32);
-			}
-            self.partial_damage();
-            match &mut self.backend {
-                Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
-            }
+        match &mut self.backend {
+            Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
         }
     }
     pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
-        if self.damage_type != DamageType::Resize {
-			if !self.wrapped {
-                self.add_region(x, y, width, height);
-			}
-            self.partial_damage();
-            match &mut self.backend {
-                Backend::Raqote(dt) => dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS),
+        match &mut self.backend {
+            Backend::Raqote(dt) => {
+                dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS)
             }
         }
     }
     pub fn draw_ellipse(&mut self, x: f32, y: f32, width: f32, height: f32, style: &Style) {
-        if self.damage_type != DamageType::Resize {
-            // from https://github.com/ritobanrc/p5-rs/src/backend/raqote.rs
-            let arc = lyon_geom::Arc {
-                center: point2(x, y),
-                radii: vec2(width / 2., height / 2.),
-                start_angle: Angle::zero(),
-                sweep_angle: Angle::two_pi(),
-                x_rotation: Angle::zero(),
-            };
+        // from https://github.com/ritobanrc/p5-rs/src/backend/raqote.rs
+        let arc = lyon_geom::Arc {
+            center: point2(x, y),
+            radii: vec2(width / 2., height / 2.),
+            start_angle: Angle::zero(),
+            sweep_angle: Angle::two_pi(),
+            x_rotation: Angle::zero(),
+        };
 
-            let mut pb = PathBuilder::new();
+        let mut pb = PathBuilder::new();
 
-            let start = arc.from();
-            pb.line_to(start.x, start.y);
+        let start = arc.from();
+        pb.line_to(start.x, start.y);
 
-            arc.for_each_quadratic_bezier(&mut |q| {
-                pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
-            });
+        arc.for_each_quadratic_bezier(&mut |q| {
+            pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
+        });
 
-			if !self.wrapped {
-                self.add_region(x, y, width, height);
-			}
-
-            self.partial_damage();
-            let path = pb.finish();
-            match &mut self.backend {
-                Backend::Raqote(dt) => fill_target(dt, &path, style),
-            }
+        let path = pb.finish();
+        match &mut self.backend {
+            Backend::Raqote(dt) => fill_target(dt, &path, style),
         }
     }
     pub fn draw_rectangle(
@@ -201,80 +171,65 @@ impl Context {
         radius: [f32; 4],
         style: &Style,
     ) {
-        if self.damage_type != DamageType::Resize {
-            let mut pb = PathBuilder::new();
-            let mut cursor = (x, y);
+        let mut pb = PathBuilder::new();
+        let mut cursor = (x, y);
 
-            // Sides length
-            let top = width - radius[0] - radius[1];
-            let right = height - radius[1] - radius[2];
-            let left = height - radius[0] - radius[3];
-            let bottom = width - radius[2] - radius[3];
+        // Sides length
+        let top = width - radius[0] - radius[1];
+        let right = height - radius[1] - radius[2];
+        let left = height - radius[0] - radius[3];
+        let bottom = width - radius[2] - radius[3];
 
-            // Positioning the cursor
-            cursor.0 += radius[0];
-            cursor.1 += radius[0];
+        // Positioning the cursor
+        cursor.0 += radius[0];
+        cursor.1 += radius[0];
 
-            // Drawing the outline
-            pb.arc(cursor.0, cursor.1, radius[0], PI, PI / 2.);
-            cursor.0 += top;
-            cursor.1 -= radius[0];
-            pb.line_to(cursor.0, cursor.1);
-            cursor.1 += radius[1];
-            pb.arc(cursor.0, cursor.1, radius[1], -PI / 2., PI / 2.);
-            cursor.0 += radius[1];
-            cursor.1 += right;
-            pb.line_to(cursor.0, cursor.1);
-            cursor.0 -= radius[2];
-            pb.arc(cursor.0, cursor.1, radius[2], 0., PI / 2.);
-            cursor.1 += radius[2];
-            cursor.0 -= bottom;
-            pb.line_to(cursor.0, cursor.1);
-            cursor.1 -= radius[3];
-            pb.arc(cursor.0, cursor.1, radius[3], PI / 2., PI / 2.);
-            cursor.0 -= radius[3];
-            cursor.1 -= left;
-            pb.line_to(cursor.0, cursor.1);
+        // Drawing the outline
+        pb.arc(cursor.0, cursor.1, radius[0], PI, PI / 2.);
+        cursor.0 += top;
+        cursor.1 -= radius[0];
+        pb.line_to(cursor.0, cursor.1);
+        cursor.1 += radius[1];
+        pb.arc(cursor.0, cursor.1, radius[1], -PI / 2., PI / 2.);
+        cursor.0 += radius[1];
+        cursor.1 += right;
+        pb.line_to(cursor.0, cursor.1);
+        cursor.0 -= radius[2];
+        pb.arc(cursor.0, cursor.1, radius[2], 0., PI / 2.);
+        cursor.1 += radius[2];
+        cursor.0 -= bottom;
+        pb.line_to(cursor.0, cursor.1);
+        cursor.1 -= radius[3];
+        pb.arc(cursor.0, cursor.1, radius[3], PI / 2., PI / 2.);
+        cursor.0 -= radius[3];
+        cursor.1 -= left;
+        pb.line_to(cursor.0, cursor.1);
 
-            // Closing path
-            pb.close();
-            let path = pb.finish();
-			if !self.wrapped {
-                self.add_region(x, y, width, height);
-			}
+        // Closing path
+        pb.close();
+        let path = pb.finish();
 
-            self.partial_damage();
-            match &mut self.backend {
-                Backend::Raqote(dt) => fill_target(dt, &path, style),
-            }
+        match &mut self.backend {
+            Backend::Raqote(dt) => fill_target(dt, &path, style),
         }
     }
-    pub fn draw_label(
-        &mut self,
-        x: f32,
-        y: f32,
-        label: &Label,
-    ) {
-        self.partial_damage();
+    pub fn draw_label(&mut self, x: f32, y: f32, label: &Label) {
         let fonts = &label.fonts;
         let source = label.source;
-        self.add_region(x, y, label.width(), label.height());
-        if self.damage_type != DamageType::Resize {
-            for gp in &label.glyphs {
-                if let Some(glyph_cache) = self.font_cache.get_mut(&fonts[gp.key.font_index as usize]) {
-                    if let Some(pixmap) = glyph_cache.render_glyph(&gp, source) {
-                        match &mut self.backend {
-                            Backend::Raqote(dt) => dt.draw_image_at(
-                                x.round() + gp.x,
-                                y.round() + gp.y,
-                                &Image {
-                                    data: &pixmap,
-                                    width: gp.width as i32,
-                                    height: gp.height as i32,
-                                },
-                                &ATOP_OPTIONS,
-                            ),
-                        }
+        for gp in &label.glyphs {
+            if let Some(glyph_cache) = self.font_cache.get_mut(&fonts[gp.key.font_index as usize]) {
+                if let Some(pixmap) = glyph_cache.render_glyph(&gp, source) {
+                    match &mut self.backend {
+                        Backend::Raqote(dt) => dt.draw_image_at(
+                            x.round() + gp.x,
+                            y.round() + gp.y,
+                            &Image {
+                                data: &pixmap,
+                                width: gp.width as i32,
+                                height: gp.height as i32,
+                            },
+                            &ATOP_OPTIONS,
+                        ),
                     }
                 }
             }
@@ -365,7 +320,7 @@ impl Drawable for Context {
         }
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        ctx.damage_regions.push(Region {
+        ctx.pending_damage.push(Region {
             x,
             y,
             width: ctx.width(),

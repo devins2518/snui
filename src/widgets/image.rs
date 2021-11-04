@@ -3,6 +3,7 @@ use image::imageops::{self, FilterType};
 use image::io::Reader as ImageReader;
 use image::{Bgra, ImageBuffer};
 use std::path::Path;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Image {
@@ -12,7 +13,7 @@ pub struct Image {
 pub struct DynamicImage {
     width: u32,
     height: u32,
-    image: ImageBuffer<Bgra<u8>, Vec<u8>>,
+    image: Rc<ImageBuffer<Bgra<u8>, Vec<u8>>>,
 }
 
 impl Image {
@@ -96,7 +97,7 @@ impl DynamicImage {
         Ok(Self {
             width: image.width(),
             height: image.height(),
-            image
+            image: Rc::new(image),
         })
     }
 
@@ -113,7 +114,7 @@ impl DynamicImage {
         Ok(Self {
             width,
             height,
-            image
+            image: Rc::new(image),
         })
     }
 
@@ -121,13 +122,13 @@ impl DynamicImage {
         Self {
             width,
             height,
-            image: imageops::thumbnail(&self.image, width, height),
+            image: Rc::new(imageops::thumbnail(self.image.as_ref(), width, height)),
         }
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         self.width = width;
-        self.height = height ;
+        self.height = height;
     }
 }
 

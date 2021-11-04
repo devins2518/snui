@@ -154,10 +154,8 @@ impl Widget for Label {
                         }
                     }
                 }
-                let (width, height) = get_size(&mut self.layout.glyphs());
-                if width != self.width() && height != self.height() {
-                    ctx.request_resize();
-                }
+                let (width, _) = get_size(&mut self.layout.glyphs());
+                ctx.partial_damage();
                 self.width = width;
                 self.glyphs = self.layout.glyphs().clone();
                 self.write_buffer = None;

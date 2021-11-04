@@ -1,4 +1,3 @@
-
 use crate::*;
 
 #[derive(Copy, Clone, Debug)]
@@ -228,8 +227,9 @@ impl Widget for WidgetLayout {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let sw = self.width();
         let sh = self.height();
+        let mut damage = false;
         let (mut dx, mut dy) = (0., 0.);
-        for w in &mut self.widgets.iter_mut() {
+        for w in self.widgets.iter_mut() {
             let ww = w.width();
             let wh = w.height();
             if w.mapped {
@@ -240,7 +240,15 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dy = (sh - wh) / 2.,
                             Alignment::End => dy = sh - wh,
                         }
+                        let region = Region::new(wx + dx, wy + dy, ww, wh);
                         w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+                        if let DamageType::Partial = ctx.damage_type() {
+                            if ww != w.width() || wh != w.height() {
+                                damage = true;
+                            } else {
+                                w.damage(&region, wx + dx, wy + dy, ctx);
+                            }
+                        }
                         dx += w.widget.width() + self.spacing;
                     }
                     Orientation::Vertical => {
@@ -249,10 +257,23 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dx = (sw - ww) / 2.,
                             Alignment::End => dx = sw - ww,
                         }
+                        let region = Region::new(wx, wy, ww, wh);
                         w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+                        if let DamageType::Partial = ctx.damage_type() {
+                            if ww != w.width() || wh != w.height() {
+                                damage = true;
+                            } else {
+                                w.damage(&region, wx + dx, wy + dy, ctx);
+                            }
+                        }
                         dy += w.widget.height() + self.spacing;
                     }
                 }
+            }
+        }
+        if !damage {
+            if self.width() != sw || self.height() != sh {
+                self.damage(&Region::new(wx, wy, sw, sh), wx, wy, ctx);
             }
         }
     }

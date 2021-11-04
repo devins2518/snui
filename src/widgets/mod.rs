@@ -3,13 +3,13 @@ pub mod image;
 pub mod primitives;
 pub mod text;
 
-use crate::*;
-use std::io::Write;
-pub use text::Label;
+pub use self::image::{DynamicImage, Image};
 use crate::context::DamageType;
-use std::ops::{Deref, DerefMut};
-pub use self::image::{Image, DynamicImage};
+use crate::*;
 pub use container::{layout::WidgetLayout, Wbox};
+use std::io::Write;
+use std::ops::{Deref, DerefMut};
+pub use text::Label;
 
 pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
     let stride = canvas.width() as usize * 4;
@@ -44,22 +44,22 @@ pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
 
 pub fn blend(pix_a: &[u8], pix_b: &[u8], t: f32) -> [u8; 4] {
     let (r_a, g_a, b_a, a_a) = (
-        pix_a[0] as f32,
         pix_a[1] as f32,
         pix_a[2] as f32,
         pix_a[3] as f32,
+        pix_a[0] as f32,
     );
     let (r_b, g_b, b_b, a_b) = (
-        pix_b[0] as f32,
         pix_b[1] as f32,
         pix_b[2] as f32,
         pix_b[3] as f32,
+        pix_b[0] as f32,
     );
     let red = blend_f32(r_a, r_b, t);
     let green = blend_f32(g_a, g_b, t);
     let blue = blend_f32(b_a, b_b, t);
     let alpha = blend_f32(a_a, a_b, t);
-    [red as u8, green as u8, blue as u8, alpha as u8]
+    [alpha as u8, red as u8, green as u8, blue as u8]
 }
 
 fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
@@ -69,11 +69,14 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
 pub struct Button<W: Geometry + Drawable> {
     widget: W,
     focused: bool,
-    cb: Box<dyn for<'d> FnMut(&'d mut W, Pointer) -> Option<DamageType> + 'static>,
+    cb: Box<dyn for<'d> FnMut(&'d mut W, Pointer) -> DamageType + 'static>,
 }
 
 impl<W: Widget> Button<W> {
-    pub fn new(widget: W, cb: impl for<'d> FnMut(&'d mut W, Pointer) -> Option<DamageType> + 'static) -> Self {
+    pub fn new(
+        widget: W,
+        cb: impl for<'d> FnMut(&'d mut W, Pointer) -> DamageType + 'static,
+    ) -> Self {
         Self {
             widget,
             focused: false,
@@ -102,8 +105,6 @@ impl<W: Widget> Drawable for Button<W> {
 
 impl<W: Widget> Widget for Button<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let width = self.width();
-        let height = self.height();
         match dispatch {
             Dispatch::Pointer(x, y, pointer) => match pointer {
                 Pointer::Leave => {
@@ -115,14 +116,14 @@ impl<W: Widget> Widget for Button<W> {
                 _ => {
                     if *x > wx && *y > wy && *x < wx + self.width() && *y < wy + self.height() {
                         if self.focused {
-                        	handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
+                            handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
                         } else {
                             self.focused = true;
-                        	handle_damage((self.cb)(&mut self.widget, *pointer), ctx);
+                            handle_damage((self.cb)(&mut self.widget, Pointer::Enter), ctx);
                         }
                     } else if self.focused {
-                    	self.focused = false;
-                    	handle_damage((self.cb)(&mut self.widget, Pointer::Leave), ctx);
+                        self.focused = false;
+                        handle_damage((self.cb)(&mut self.widget, Pointer::Leave), ctx);
                     }
                 }
             },
@@ -132,19 +133,14 @@ impl<W: Widget> Widget for Button<W> {
             _ => {}
         }
         self.widget.roundtrip(wx, wy, ctx, dispatch);
-        if width != self.width() || height != self.height() {
-            ctx.request_resize();
-        }
     }
 }
 
-fn handle_damage(damage_type: Option<DamageType>, ctx: &mut Context) {
-    if let Some(damage_type) = damage_type {
-        match damage_type {
-            DamageType::Full => ctx.full_damage(),
-            DamageType::Resize => ctx.request_resize(),
-            DamageType::Partial => ctx.request_resize(),
-        }
+fn handle_damage(damage_type: DamageType, ctx: &mut Context) {
+    match damage_type {
+        DamageType::Full => ctx.redraw(),
+        DamageType::Partial => ctx.partial_damage(),
+        DamageType::None => {}
     }
 }
 

@@ -1,11 +1,12 @@
-pub mod scene;
 pub mod context;
+pub mod scene;
 pub mod wayland;
 pub mod widgets;
 
-use widgets::Button;
 use context::{Context, DamageType};
+use scene::Region;
 use widgets::primitives::WidgetShell;
+use widgets::Button;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Modifiers {
@@ -131,12 +132,23 @@ pub trait Drawable {
 
 pub trait Widget: Drawable + Geometry {
     // fn aware(&self) -> bool;
+    fn damage(&self, previous_region: &Region, x: f32, y: f32, ctx: &mut Context) {
+        if let DamageType::Partial = ctx.damage_type() {
+            let region = Region::new(x, y, self.width(), self.height());
+            ctx.damage_region(previous_region);
+            self.draw(ctx, x, y);
+            ctx.add_region(region);
+        }
+    }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch);
 }
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetShell<Self>;
-    fn into_button(self, cb: impl FnMut(&mut Self, Pointer) -> Option<DamageType> + 'static) -> Button<Self>;
+    fn into_button(
+        self,
+        cb: impl FnMut(&mut Self, Pointer) -> DamageType + 'static,
+    ) -> Button<Self>;
 }
 
 impl<W> Wrapable for W
@@ -146,7 +158,7 @@ where
     fn wrap(self) -> WidgetShell<W> {
         WidgetShell::default(self)
     }
-    fn into_button(self, cb: impl FnMut(&mut W, Pointer) -> Option<DamageType> + 'static) -> Button<Self> {
+    fn into_button(self, cb: impl FnMut(&mut W, Pointer) -> DamageType + 'static) -> Button<Self> {
         Button::new(self, cb)
     }
 }

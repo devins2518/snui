@@ -1,13 +1,14 @@
 use crate::context::Backend;
-use crate::context::{Context, DamageType, Region};
+use crate::context::{Context, DamageType};
+use crate::scene::*;
 use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
-use smithay_client_toolkit::reexports::calloop::{EventLoop, RegistrationToken, LoopHandle};
+use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 use smithay_client_toolkit::seat::keyboard::{
-    keysyms, map_keyboard_repeat, KeyState, RepeatKind, RMLVO, ModifiersState, self
+    self, keysyms, map_keyboard_repeat, KeyState, ModifiersState, RepeatKind, RMLVO,
 };
-use smithay_client_toolkit::shm::{DoubleMemPool};
+use smithay_client_toolkit::shm::DoubleMemPool;
 use smithay_client_toolkit::WaylandSource;
 
 use std::ops::{Deref, DerefMut};
@@ -17,7 +18,7 @@ use wayland_client::protocol::wl_compositor::WlCompositor;
 
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_pointer::{self, WlPointer};
-use wayland_client::protocol::wl_region::{WlRegion};
+use wayland_client::protocol::wl_region::WlRegion;
 use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
@@ -26,9 +27,9 @@ use wayland_client::{
     Proxy, QueueToken,
 };
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
-    zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
-    zwlr_layer_surface_v1, zwlr_layer_surface_v1::Anchor,
-    zwlr_layer_surface_v1::KeyboardInteractivity, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+    zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
+    zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::KeyboardInteractivity,
+    zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
 #[derive(Debug, Clone)]
@@ -319,10 +320,7 @@ impl Output {
 }
 
 impl Application {
-    pub fn new(pointer: bool, keyboard: bool) -> (
-        Self,
-        EventLoop<'static, Application>
-    ) {
+    pub fn new(pointer: bool, keyboard: bool) -> (Self, EventLoop<'static, Application>) {
         let display = Display::connect_to_env().unwrap();
         let mut event_queue = display.create_event_queue();
         let attached_display = (*display).clone().attach(event_queue.token());
@@ -467,15 +465,13 @@ impl Application {
                     None,
                     RepeatKind::System,
                     move |ev, _, mut inner| match ev {
-                        keyboard::Event::Modifiers {
-                            modifiers
-                        } => {
+                        keyboard::Event::Modifiers { modifiers } => {
                             if let Some(application) = inner.get::<Application>() {
                                 application.inner[index].dispatch(Dispatch::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[],
                                     modifiers: Modifiers::from(modifiers),
-                            		pressed: true,
+                                    pressed: true,
                                 }));
                             }
                         }
@@ -483,7 +479,7 @@ impl Application {
                             serial: _,
                             surface,
                             rawkeys: _,
-                            keysyms: _
+                            keysyms: _,
                         } => {
                             if let Some(application) = inner.get::<Application>() {
                                 index = application.get_index(&surface);
@@ -503,7 +499,7 @@ impl Application {
                                     utf8: ch.as_ref(),
                                     value: &[rawkey],
                                     modifiers: Modifiers::default(),
-                            		pressed: state == keyboard::KeyState::Pressed,
+                                    pressed: state == keyboard::KeyState::Pressed,
                                 }));
                             }
                         }
@@ -511,20 +507,21 @@ impl Application {
                             time: _,
                             rawkey: _,
                             keysym,
-                            utf8: _
+                            utf8: _,
                         } => {
                             if let Some(application) = inner.get::<Application>() {
                                 application.inner[index].dispatch(Dispatch::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[keysym],
                                     modifiers: Modifiers::default(),
-                            		pressed: true,
+                                    pressed: true,
                                 }));
                             }
                         }
                         _ => {}
                     },
-                ).unwrap();
+                )
+                .unwrap();
             }
             if pointer && seat.capabilities & Capability::Pointer == Capability::Pointer {
                 let pointer = seat.seat.get_pointer();
@@ -560,7 +557,7 @@ impl Application {
     fn get_application(&mut self, surface: &WlSurface) -> Option<&mut InnerApplication> {
         for inner in &mut self.inner {
             if inner.eq(surface) {
-                return Some(inner)
+                return Some(inner);
             }
         }
         None
@@ -571,7 +568,7 @@ impl Application {
     {
         self.global_manager.instantiate_range::<I>(0, 1 << 8)
     }
-    pub fn create_inner_application_from<Data:'static>(
+    pub fn create_inner_application_from<Data: 'static>(
         &mut self,
         config: ShellConfig,
         widget: impl Widget + 'static,
@@ -589,7 +586,7 @@ impl Application {
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
-    pub fn create_inner_application<Data:'static>(
+    pub fn create_inner_application<Data: 'static>(
         &mut self,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
@@ -600,10 +597,7 @@ impl Application {
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
-    pub fn run(
-        mut self,
-        event_loop: &mut EventLoop<'static, Application>,
-    ) {
+    pub fn run(mut self, event_loop: &mut EventLoop<'static, Application>) {
         loop {
             self.display.flush().unwrap();
             event_loop.dispatch(None, &mut self).unwrap();
@@ -737,7 +731,9 @@ impl InnerApplication {
         match self.core.ctx.damage_type() {
             DamageType::Full => {
                 if self.widget.width() != w || self.widget.height() != h {
-                    self.core.ctx.resize(self.widget.width() as i32, self.widget.height() as i32);
+                    self.core
+                        .ctx
+                        .resize(self.widget.width() as i32, self.widget.height() as i32);
                     if let Some(surface) = &self.surface {
                         surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
                     }
@@ -750,12 +746,15 @@ impl InnerApplication {
                     .region
                     .subtract(0, 0, 1 << 30, 1 << 30);
             }
-            DamageType::Partial => {
+            DamageType::None => {
                 if !self.core.ctx.is_damaged() {
-                    show = false; }
+                    show = false;
+                }
             }
-            DamageType::Resize => {
-                self.core.ctx.resize(self.widget.width() as i32, self.widget.height() as i32);
+            DamageType::Partial => {
+                self.core
+                    .ctx
+                    .resize(self.widget.width() as i32, self.widget.height() as i32);
                 if let Some(surface) = &self.surface {
                     surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
                     self.core.widget.draw(&mut self.core.ctx, 0., 0.);
@@ -786,7 +785,6 @@ impl InnerApplication {
         self.ctx.flush();
     }
 }
-
 
 impl Modifiers {
     fn from(modifer_state: ModifiersState) -> Modifiers {
@@ -908,7 +906,7 @@ fn assign_surface(shell: &Main<ZwlrLayerSurfaceV1>) {
                         match &surface.shell {
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
-                                    a.full_damage();
+                                    a.redraw();
                                     a.dispatch(Dispatch::Commit);
                                 }
                             }

@@ -1,4 +1,3 @@
-
 use crate::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -43,14 +42,14 @@ impl Drawable for Inner {
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         if self.mapped {
-        	self.widget.draw(ctx, x, y);
+            self.widget.draw(ctx, x, y);
         }
     }
 }
 
 impl Widget for Inner {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        self.widget.roundtrip(wx, wy, ctx, dispatch)
+        self.widget.roundtrip(wx, wy, ctx, dispatch);
     }
 }
 
@@ -249,10 +248,14 @@ impl Widget for Wbox {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let width = self.width();
         let height = self.height();
-        for l in &mut self.widgets {
-            if let Ok((dx, dy)) = l.location(width, height) {
-                l.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+        for w in &mut self.widgets {
+            if let Ok((dx, dy)) = w.location(width, height) {
+                w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
             }
         }
+        // This is pretty naive but it's better than nothing
+        // if let DamageType::Partial = ctx.damage_type() {
+        //     self.damage(&Region::new(wx, wy, width, height), wx, wy, ctx);
+        // }
     }
 }
