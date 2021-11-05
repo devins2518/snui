@@ -102,6 +102,23 @@ impl DynamicImage {
         })
     }
 
+    pub fn crop_into(&self, region: &Region) -> Self {
+        Self {
+            width: region.width as u32,
+            height: region.height as u32,
+            image: Rc::new(
+                imageops::crop_imm(
+                    self.image.as_ref(),
+                    region.x as u32,
+                    region.y as u32,
+                    region.width as u32,
+                    region.height as u32,
+                )
+                .to_image(),
+            ),
+        }
+    }
+
     pub fn new_with_size(
         image: &Path,
         width: u32,

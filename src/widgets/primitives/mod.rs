@@ -1,10 +1,10 @@
 pub mod shapes;
 
+use crate::scene::*;
+use crate::widgets::u32_to_source;
 use crate::*;
 use raqote::*;
-use crate::scene::*;
 use std::ops::{Deref, DerefMut};
-use crate::widgets::u32_to_source;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Style {
@@ -30,10 +30,24 @@ pub struct WidgetShell<W: Widget> {
 
 impl<W: Widget> Geometry for WidgetShell<W> {
     fn width(&self) -> f32 {
-        self.child.width() + self.padding[1] + self.padding[3]
+        self.child.width()
+            + self.padding[1]
+            + self.padding[3]
+            + if let Style::Border(_, border) = &self.border {
+                2. * *border
+            } else {
+                0.
+            }
     }
     fn height(&self) -> f32 {
-        self.child.height() + self.padding[0] + self.padding[2]
+        self.child.height()
+            + self.padding[0]
+            + self.padding[2]
+            + if let Style::Border(_, border) = &self.border {
+                2. * *border
+            } else {
+                0.
+            }
     }
 }
 
@@ -44,10 +58,19 @@ impl<W: Widget> Drawable for WidgetShell<W> {
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
         let width = self.width();
         let height = self.height();
+        let mut border = 0.;
         match self.shape {
             Shape::Rectangle => {
-                ctx.draw_rectangle(x, y, width, height, self.radius, &self.background.into_style());
+                ctx.draw_rectangle(
+                    x,
+                    y,
+                    width,
+                    height,
+                    self.radius,
+                    &self.background.into_style(),
+                );
                 if let Style::Border(_, border_width) = &self.border {
+                    border = *border_width;
                     ctx.draw_rectangle(
                         x + border_width / 2.,
                         y + border_width / 2.,
@@ -67,6 +90,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                     &self.background.into_style(),
                 );
                 if let Style::Border(_, border_width) = &self.border {
+                    border = *border_width;
                     ctx.draw_ellipse(
                         x + width / 2. + border_width / 2.,
                         y + height / 2. + border_width / 2.,
@@ -77,16 +101,33 @@ impl<W: Widget> Drawable for WidgetShell<W> {
                 }
             }
         }
-        self.child
-            .draw(ctx, x + self.padding[3], y + self.padding[0]);
+        self.child.draw(
+            ctx,
+            x + self.padding[3] + border,
+            y + self.padding[0] + border,
+        );
     }
 }
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), self.background.clone());
-        self.child
-            .roundtrip(wx + self.padding[3], wy + self.padding[0], ctx, dispatch);
+        let bg = ctx.get_background();
+        let border = if let Style::Border(_, border) = self.border {
+            border
+        } else {
+            0.
+        };
+        ctx.update_scene(
+            Region::new(wx, wy, self.width(), self.height()),
+            self.background.clone(),
+        );
+        self.child.roundtrip(
+            wx + self.padding[3] + border,
+            wy + self.padding[0] + border,
+            ctx,
+            dispatch,
+        );
+        ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), bg);
     }
 }
 

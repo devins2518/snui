@@ -22,9 +22,7 @@ use wayland_client::protocol::wl_region::WlRegion;
 use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::{
-    Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy
-};
+use wayland_client::{Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
     zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::KeyboardInteractivity,
@@ -184,17 +182,17 @@ impl Surface {
     fn set_size(&self, width: u32, height: u32) {
         self.shell.set_size(width, height);
     }
-    fn add_input(&self, _report: &[Region]) {
-        // if !report.is_empty() {
-        //     for r in report {
-        //         self.region
-        //             .add(r.x as i32, r.y as i32, r.width as i32, r.height as i32);
-        //     }
-        //     self.surface.set_input_region(Some(&self.region));
-        // } else {
-        //     self.surface.set_input_region(Some(&self.region));
-        // }
-    }
+    // fn add_input(&self, _report: &[Region]) {
+    // if !report.is_empty() {
+    //     for r in report {
+    //         self.region
+    //             .add(r.x as i32, r.y as i32, r.width as i32, r.height as i32);
+    //     }
+    //     self.surface.set_input_region(Some(&self.region));
+    // } else {
+    //     self.surface.set_input_region(Some(&self.region));
+    // }
+    // }
     fn damage(&self, report: &[Region]) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         for d in report {
@@ -319,7 +317,7 @@ impl Output {
 }
 
 impl Application {
-    pub fn new(pointer: bool, keyboard: bool) -> (Self, EventLoop<'static, Application>) {
+    pub fn new(pointer: bool) -> (Self, EventLoop<'static, Application>) {
         let display = Display::connect_to_env().unwrap();
         let mut event_queue = display.create_event_queue();
         let attached_display = (*display).clone().attach(event_queue.token());
@@ -457,7 +455,7 @@ impl Application {
         for seat in &globals.seats {
             let mut index = 0;
             let mut ch = None;
-            if keyboard && (seat.capabilities & Capability::Keyboard == Capability::Keyboard) {
+            if false && (seat.capabilities & Capability::Keyboard == Capability::Keyboard) {
                 let _ = map_keyboard_repeat(
                     event_loop.handle(),
                     &Attached::from(seat.seat.clone()),
@@ -797,44 +795,6 @@ impl Modifiers {
         }
     }
 }
-
-/* TO-DO
-fn assign_keyboard(keyboard: &Main<WlKeyboard>) {
-    let mut index = 0;
-    let mut kb_key: Option<Key> = None;
-    keyboard.quick_assign(move |_, event, mut inner| match event {
-        wl_keyboard::Event::Leave { serial, surface } => {
-        }
-        wl_keyboard::Event::Modifiers {
-            serial,
-            mods_depressed,
-            mods_latched,
-            mods_locked,
-            group,
-        } => {}
-        wl_keyboard::Event::Enter {
-            serial,
-            surface,
-            keys,
-        } => {
-            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-                index = Application::get_index(inner, &surface);
-            }
-        }
-        wl_keyboard::Event::Key {
-            serial: _,
-            time,
-            key,
-            state,
-        } => {
-            if let Some(inner) = inner.get::<Vec<InnerApplication>>() {
-            }
-        }
-        wl_keyboard::Event::RepeatInfo { rate, delay } => {}
-        _ => {}
-    });
-}
-*/
 
 fn assign_pointer(pointer: &Main<WlPointer>) {
     let mut index = 0;

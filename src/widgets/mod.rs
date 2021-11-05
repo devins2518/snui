@@ -3,11 +3,11 @@ pub mod image;
 pub mod primitives;
 pub mod text;
 
-use raqote::*;
 pub use self::image::{DynamicImage, Image};
 use crate::context::DamageType;
 use crate::*;
 pub use container::{layout::WidgetLayout, Wbox};
+use raqote::*;
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
 pub use text::Label;
@@ -116,7 +116,7 @@ impl<W: Widget> Drawable for Button<W> {
 
 impl<W: Widget> Widget for Button<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let damage_type  = match dispatch {
+        let damage_type = match dispatch {
             Dispatch::Pointer(x, y, pointer) => match pointer {
                 Pointer::Leave => {
                     if self.focused {
@@ -142,7 +142,7 @@ impl<W: Widget> Widget for Button<W> {
                     }
                 }
             },
-            _ => DamageType::None
+            _ => DamageType::None,
         };
         handle_damage(damage_type, ctx);
         self.widget.roundtrip(wx, wy, ctx, dispatch);

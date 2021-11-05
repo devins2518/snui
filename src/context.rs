@@ -1,15 +1,15 @@
 use crate::*;
-use raqote::*;
-use std::any::Any;
-use crate::scene::*;
-use std::f32::consts::PI;
-use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
-use crate::widgets::text::Label;
-use widgets::primitives::Style;
 use euclid::default::{Box2D, Point2D};
-use crate::widgets::text::{Font, GlyphCache};
 use lyon_geom::euclid::{point2, vec2, Angle};
+use raqote::*;
+use scene::*;
+use std::any::Any;
+use std::collections::HashMap;
+use std::f32::consts::PI;
+use std::ops::{Deref, DerefMut};
+use widgets::text::Label;
+use widgets::text::{Font, GlyphCache};
+use widgets::primitives::Style;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
     alpha: 1.,
@@ -69,6 +69,15 @@ impl Context {
             _ => self.damage_type = DamageType::Partial,
         }
     }
+    pub fn reset_damage(&mut self) {
+        match &self.damage_type {
+            DamageType::Full => {}
+            _ => self.damage_type = DamageType::None,
+        }
+    }
+    pub fn get_background(&self) -> Background {
+        self.scene.background.clone()
+    }
     pub fn update_scene(&mut self, region: Region, background: Background) {
         if let DamageType::None = self.damage_type {
             self.scene.region = region;
@@ -77,20 +86,24 @@ impl Context {
     }
     pub fn damage_region(&mut self, region: &Region) {
         self.force_damage();
-        match &self.scene.background {
-            Background::Color(source) => {
-                match &mut self.backend {
-                    Backend::Raqote(dt) => {
-                        dt.fill_rect(
-                            region.x,
-                            region.y,
-                            region.width,
-                            region.height,
-                            &Source::Solid(*source),
-                            &DRAW_OPTIONS,
-                        )
-                    }
-                }
+        match self.scene.background.clone() {
+            Background::Color(source) => match &mut self.backend {
+                Backend::Raqote(dt) => dt.fill_rect(
+                    region.x,
+                    region.y,
+                    region.width,
+                    region.height,
+                    &Source::Solid(source),
+                    &ATOP_OPTIONS,
+                ),
+            },
+            Background::Image(mask) => {
+                let crop_region = self.scene.region.crop_region(&region);
+                mask.image
+                    .crop_into(&crop_region)
+                    .draw(self, region.x, region.y);
+                self.scene.background = mask.overlay;
+                self.damage_region(region);
             }
             _ => {}
         }

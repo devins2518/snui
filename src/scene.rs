@@ -1,7 +1,7 @@
-use raqote::*;
 use crate::widgets::blend;
-use std::cmp::Ordering;
 use crate::widgets::primitives::Style;
+use raqote::*;
+use std::cmp::Ordering;
 
 #[derive(Clone, Debug)]
 pub struct ImageMask {
@@ -21,28 +21,30 @@ impl Background {
         match self {
             Background::Transparent => Style::Empty,
             Background::Color(source) => Style::Fill(*source),
-            _ => Style::Empty
+            _ => Style::Empty,
         }
     }
     pub fn merge(&mut self, other: Self) {
         match other {
-            Background::Color(bsource) => {
-                match self {
-                    Background::Color(asource) => {
-                        let source = blend(&asource.to_u32().to_be_bytes(), &bsource.to_u32().to_be_bytes(), 1.);
-                        *asource = SolidSource {
-                            a: source[0],
-                            r: source[1],
-                            g: source[2],
-                            b: source[3],
-                        };
-                    }
-                    Background::Image(mask) => {
-                        mask.overlay.merge(other);
-                    }
-                    Background::Transparent => *self = other,
+            Background::Color(bsource) => match self {
+                Background::Color(asource) => {
+                    let source = blend(
+                        &asource.to_u32().to_be_bytes(),
+                        &bsource.to_u32().to_be_bytes(),
+                        1.,
+                    );
+                    *asource = SolidSource {
+                        a: source[0],
+                        r: source[1],
+                        g: source[2],
+                        b: source[3],
+                    };
                 }
-            }
+                Background::Image(mask) => {
+                    mask.overlay.merge(other);
+                }
+                Background::Transparent => *self = other,
+            },
             Background::Image(_) => {
                 *self = other;
             }
@@ -79,8 +81,17 @@ pub struct Region {
 impl Region {
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Region {
         Region {
-            x, y, width, height
+            x,
+            y,
+            width,
+            height,
         }
+    }
+    pub fn crop_region(&self, other: &Self) -> Region {
+        let max = self.max(other);
+        let min = self.min(other);
+
+        Region::new(max.x - min.x, max.y - min.y, min.width, min.height)
     }
     pub fn merge(&mut self, other: &Self) {
         if self.contains(other.x, other.y) {
@@ -89,15 +100,14 @@ impl Region {
         }
     }
     pub fn contains(&self, x: f32, y: f32) -> bool {
-        x - self.x <= self.width
-        && y - self.y <= self.height
+        x - self.x <= self.width && y - self.y <= self.height
     }
 }
 
 impl PartialEq for Region {
     fn eq(&self, other: &Self) -> bool {
         other.x - self.x + other.width <= self.width
-        && other.y - self.y + other.height <= self.height
+            && other.y - self.y + other.height <= self.height
     }
     fn ne(&self, other: &Self) -> bool {
         !self.eq(other)
@@ -106,11 +116,9 @@ impl PartialEq for Region {
 
 impl PartialOrd for Region {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.x > other.x + other.width
-        || self.y > other.y + other.height  {
+        if self.x > other.x + other.width || self.y > other.y + other.height {
             Some(Ordering::Greater)
-        } else if self.x + self.width < other.x
-        || self.y + self.height < other.y {
+        } else if self.x + self.width < other.x || self.y + self.height < other.y {
             Some(Ordering::Less)
         } else {
             Some(Ordering::Equal)

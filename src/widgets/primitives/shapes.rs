@@ -1,7 +1,6 @@
-use crate::*;
-use raqote::*;
-use widgets::u32_to_source;
 use crate::widgets::primitives::*;
+use crate::*;
+use widgets::u32_to_source;
 
 impl Style {
     pub fn fill(color: u32) -> Self {
@@ -68,21 +67,10 @@ impl Geometry for Rectangle {
 
 impl Drawable for Rectangle {
     fn set_color(&mut self, color: u32) {
-        let color = color.to_be_bytes();
         if let Style::Border(source, _) = &mut self.style {
-            *source = SolidSource {
-                a: color[0],
-                r: color[1],
-                g: color[2],
-                b: color[3],
-            };
+            *source = u32_to_source(color);
         } else if let Style::Fill(source) = &mut self.style {
-            *source = SolidSource {
-                a: color[0],
-                r: color[1],
-                g: color[2],
-                b: color[3],
-            };
+            *source = u32_to_source(color);
         }
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
@@ -119,21 +107,10 @@ impl Geometry for Circle {
 
 impl Drawable for Circle {
     fn set_color(&mut self, color: u32) {
-        let color = color.to_be_bytes();
         if let Style::Border(source, _) = &mut self.style {
-            *source = SolidSource {
-                a: color[0],
-                r: color[1],
-                g: color[2],
-                b: color[3],
-            };
+            *source = u32_to_source(color);
         } else if let Style::Fill(source) = &mut self.style {
-            *source = SolidSource {
-                a: color[0],
-                r: color[1],
-                g: color[2],
-                b: color[3],
-            };
+            *source = u32_to_source(color);
         }
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {

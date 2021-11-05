@@ -258,6 +258,8 @@ impl Label {
     pub fn write(&mut self, text: &str) {
         if let Some(buffer) = self.write_buffer.as_mut() {
             buffer.push_str(text);
+        } else {
+            self.write_buffer = Some(text.to_owned());
         }
     }
     pub fn edit(&mut self, text: &str) {

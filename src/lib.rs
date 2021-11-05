@@ -122,23 +122,17 @@ pub trait Geometry {
     fn height(&self) -> f32;
 }
 
-/*
- * A trait for types that can be drawn on a Context.
- */
 pub trait Drawable {
     fn set_color(&mut self, color: u32);
     fn draw(&self, ctx: &mut Context, x: f32, y: f32);
 }
 
 pub trait Widget: Drawable + Geometry {
-    // fn aware(&self) -> bool;
     fn damage(&self, previous_region: &Region, x: f32, y: f32, ctx: &mut Context) {
-        if let DamageType::Partial = ctx.damage_type() {
-            let region = Region::new(x, y, self.width(), self.height());
-            ctx.damage_region(previous_region);
-            self.draw(ctx, x, y);
-            ctx.add_region(region);
-        }
+        let region = Region::new(x, y, self.width(), self.height());
+        ctx.damage_region(previous_region);
+        self.draw(ctx, x, y);
+        ctx.add_region(region);
     }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch);
 }

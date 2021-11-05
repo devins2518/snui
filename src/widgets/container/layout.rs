@@ -1,5 +1,12 @@
 use crate::*;
 
+const REGION:Region = Region {
+    x: 0.,
+    y: 0.,
+    width: 0.,
+    height: 0.,
+};
+
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
     Vertical,
@@ -15,7 +22,8 @@ pub enum Alignment {
 
 pub struct Element {
     mapped: bool,
-    hidden: bool,
+    coords: Option<(f32, f32)>,
+    previous_region: Region,
     widget: Box<dyn Widget>,
 }
 
@@ -23,7 +31,8 @@ impl Element {
     fn new(widget: impl Widget + 'static) -> Element {
         Element {
             mapped: true,
-            hidden: false,
+            coords: None,
+            previous_region: REGION,
             widget: Box::new(widget),
         }
     }
@@ -43,15 +52,21 @@ impl Drawable for Element {
         self.widget.set_color(color);
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        if !self.hidden {
-            self.widget.draw(ctx, x, y);
-        }
+        self.widget.draw(ctx, x, y);
     }
 }
 
 impl Widget for Element {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         self.widget.roundtrip(wx, wy, ctx, dispatch);
+    }
+    fn damage(&self, _previous_region: &Region, x: f32, y: f32, ctx: &mut Context) {
+        if let Some((dx, dy)) = self.coords {
+            let region = Region::new(x, y, self.width(), self.height());
+            ctx.damage_region(&self.previous_region);
+            self.draw(ctx, x + dx, y + dy);
+            ctx.add_region(region);
+        }
     }
 }
 
@@ -227,11 +242,11 @@ impl Widget for WidgetLayout {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let sw = self.width();
         let sh = self.height();
-        let mut damage = false;
         let (mut dx, mut dy) = (0., 0.);
         for w in self.widgets.iter_mut() {
             let ww = w.width();
             let wh = w.height();
+            ctx.reset_damage();
             if w.mapped {
                 match self.orientation {
                     Orientation::Horizontal => {
@@ -240,14 +255,10 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dy = (sh - wh) / 2.,
                             Alignment::End => dy = sh - wh,
                         }
-                        let region = Region::new(wx + dx, wy + dy, ww, wh);
+                        w.previous_region = Region::new(wx + dx, wy + dy, ww, wh);
                         w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
                         if let DamageType::Partial = ctx.damage_type() {
-                            if ww != w.width() || wh != w.height() {
-                                damage = true;
-                            } else {
-                                w.damage(&region, wx + dx, wy + dy, ctx);
-                            }
+                            w.coords = Some((dx, dy));
                         }
                         dx += w.widget.width() + self.spacing;
                     }
@@ -257,26 +268,23 @@ impl Widget for WidgetLayout {
                             Alignment::Center => dx = (sw - ww) / 2.,
                             Alignment::End => dx = sw - ww,
                         }
-                        let region = Region::new(wx, wy, ww, wh);
+                        w.previous_region = Region::new(wx + dx, wy + dy, ww, wh);
                         w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
                         if let DamageType::Partial = ctx.damage_type() {
-                            if ww != w.width() || wh != w.height() {
-                                damage = true;
-                            } else {
-                                w.damage(&region, wx + dx, wy + dy, ctx);
-                            }
+                            w.coords = Some((dx, dy));
                         }
                         dy += w.widget.height() + self.spacing;
                     }
                 }
             }
         }
-        if damage {
-            ctx.force_damage();
-        } else {
-            if self.width() != sw || self.height() != sh {
-                self.damage(&Region::new(wx, wy, sw, sh), wx, wy, ctx);
+        if self.width() == sw && self.height() == sh {
+            for w in self.widgets.iter_mut() {
+                w.damage(&REGION, wx, wy, ctx);
+                w.coords = None;
             }
+        } else {
+            ctx.force_damage();
         }
     }
 }

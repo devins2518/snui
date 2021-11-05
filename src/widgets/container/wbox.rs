@@ -264,9 +264,5 @@ impl Widget for Wbox {
                 w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
             }
         }
-        // This is pretty naive but it's better than nothing
-        // if let DamageType::Partial = ctx.damage_type() {
-        //     self.damage(&Region::new(wx, wy, width, height), wx, wy, ctx);
-        // }
     }
 }
