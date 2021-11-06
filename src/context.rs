@@ -81,7 +81,10 @@ impl Context {
     pub fn update_scene(&mut self, region: Region, background: Background) {
         if let DamageType::None = self.damage_type {
             self.scene.region = region;
-            self.scene.background.merge(background);
+            match &background {
+                Background::Transparent => {}
+                _ => self.scene.background.merge(background)
+            }
         }
     }
     pub fn damage_region(&mut self, region: &Region) {

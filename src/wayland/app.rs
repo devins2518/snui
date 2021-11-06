@@ -98,6 +98,7 @@ impl Shell {
 
 #[derive(Debug, Clone)]
 struct Surface {
+    alive: bool,
     shell: Shell,
     region: Main<WlRegion>,
     surface: Main<WlSurface>,
@@ -157,6 +158,7 @@ impl Surface {
         previous: Option<Surface>,
     ) -> Self {
         Surface {
+            alive: true,
             surface,
             shell,
             region,
@@ -173,10 +175,16 @@ impl Surface {
         self.previous = None;
     }
     fn destroy(&mut self) {
+        self.alive = false;
         self.surface.destroy();
         self.region.destroy();
         self.shell.destroy();
         self.buffer = None;
+    }
+    fn destroy_previous(&mut self) {
+        if let Some(surface) = self.previous.as_mut() {
+            surface.destroy();
+        }
         self.previous = None;
     }
     fn set_size(&self, width: u32, height: u32) {
@@ -202,6 +210,9 @@ impl Surface {
     }
     fn attach_buffer(&mut self, buffer: WlBuffer, _x: i32, _y: i32) {
         self.buffer = Some(buffer);
+    }
+    fn is_alive(&self) -> bool {
+        self.alive
     }
 }
 
@@ -565,6 +576,22 @@ impl Application {
     {
         self.global_manager.instantiate_range::<I>(0, 1 << 8)
     }
+    pub fn create_empty_inner_application<Data: 'static>(
+        &mut self,
+        widget: impl Widget + 'static,
+        handle: LoopHandle<'_, Data>,
+        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+    ) {
+        let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
+        let iapp = InnerApplication::empty(
+            widget,
+            Backend::Raqote(dt),
+            self.globals.clone(),
+            cb,
+        );
+        self.inner.push(iapp);
+        handle.update(&self.token).unwrap();
+    }
     pub fn create_inner_application_from<Data: 'static>(
         &mut self,
         config: ShellConfig,
@@ -632,8 +659,9 @@ impl CoreApplication {
         self.ctx.running
     }
     pub fn destroy(&mut self) {
-        self.ctx.running = false;
-        self.surface.as_mut().unwrap().destroy();
+        if let Some(surface) = self.surface.as_mut() {
+            surface.destroy();
+        }
     }
     pub fn quick_roundtrip(&mut self, ev: Dispatch) {
         self.widget.roundtrip(0., 0., &mut self.ctx, &ev);
@@ -655,6 +683,28 @@ impl CoreApplication {
                     );
                 }
             }
+        } else {
+            self.surface = self.globals.as_ref().create_shell_surface_from(
+                self.widget.deref(),
+                ShellConfig::default_layer_shell(),
+                None,
+            );
+        }
+    }
+    pub fn replace_surface_by(&mut self, config: ShellConfig) {
+        if let Some(surface) = self.surface.as_mut() {
+            surface.destroy();
+            self.surface = self.globals.as_ref().create_shell_surface_from(
+                self.widget.deref(),
+                config,
+                Some(surface.clone()),
+            );
+        } else {
+            self.surface = self.globals.as_ref().create_shell_surface_from(
+                self.widget.deref(),
+                config,
+                None,
+            );
         }
     }
 }
@@ -673,6 +723,23 @@ impl DerefMut for CoreApplication {
 }
 
 impl InnerApplication {
+    fn empty(
+        widget: impl Widget + 'static,
+        backend: Backend,
+        globals: Rc<Globals>,
+        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+    ) -> Self {
+        InnerApplication {
+            core: CoreApplication {
+                ctx: Context::new(backend),
+                surface: None,
+                widget: Box::new(widget),
+                mempool: globals.as_ref().create_mempool(),
+                globals,
+            },
+            cb: Box::new(cb),
+        }
+    }
     fn default(
         widget: impl Widget + 'static,
         backend: Backend,
@@ -723,61 +790,62 @@ impl InnerApplication {
     pub fn dispatch(&mut self, ev: Dispatch) {
         let (w, h) = (self.widget.width(), self.widget.height());
         self.core.widget.roundtrip(0., 0., &mut self.core.ctx, &ev);
+        (self.cb)(&mut self.core, ev);
 
-        let mut show = true;
-        match self.core.ctx.damage_type() {
-            DamageType::Full => {
-                if self.widget.width() != w || self.widget.height() != h {
+		if self.surface.is_some() {
+            let mut show = true;
+            match self.core.ctx.damage_type() {
+                DamageType::Full => {
+                    if self.widget.width() != w || self.widget.height() != h {
+                        self.core
+                            .ctx
+                            .resize(self.widget.width() as i32, self.widget.height() as i32);
+                        if let Some(surface) = &self.surface {
+                            surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                        }
+                    }
+                    self.core.widget.draw(&mut self.core.ctx, 0., 0.);
+                    self.core
+                        .surface
+                        .as_ref()
+                        .unwrap()
+                        .region
+                        .subtract(0, 0, 1 << 30, 1 << 30);
+                }
+                DamageType::None => {
+                    if !self.core.ctx.is_damaged() {
+                        show = false;
+                    }
+                }
+                DamageType::Partial => {
                     self.core
                         .ctx
                         .resize(self.widget.width() as i32, self.widget.height() as i32);
                     if let Some(surface) = &self.surface {
                         surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                        self.core.widget.draw(&mut self.core.ctx, 0., 0.);
                     }
                 }
-                self.core.widget.draw(&mut self.core.ctx, 0., 0.);
-                self.core
-                    .surface
-                    .as_ref()
-                    .unwrap()
-                    .region
-                    .subtract(0, 0, 1 << 30, 1 << 30);
             }
-            DamageType::None => {
-                if !self.core.ctx.is_damaged() {
-                    show = false;
-                }
-            }
-            DamageType::Partial => {
-                self.core
-                    .ctx
-                    .resize(self.widget.width() as i32, self.widget.height() as i32);
-                if let Some(surface) = &self.surface {
-                    surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-                    self.core.widget.draw(&mut self.core.ctx, 0., 0.);
-                }
-            }
-        }
 
-        (self.cb)(&mut self.core, ev);
-
-        if self.core.ctx.running && show {
-            if let Some(pool) = self.core.mempool.pool() {
+            if self.core.ctx.running && show {
+                if let Some(pool) = self.core.mempool.pool() {
+                    if let Some(surface) = &mut self.core.surface {
+                        // surface.add_input(self.core.ctx.report_input());
+                        if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
+                            buffer.merge();
+                            surface.attach_buffer(wl_buffer, 0, 0);
+                        }
+                        surface.damage(self.core.ctx.report_damage());
+                        surface.commit();
+                    }
+                }
+            } else if !self.core.ctx.running {
                 if let Some(surface) = &mut self.core.surface {
-                    // surface.add_input(self.core.ctx.report_input());
-                    if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
-                        buffer.merge();
-                        surface.attach_buffer(wl_buffer, 0, 0);
-                    }
-                    surface.damage(self.core.ctx.report_damage());
-                    surface.commit();
+                    surface.destroy();
                 }
             }
-        } else if !self.core.ctx.running {
-            if let Some(surface) = &mut self.core.surface {
-                surface.destroy();
-            }
-        }
+		}
 
         self.ctx.flush();
     }
@@ -861,10 +929,11 @@ fn assign_surface(shell: &Main<ZwlrLayerSurfaceV1>) {
             shell.ack_configure(serial);
             if let Some(application) = inner.get::<Application>() {
                 for a in &mut application.inner {
-                    if let Some(surface) = &a.surface {
-                        match &surface.shell {
+                    if let Some(app_surface) = a.surface.as_mut() {
+                        match &app_surface.shell {
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
+                                    app_surface.destroy_previous();
                                     a.dispatch(Dispatch::Commit);
                                 }
                             }
