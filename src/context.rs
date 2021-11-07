@@ -64,6 +64,12 @@ impl Context {
         self.scene = Scene::default();
         self.damage_type = DamageType::Full;
     }
+    pub fn set_damage(&mut self, damage: DamageType) {
+        match &self.damage_type {
+            DamageType::Full => {}
+            _ => self.damage_type = damage,
+        }
+    }
     pub fn force_damage(&mut self) {
         match &self.damage_type {
             DamageType::Full => {}
@@ -96,7 +102,7 @@ impl Context {
                     region.y,
                     region.width,
                     region.height,
-                    &Source::Solid(source),
+                    &Source::Solid(u32_to_source(0xff_c6_5f_5f)),
                     &ATOP_OPTIONS,
                 ),
             },

@@ -129,10 +129,12 @@ pub trait Drawable {
 
 pub trait Widget: Drawable + Geometry {
     fn damage(&self, previous_region: &Region, x: f32, y: f32, ctx: &mut Context) {
-        let region = Region::new(x, y, self.width(), self.height());
-        ctx.damage_region(previous_region);
-        self.draw(ctx, x, y);
-        ctx.add_region(region);
+        if let DamageType::Partial = ctx.damage_type() {
+            let region = Region::new(x, y, self.width(), self.height());
+            ctx.damage_region(previous_region);
+            self.draw(ctx, x, y);
+            ctx.add_region(region);
+        }
     }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch);
 }

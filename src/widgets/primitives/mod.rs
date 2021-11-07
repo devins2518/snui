@@ -141,7 +141,7 @@ impl<W: Widget> WidgetShell<W> {
     pub fn default(child: W) -> Self {
         WidgetShell {
             child,
-            damage: true,
+            damage: false,
             background: Background::Transparent,
             border: Style::Empty,
             shape: Shape::Rectangle,
@@ -152,7 +152,7 @@ impl<W: Widget> WidgetShell<W> {
     pub fn rect(child: W, padding: u32, border_width: u32, background: u32, border: u32) -> Self {
         Self {
             child,
-            damage: true,
+            damage: false,
             background: if background != 0 {
                 Background::Color(u32_to_source(background))
             } else {
