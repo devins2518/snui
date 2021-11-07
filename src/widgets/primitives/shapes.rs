@@ -20,6 +20,7 @@ impl Style {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Rectangle {
+    damage: bool,
     width: f32,
     height: f32,
     style: Style,
@@ -29,6 +30,7 @@ pub struct Rectangle {
 impl Rectangle {
     pub fn new(width: f32, height: f32, style: Style) -> Self {
         Rectangle {
+            damage: true,
             width,
             height,
             style,
@@ -37,6 +39,7 @@ impl Rectangle {
     }
     pub fn square(size: f32, style: Style) -> Self {
         Rectangle {
+            damage: true,
             width: size,
             height: size,
             style,
@@ -45,6 +48,7 @@ impl Rectangle {
     }
     pub fn empty(width: f32, height: f32) -> Self {
         Rectangle {
+            damage: true,
             width,
             height,
             style: Style::Empty,
@@ -81,32 +85,40 @@ impl Drawable for Rectangle {
 }
 
 impl Widget for Rectangle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, _dispatch: &Dispatch) {}
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, ctx: &mut Context, _dispatch: &Dispatch) {
+        if self.damage {
+            self.damage = false;
+            ctx.force_damage();
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Circle {
     style: Style,
-    radius: f32,
+    width: f32,
+    height: f32,
+    damage: bool,
 }
 
 impl Circle {
     pub fn new(radius: f32, style: Style) -> Self {
-        Circle { style, radius }
+        Circle { style, width: radius * 2., height: radius * 2., damage: true }
     }
 }
 
 impl Geometry for Circle {
     fn width(&self) -> f32 {
-        self.radius * 2.
+        self.width
     }
     fn height(&self) -> f32 {
-        self.radius * 2.
+        self.height
     }
 }
 
 impl Drawable for Circle {
     fn set_color(&mut self, color: u32) {
+        self.damage = true;
         if let Style::Border(source, _) = &mut self.style {
             *source = u32_to_source(color);
         } else if let Style::Fill(source) = &mut self.style {
@@ -121,5 +133,10 @@ impl Drawable for Circle {
 }
 
 impl Widget for Circle {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, _ctx: &mut Context, _dispatch: &Dispatch) {}
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, ctx: &mut Context, _dispatch: &Dispatch) {
+        if self.damage {
+            self.damage = false;
+            ctx.force_damage();
+        }
+    }
 }

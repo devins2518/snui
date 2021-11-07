@@ -792,10 +792,10 @@ impl InnerApplication {
         self.core.widget.roundtrip(0., 0., &mut self.core.ctx, &ev);
         (self.cb)(&mut self.core, ev);
 
-		if self.surface.is_some() {
+		if self.core.ctx.running && self.surface.is_some() {
             let mut show = true;
             match self.core.ctx.damage_type() {
-                DamageType::Full => {
+                DamageType::Full | DamageType::Partial => {
                     if self.widget.width() != w || self.widget.height() != h {
                         self.core
                             .ctx
@@ -817,18 +817,9 @@ impl InnerApplication {
                         show = false;
                     }
                 }
-                DamageType::Partial => {
-                    self.core
-                        .ctx
-                        .resize(self.widget.width() as i32, self.widget.height() as i32);
-                    if let Some(surface) = &self.surface {
-                        surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-                        self.core.widget.draw(&mut self.core.ctx, 0., 0.);
-                    }
-                }
             }
 
-            if self.core.ctx.running && show {
+            if show {
                 if let Some(pool) = self.core.mempool.pool() {
                     if let Some(surface) = &mut self.core.surface {
                         // surface.add_input(self.core.ctx.report_input());
@@ -843,6 +834,7 @@ impl InnerApplication {
             } else if !self.core.ctx.running {
                 if let Some(surface) = &mut self.core.surface {
                     surface.destroy();
+                    surface.destroy_previous();
                 }
             }
 		}

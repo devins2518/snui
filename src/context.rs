@@ -3,6 +3,7 @@ use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use scene::*;
+use widgets::u32_to_source;
 use std::any::Any;
 use std::collections::HashMap;
 use std::f32::consts::PI;
@@ -88,7 +89,6 @@ impl Context {
         }
     }
     pub fn damage_region(&mut self, region: &Region) {
-        self.force_damage();
         match self.scene.background.clone() {
             Background::Color(source) => match &mut self.backend {
                 Backend::Raqote(dt) => dt.fill_rect(

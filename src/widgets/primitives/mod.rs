@@ -25,6 +25,7 @@ pub struct WidgetShell<W: Widget> {
     radius: [f32; 4],
     padding: [f32; 4],
     border: Style,
+    damage: bool,
     background: Background,
 }
 
@@ -53,6 +54,7 @@ impl<W: Widget> Geometry for WidgetShell<W> {
 
 impl<W: Widget> Drawable for WidgetShell<W> {
     fn set_color(&mut self, color: u32) {
+        self.damage = true;
         self.child.set_color(color);
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
@@ -127,6 +129,10 @@ impl<W: Widget> Widget for WidgetShell<W> {
             ctx,
             dispatch,
         );
+        if self.damage {
+            self.damage = false;
+            ctx.force_damage();
+        }
         ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), bg);
     }
 }
@@ -135,6 +141,7 @@ impl<W: Widget> WidgetShell<W> {
     pub fn default(child: W) -> Self {
         WidgetShell {
             child,
+            damage: true,
             background: Background::Transparent,
             border: Style::Empty,
             shape: Shape::Rectangle,
@@ -145,6 +152,7 @@ impl<W: Widget> WidgetShell<W> {
     pub fn rect(child: W, padding: u32, border_width: u32, background: u32, border: u32) -> Self {
         Self {
             child,
+            damage: true,
             background: if background != 0 {
                 Background::Color(u32_to_source(background))
             } else {
@@ -163,6 +171,7 @@ impl<W: Widget> WidgetShell<W> {
     pub fn circle(padding: u32, border_width: u32, background: u32, border: u32, child: W) -> Self {
         Self {
             child,
+            damage: true,
             background: if background != 0 {
                 Background::Color(u32_to_source(background))
             } else {
@@ -179,9 +188,11 @@ impl<W: Widget> WidgetShell<W> {
         }
     }
     pub fn set_radius(&mut self, radius: [f32; 4]) {
+        self.damage = true;
         self.radius = radius;
     }
     pub fn set_border_width(&mut self, border_width: f32) {
+        self.damage = true;
         if let Style::Border(color, _) = &self.border {
             self.border = Style::Border(*color, border_width);
         } else {
@@ -189,6 +200,7 @@ impl<W: Widget> WidgetShell<W> {
         }
     }
     pub fn set_border_color(&mut self, color: u32) {
+        self.damage = true;
         if let Style::Border(_, width) = &self.border {
             self.border = Style::border(color, *width);
         } else {
@@ -196,9 +208,11 @@ impl<W: Widget> WidgetShell<W> {
         }
     }
     pub fn set_background(&mut self, color: u32) {
+        self.damage = true;
         self.background = Background::Color(u32_to_source(color));
     }
     pub fn set_padding(&mut self, padding: [f32; 4]) {
+        self.damage = true;
         self.padding = padding;
     }
     pub fn unwrap(self) -> W {
