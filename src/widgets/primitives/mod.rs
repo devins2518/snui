@@ -123,16 +123,16 @@ impl<W: Widget> Widget for WidgetShell<W> {
             Region::new(wx, wy, self.width(), self.height()),
             self.background.clone(),
         );
+        if self.damage {
+            self.damage = false;
+            ctx.force_damage();
+        }
         self.child.roundtrip(
             wx + self.padding[3] + border,
             wy + self.padding[0] + border,
             ctx,
             dispatch,
         );
-        if self.damage {
-            self.damage = false;
-            ctx.force_damage();
-        }
         ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), bg);
     }
 }

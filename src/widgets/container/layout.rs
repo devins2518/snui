@@ -242,11 +242,11 @@ impl Widget for WidgetLayout {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let sw = self.width();
         let sh = self.height();
+        let init = ctx.damage_type();
         let (mut dx, mut dy) = (0., 0.);
         for w in self.widgets.iter_mut() {
             let ww = w.width();
             let wh = w.height();
-            ctx.reset_damage();
             if w.mapped {
                 match self.orientation {
                     Orientation::Horizontal => {
@@ -257,7 +257,7 @@ impl Widget for WidgetLayout {
                         }
                         w.previous_region = Region::new(wx + dx, wy + dy, ww, wh);
                         w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if let DamageType::Partial = ctx.damage_type() {
+                        if init == DamageType::None && ctx.damage_type() == DamageType::Partial {
                             w.coords = Some((dx, dy));
                         }
                         dx += w.widget.width() + self.spacing;
@@ -270,18 +270,21 @@ impl Widget for WidgetLayout {
                         }
                         w.previous_region = Region::new(wx + dx, wy + dy, ww, wh);
                         w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if let DamageType::Partial = ctx.damage_type() {
+                        if init == DamageType::None && ctx.damage_type() == DamageType::Partial {
                             w.coords = Some((dx, dy));
                         }
                         dy += w.widget.height() + self.spacing;
                     }
                 }
+                ctx.set_damage(init);
             }
         }
         if self.width() == sw && self.height() == sh {
-            for w in self.widgets.iter_mut() {
-                w.damage(&REGION, wx, wy, ctx);
-                w.coords = None;
+            if let DamageType::None = init {
+                for w in self.widgets.iter_mut() {
+                    w.damage(&REGION, wx, wy, ctx);
+                    w.coords = None;
+                }
             }
         } else {
             ctx.force_damage();

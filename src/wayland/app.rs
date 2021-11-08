@@ -583,12 +583,7 @@ impl Application {
         cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
     ) {
         let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
-        let iapp = InnerApplication::empty(
-            widget,
-            Backend::Raqote(dt),
-            self.globals.clone(),
-            cb,
-        );
+        let iapp = InnerApplication::empty(widget, Backend::Raqote(dt), self.globals.clone(), cb);
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
@@ -700,11 +695,10 @@ impl CoreApplication {
                 Some(surface.clone()),
             );
         } else {
-            self.surface = self.globals.as_ref().create_shell_surface_from(
-                self.widget.deref(),
-                config,
-                None,
-            );
+            self.surface =
+                self.globals
+                    .as_ref()
+                    .create_shell_surface_from(self.widget.deref(), config, None);
         }
     }
 }
@@ -792,7 +786,7 @@ impl InnerApplication {
         self.core.widget.roundtrip(0., 0., &mut self.core.ctx, &ev);
         (self.cb)(&mut self.core, ev);
 
-		if self.core.ctx.running && self.surface.is_some() {
+        if self.core.ctx.running && self.surface.is_some() {
             let mut show = true;
             match self.core.ctx.damage_type() {
                 DamageType::Full | DamageType::Partial => {
@@ -801,7 +795,8 @@ impl InnerApplication {
                             .ctx
                             .resize(self.widget.width() as i32, self.widget.height() as i32);
                         if let Some(surface) = &self.surface {
-                            surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+                            surface
+                                .set_size(self.widget.width() as u32, self.widget.height() as u32);
                         }
                     }
                     self.core.widget.draw(&mut self.core.ctx, 0., 0.);
@@ -837,7 +832,7 @@ impl InnerApplication {
                     surface.destroy_previous();
                 }
             }
-		}
+        }
 
         self.ctx.flush();
     }

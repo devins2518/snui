@@ -100,7 +100,15 @@ impl Region {
         }
     }
     pub fn contains(&self, x: f32, y: f32) -> bool {
-        x - self.x <= self.width && y - self.y <= self.height
+        self.x < x && x - self.x <= self.width && self.y < y && y - self.y <= self.height
+    }
+    pub fn pad(&self, padding: f32) -> Region {
+        Self {
+            x: self.x - padding,
+            y: self.y - padding,
+            width: self.width + 2. * padding,
+            height: self.height + 2. * padding,
+        }
     }
 }
 

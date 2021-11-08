@@ -103,7 +103,12 @@ pub struct Circle {
 
 impl Circle {
     pub fn new(radius: f32, style: Style) -> Self {
-        Circle { style, width: radius * 2., height: radius * 2., damage: true }
+        Circle {
+            style,
+            width: radius * 2.,
+            height: radius * 2.,
+            damage: true,
+        }
     }
 }
 

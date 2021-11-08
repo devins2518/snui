@@ -3,14 +3,14 @@ use euclid::default::{Box2D, Point2D};
 use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use scene::*;
-use widgets::u32_to_source;
 use std::any::Any;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
+use widgets::primitives::Style;
 use widgets::text::Label;
 use widgets::text::{Font, GlyphCache};
-use widgets::primitives::Style;
+use widgets::u32_to_source;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
     alpha: 1.,
@@ -90,7 +90,7 @@ impl Context {
             self.scene.region = region;
             match &background {
                 Background::Transparent => {}
-                _ => self.scene.background.merge(background)
+                _ => self.scene.background.merge(background),
             }
         }
     }
@@ -102,7 +102,7 @@ impl Context {
                     region.y,
                     region.width,
                     region.height,
-                    &Source::Solid(u32_to_source(0xff_c6_5f_5f)),
+                    &Source::Solid(source),
                     &ATOP_OPTIONS,
                 ),
             },
