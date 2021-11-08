@@ -53,6 +53,7 @@ impl Background {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Scene {
     pub region: Region,
     pub background: Background,

@@ -1,12 +1,11 @@
 pub mod container;
-pub mod image;
 pub mod primitives;
 pub mod text;
 
-pub use self::image::{DynamicImage, Image};
 use crate::context::DamageType;
 use crate::*;
 pub use container::{layout::WidgetLayout, Wbox};
+pub use self::primitives::image::{DynamicImage, Image};
 use raqote::*;
 use std::io::Write;
 use std::ops::{Deref, DerefMut};

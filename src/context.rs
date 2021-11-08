@@ -38,7 +38,7 @@ pub enum Backend {
 pub struct Context {
     pub running: bool,
     backend: Backend,
-    scene: Scene,
+    scene: Vec<Scene>,
     damage_type: DamageType,
     pending_damage: Vec<Region>,
     values: HashMap<String, Box<dyn Any>>,
@@ -50,7 +50,7 @@ impl Context {
         Self {
             backend,
             running: true,
-            scene: Scene::default(),
+            scene: vec![],
             values: HashMap::new(),
             pending_damage: Vec::new(),
             font_cache: HashMap::new(),
@@ -61,7 +61,6 @@ impl Context {
         self.damage_type
     }
     pub fn redraw(&mut self) {
-        self.scene = Scene::default();
         self.damage_type = DamageType::Full;
     }
     pub fn set_damage(&mut self, damage: DamageType) {
@@ -82,39 +81,41 @@ impl Context {
             _ => self.damage_type = DamageType::None,
         }
     }
-    pub fn get_background(&self) -> Background {
-        self.scene.background.clone()
-    }
     pub fn update_scene(&mut self, region: Region, background: Background) {
         if let DamageType::None = self.damage_type {
-            self.scene.region = region;
-            match &background {
-                Background::Transparent => {}
-                _ => self.scene.background.merge(background),
-            }
+            let scene = Scene::new(background, region);
+            self.scene.push(scene);
         }
     }
     pub fn damage_region(&mut self, region: &Region) {
-        match self.scene.background.clone() {
-            Background::Color(source) => match &mut self.backend {
-                Backend::Raqote(dt) => dt.fill_rect(
-                    region.x,
-                    region.y,
-                    region.width,
-                    region.height,
-                    &Source::Solid(source),
-                    &ATOP_OPTIONS,
-                ),
-            },
-            Background::Image(mask) => {
-                let crop_region = self.scene.region.crop_region(&region);
-                mask.image
-                    .crop_into(&crop_region)
-                    .draw(self, region.x, region.y);
-                self.scene.background = mask.overlay;
-                self.damage_region(region);
+        if let Some(scene) = self.scene.last() {
+            let mut scene = scene.clone();
+            match scene.background {
+                Background::Color(source) => match &mut self.backend {
+                    Backend::Raqote(dt) => dt.fill_rect(
+                        region.x,
+                        region.y,
+                        region.width,
+                        region.height,
+                        &Source::Solid(source),
+                        &ATOP_OPTIONS,
+                    ),
+                },
+                Background::Image(mask) => {
+                    let crop_region = scene.region.crop_region(&region);
+                    mask.image
+                        .crop_into(&crop_region)
+                        .draw(self, region.x, region.y);
+                    scene.background = mask.overlay;
+                    self.damage_region(region);
+                }
+                _ => {}
             }
-            _ => {}
+        }
+    }
+    pub fn unpile_scene(&mut self) {
+        if !self.scene.is_empty() {
+            self.scene.remove(self.scene.len() - 1);
         }
     }
     pub fn add_region(&mut self, region: Region) {

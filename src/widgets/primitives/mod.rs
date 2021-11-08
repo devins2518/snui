@@ -1,3 +1,4 @@
+pub mod image;
 pub mod shapes;
 
 use crate::scene::*;
@@ -113,7 +114,6 @@ impl<W: Widget> Drawable for WidgetShell<W> {
 
 impl<W: Widget> Widget for WidgetShell<W> {
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let bg = ctx.get_background();
         let border = if let Style::Border(_, border) = self.border {
             border
         } else {
@@ -133,7 +133,7 @@ impl<W: Widget> Widget for WidgetShell<W> {
             ctx,
             dispatch,
         );
-        ctx.update_scene(Region::new(wx, wy, self.width(), self.height()), bg);
+        ctx.unpile_scene();
     }
 }
 
