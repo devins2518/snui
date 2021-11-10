@@ -1,9 +1,11 @@
 pub mod shapes;
+pub mod button;
 
 use crate::scene::*;
 use crate::*;
 use shapes::*;
 use raqote::*;
+pub use button::Button;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Copy, Clone, Debug,PartialEq)]
@@ -19,7 +21,7 @@ pub enum Shape {
     Circle,
 }
 
-pub struct WidgetShell<W: Widget> {
+pub struct WidgetExt<W: Widget> {
     child: W,
     shape: Shape,
     radius: [f32; 4],
@@ -28,9 +30,9 @@ pub struct WidgetShell<W: Widget> {
     background: Style,
 }
 
-impl<W: Widget> WidgetShell<W> {
+impl<W: Widget> WidgetExt<W> {
     pub fn default(child: W) -> Self {
-        WidgetShell {
+        WidgetExt {
             child,
             background: Style::Empty,
             border: Style::Empty,
@@ -103,7 +105,7 @@ impl<W: Widget> WidgetShell<W> {
     }
 }
 
-impl<W: Widget> Geometry for WidgetShell<W> {
+impl<W: Widget> Geometry for WidgetExt<W> {
     fn width(&self) -> f32 {
         self.child.width()
             + self.padding[1]
@@ -126,7 +128,7 @@ impl<W: Widget> Geometry for WidgetShell<W> {
     }
 }
 
-impl<W: Widget> Drawable for WidgetShell<W> {
+impl<W: Widget> Drawable for WidgetExt<W> {
     fn set_color(&mut self, color: u32) {
         self.child.set_color(color);
     }
@@ -184,7 +186,7 @@ impl<W: Widget> Drawable for WidgetShell<W> {
     }
 }
 
-impl<W: Widget> Widget for WidgetShell<W> {
+impl<W: Widget> Widget for WidgetExt<W> {
     fn create_node(&self, x: f32, y: f32) -> RenderNode {
         let border_width = if let Style::Border(_, border) = self.border {
             border
@@ -224,14 +226,14 @@ impl<W: Widget> Widget for WidgetShell<W> {
     }
 }
 
-impl<W: Widget> Deref for WidgetShell<W> {
+impl<W: Widget> Deref for WidgetExt<W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.child
     }
 }
 
-impl<W: Widget> DerefMut for WidgetShell<W> {
+impl<W: Widget> DerefMut for WidgetExt<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.child
     }

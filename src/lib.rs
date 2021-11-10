@@ -5,8 +5,8 @@ pub mod widgets;
 
 use context::{Context, DamageType};
 use scene::{Region, RenderNode};
-use widgets::primitives::WidgetShell;
-use widgets::Button;
+use widgets::primitives::WidgetExt;
+use widgets::primitives::Button;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Modifiers {
@@ -112,7 +112,7 @@ pub trait Widget: Drawable + Geometry {
 }
 
 pub trait Wrapable: Widget + Sized {
-    fn wrap(self) -> WidgetShell<Self>;
+    fn wrap(self) -> WidgetExt<Self>;
     fn into_button(
         self,
         cb: impl FnMut(&mut Self, Pointer) + 'static,
@@ -123,8 +123,8 @@ impl<W> Wrapable for W
 where
     W: Widget,
 {
-    fn wrap(self) -> WidgetShell<W> {
-        WidgetShell::default(self)
+    fn wrap(self) -> WidgetExt<W> {
+        WidgetExt::default(self)
     }
     fn into_button(self, cb: impl FnMut(&mut W, Pointer) + 'static) -> Button<Self> {
         Button::new(self, cb)

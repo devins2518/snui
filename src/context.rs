@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
 use widgets::primitives::Style;
-use widgets::text::LabelData;
-use widgets::text::{Font, GlyphCache};
+use widgets::font::text::LabelData;
+use widgets::font::{Font, GlyphCache};
 use widgets::u32_to_source;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
@@ -83,9 +83,6 @@ impl Context {
         }
         self.pending_damage.push(*region);
     }
-    pub fn add_region(&mut self, region: Region) {
-        self.pending_damage.push(region);
-    }
     pub fn resize(&mut self, width: i32, height: i32) {
         match &mut self.backend {
             Backend::Raqote(dt) => {
@@ -103,9 +100,6 @@ impl Context {
             _ => {}
         }
         self.flush();
-    }
-    pub fn len(&self) -> usize {
-        self.pending_damage.len()
     }
     pub fn is_damaged(&self) -> bool {
         !self.pending_damage.is_empty()
@@ -309,7 +303,7 @@ impl Deref for Context {
     fn deref(&self) -> &Self::Target {
         match &self.backend {
             Backend::Raqote(dt) => dt.get_data_u8(),
-            _ => panic!("Dummy backend cannot return a slice reference")
+            _ => panic!("Dummy backend cannot return a slice")
         }
     }
 }
@@ -318,7 +312,7 @@ impl DerefMut for Context {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.backend {
             Backend::Raqote(dt) => dt.get_data_u8_mut(),
-            _ => panic!("Dummy backend cannot return a slice reference")
+            _ => panic!("Dummy backend cannot return a slice")
         }
     }
 }
