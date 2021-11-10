@@ -1,11 +1,5 @@
 use crate::*;
-
-const REGION:Region = Region {
-    x: 0.,
-    y: 0.,
-    width: 0.,
-    height: 0.,
-};
+use scene::{Region, RenderNode};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -20,59 +14,9 @@ pub enum Alignment {
     End,
 }
 
-pub struct Element {
-    mapped: bool,
-    coords: Option<(f32, f32)>,
-    previous_region: Region,
-    widget: Box<dyn Widget>,
-}
-
-impl Element {
-    fn new(widget: impl Widget + 'static) -> Element {
-        Element {
-            mapped: true,
-            coords: None,
-            previous_region: REGION,
-            widget: Box::new(widget),
-        }
-    }
-}
-
-impl Geometry for Element {
-    fn width(&self) -> f32 {
-        self.widget.width()
-    }
-    fn height(&self) -> f32 {
-        self.widget.height()
-    }
-}
-
-impl Drawable for Element {
-    fn set_color(&mut self, color: u32) {
-        self.widget.set_color(color);
-    }
-    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        self.widget.draw(ctx, x, y);
-    }
-}
-
-impl Widget for Element {
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        self.widget.roundtrip(wx, wy, ctx, dispatch);
-    }
-    fn damage(&self, _previous_region: &Region, x: f32, y: f32, ctx: &mut Context) {
-        if let Some((dx, dy)) = self.coords {
-            let region = Region::new(x, y, self.width(), self.height());
-            ctx.damage_region(&self.previous_region);
-            self.draw(ctx, x + dx, y + dy);
-            ctx.add_region(region);
-        }
-    }
-}
-
 pub struct WidgetLayout {
     spacing: f32,
-    pub widgets: Vec<Element>,
+    pub widgets: Vec<Box<dyn Widget>>,
     orientation: Orientation,
     alignment: Alignment,
 }
@@ -83,10 +27,8 @@ impl Geometry for WidgetLayout {
         match self.orientation {
             Orientation::Horizontal => {
                 for w in &self.widgets {
-                    if w.mapped {
-                        let lwidth = w.width();
-                        width += lwidth + self.spacing;
-                    }
+                    let lwidth = w.width();
+                    width += lwidth + self.spacing;
                 }
                 if width > self.spacing {
                     width -= self.spacing
@@ -94,11 +36,9 @@ impl Geometry for WidgetLayout {
             }
             Orientation::Vertical => {
                 for w in &self.widgets {
-                    if w.mapped {
-                        let lwidth = w.width();
-                        if lwidth > width {
-                            width = lwidth;
-                        }
+                    let lwidth = w.width();
+                    if lwidth > width {
+                        width = lwidth;
                     }
                 }
             }
@@ -110,20 +50,16 @@ impl Geometry for WidgetLayout {
         match self.orientation {
             Orientation::Horizontal => {
                 for w in &self.widgets {
-                    if w.mapped {
-                        let lheight = w.height();
-                        if lheight > height {
-                            height = lheight;
-                        }
+                    let lheight = w.height();
+                    if lheight > height {
+                        height = lheight;
                     }
                 }
             }
             Orientation::Vertical => {
                 for w in &self.widgets {
-                    if w.mapped {
-                        let lheight = w.height();
-                        height += lheight + self.spacing;
-                    }
+                    let lheight = w.height();
+                    height += lheight + self.spacing;
                 }
                 if height > self.spacing {
                     height -= self.spacing
@@ -143,26 +79,24 @@ impl Drawable for WidgetLayout {
         for w in &self.widgets {
             let ww = w.width();
             let wh = w.height();
-            if w.mapped {
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        match self.alignment {
-                            Alignment::Start => dy = 0.,
-                            Alignment::Center => dy = (sh - wh) / 2.,
-                            Alignment::End => dy = sh - wh,
-                        }
-                        w.draw(ctx, x + dx, y + dy);
-                        dx += w.widget.width() + self.spacing;
+            match self.orientation {
+                Orientation::Horizontal => {
+                    match self.alignment {
+                        Alignment::Start => dy = 0.,
+                        Alignment::Center => dy = (sh - wh) / 2.,
+                        Alignment::End => dy = sh - wh,
                     }
-                    Orientation::Vertical => {
-                        match self.alignment {
-                            Alignment::Start => dx = 0.,
-                            Alignment::Center => dx = (sw - ww) / 2.,
-                            Alignment::End => dx = sw - ww,
-                        }
-                        w.draw(ctx, x + dx, y + dy);
-                        dy += w.widget.height() + self.spacing;
+                    w.draw(ctx, x + dx, y + dy);
+                    dx += w.width() + self.spacing;
+                }
+                Orientation::Vertical => {
+                    match self.alignment {
+                        Alignment::Start => dx = 0.,
+                        Alignment::Center => dx = (sw - ww) / 2.,
+                        Alignment::End => dx = sw - ww,
                     }
+                    w.draw(ctx, x + dx, y + dy);
+                    dy += w.height() + self.spacing;
                 }
             }
         }
@@ -174,7 +108,7 @@ impl Container for WidgetLayout {
         self.widgets.len()
     }
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
-        self.widgets.push(Element::new(widget));
+        self.widgets.push(Box::new(widget));
         Ok(())
     }
 }
@@ -221,73 +155,70 @@ impl WidgetLayout {
     pub fn clear(&mut self) {
         self.widgets = Vec::new();
     }
-    pub fn unmap(&mut self, i: usize) {
-        if i < self.widgets.len() {
-            self.widgets[i].mapped = false;
-        }
-    }
-    pub fn remap(&mut self, i: usize) {
-        if i < self.widgets.len() {
-            self.widgets[i].mapped = true;
-        }
-    }
-    pub fn remap_all(&mut self) {
-        for w in &mut self.widgets {
-            w.mapped = true;
-        }
-    }
 }
 
 impl Widget for WidgetLayout {
+    fn create_node(&self, x: f32, y: f32) -> RenderNode {
+        let sw = self.width();
+        let sh = self.height();
+        let mut nodes = Vec::new();
+        let (mut dx, mut dy) = (0., 0.);
+
+        for w in &self.widgets {
+            let ww = w.width();
+            let wh = w.height();
+            match self.orientation {
+                Orientation::Horizontal => {
+                    match self.alignment {
+                        Alignment::Start => dy = 0.,
+                        Alignment::Center => dy = (sh - wh) / 2.,
+                        Alignment::End => dy = sh - wh,
+                    }
+                    nodes.push(w.create_node(x + dx, y + dy));
+                    dx += w.width() + self.spacing;
+                }
+                Orientation::Vertical => {
+                    match self.alignment {
+                        Alignment::Start => dx = 0.,
+                        Alignment::Center => dx = (sw - ww) / 2.,
+                        Alignment::End => dx = sw - ww,
+                    }
+                    nodes.push(w.create_node(x + dx, y + dy));
+                    dy += w.height() + self.spacing;
+                }
+            }
+        }
+
+        RenderNode::Container(Region::new(x, y, self.width(), self.height()), nodes)
+    }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let sw = self.width();
         let sh = self.height();
-        let init = ctx.damage_type();
         let (mut dx, mut dy) = (0., 0.);
+
         for w in self.widgets.iter_mut() {
             let ww = w.width();
             let wh = w.height();
-            if w.mapped {
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        match self.alignment {
-                            Alignment::Start => dy = 0.,
-                            Alignment::Center => dy = (sh - wh) / 2.,
-                            Alignment::End => dy = sh - wh,
-                        }
-                        w.previous_region = Region::new(wx + dx, wy + dy, ww, wh);
-                        w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if init == DamageType::None && ctx.damage_type() == DamageType::Partial {
-                            w.coords = Some((dx, dy));
-                        }
-                        dx += w.widget.width() + self.spacing;
+            match self.orientation {
+                Orientation::Horizontal => {
+                    match self.alignment {
+                        Alignment::Start => dy = 0.,
+                        Alignment::Center => dy = (sh - wh) / 2.,
+                        Alignment::End => dy = sh - wh,
                     }
-                    Orientation::Vertical => {
-                        match self.alignment {
-                            Alignment::Start => dx = 0.,
-                            Alignment::Center => dx = (sw - ww) / 2.,
-                            Alignment::End => dx = sw - ww,
-                        }
-                        w.previous_region = Region::new(wx + dx, wy + dy, ww, wh);
-                        w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                        if init == DamageType::None && ctx.damage_type() == DamageType::Partial {
-                            w.coords = Some((dx, dy));
-                        }
-                        dy += w.widget.height() + self.spacing;
-                    }
+                    w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+                    dx += w.width() + self.spacing;
                 }
-                ctx.set_damage(init);
-            }
-        }
-        if self.width() == sw && self.height() == sh {
-            if let DamageType::None = init {
-                for w in self.widgets.iter_mut() {
-                    w.damage(&REGION, wx, wy, ctx);
-                    w.coords = None;
+                Orientation::Vertical => {
+                    match self.alignment {
+                        Alignment::Start => dx = 0.,
+                        Alignment::Center => dx = (sw - ww) / 2.,
+                        Alignment::End => dx = sw - ww,
+                    }
+                    w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
+                    dy += w.height() + self.spacing;
                 }
             }
-        } else {
-            ctx.force_damage();
         }
     }
 }

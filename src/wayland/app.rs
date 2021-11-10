@@ -143,6 +143,7 @@ pub struct CoreApplication {
     mempool: DoubleMemPool,
     widget: Box<dyn Widget>,
     surface: Option<Surface>,
+    render_node: Option<RenderNode>,
 }
 
 pub struct InnerApplication {
@@ -650,9 +651,6 @@ impl CoreApplication {
             }
         }
     }
-    pub fn is_running(&self) -> bool {
-        self.ctx.running
-    }
     pub fn destroy(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
@@ -725,6 +723,7 @@ impl InnerApplication {
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
+                render_node: None,
                 ctx: Context::new(backend),
                 surface: None,
                 widget: Box::new(widget),
@@ -742,6 +741,7 @@ impl InnerApplication {
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
+                render_node: None,
                 ctx: Context::new(backend),
                 surface: globals.as_ref().create_shell_surface_from(
                     &widget,
@@ -764,6 +764,7 @@ impl InnerApplication {
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
+                render_node: None,
                 ctx: Context::new(backend),
                 surface: globals
                     .as_ref()
@@ -782,54 +783,47 @@ impl InnerApplication {
         false
     }
     pub fn dispatch(&mut self, ev: Dispatch) {
-        let (w, h) = (self.widget.width(), self.widget.height());
+        let render;
+        let initial_width = self.core.ctx.width();
+        let initial_height = self.core.ctx.height();
         self.core.widget.roundtrip(0., 0., &mut self.core.ctx, &ev);
+        let current_width = self.core.widget.width();
+        let current_height = self.core.widget.height();
+        if let Some(render_node) = &self.core.render_node {
+            if initial_width != current_width
+            || initial_height != current_height {
+                render = false;
+                if let Some(surface) = self.surface.as_ref() {
+                    surface.set_size(current_width as u32, current_height as u32);
+                }
+                self.core.ctx.resize(current_width as i32, current_height as i32);
+            } else {
+                let recent_node = self.core.widget.create_node(0., 0.);
+                render_node.find_diff(&recent_node, &mut self.core.ctx, &Background::Transparent);
+                self.core.render_node = Some(recent_node);
+                render = self.core.ctx.is_damaged();
+            }
+        } else {
+            if initial_width != current_width
+            || initial_height != current_height {
+                self.core.ctx.resize(self.core.widget.width() as i32, self.core.widget.height() as i32);
+            }
+            self.core.widget.draw(&mut self.core.ctx, 0., 0.);
+            self.core.render_node = Some(self.core.widget.create_node(0., 0.));
+            render = true;
+        }
         (self.cb)(&mut self.core, ev);
 
-        if self.core.ctx.running && self.surface.is_some() {
-            let mut show = true;
-            match self.core.ctx.damage_type() {
-                DamageType::Full | DamageType::Partial => {
-                    if self.widget.width() != w || self.widget.height() != h {
-                        self.core
-                            .ctx
-                            .resize(self.widget.width() as i32, self.widget.height() as i32);
-                        if let Some(surface) = &self.surface {
-                            surface
-                                .set_size(self.widget.width() as u32, self.widget.height() as u32);
-                        }
-                    }
-                    self.core.widget.draw(&mut self.core.ctx, 0., 0.);
-                    self.core
-                        .surface
-                        .as_ref()
-                        .unwrap()
-                        .region
-                        .subtract(0, 0, 1 << 30, 1 << 30);
-                }
-                DamageType::None => {
-                    if !self.core.ctx.is_damaged() {
-                        show = false;
-                    }
-                }
-            }
-
-            if show {
-                if let Some(pool) = self.core.mempool.pool() {
-                    if let Some(surface) = &mut self.core.surface {
-                        // surface.add_input(self.core.ctx.report_input());
-                        if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
-                            buffer.merge();
-                            surface.attach_buffer(wl_buffer, 0, 0);
-                        }
-                        surface.damage(self.core.ctx.report_damage());
-                        surface.commit();
-                    }
-                }
-            } else if !self.core.ctx.running {
+        if render && self.surface.is_some() {
+            if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
-                    surface.destroy();
-                    surface.destroy_previous();
+                    // surface.add_input(self.core.ctx.report_input());
+                    if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
+                        buffer.merge();
+                        surface.attach_buffer(wl_buffer, 0, 0);
+                    }
+                    surface.damage(self.core.ctx.report_damage());
+                    surface.commit();
                 }
             }
         }

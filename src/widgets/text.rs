@@ -1,4 +1,6 @@
 use crate::*;
+use widgets::u32_to_source;
+use scene::*;
 pub use fontdue::{
     layout,
     layout::{
@@ -80,15 +82,42 @@ impl GlyphCache {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct LabelData {
+    text: String,
+    font_size: f32,
+    pub fonts: Vec<String>,
+    pub source: SolidSource,
+    pub glyphs: Vec<GlyphPosition>,
+}
+
+impl LabelData {
+    fn default() -> LabelData {
+        LabelData {
+            text: String::new(),
+            font_size: 0.,
+            fonts: Vec::new(),
+            source: u32_to_source(0),
+            glyphs: Vec::new(),
+        }
+    }
+}
+
+impl PartialEq for LabelData {
+    fn eq(&self, other: &Self) -> bool {
+        self.text.eq(&other.text)
+        && self.font_size == other.font_size
+        && self.fonts.eq(&other.fonts)
+        && self.source == other.source
+    }
+}
+
 pub struct Label {
+    data: LabelData,
     width: f32,
     layout: Layout,
-    font_size: f32,
-    pub source: SolidSource,
-    pub fonts: Vec<String>,
     write_buffer: Option<String>,
     settings: LayoutSettings,
-    pub glyphs: Vec<GlyphPosition>,
 }
 
 impl Geometry for Label {
@@ -113,12 +142,9 @@ impl Clone for Label {
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.reset(&self.settings);
         Label {
-            width: self.width,
             layout,
-            font_size: self.font_size,
-            source: self.source,
-            fonts: self.fonts.clone(),
-            glyphs: self.glyphs.clone(),
+            data: self.data.clone(),
+            width: self.width,
             write_buffer: self.write_buffer.clone(),
             settings: self.settings,
         }
@@ -128,7 +154,7 @@ impl Clone for Label {
 impl Drawable for Label {
     fn set_color(&mut self, color: u32) {
         let color = color.to_be_bytes();
-        self.source = SolidSource {
+        self.data.source = SolidSource {
             a: color[0],
             r: color[1],
             g: color[2],
@@ -136,31 +162,7 @@ impl Drawable for Label {
         };
     }
     fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        ctx.draw_label(x, y, self);
-    }
-}
-
-impl Widget for Label {
-    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, ctx: &mut Context, _dispatch: &Dispatch) {
-        if let Some(text) = self.write_buffer.as_ref() {
-            let fonts = ctx.get_fonts(&self.fonts);
-            if !fonts.is_empty() {
-                for c in text.chars() {
-                    for (i, font) in fonts.iter().enumerate() {
-                        if font.lookup_glyph_index(c) != 0 {
-                            self.layout
-                                .append(&fonts, &TextStyle::new(&c.to_string(), self.font_size, i));
-                            break;
-                        }
-                    }
-                }
-                let (width, _) = get_size(&mut self.layout.glyphs());
-                ctx.force_damage();
-                self.width = width;
-                self.glyphs = self.layout.glyphs().clone();
-                self.write_buffer = None;
-            }
-        }
+        ctx.draw_label(x, y, &self.data);
     }
 }
 
@@ -208,12 +210,14 @@ impl Label {
     pub fn new(text: &str, font: &str, font_size: f32, color: u32) -> Label {
         let (settings, mut layout) = create_layout(None, None);
         let (width, _) = get_size(layout.glyphs());
+        let mut data = LabelData::default();
+        data.font_size = font_size;
+        data.fonts = vec![font.to_owned()];
+        data.source = u32_to_source(color);
+        data.glyphs = layout.glyphs().clone();
         Label {
-            glyphs: layout.glyphs().clone(),
+            data,
             width,
-            source: create_source(color),
-            fonts: vec![font.to_owned()],
-            font_size,
             settings,
             write_buffer: Some(text.to_owned()),
             layout,
@@ -228,12 +232,14 @@ impl Label {
         color: u32,
     ) -> Label {
         let (settings, mut layout) = create_layout(Some(width), Some(height));
+        let mut data = LabelData::default();
+        data.font_size = font_size;
+        data.glyphs = layout.glyphs().clone();
+        data.fonts = vec![font.to_owned()];
+        data.source = u32_to_source(color);
         Label {
-            glyphs: layout.glyphs().clone(),
+            data,
             width,
-            source: create_source(color),
-            fonts: vec![font.to_owned()],
-            font_size,
             settings,
             write_buffer: Some(text.to_owned()),
             layout,
@@ -241,21 +247,24 @@ impl Label {
     }
     pub fn max_width(text: &str, font: &str, font_size: f32, width: f32, color: u32) -> Label {
         let (settings, mut layout) = create_layout(Some(width), None);
+        let mut data = LabelData::default();
+        data.font_size = font_size;
+        data.glyphs = layout.glyphs().clone();
+        data.fonts = vec![font.to_owned()];
+        data.source = u32_to_source(color);
         Label {
-            glyphs: layout.glyphs().clone(),
+            data,
             width,
-            source: create_source(color),
-            fonts: vec![font.to_owned()],
-            font_size,
             settings,
             write_buffer: Some(text.to_owned()),
             layout,
         }
     }
     pub fn add_font(&mut self, font: &str) {
-        self.fonts.push(font.to_string());
+        self.data.fonts.push(font.to_string());
     }
     pub fn write(&mut self, text: &str) {
+        self.data.text = text.to_string();
         if let Some(buffer) = self.write_buffer.as_mut() {
             buffer.push_str(text);
         } else {
@@ -263,8 +272,39 @@ impl Label {
         }
     }
     pub fn edit(&mut self, text: &str) {
+        self.data.text = text.to_string();
         self.write_buffer = Some(text.to_owned());
         self.layout.clear();
         self.layout.reset(&self.settings);
+    }
+}
+
+
+impl Widget for Label {
+    fn create_node(&self, x: f32, y: f32) -> RenderNode {
+        RenderNode::Widget(Damage::from_text(
+            Region::new(x, y, self.width(), self.height()),
+            self.data.clone()
+        ))
+    }
+    fn roundtrip<'d>(&'d mut self, _wx: f32, _wy: f32, ctx: &mut Context, _dispatch: &Dispatch) {
+        if let Some(text) = self.write_buffer.as_ref() {
+            let fonts = ctx.get_fonts(&self.data.fonts);
+            if !fonts.is_empty() {
+                for c in text.chars() {
+                    for (i, font) in fonts.iter().enumerate() {
+                        if font.lookup_glyph_index(c) != 0 {
+                            self.layout
+                                .append(&fonts, &TextStyle::new(&c.to_string(), self.data.font_size, i));
+                            break;
+                        }
+                    }
+                }
+                let (width, _) = get_size(&mut self.layout.glyphs());
+                self.width = width;
+                self.data.glyphs = self.layout.glyphs().clone();
+                self.write_buffer = None;
+            }
+        }
     }
 }

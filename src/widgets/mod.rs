@@ -2,45 +2,11 @@ pub mod container;
 pub mod primitives;
 pub mod text;
 
-use crate::context::DamageType;
 use crate::*;
-pub use container::{layout::WidgetLayout, Wbox};
-pub use self::primitives::image::{DynamicImage, Image};
 use raqote::*;
-use std::io::Write;
-use std::ops::{Deref, DerefMut};
 pub use text::Label;
-
-pub fn render(canvas: &mut Context, buffer: &[u8], width: f32, x: f32, y: f32) {
-    let stride = canvas.width() as usize * 4;
-    let mut index = ((x + (y * canvas.width())) * 4.) as usize;
-    for buf in buffer.chunks(width as usize * 4) {
-        if index >= canvas.len() {
-            break;
-        } else {
-            let mut writer = &mut canvas[index..];
-            for pixel in buf.chunks(4) {
-                match pixel[3] {
-                    0 => {
-                        writer
-                            .write(&[writer[0], writer[1], writer[2], writer[3]])
-                            .unwrap();
-                    }
-                    255 => {
-                        writer.write(&pixel).unwrap();
-                    }
-                    _ => {
-                        let t = pixel[3];
-                        let mut p = [writer[0], writer[1], writer[2], writer[3]];
-                        p = blend(&pixel, &p, (255 - t) as f32 / 255.0);
-                        writer.write(&p).unwrap();
-                    }
-                }
-            }
-            index += stride;
-        }
-    }
-}
+use std::ops::{Deref, DerefMut};
+pub use container::{layout::WidgetLayout, Wbox};
 
 pub fn u32_to_source(color: u32) -> SolidSource {
     let color = color.to_be_bytes();
@@ -79,13 +45,13 @@ fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
 pub struct Button<W: Geometry + Drawable> {
     widget: W,
     focused: bool,
-    cb: Box<dyn for<'d> FnMut(&'d mut W, Pointer) -> DamageType + 'static>,
+    cb: Box<dyn for<'d> FnMut(&'d mut W, Pointer) + 'static>,
 }
 
 impl<W: Widget> Button<W> {
     pub fn new(
         widget: W,
-        cb: impl for<'d> FnMut(&'d mut W, Pointer) -> DamageType + 'static,
+        cb: impl for<'d> FnMut(&'d mut W, Pointer) + 'static,
     ) -> Self {
         Self {
             widget,
@@ -114,15 +80,16 @@ impl<W: Widget> Drawable for Button<W> {
 }
 
 impl<W: Widget> Widget for Button<W> {
+    fn create_node(&self, x: f32, y: f32) -> RenderNode {
+        self.widget.create_node(x, y)
+    }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let damage_type = match dispatch {
+        match dispatch {
             Dispatch::Pointer(x, y, pointer) => match pointer {
                 Pointer::Leave => {
                     if self.focused {
                         self.focused = false;
                         (self.cb)(&mut self.widget, *pointer)
-                    } else {
-                        DamageType::None
                     }
                 }
                 _ => {
@@ -136,23 +103,12 @@ impl<W: Widget> Widget for Button<W> {
                     } else if self.focused {
                         self.focused = false;
                         (self.cb)(&mut self.widget, Pointer::Leave)
-                    } else {
-                        DamageType::None
                     }
                 }
             },
-            _ => DamageType::None,
-        };
-        handle_damage(damage_type, ctx);
+            _ => {}
+        }
         self.widget.roundtrip(wx, wy, ctx, dispatch);
-    }
-}
-
-fn handle_damage(damage_type: DamageType, ctx: &mut Context) {
-    match damage_type {
-        DamageType::Full => ctx.redraw(),
-        DamageType::Partial => ctx.force_damage(),
-        DamageType::None => {}
     }
 }
 

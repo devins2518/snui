@@ -48,19 +48,11 @@ impl Drawable for Inner {
 }
 
 impl Widget for Inner {
+    fn create_node(&self, x: f32, y: f32) -> RenderNode {
+        self.widget.create_node(x, y)
+    }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let sw = self.width();
-        let sh = self.height();
-        if let DamageType::None = ctx.damage_type() {
-            self.widget.roundtrip(wx, wy, ctx, dispatch);
-            if let DamageType::Partial = ctx.damage_type() {
-                if self.width() == sw && self.height() == sh {
-                    self.damage(&Region::new(wx, wy, sw, sh), wx, wy, ctx);
-                }
-            }
-        } else {
-            self.widget.roundtrip(wx, wy, ctx, dispatch);
-        }
+        self.widget.roundtrip(wx, wy, ctx, dispatch);
     }
 }
 
@@ -256,6 +248,17 @@ impl Wbox {
 }
 
 impl Widget for Wbox {
+    fn create_node(&self, x: f32, y: f32) -> RenderNode {
+        let width = self.width();
+        let height = self.height();
+        let mut nodes = Vec::new();
+        for w in &self.widgets {
+            if let Ok((dx, dy)) = w.location(width, height) {
+                nodes.push(w.create_node(x + dx, y + dy));
+            }
+        }
+        RenderNode::Container(Region::new(x, y, width, height), nodes)
+    }
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
         let width = self.width();
         let height = self.height();

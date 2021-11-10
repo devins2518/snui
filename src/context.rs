@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::{Deref, DerefMut};
 use widgets::primitives::Style;
-use widgets::text::Label;
+use widgets::text::LabelData;
 use widgets::text::{Font, GlyphCache};
 use widgets::u32_to_source;
 
@@ -33,13 +33,11 @@ pub enum DamageType {
 
 pub enum Backend {
     Raqote(DrawTarget),
+    Dummy,
 }
 
 pub struct Context {
-    pub running: bool,
     backend: Backend,
-    scene: Vec<Scene>,
-    damage_type: DamageType,
     pending_damage: Vec<Region>,
     values: HashMap<String, Box<dyn Any>>,
     font_cache: HashMap<String, GlyphCache>,
@@ -49,78 +47,44 @@ impl Context {
     pub fn new(backend: Backend) -> Self {
         Self {
             backend,
-            running: true,
-            scene: vec![],
             values: HashMap::new(),
             pending_damage: Vec::new(),
             font_cache: HashMap::new(),
-            damage_type: DamageType::Full,
         }
     }
-    pub fn damage_type(&self) -> DamageType {
-        self.damage_type
-    }
-    pub fn redraw(&mut self) {
-        self.damage_type = DamageType::Full;
-    }
-    pub fn set_damage(&mut self, damage: DamageType) {
-        match &self.damage_type {
-            DamageType::Full => {}
-            _ => self.damage_type = damage,
-        }
-    }
-    pub fn force_damage(&mut self) {
-        match &self.damage_type {
-            DamageType::Full => {}
-            _ => self.damage_type = DamageType::Partial,
-        }
-    }
-    pub fn reset_damage(&mut self) {
-        match &self.damage_type {
-            DamageType::Full => {}
-            _ => self.damage_type = DamageType::None,
-        }
-    }
-    pub fn update_scene(&mut self, region: Region, background: Background) {
-        if let DamageType::None = self.damage_type {
-            let scene = Scene::new(background, region);
-            self.scene.push(scene);
-        }
-    }
-    pub fn damage_region(&mut self, region: &Region) {
-        if let Some(scene) = self.scene.last() {
-            let mut scene = scene.clone();
-            match scene.background {
-                Background::Color(source) => match &mut self.backend {
-                    Backend::Raqote(dt) => dt.fill_rect(
-                        region.x,
-                        region.y,
-                        region.width,
-                        region.height,
-                        &Source::Solid(source),
-                        &ATOP_OPTIONS,
-                    ),
-                },
-                Background::Image(mask) => {
-                    let crop_region = scene.region.crop_region(&region);
-                    mask.image
-                        .crop_into(&crop_region)
-                        .draw(self, region.x, region.y);
-                    scene.background = mask.overlay;
-                    self.damage_region(region);
-                }
+    pub fn damage_region(&mut self, bg: &Background, region: &Region) {
+        match bg {
+            Background::Color(source) => match &mut self.backend {
+                Backend::Raqote(dt) => dt.fill_rect(
+                    region.x,
+                    region.y,
+                    region.width,
+                    region.height,
+                    &Source::Solid(*source),
+                    &ATOP_OPTIONS,
+                ),
                 _ => {}
-            }
+            },
+            Background::Transparent => match &mut self.backend {
+                Backend::Raqote(dt) => dt.fill_rect(
+                    region.x,
+                    region.y,
+                    region.width,
+                    region.height,
+                    &Source::Solid(u32_to_source(0)),
+                    &DrawOptions {
+                        alpha: 1.,
+                        antialias: AntialiasMode::Gray,
+                        blend_mode: BlendMode::SrcIn
+                    },
+                ),
+                _ => {}
+            },
         }
-    }
-    pub fn unpile_scene(&mut self) {
-        if !self.scene.is_empty() {
-            self.scene.remove(self.scene.len() - 1);
-        }
+        self.pending_damage.push(*region);
     }
     pub fn add_region(&mut self, region: Region) {
         self.pending_damage.push(region);
-        self.damage_type = DamageType::None;
     }
     pub fn resize(&mut self, width: i32, height: i32) {
         match &mut self.backend {
@@ -128,6 +92,7 @@ impl Context {
                 *dt = DrawTarget::new(width, height);
                 self.flush();
             }
+            _ => {}
         }
     }
     pub fn clear(&mut self) {
@@ -135,6 +100,7 @@ impl Context {
             Backend::Raqote(dt) => {
                 dt.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
             }
+            _ => {}
         }
         self.flush();
     }
@@ -145,7 +111,6 @@ impl Context {
         !self.pending_damage.is_empty()
     }
     pub fn flush(&mut self) {
-        self.damage_type = DamageType::None;
         self.pending_damage.clear();
     }
     pub fn report_damage(&self) -> &[Region] {
@@ -154,6 +119,7 @@ impl Context {
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
         match &mut self.backend {
             Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
+            _ => {}
         }
     }
     pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
@@ -161,6 +127,7 @@ impl Context {
             Backend::Raqote(dt) => {
                 dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS)
             }
+            _ => {}
         }
     }
     pub fn draw_ellipse(&mut self, x: f32, y: f32, width: f32, height: f32, style: &Style) {
@@ -185,19 +152,27 @@ impl Context {
         let path = pb.finish();
         match &mut self.backend {
             Backend::Raqote(dt) => fill_target(dt, &path, style),
+            _ => {}
         }
     }
     pub fn draw_rectangle(
         &mut self,
         x: f32,
         y: f32,
-        width: f32,
-        height: f32,
+        mut width: f32,
+        mut height: f32,
         radius: [f32; 4],
         style: &Style,
     ) {
         let mut pb = PathBuilder::new();
-        let mut cursor = (x, y);
+        let mut cursor = match style {
+            Style::Border(_, border) => {
+                width -= border;
+                height -= border;
+                (x + border/2., y + border/2.)
+            }
+            _ => (x, y)
+        };
 
         // Sides length
         let top = width - radius[0] - radius[1];
@@ -236,12 +211,13 @@ impl Context {
 
         match &mut self.backend {
             Backend::Raqote(dt) => fill_target(dt, &path, style),
+            _ => {}
         }
     }
-    pub fn draw_label(&mut self, x: f32, y: f32, label: &Label) {
-        let fonts = &label.fonts;
-        let source = label.source;
-        for gp in &label.glyphs {
+    pub fn draw_label(&mut self, x: f32, y: f32, data: &LabelData) {
+        let fonts = &data.fonts;
+        let source = data.source;
+        for gp in &data.glyphs {
             if let Some(glyph_cache) = self.font_cache.get_mut(&fonts[gp.key.font_index as usize]) {
                 if let Some(pixmap) = glyph_cache.render_glyph(&gp, source) {
                     match &mut self.backend {
@@ -255,6 +231,7 @@ impl Context {
                             },
                             &ATOP_OPTIONS,
                         ),
+                        _ => {}
                     }
                 }
             }
@@ -316,53 +293,13 @@ impl Geometry for Context {
     fn width(&self) -> f32 {
         match &self.backend {
             Backend::Raqote(dt) => dt.width() as f32,
+            _ => 0.
         }
     }
     fn height(&self) -> f32 {
         match &self.backend {
             Backend::Raqote(dt) => dt.height() as f32,
-        }
-    }
-}
-
-impl Drawable for Context {
-    fn set_color(&mut self, color: u32) {
-        let color = color.to_be_bytes();
-        match &mut self.backend {
-            Backend::Raqote(dt) => dt.fill_rect(
-                0.,
-                0.,
-                dt.width() as f32,
-                dt.height() as f32,
-                &Source::Solid(SolidSource {
-                    a: color[0],
-                    r: color[1],
-                    g: color[2],
-                    b: color[3],
-                }),
-                &DrawOptions::new(),
-            ),
-        }
-    }
-    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        ctx.pending_damage.push(Region {
-            x,
-            y,
-            width: ctx.width(),
-            height: ctx.height(),
-        });
-        match &mut ctx.backend {
-            Backend::Raqote(dt) => match &self.backend {
-                Backend::Raqote(st) => dt.blend_surface(
-                    &st,
-                    Box2D::new(
-                        euclid::point2(x as i32, y as i32),
-                        euclid::point2((x + self.width()) as i32, (y + self.height()) as i32),
-                    ),
-                    Point2D::new(x as i32, y as i32),
-                    BlendMode::Add,
-                ),
-            },
+            _ => 0.
         }
     }
 }
@@ -372,6 +309,7 @@ impl Deref for Context {
     fn deref(&self) -> &Self::Target {
         match &self.backend {
             Backend::Raqote(dt) => dt.get_data_u8(),
+            _ => panic!("Dummy backend cannot return a slice reference")
         }
     }
 }
@@ -380,6 +318,7 @@ impl DerefMut for Context {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.backend {
             Backend::Raqote(dt) => dt.get_data_u8_mut(),
+            _ => panic!("Dummy backend cannot return a slice reference")
         }
     }
 }

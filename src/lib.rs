@@ -4,7 +4,7 @@ pub mod wayland;
 pub mod widgets;
 
 use context::{Context, DamageType};
-use scene::Region;
+use scene::{Region, RenderNode};
 use widgets::primitives::WidgetShell;
 use widgets::Button;
 
@@ -88,27 +88,6 @@ pub enum Error {
     Message(&'static str),
 }
 
-pub struct Damage<'d> {
-    pub widget: &'d dyn Widget,
-    pub x: f32,
-    pub y: f32,
-}
-
-impl<'d> Damage<'d> {
-    pub fn new<W: Widget>(x: f32, y: f32, widget: &'d W) -> Damage {
-        Damage { widget, x, y }
-    }
-}
-
-impl<'d> Geometry for Damage<'d> {
-    fn width(&self) -> f32 {
-        self.widget.width()
-    }
-    fn height(&self) -> f32 {
-        self.widget.height()
-    }
-}
-
 pub trait Container: Geometry {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
@@ -128,14 +107,7 @@ pub trait Drawable {
 }
 
 pub trait Widget: Drawable + Geometry {
-    fn damage(&self, previous_region: &Region, x: f32, y: f32, ctx: &mut Context) {
-        if let DamageType::Partial = ctx.damage_type() {
-            let region = Region::new(x, y, self.width(), self.height());
-            ctx.damage_region(previous_region);
-            self.draw(ctx, x, y);
-            ctx.add_region(region);
-        }
-    }
+    fn create_node(&self, x: f32, y: f32) -> RenderNode;
     fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch);
 }
 
@@ -143,7 +115,7 @@ pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetShell<Self>;
     fn into_button(
         self,
-        cb: impl FnMut(&mut Self, Pointer) -> DamageType + 'static,
+        cb: impl FnMut(&mut Self, Pointer) + 'static,
     ) -> Button<Self>;
 }
 
@@ -154,7 +126,7 @@ where
     fn wrap(self) -> WidgetShell<W> {
         WidgetShell::default(self)
     }
-    fn into_button(self, cb: impl FnMut(&mut W, Pointer) -> DamageType + 'static) -> Button<Self> {
+    fn into_button(self, cb: impl FnMut(&mut W, Pointer) + 'static) -> Button<Self> {
         Button::new(self, cb)
     }
 }

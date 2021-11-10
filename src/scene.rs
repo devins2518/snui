@@ -1,30 +1,28 @@
-use crate::widgets::blend;
-use crate::widgets::primitives::Style;
-use raqote::*;
+use widgets::primitives::*;
+use widgets::blend;
+use widgets::text::LabelData;
+use context::Context;
 use std::cmp::Ordering;
+use crate::*;
+use raqote::*;
 
-#[derive(Clone, Debug)]
-pub struct ImageMask {
-    pub overlay: Background,
-    pub image: crate::widgets::DynamicImage,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Coords (f32, f32);
+
+#[derive(Clone, Debug, PartialEq)]
+enum Instruction {
+    Text(LabelData),
+    Rectangle(shapes::Rectangle),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Background {
     Transparent,
-    Color(SolidSource),
-    Image(Box<ImageMask>),
+    Color(SolidSource)
 }
 
 impl Background {
-    pub fn into_style(&self) -> Style {
-        match self {
-            Background::Transparent => Style::Empty,
-            Background::Color(source) => Style::Fill(*source),
-            _ => Style::Empty,
-        }
-    }
-    pub fn merge(&mut self, other: Self) {
+    pub fn merge(&self, other: Self) -> Self {
         match other {
             Background::Color(bsource) => match self {
                 Background::Color(asource) => {
@@ -33,41 +31,166 @@ impl Background {
                         &bsource.to_u32().to_be_bytes(),
                         1.,
                     );
-                    *asource = SolidSource {
+                    Background::Color(SolidSource {
                         a: source[0],
                         r: source[1],
                         g: source[2],
                         b: source[3],
-                    };
+                    })
                 }
-                Background::Image(mask) => {
-                    mask.overlay.merge(other);
-                }
-                Background::Transparent => *self = other,
+                Background::Transparent => other,
             },
-            Background::Image(_) => {
-                *self = other;
-            }
-            _ => {}
+            _ => self.clone()
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Damage {
+    region: Region,
+    instruction: Instruction,
+}
+
+impl Damage {
+    pub fn from_text(region: Region, data: LabelData) -> Damage {
+        Damage {
+            region,
+            instruction: Instruction::Text(data)
+        }
+    }
+    pub fn from_rectangle(x: f32, y: f32, rectangle: shapes::Rectangle) -> Damage {
+        Damage {
+            region: Region::new(x, y, rectangle.width(), rectangle.height()),
+            instruction: Instruction::Rectangle(rectangle)
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Scene {
-    pub region: Region,
-    pub background: Background,
+pub enum RenderNode {
+    Widget(Damage),
+    Extension {
+        border: Damage,
+        background: Damage,
+        node: Box<RenderNode>,
+    },
+    Container(Region, Vec<RenderNode>)
 }
 
-impl Scene {
-    pub fn default() -> Scene {
-        Scene {
-            background: Background::Transparent,
-            region: Region::new(0., 0., 1., 1.),
+impl Coords {
+    pub fn new(x: f32, y: f32) -> Coords {
+        Coords (x, y)
+    }
+}
+
+impl Damage {
+    fn render(&self, ctx: &mut Context) {
+        let x = self.region.x;
+        let y = self.region.y;
+        match &self.instruction {
+            Instruction::Rectangle(rectangle) => {
+                rectangle.draw(ctx, x, y);
+            }
+            Instruction::Text(data) => {
+                ctx.draw_label(x, y, data);
+            }
+            _ => {}
         }
     }
-    pub fn new(background: Background, region: Region) -> Self {
-        Self { background, region }
+    fn into_background(&self) -> Background {
+        match &self.instruction {
+            Instruction::Rectangle(r) => {
+                match r.style {
+                    Style::Fill(source) => Background::Color(source),
+                    _ => Background::Transparent
+                }
+            }
+            _ => Background::Transparent
+        }
+    }
+}
+
+impl Geometry for RenderNode {
+    fn width(&self) -> f32 {
+        match self {
+            RenderNode::Widget(damage) => damage.region.width,
+            RenderNode::Extension { border:_, background, node:_ } => background.region.width,
+            RenderNode::Container(region, _) => region.width
+        }
+    }
+    fn height(&self) -> f32 {
+        match self {
+            RenderNode::Widget(damage) => damage.region.height,
+            RenderNode::Extension { border:_, background, node:_ } => background.region.height,
+            RenderNode::Container(region, _) => region.height
+        }
+    }
+}
+
+impl RenderNode {
+    fn render(&self, ctx: &mut Context) {
+        match self {
+            Self::Widget(d) => d.render(ctx),
+            Self::Container(_, c) => for d in c {
+                d.render(ctx);
+            }
+            Self::Extension { border, background, node } => {
+                background.render(ctx);
+                border.render(ctx);
+                node.render(ctx);
+            }
+        }
+    }
+    pub fn find_diff<'r>(&'r self, other: &'r Self, ctx: &mut Context, bg: &Background) {
+        match self {
+            RenderNode::Widget(a) => {
+                match other {
+                    RenderNode::Widget(b) => {
+                        if a != b {
+                            ctx.damage_region(bg, &a.region);
+                            b.render(ctx);
+                        }
+                    }
+                    _ => {
+                        ctx.damage_region(bg, &a.region);
+                        other.render(ctx);
+                    }
+                }
+            }
+            RenderNode::Container(region, sv) => {
+                match other {
+                    RenderNode::Container(_, ov) => {
+                        if sv.len() != ov.len() {
+                            other.render(ctx);
+                        } else {
+                            for i in 0..ov.len().min(sv.len()) {
+                                sv[i].find_diff(&ov[i], ctx, bg);
+                            }
+                        }
+                    }
+                    _ => {
+                        ctx.damage_region(bg, &region);
+                        other.render(ctx)
+                    }
+                }
+            }
+            RenderNode::Extension { border, background, node } => {
+                let this_node  = node ;
+                let this_border = border;
+                let this_background = background;
+                if let RenderNode::Extension {background, border, node} = other {
+                    if this_border == border && this_background == background {
+                        this_node.find_diff(node, ctx, &bg.merge(background.into_background()));
+                    } else {
+                        ctx.damage_region(&this_background.into_background(), &this_background.region);
+                        other.render(ctx);
+                    }
+                } else {
+                    ctx.damage_region(&this_background.into_background(), &this_background.region);
+                    other.render(ctx);
+                }
+            }
+        }
     }
 }
 
@@ -87,6 +210,12 @@ impl Region {
             width,
             height,
         }
+    }
+    pub fn same(&self, other: &Self) -> bool {
+        self.x == other.x
+        && self.y == other.y
+        && self.width == other.width
+        && self.height == other.height
     }
     pub fn crop_region(&self, other: &Self) -> Region {
         let max = self.max(other);
