@@ -1,24 +1,19 @@
-use widgets::primitives::*;
-use widgets::blend;
-use widgets::text::LabelData;
-use context::Context;
-use std::cmp::Ordering;
 use crate::*;
+use context::Context;
 use raqote::*;
+use std::cmp::Ordering;
+use widgets::blend;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Coords (f32, f32);
-
-#[derive(Clone, Debug, PartialEq)]
-enum Instruction {
-    Text(LabelData),
-    Rectangle(shapes::Rectangle),
+pub struct Coords {
+    pub x: f32,
+    pub y: f32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Background {
     Transparent,
-    Color(SolidSource)
+    Color(SolidSource),
 }
 
 impl Background {
@@ -40,126 +35,102 @@ impl Background {
                 }
                 Background::Transparent => other,
             },
-            _ => self.clone()
+            _ => self.clone(),
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Damage {
-    region: Region,
-    instruction: Instruction,
+#[derive(Debug)]
+pub struct Instruction {
+    coords: Coords,
+    primitive: Box<dyn Primitive>,
 }
 
-impl Damage {
-    pub fn from_text(region: Region, data: LabelData) -> Damage {
-        Damage {
-            region,
-            instruction: Instruction::Text(data)
-        }
-    }
-    pub fn from_rectangle(x: f32, y: f32, rectangle: shapes::Rectangle) -> Damage {
-        Damage {
-            region: Region::new(x, y, rectangle.width(), rectangle.height()),
-            instruction: Instruction::Rectangle(rectangle)
+impl Instruction {
+    pub fn new(x: f32, y: f32, primitive: impl Primitive + 'static) -> Instruction {
+        Instruction {
+            coords: Coords::new(x, y),
+            primitive: Box::new(primitive),
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum RenderNode {
-    Widget(Damage),
+    Instruction(Instruction),
     Extension {
-        border: Damage,
-        background: Damage,
+        background: Instruction,
         node: Box<RenderNode>,
     },
-    Container(Region, Vec<RenderNode>)
+    Container(Vec<RenderNode>),
 }
 
 impl Coords {
     pub fn new(x: f32, y: f32) -> Coords {
-        Coords (x, y)
+        Coords { x, y }
     }
 }
 
-impl Damage {
+impl Instruction {
     fn render(&self, ctx: &mut Context) {
-        let x = self.region.x;
-        let y = self.region.y;
-        match &self.instruction {
-            Instruction::Rectangle(rectangle) => {
-                rectangle.draw(ctx, x, y);
-            }
-            Instruction::Text(data) => {
-                ctx.draw_label(x, y, data);
-            }
-            _ => {}
-        }
+        let x = self.coords.x;
+        let y = self.coords.y;
+        self.primitive.draw(x, y, ctx);
     }
-    fn into_background(&self) -> Background {
-        match &self.instruction {
-            Instruction::Rectangle(r) => {
-                match r.style {
-                    Style::Fill(source) => Background::Color(source),
-                    _ => Background::Transparent
-                }
-            }
-            _ => Background::Transparent
-        }
+    fn region(&self) -> Region {
+        Region::new(
+            self.coords.x,
+            self.coords.y,
+            self.primitive.width(),
+            self.primitive.height(),
+        )
     }
 }
 
-impl Geometry for RenderNode {
-    fn width(&self) -> f32 {
-        match self {
-            RenderNode::Widget(damage) => damage.region.width,
-            RenderNode::Extension { border:_, background, node:_ } => background.region.width,
-            RenderNode::Container(region, _) => region.width
-        }
+impl PartialEq for Instruction {
+    fn eq(&self, other: &Self) -> bool {
+        self.coords.eq(&other.coords) && self.primitive.same(&other.primitive)
     }
-    fn height(&self) -> f32 {
-        match self {
-            RenderNode::Widget(damage) => damage.region.height,
-            RenderNode::Extension { border:_, background, node:_ } => background.region.height,
-            RenderNode::Container(region, _) => region.height
-        }
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
     }
 }
 
 impl RenderNode {
-    fn render(&self, ctx: &mut Context) {
+    pub fn render(&self, ctx: &mut Context) {
         match self {
-            Self::Widget(d) => d.render(ctx),
-            Self::Container(_, c) => for d in c {
-                d.render(ctx);
+            Self::Instruction(instruction) => instruction.render(ctx),
+            Self::Container(c) => {
+                for n in c {
+                    n.render(ctx);
+                }
             }
-            Self::Extension { border, background, node } => {
+            Self::Extension {
+                background,
+                node,
+            } => {
                 background.render(ctx);
-                border.render(ctx);
                 node.render(ctx);
             }
         }
     }
     pub fn find_diff<'r>(&'r self, other: &'r Self, ctx: &mut Context, bg: &Background) {
         match self {
-            RenderNode::Widget(a) => {
-                match other {
-                    RenderNode::Widget(b) => {
-                        if a != b {
-                            ctx.damage_region(bg, &a.region);
-                            b.render(ctx);
-                        }
-                    }
-                    _ => {
-                        ctx.damage_region(bg, &a.region);
-                        other.render(ctx);
+            RenderNode::Instruction(a) => match other {
+                RenderNode::Instruction(b) => {
+                    if a.ne(b) {
+                        ctx.damage_region(bg, &a.region());
+                        b.render(ctx);
                     }
                 }
-            }
-            RenderNode::Container(region, sv) => {
+                _ => {
+                    ctx.damage_region(bg, &a.region());
+                    other.render(ctx);
+                }
+            },
+            RenderNode::Container(sv) => {
                 match other {
-                    RenderNode::Container(_, ov) => {
+                    RenderNode::Container(ov) => {
                         if sv.len() != ov.len() {
                             other.render(ctx);
                         } else {
@@ -169,24 +140,40 @@ impl RenderNode {
                         }
                     }
                     _ => {
-                        ctx.damage_region(bg, &region);
+                        // ctx.damage_region(bg, &region);
                         other.render(ctx)
                     }
                 }
             }
-            RenderNode::Extension { border, background, node } => {
-                let this_node  = node ;
-                let this_border = border;
+            RenderNode::Extension {
+                background,
+                node,
+            } => {
+                let this_node = node;
                 let this_background = background;
-                if let RenderNode::Extension {background, border, node} = other {
-                    if this_border == border && this_background == background {
-                        this_node.find_diff(node, ctx, &bg.merge(background.into_background()));
+                if let RenderNode::Extension {
+                    background,
+                    node,
+                } = other
+                {
+                    if this_background == background {
+                        this_node.find_diff(
+                            node,
+                            ctx,
+                            &bg.merge(this_background.primitive.to_background()),
+                        );
                     } else {
-                        ctx.damage_region(&this_background.into_background(), &this_background.region);
+                        ctx.damage_region(
+                            &this_background.primitive.to_background(),
+                            &this_background.region(),
+                        );
                         other.render(ctx);
                     }
                 } else {
-                    ctx.damage_region(&this_background.into_background(), &this_background.region);
+                    ctx.damage_region(
+                        &this_background.primitive.to_background(),
+                        &this_background.region(),
+                    );
                     other.render(ctx);
                 }
             }
@@ -213,9 +200,9 @@ impl Region {
     }
     pub fn same(&self, other: &Self) -> bool {
         self.x == other.x
-        && self.y == other.y
-        && self.width == other.width
-        && self.height == other.height
+            && self.y == other.y
+            && self.width == other.width
+            && self.height == other.height
     }
     pub fn crop_region(&self, other: &Self) -> Region {
         let max = self.max(other);

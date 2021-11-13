@@ -3,10 +3,11 @@ pub mod scene;
 pub mod wayland;
 pub mod widgets;
 
-use context::{Context, DamageType};
-use scene::{Region, RenderNode};
-use widgets::primitives::WidgetExt;
-use widgets::primitives::Button;
+use context::Context;
+use scene::{Background, RenderNode};
+use widgets::primitives::{Style, WidgetExt};
+
+pub const FG: u32 = 0xff_C8_BA_A4;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Modifiers {
@@ -72,7 +73,7 @@ impl MouseButton {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Dispatch<'d> {
+pub enum Event<'d> {
     Commit,
     Prepare,
     Keyboard(Key<'d>),
@@ -99,35 +100,39 @@ pub trait Container: Geometry {
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)>;
 }
 
-pub trait Drawable {
-    fn set_color(&mut self, color: u32);
-    fn draw(&self, ctx: &mut Context, x: f32, y: f32);
+pub trait Primitive: Geometry + std::fmt::Debug {
+    fn to_background(&self) -> Background;
+    fn same(&self, other: &dyn std::any::Any) -> bool;
+    fn not_same(&self, other: &dyn std::any::Any) -> bool {
+        !self.same(other)
+    }
+    fn draw(&self, x: f32, y: f32, ctx: &mut Context);
 }
 
-pub trait Widget: Drawable + Geometry {
-    fn create_node(&self, x: f32, y: f32) -> RenderNode;
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch);
+pub trait Widget: Geometry {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
+    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event);
+}
+
+pub fn compare<P: 'static + Primitive + PartialEq>(this: &P, other: &dyn std::any::Any) -> bool {
+    if let Some(other) = other.downcast_ref::<P>() {
+        return this == other;
+    }
+    false
 }
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetExt<Self>;
-    fn into_button(
-        self,
-        cb: impl FnMut(&mut Self, Pointer) + 'static,
-    ) -> Button<Self>;
 }
-
 impl<W> Wrapable for W
 where
     W: Widget,
 {
     fn wrap(self) -> WidgetExt<W> {
         WidgetExt::default(self)
-    }
-    fn into_button(self, cb: impl FnMut(&mut W, Pointer) + 'static) -> Button<Self> {
-        Button::new(self, cb)
     }
 }
 

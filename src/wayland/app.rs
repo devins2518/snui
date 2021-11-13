@@ -148,7 +148,7 @@ pub struct CoreApplication {
 
 pub struct InnerApplication {
     core: CoreApplication,
-    cb: Box<dyn FnMut(&mut CoreApplication, Dispatch)>,
+    cb: Box<dyn FnMut(&mut CoreApplication, Event)>,
 }
 
 impl Surface {
@@ -476,7 +476,7 @@ impl Application {
                     move |ev, _, mut inner| match ev {
                         keyboard::Event::Modifiers { modifiers } => {
                             if let Some(application) = inner.get::<Application>() {
-                                application.inner[index].dispatch(Dispatch::Keyboard(Key {
+                                application.inner[index].dispatch(Event::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[],
                                     modifiers: Modifiers::from(modifiers),
@@ -504,7 +504,7 @@ impl Application {
                         } => {
                             ch = utf8;
                             if let Some(application) = inner.get::<Application>() {
-                                application.inner[index].dispatch(Dispatch::Keyboard(Key {
+                                application.inner[index].dispatch(Event::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[rawkey],
                                     modifiers: Modifiers::default(),
@@ -519,7 +519,7 @@ impl Application {
                             utf8: _,
                         } => {
                             if let Some(application) = inner.get::<Application>() {
-                                application.inner[index].dispatch(Dispatch::Keyboard(Key {
+                                application.inner[index].dispatch(Event::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[keysym],
                                     modifiers: Modifiers::default(),
@@ -581,7 +581,7 @@ impl Application {
         &mut self,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+        cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) {
         let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
         let iapp = InnerApplication::empty(widget, Backend::Raqote(dt), self.globals.clone(), cb);
@@ -593,7 +593,7 @@ impl Application {
         config: ShellConfig,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+        cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) {
         let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
         let iapp = InnerApplication::new(
@@ -610,7 +610,7 @@ impl Application {
         &mut self,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+        cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) {
         let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
         let iapp = InnerApplication::default(widget, Backend::Raqote(dt), self.globals.clone(), cb);
@@ -640,7 +640,6 @@ impl DerefMut for InnerApplication {
 
 impl CoreApplication {
     pub fn render(&mut self) {
-        self.widget.draw(&mut self.ctx, 0., 0.);
         if let Some(pool) = self.mempool.pool() {
             if let Some(surface) = &mut self.surface {
                 if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.ctx) {
@@ -655,9 +654,6 @@ impl CoreApplication {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
         }
-    }
-    pub fn quick_roundtrip(&mut self, ev: Dispatch) {
-        self.widget.roundtrip(0., 0., &mut self.ctx, &ev);
     }
     pub fn get_layer_surface(&self) -> ZwlrLayerSurfaceV1 {
         match &self.surface.as_ref().unwrap().shell {
@@ -719,7 +715,7 @@ impl InnerApplication {
         widget: impl Widget + 'static,
         backend: Backend,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+        cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
@@ -737,7 +733,7 @@ impl InnerApplication {
         widget: impl Widget + 'static,
         backend: Backend,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+        cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
@@ -760,7 +756,7 @@ impl InnerApplication {
         backend: Backend,
         config: ShellConfig,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication, Dispatch) + 'static,
+        cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
@@ -782,34 +778,45 @@ impl InnerApplication {
         }
         false
     }
-    pub fn dispatch(&mut self, ev: Dispatch) {
+    pub fn dispatch(&mut self, ev: Event) {
         let render;
-        let initial_width = self.core.ctx.width();
-        let initial_height = self.core.ctx.height();
-        self.core.widget.roundtrip(0., 0., &mut self.core.ctx, &ev);
-        let current_width = self.core.widget.width();
-        let current_height = self.core.widget.height();
+        let initial_width = 0.;
+        let initial_height = 0.;
+        self.core.widget.sync(&mut self.core.ctx, ev);
         if let Some(render_node) = &self.core.render_node {
-            if initial_width != current_width
-            || initial_height != current_height {
+            let recent_node = self.core.widget.create_node(0., 0.);
+            if initial_width != self.core.widget.width()
+            || initial_height != self.core.widget.height() {
                 render = false;
                 if let Some(surface) = self.surface.as_ref() {
-                    surface.set_size(current_width as u32, current_height as u32);
+                    surface.set_size(
+                        self.core.widget.width() as u32,
+                        self.core.widget.height() as u32
+                    );
                 }
-                self.core.ctx.resize(current_width as i32, current_height as i32);
             } else {
-                let recent_node = self.core.widget.create_node(0., 0.);
                 render_node.find_diff(&recent_node, &mut self.core.ctx, &Background::Transparent);
                 self.core.render_node = Some(recent_node);
                 render = self.core.ctx.is_damaged();
             }
         } else {
-            if initial_width != current_width
-            || initial_height != current_height {
-                self.core.ctx.resize(self.core.widget.width() as i32, self.core.widget.height() as i32);
+            let node = self.core.widget.create_node(0., 0.);
+            // println!("{:#?}", node);
+            if initial_width != self.core.widget.width()
+            || initial_height != self.core.widget.height() {
+                if let Some(surface) = self.surface.as_ref() {
+                    surface.set_size(
+                        self.core.widget.width() as u32,
+                        self.core.widget.height() as u32
+                    );
+                }
+                self.core
+                    .ctx
+                    .set_size(self.core.widget.width(), self.core.widget.height())
+                    .unwrap()
             }
-            self.core.widget.draw(&mut self.core.ctx, 0., 0.);
-            self.core.render_node = Some(self.core.widget.create_node(0., 0.));
+            node.render(&mut self.core.ctx);
+            self.core.render_node = Some(node);
             render = true;
         }
         (self.cb)(&mut self.core, ev);
@@ -854,7 +861,7 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
             input = Pointer::Leave;
             if let Some(application) = inner.get::<Application>() {
                 if let Some(inner) = application.get_application(&surface) {
-                    inner.dispatch(Dispatch::Pointer(x as f32, y as f32, input));
+                    inner.dispatch(Event::Pointer(x as f32, y as f32, input));
                 }
             }
         }
@@ -872,7 +879,7 @@ fn assign_pointer(pointer: &Main<WlPointer>) {
         }
         wl_pointer::Event::Frame => {
             if let Some(application) = inner.get::<Application>() {
-                application.inner[index].dispatch(Dispatch::Pointer(x as f32, y as f32, input));
+                application.inner[index].dispatch(Event::Pointer(x as f32, y as f32, input));
             }
         }
         wl_pointer::Event::Enter {
@@ -915,7 +922,7 @@ fn assign_surface(shell: &Main<ZwlrLayerSurfaceV1>) {
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
-                                    a.dispatch(Dispatch::Commit);
+                                    a.dispatch(Event::Commit);
                                 }
                             }
                         }

@@ -1,12 +1,11 @@
-pub mod font;
 pub mod container;
+pub mod font;
 pub mod primitives;
 
 use crate::*;
-use raqote::*;
+pub use container::layout::WidgetLayout;
 pub use font::*;
-use std::ops::{Deref, DerefMut};
-pub use container::{layout::WidgetLayout, Wbox};
+use raqote::*;
 
 pub fn u32_to_source(color: u32) -> SolidSource {
     let color = color.to_be_bytes();
@@ -41,5 +40,3 @@ pub fn blend(pix_a: &[u8], pix_b: &[u8], t: f32) -> [u8; 4] {
 fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
     a + ((b - a) * r)
 }
-
-

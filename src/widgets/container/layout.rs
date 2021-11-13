@@ -1,5 +1,5 @@
 use crate::*;
-use scene::{Region, RenderNode};
+use scene::{Coords, RenderNode};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Orientation {
@@ -14,24 +14,50 @@ pub enum Alignment {
     End,
 }
 
+struct Child {
+    coords: Coords,
+    widget: Box<dyn Widget>,
+}
+
+impl Child {
+    fn new(widget: impl Widget + 'static) -> Self {
+        Child {
+            coords: Coords::new(0., 0.),
+            widget: Box::new(widget),
+        }
+    }
+}
+
+impl Geometry for Child {
+    fn width(&self) -> f32 {
+        self.widget.width()
+    }
+    fn height(&self) -> f32 {
+        self.widget.height()
+    }
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        self.widget.set_size(width, height)
+    }
+}
+
 pub struct WidgetLayout {
     spacing: f32,
-    pub widgets: Vec<Box<dyn Widget>>,
-    orientation: Orientation,
+    widgets: Vec<Child>,
     alignment: Alignment,
+    orientation: Orientation,
 }
 
 impl Geometry for WidgetLayout {
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        // To-do
+        Err((self.width(), self.height()))
+    }
     fn width(&self) -> f32 {
         let mut width = 0.;
         match self.orientation {
             Orientation::Horizontal => {
-                for w in &self.widgets {
-                    let lwidth = w.width();
-                    width += lwidth + self.spacing;
-                }
-                if width > self.spacing {
-                    width -= self.spacing
+                if let Some(last) = self.widgets.last() {
+                    width = last.coords.x + last.width()
                 }
             }
             Orientation::Vertical => {
@@ -49,11 +75,8 @@ impl Geometry for WidgetLayout {
         let mut height = 0.;
         match self.orientation {
             Orientation::Horizontal => {
-                for w in &self.widgets {
-                    let lheight = w.height();
-                    if lheight > height {
-                        height = lheight;
-                    }
+                if let Some(last) = self.widgets.last() {
+                    height = last.coords.y + last.height()
                 }
             }
             Orientation::Vertical => {
@@ -70,45 +93,12 @@ impl Geometry for WidgetLayout {
     }
 }
 
-impl Drawable for WidgetLayout {
-    fn set_color(&mut self, _color: u32) {}
-    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        let sw = self.width();
-        let sh = self.height();
-        let (mut dx, mut dy) = (0., 0.);
-        for w in &self.widgets {
-            let ww = w.width();
-            let wh = w.height();
-            match self.orientation {
-                Orientation::Horizontal => {
-                    match self.alignment {
-                        Alignment::Start => dy = 0.,
-                        Alignment::Center => dy = (sh - wh) / 2.,
-                        Alignment::End => dy = sh - wh,
-                    }
-                    w.draw(ctx, x + dx, y + dy);
-                    dx += w.width() + self.spacing;
-                }
-                Orientation::Vertical => {
-                    match self.alignment {
-                        Alignment::Start => dx = 0.,
-                        Alignment::Center => dx = (sw - ww) / 2.,
-                        Alignment::End => dx = sw - ww,
-                    }
-                    w.draw(ctx, x + dx, y + dy);
-                    dy += w.height() + self.spacing;
-                }
-            }
-        }
-    }
-}
-
 impl Container for WidgetLayout {
     fn len(&self) -> usize {
         self.widgets.len()
     }
     fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
-        self.widgets.push(Box::new(widget));
+        self.widgets.push(Child::new(widget));
         Ok(())
     }
 }
@@ -158,66 +148,56 @@ impl WidgetLayout {
 }
 
 impl Widget for WidgetLayout {
-    fn create_node(&self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
-        let mut nodes = Vec::new();
+        let spacing = self.spacing;
+        let orientation = self.orientation;
+        let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
-
-        for w in &self.widgets {
-            let ww = w.width();
-            let wh = w.height();
-            match self.orientation {
-                Orientation::Horizontal => {
-                    match self.alignment {
-                        Alignment::Start => dy = 0.,
-                        Alignment::Center => dy = (sh - wh) / 2.,
-                        Alignment::End => dy = sh - wh,
+        RenderNode::Container(
+            self.widgets
+                .iter_mut()
+                .map(|child| {
+                    let node;
+                    let ww = child.width();
+                    let wh = child.height();
+                    match orientation {
+                        Orientation::Horizontal => {
+                            match alignment {
+                                Alignment::Start => dy = 0.,
+                                Alignment::Center => dy = (sh - wh) / 2.,
+                                Alignment::End => dy = sh - wh,
+                            }
+                            node = child.widget.create_node(x + dx, y + dy);
+                            child.coords = Coords::new(dx, dy);
+                            dx += child.width() + spacing;
+                        }
+                        Orientation::Vertical => {
+                            match alignment {
+                                Alignment::Start => dx = 0.,
+                                Alignment::Center => dx = (sw - ww) / 2.,
+                                Alignment::End => dx = sw - ww,
+                            }
+                            node = child.widget.create_node(x + dx, y + dy);
+                            child.coords = Coords::new(dx, dy);
+                            dy += child.height() + spacing;
+                        }
                     }
-                    nodes.push(w.create_node(x + dx, y + dy));
-                    dx += w.width() + self.spacing;
-                }
-                Orientation::Vertical => {
-                    match self.alignment {
-                        Alignment::Start => dx = 0.,
-                        Alignment::Center => dx = (sw - ww) / 2.,
-                        Alignment::End => dx = sw - ww,
-                    }
-                    nodes.push(w.create_node(x + dx, y + dy));
-                    dy += w.height() + self.spacing;
-                }
-            }
-        }
-
-        RenderNode::Container(Region::new(x, y, self.width(), self.height()), nodes)
+                    node
+                })
+                .collect(),
+        )
     }
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let sw = self.width();
-        let sh = self.height();
-        let (mut dx, mut dy) = (0., 0.);
-
-        for w in self.widgets.iter_mut() {
-            let ww = w.width();
-            let wh = w.height();
-            match self.orientation {
-                Orientation::Horizontal => {
-                    match self.alignment {
-                        Alignment::Start => dy = 0.,
-                        Alignment::Center => dy = (sh - wh) / 2.,
-                        Alignment::End => dy = sh - wh,
-                    }
-                    w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                    dx += w.width() + self.spacing;
-                }
-                Orientation::Vertical => {
-                    match self.alignment {
-                        Alignment::Start => dx = 0.,
-                        Alignment::Center => dx = (sw - ww) / 2.,
-                        Alignment::End => dx = sw - ww,
-                    }
-                    w.roundtrip(wx + dx, wy + dy, ctx, dispatch);
-                    dy += w.height() + self.spacing;
-                }
+    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event) {
+        // To-do
+        for child in self.widgets.iter_mut() {
+            if let Event::Pointer(mut x, mut y, p) = event {
+                x -= child.coords.x;
+                y -= child.coords.y;
+                child.widget.sync(ctx, Event::Pointer(x, y, p))
+            } else {
+                child.widget.sync(ctx, event)
             }
         }
     }

@@ -1,228 +1,223 @@
 pub mod shapes;
-pub mod button;
+// pub mod button;
 
 use crate::scene::*;
 use crate::*;
-use shapes::*;
 use raqote::*;
-pub use button::Button;
+use shapes::Rectangle;
+// pub use button::Button;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Copy, Clone, Debug,PartialEq)]
+pub trait Shape {
+    fn set_background(self, color: u32) -> Self;
+    fn set_border_width(self, width: f32) -> Self;
+    fn set_border_color(self, color: u32) -> Self;
+    fn set_border(self, color: u32, width: f32) -> Self;
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Style {
     Fill(SolidSource),
     Border(SolidSource, f32),
-    Empty,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Shape {
-    Rectangle,
-    Circle,
 }
 
 pub struct WidgetExt<W: Widget> {
     child: W,
-    shape: Shape,
-    radius: [f32; 4],
     padding: [f32; 4],
-    border: Style,
-    background: Style,
+    border: Option<Rectangle>,
+    background: Option<Rectangle>,
 }
 
 impl<W: Widget> WidgetExt<W> {
     pub fn default(child: W) -> Self {
         WidgetExt {
             child,
-            background: Style::Empty,
-            border: Style::Empty,
-            shape: Shape::Rectangle,
-            radius: [0.; 4],
+            border: None,
+            background: None,
             padding: [0.; 4],
         }
-    }
-    pub fn rect(child: W, padding: u32, border_width: u32, background: u32, border: u32) -> Self {
-        Self {
-            child,
-            background: if background != 0 {
-                Style::fill(border)
-            } else {
-                Style::Empty
-            },
-            border: if border != 0 {
-                Style::border(border, border_width as f32)
-            } else {
-                Style::Empty
-            },
-            shape: Shape::Rectangle,
-            radius: [0.; 4],
-            padding: [padding as f32; 4],
-        }
-    }
-    pub fn circle(padding: u32, border_width: u32, background: u32, border: u32, child: W) -> Self {
-        Self {
-            child,
-            background: if background != 0 {
-                Style::fill(background)
-            } else {
-                Style::Empty
-            },
-            border: if border != 0 {
-                Style::border(border, border_width as f32)
-            } else {
-                Style::Empty
-            },
-            shape: Shape::Circle,
-            radius: [0.; 4],
-            padding: [padding as f32; 4],
-        }
-    }
-    pub fn set_radius(&mut self, radius: [f32; 4]) {
-        self.radius = radius;
-    }
-    pub fn set_border_width(&mut self, border_width: f32) {
-        if let Style::Border(color, _) = &self.border {
-            self.border = Style::Border(*color, border_width);
-        } else {
-            self.border = Style::border(0, border_width);
-        }
-    }
-    pub fn set_border_color(&mut self, color: u32) {
-        if let Style::Border(_, width) = &self.border {
-            self.border = Style::border(color, *width);
-        } else {
-            self.border = Style::border(color, 0.);
-        }
-    }
-    pub fn set_background(&mut self, color: u32) {
-        self.background = Style::fill(color);
-    }
-    pub fn set_padding(&mut self, padding: [f32; 4]) {
-        self.padding = padding;
     }
     pub fn unwrap(self) -> W {
         self.child
     }
 }
 
-impl<W: Widget> Geometry for WidgetExt<W> {
-    fn width(&self) -> f32 {
-        self.child.width()
-            + self.padding[1]
-            + self.padding[3]
-            + if let Style::Border(_, border) = &self.border {
-                2. * *border
-            } else {
-                0.
+impl<W: Widget> Shape for WidgetExt<W> {
+    fn set_background(self, color: u32) -> Self {
+        let bg = if let Some(mut rect) = self.background {
+            rect.set_size(self.width(), self.height()).unwrap();
+            rect.set_background(color)
+        } else {
+        	Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::fill(color),
+                radius: [0.; 4]
             }
+        };
+        Self {
+            background: Some(bg),
+            border: self.border,
+            child: self.child,
+            padding: self.padding
+        }
     }
-    fn height(&self) -> f32 {
-        self.child.height()
-            + self.padding[0]
-            + self.padding[2]
-            + if let Style::Border(_, border) = &self.border {
-                2. * *border
-            } else {
-                0.
+    fn set_border(self, color: u32, width: f32) -> Self {
+        let border = if let Some(mut rect) = self.border {
+            rect.set_size(self.width(), self.height()).unwrap();
+            rect.set_border(color, width)
+        } else {
+        	Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::border(color, width),
+                radius: [0.; 4]
             }
+        };
+        Self {
+            border: Some(border),
+            background: self.background,
+            child: self.child,
+            padding: self.padding
+        }
+    }
+    fn set_border_width(self, width: f32) -> Self {
+        let border = if let Some(mut rect) = self.border {
+            rect.set_size(self.width(), self.height()).unwrap();
+            rect.set_border_width(width)
+        } else {
+        	Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::border(FG, width),
+                radius: [0.; 4]
+            }
+        };
+        Self {
+            border: Some(border),
+            background: self.background,
+            child: self.child,
+            padding: self.padding
+        }
+    }
+    fn set_border_color(self, color: u32) -> Self {
+        let border = if let Some(mut rect) = self.border {
+            rect.set_size(self.width(), self.height()).unwrap();
+            rect.set_border_color(color)
+        } else {
+        	Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::border(color, 0.),
+                radius: [0.; 4]
+            }
+        };
+        Self {
+            border: Some(border),
+            background: self.background,
+            child: self.child,
+            padding: self.padding
+        }
     }
 }
 
-impl<W: Widget> Drawable for WidgetExt<W> {
-    fn set_color(&mut self, color: u32) {
-        self.child.set_color(color);
-    }
-    fn draw(&self, ctx: &mut Context, x: f32, y: f32) {
-        let width = self.width();
-        let height = self.height();
-        let mut border = 0.;
-        match self.shape {
-            Shape::Rectangle => {
-                ctx.draw_rectangle(
-                    x,
-                    y,
-                    width,
-                    height,
-                    self.radius,
-                    &self.background,
-                );
-                if let Style::Border(_, border_width) = &self.border {
-                    border = *border_width;
-                    ctx.draw_rectangle(
-                        x,
-                        y,
-                        width,
-                        height,
-                        self.radius,
-                        &self.border,
-                    );
-                }
-            }
-            Shape::Circle => {
-                ctx.draw_ellipse(
-                    x + width / 2.,
-                    y + height / 2.,
-                    width,
-                    height,
-                    &self.background,
-                );
-                if let Style::Border(_, border_width) = &self.border {
-                    border = *border_width;
-                    ctx.draw_ellipse(
-                        x + width / 2. + border_width / 2.,
-                        y + height / 2. + border_width / 2.,
-                        width - border_width,
-                        height - border_width,
-                        &self.border,
-                    );
-                }
-            }
+impl<W: Widget> Geometry for WidgetExt<W> {
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        if let Some(background) = self.background.as_mut() {
+            background.set_size(width, height)?;
         }
-        self.child.draw(
-            ctx,
-            x + self.padding[3] + border,
-            y + self.padding[0] + border,
-        );
+        if let Some(border) = self.border.as_mut() {
+            border.set_size(width, height)?;
+        }
+        self.child.set_size(
+            width - self.padding[1] - self.padding[3],
+            height - self.padding[0] - self.padding[2],
+        )?;
+        Ok(())
+    }
+    fn width(&self) -> f32 {
+        let border = if let Some(rectangle) = &self.border {
+            if let Style::Border(_, border) = rectangle.style {
+                border
+            } else { 0. }
+        } else { 0. };
+        self.child.width() + self.padding[1] + self.padding[3] + 2. * border
+    }
+    fn height(&self) -> f32 {
+        let border = if let Some(rectangle) = &self.border {
+            if let Style::Border(_, border) = rectangle.style {
+                border
+            } else { 0. }
+        } else { 0. };
+        self.child.height() + self.padding[0] + self.padding[2] + 2. * border
     }
 }
 
 impl<W: Widget> Widget for WidgetExt<W> {
-    fn create_node(&self, x: f32, y: f32) -> RenderNode {
-        let border_width = if let Style::Border(_, border) = self.border {
-            border
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        let border = if let Some(border) = &self.border {
+            if let Style::Border(_, size) = border.style {
+                size
+            } else {
+                0.
+            }
         } else {
             0.
         };
-        let background = Rectangle {
-            width: self.width(),
-            height: self.height(),
-            style: self.background,
-            radius: self.radius
-        };
-        let border= Rectangle {
-            width: self.width(),
-            height: self.height(),
-            style: self.border,
-            radius: self.radius
-        };
-        RenderNode::Extension {
-            background: Damage::from_rectangle(x, y, background),
-            border: Damage::from_rectangle(x, y, border),
-            node: Box::new(self.child.create_node(x + self.padding[3] + border_width, y + self.padding[0] + border_width))
+        if self.background.is_none() && self.border.is_none() {
+            self.child
+                .create_node(x + self.padding[3] + border, y + self.padding[0] + border)
+        } else if self.border.is_none() {
+            RenderNode::Extension {
+                node: Box::new(
+                    self.child
+                        .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
+                ),
+                background: {
+                    let width = self.width();
+                    let height = self.height();
+                    self.background.as_mut().unwrap().set_size(width, height).unwrap();
+                    Instruction::new(0., 0., self.background.unwrap())
+                },
+            }
+        } else if self.background.is_none() {
+            RenderNode::Container(
+                vec![
+                    self.child
+                        .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
+                    RenderNode::Instruction({
+                        let width = self.width();
+                        let height = self.height();
+                        self.border.as_mut().unwrap().set_size(width, height).unwrap();
+                        Instruction::new(x, y, self.border.unwrap())
+                    }),
+                ]
+            )
+        } else {
+            RenderNode::Extension {
+                node: Box::new({
+                    RenderNode::Container(vec![
+                        self.child
+                            .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
+                        RenderNode::Instruction({
+                            let width = self.width();
+                            let height = self.height();
+                            self.border.as_mut().unwrap().set_size(width, height).unwrap();
+                            Instruction::new(0., 0., self.border.unwrap())
+                        }),
+                    ])
+                }),
+                background: {
+                    let width = self.width();
+                    let height = self.height();
+                    self.background.as_mut().unwrap().set_size(width, height).unwrap();
+                    Instruction::new(x, y, self.background.unwrap())
+                },
+            }
         }
     }
-    fn roundtrip<'d>(&'d mut self, wx: f32, wy: f32, ctx: &mut Context, dispatch: &Dispatch) {
-        let border = if let Style::Border(_, border) = self.border {
-            border
-        } else {
-            0.
-        };
-        self.child.roundtrip(
-            wx + self.padding[3] + border,
-            wy + self.padding[0] + border,
-            ctx,
-            dispatch,
-        );
+    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event) {
+        self.child.sync(ctx, event);
     }
 }
 
