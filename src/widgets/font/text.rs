@@ -86,18 +86,12 @@ impl Geometry for Label {
         }
         0.
     }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+    fn set_size(&mut self, _width: f32, _height: f32) -> Result<(), (f32, f32)> {
         Err(self.size.unwrap_or((0., 0.)))
     }
 }
 
 impl Primitive for Label {
-    fn same(&self, other: &dyn std::any::Any) -> bool {
-        compare(self, other)
-    }
-    fn to_background(&self) -> Background {
-        Background::Transparent
-    }
     fn draw(&self, x: f32, y: f32, ctx: &mut Context) {
         if let Some(layout) = ctx.font_cache.layouts.get(self) {
             for gp in layout {
@@ -135,7 +129,7 @@ impl Widget for Label {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut Context, _event: Event) {
         if self.size.is_none() {
             let size = ctx.font_cache.layout_label(self);
             self.size = Some(size);

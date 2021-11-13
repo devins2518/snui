@@ -1,5 +1,5 @@
 use crate::context::Backend;
-use crate::context::{Context, DamageType};
+use crate::context::Context;
 use crate::scene::*;
 use crate::wayland::Buffer;
 use crate::*;
@@ -697,6 +697,26 @@ impl CoreApplication {
     }
 }
 
+impl Geometry for CoreApplication {
+    fn width(&self) -> f32 {
+        self.widget.width()
+    }
+    fn height(&self) -> f32 {
+        self.widget.height()
+    }
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        let initial_width = self.ctx.width();
+        let initial_height = self.ctx.height();
+        if initial_width != self.widget.width() || initial_height != self.widget.height() {
+            if let Some(surface) = self.surface.as_ref() {
+                surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
+            }
+            return self.ctx.set_size(self.widget.width(), self.widget.height());
+        }
+        Ok(())
+    }
+}
+
 impl Deref for CoreApplication {
     type Target = Context;
     fn deref(&self) -> &Self::Target {
@@ -780,34 +800,18 @@ impl InnerApplication {
     }
     pub fn dispatch(&mut self, ev: Event) {
         let render;
-        let initial_width = 0.;
-        let initial_height = 0.;
+        let initial_width = self.ctx.width();
+        let initial_height = self.ctx.height();
         self.core.widget.sync(&mut self.core.ctx, ev);
         if let Some(render_node) = &self.core.render_node {
             let recent_node = self.core.widget.create_node(0., 0.);
             if initial_width != self.core.widget.width()
-            || initial_height != self.core.widget.height() {
-                render = false;
+                || initial_height != self.core.widget.height()
+            {
                 if let Some(surface) = self.surface.as_ref() {
                     surface.set_size(
                         self.core.widget.width() as u32,
-                        self.core.widget.height() as u32
-                    );
-                }
-            } else {
-                render_node.find_diff(&recent_node, &mut self.core.ctx, &Background::Transparent);
-                self.core.render_node = Some(recent_node);
-                render = self.core.ctx.is_damaged();
-            }
-        } else {
-            let node = self.core.widget.create_node(0., 0.);
-            // println!("{:#?}", node);
-            if initial_width != self.core.widget.width()
-            || initial_height != self.core.widget.height() {
-                if let Some(surface) = self.surface.as_ref() {
-                    surface.set_size(
-                        self.core.widget.width() as u32,
-                        self.core.widget.height() as u32
+                        self.core.widget.height() as u32,
                     );
                 }
                 self.core
@@ -815,6 +819,26 @@ impl InnerApplication {
                     .set_size(self.core.widget.width(), self.core.widget.height())
                     .unwrap()
             }
+            render_node.find_diff(&recent_node, &mut self.core.ctx, &Background::Transparent);
+            self.core.render_node = Some(recent_node);
+            render = false;
+        } else {
+            let node = self.core.widget.create_node(0., 0.);
+            if initial_width != self.core.widget.width()
+                || initial_height != self.core.widget.height()
+            {
+                if let Some(surface) = self.surface.as_ref() {
+                    surface.set_size(
+                        self.core.widget.width() as u32,
+                        self.core.widget.height() as u32,
+                    );
+                }
+                self.core
+                    .ctx
+                    .set_size(self.core.widget.width(), self.core.widget.height())
+                    .unwrap()
+            }
+            // println!("{:#?}", node);
             node.render(&mut self.core.ctx);
             self.core.render_node = Some(node);
             render = true;
@@ -824,7 +848,6 @@ impl InnerApplication {
         if render && self.surface.is_some() {
             if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
-                    // surface.add_input(self.core.ctx.report_input());
                     if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
                         buffer.merge();
                         surface.attach_buffer(wl_buffer, 0, 0);

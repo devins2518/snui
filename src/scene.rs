@@ -3,11 +3,23 @@ use context::Context;
 use raqote::*;
 use std::cmp::Ordering;
 use widgets::blend;
+use widgets::font::text::*;
+use widgets::shapes::*;
+use widgets::Image;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Coords {
     pub x: f32,
     pub y: f32,
+}
+
+impl From<(f32, f32)> for Coords {
+    fn from(coords: (f32, f32)) -> Self {
+        Coords {
+            x: coords.0,
+            y: coords.1,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -17,6 +29,12 @@ pub enum Background {
 }
 
 impl Background {
+    pub fn from(instruction: &Instruction) -> Self {
+        match instruction.primitive {
+            PrimitiveType::Rectangle(r) => Background::Color(r.style.source()),
+            _ => Background::Transparent,
+        }
+    }
     pub fn merge(&self, other: Self) -> Self {
         match other {
             Background::Color(bsource) => match self {
@@ -40,17 +58,42 @@ impl Background {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum PrimitiveType {
+    Label(Label),
+    Image(Image),
+    Rectangle(Rectangle),
+}
+
+impl From<Rectangle> for PrimitiveType {
+    fn from(r: Rectangle) -> Self {
+        PrimitiveType::Rectangle(r)
+    }
+}
+
+impl From<Label> for PrimitiveType {
+    fn from(l: Label) -> Self {
+        PrimitiveType::Label(l)
+    }
+}
+
+impl From<Image> for PrimitiveType {
+    fn from(i: Image) -> Self {
+        PrimitiveType::Image(i)
+    }
+}
+
 #[derive(Debug)]
 pub struct Instruction {
     coords: Coords,
-    primitive: Box<dyn Primitive>,
+    primitive: PrimitiveType,
 }
 
 impl Instruction {
-    pub fn new(x: f32, y: f32, primitive: impl Primitive + 'static) -> Instruction {
+    pub fn new<P: Into<PrimitiveType>>(x: f32, y: f32, primitive: P) -> Instruction {
         Instruction {
             coords: Coords::new(x, y),
-            primitive: Box::new(primitive),
+            primitive: primitive.into(),
         }
     }
 }
@@ -75,21 +118,33 @@ impl Instruction {
     fn render(&self, ctx: &mut Context) {
         let x = self.coords.x;
         let y = self.coords.y;
-        self.primitive.draw(x, y, ctx);
+        match &self.primitive {
+            PrimitiveType::Image(i) => i.draw(x, y, ctx),
+            PrimitiveType::Rectangle(r) => r.draw(x, y, ctx),
+            PrimitiveType::Label(l) => l.draw(x, y, ctx),
+        }
     }
     fn region(&self) -> Region {
         Region::new(
             self.coords.x,
             self.coords.y,
-            self.primitive.width(),
-            self.primitive.height(),
+            match &self.primitive {
+                PrimitiveType::Image(i) => i.width(),
+                PrimitiveType::Rectangle(r) => r.width(),
+                PrimitiveType::Label(l) => l.width(),
+            },
+            match &self.primitive {
+                PrimitiveType::Image(i) => i.height(),
+                PrimitiveType::Rectangle(r) => r.height(),
+                PrimitiveType::Label(l) => l.height(),
+            },
         )
     }
 }
 
 impl PartialEq for Instruction {
     fn eq(&self, other: &Self) -> bool {
-        self.coords.eq(&other.coords) && self.primitive.same(&other.primitive)
+        self.coords.eq(&other.coords) && self.primitive.eq(&other.primitive)
     }
     fn ne(&self, other: &Self) -> bool {
         !self.eq(other)
@@ -105,10 +160,7 @@ impl RenderNode {
                     n.render(ctx);
                 }
             }
-            Self::Extension {
-                background,
-                node,
-            } => {
+            Self::Extension { background, node } => {
                 background.render(ctx);
                 node.render(ctx);
             }
@@ -128,50 +180,38 @@ impl RenderNode {
                     other.render(ctx);
                 }
             },
-            RenderNode::Container(sv) => {
-                match other {
-                    RenderNode::Container(ov) => {
-                        if sv.len() != ov.len() {
-                            other.render(ctx);
-                        } else {
-                            for i in 0..ov.len().min(sv.len()) {
-                                sv[i].find_diff(&ov[i], ctx, bg);
-                            }
+            RenderNode::Container(sv) => match other {
+                RenderNode::Container(ov) => {
+                    if sv.len() != ov.len() {
+                        other.render(ctx);
+                    } else {
+                        for i in 0..ov.len().min(sv.len()) {
+                            sv[i].find_diff(&ov[i], ctx, bg);
                         }
                     }
-                    _ => {
-                        // ctx.damage_region(bg, &region);
-                        other.render(ctx)
-                    }
                 }
-            }
-            RenderNode::Extension {
-                background,
-                node,
-            } => {
+                _ => other.render(ctx),
+            },
+            RenderNode::Extension { background, node } => {
                 let this_node = node;
                 let this_background = background;
-                if let RenderNode::Extension {
-                    background,
-                    node,
-                } = other
-                {
+                if let RenderNode::Extension { background, node } = other {
                     if this_background == background {
                         this_node.find_diff(
                             node,
                             ctx,
-                            &bg.merge(this_background.primitive.to_background()),
+                            &bg.merge(Background::from(this_background)),
                         );
                     } else {
                         ctx.damage_region(
-                            &this_background.primitive.to_background(),
+                            &Background::from(this_background),
                             &this_background.region(),
                         );
                         other.render(ctx);
                     }
                 } else {
                     ctx.damage_region(
-                        &this_background.primitive.to_background(),
+                        &Background::from(this_background),
                         &this_background.region(),
                     );
                     other.render(ctx);

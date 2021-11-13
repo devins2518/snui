@@ -4,8 +4,8 @@ pub mod wayland;
 pub mod widgets;
 
 use context::Context;
-use scene::{Background, RenderNode};
-use widgets::primitives::{Style, WidgetExt};
+use scene::RenderNode;
+use widgets::shapes::WidgetExt;
 
 pub const FG: u32 = 0xff_C8_BA_A4;
 
@@ -104,24 +104,14 @@ pub trait Geometry {
 }
 
 pub trait Primitive: Geometry + std::fmt::Debug {
-    fn to_background(&self) -> Background;
-    fn same(&self, other: &dyn std::any::Any) -> bool;
-    fn not_same(&self, other: &dyn std::any::Any) -> bool {
-        !self.same(other)
-    }
     fn draw(&self, x: f32, y: f32, ctx: &mut Context);
 }
 
 pub trait Widget: Geometry {
+    // Widgets are expected to compute their layout when
+    // they're creating their render node.
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
     fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event);
-}
-
-pub fn compare<P: 'static + Primitive + PartialEq>(this: &P, other: &dyn std::any::Any) -> bool {
-    if let Some(other) = other.downcast_ref::<P>() {
-        return this == other;
-    }
-    false
 }
 
 pub trait Wrapable: Widget + Sized {

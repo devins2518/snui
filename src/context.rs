@@ -4,7 +4,7 @@ use raqote::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
 use widgets::font::*;
-use widgets::primitives::Style;
+use widgets::shapes::Style;
 use widgets::u32_to_source;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {

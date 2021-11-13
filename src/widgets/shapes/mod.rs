@@ -1,14 +1,15 @@
-pub mod shapes;
+pub mod rectangle;
 // pub mod button;
 
 use crate::scene::*;
 use crate::*;
 use raqote::*;
-use shapes::Rectangle;
+pub use rectangle::Rectangle;
 // pub use button::Button;
 use std::ops::{Deref, DerefMut};
 
 pub trait Shape {
+    fn set_radius(self, radius: f32) -> Self;
     fn set_background(self, color: u32) -> Self;
     fn set_border_width(self, width: f32) -> Self;
     fn set_border_color(self, color: u32) -> Self;
@@ -43,23 +44,43 @@ impl<W: Widget> WidgetExt<W> {
 }
 
 impl<W: Widget> Shape for WidgetExt<W> {
+    fn set_radius(self, radius: f32) -> Self {
+        let background = if let Some(mut rect) = self.background {
+            rect.set_size(self.width(), self.height()).unwrap();
+            Some(rect.set_radius(radius))
+        } else {
+            None
+        };
+        let border = if let Some(mut rect) = self.border {
+            rect.set_size(self.width(), self.height()).unwrap();
+            Some(rect.set_radius(radius))
+        } else {
+            None
+        };
+        Self {
+            border,
+            background,
+            child: self.child,
+            padding: self.padding,
+        }
+    }
     fn set_background(self, color: u32) -> Self {
         let bg = if let Some(mut rect) = self.background {
             rect.set_size(self.width(), self.height()).unwrap();
             rect.set_background(color)
         } else {
-        	Rectangle {
+            Rectangle {
                 width: self.width(),
                 height: self.height(),
                 style: Style::fill(color),
-                radius: [0.; 4]
+                radius: [0.; 4],
             }
         };
         Self {
             background: Some(bg),
             border: self.border,
             child: self.child,
-            padding: self.padding
+            padding: self.padding,
         }
     }
     fn set_border(self, color: u32, width: f32) -> Self {
@@ -67,18 +88,18 @@ impl<W: Widget> Shape for WidgetExt<W> {
             rect.set_size(self.width(), self.height()).unwrap();
             rect.set_border(color, width)
         } else {
-        	Rectangle {
+            Rectangle {
                 width: self.width(),
                 height: self.height(),
                 style: Style::border(color, width),
-                radius: [0.; 4]
+                radius: [0.; 4],
             }
         };
         Self {
             border: Some(border),
             background: self.background,
             child: self.child,
-            padding: self.padding
+            padding: self.padding,
         }
     }
     fn set_border_width(self, width: f32) -> Self {
@@ -86,18 +107,18 @@ impl<W: Widget> Shape for WidgetExt<W> {
             rect.set_size(self.width(), self.height()).unwrap();
             rect.set_border_width(width)
         } else {
-        	Rectangle {
+            Rectangle {
                 width: self.width(),
                 height: self.height(),
                 style: Style::border(FG, width),
-                radius: [0.; 4]
+                radius: [0.; 4],
             }
         };
         Self {
             border: Some(border),
             background: self.background,
             child: self.child,
-            padding: self.padding
+            padding: self.padding,
         }
     }
     fn set_border_color(self, color: u32) -> Self {
@@ -105,18 +126,18 @@ impl<W: Widget> Shape for WidgetExt<W> {
             rect.set_size(self.width(), self.height()).unwrap();
             rect.set_border_color(color)
         } else {
-        	Rectangle {
+            Rectangle {
                 width: self.width(),
                 height: self.height(),
                 style: Style::border(color, 0.),
-                radius: [0.; 4]
+                radius: [0.; 4],
             }
         };
         Self {
             border: Some(border),
             background: self.background,
             child: self.child,
-            padding: self.padding
+            padding: self.padding,
         }
     }
 }
@@ -139,16 +160,24 @@ impl<W: Widget> Geometry for WidgetExt<W> {
         let border = if let Some(rectangle) = &self.border {
             if let Style::Border(_, border) = rectangle.style {
                 border
-            } else { 0. }
-        } else { 0. };
+            } else {
+                0.
+            }
+        } else {
+            0.
+        };
         self.child.width() + self.padding[1] + self.padding[3] + 2. * border
     }
     fn height(&self) -> f32 {
         let border = if let Some(rectangle) = &self.border {
             if let Style::Border(_, border) = rectangle.style {
                 border
-            } else { 0. }
-        } else { 0. };
+            } else {
+                0.
+            }
+        } else {
+            0.
+        };
         self.child.height() + self.padding[0] + self.padding[2] + 2. * border
     }
 }
@@ -176,33 +205,45 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 background: {
                     let width = self.width();
                     let height = self.height();
-                    self.background.as_mut().unwrap().set_size(width, height).unwrap();
+                    self.background
+                        .as_mut()
+                        .unwrap()
+                        .set_size(width, height)
+                        .unwrap();
                     Instruction::new(0., 0., self.background.unwrap())
                 },
             }
         } else if self.background.is_none() {
-            RenderNode::Container(
-                vec![
-                    self.child
-                        .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
-                    RenderNode::Instruction({
-                        let width = self.width();
-                        let height = self.height();
-                        self.border.as_mut().unwrap().set_size(width, height).unwrap();
-                        Instruction::new(x, y, self.border.unwrap())
-                    }),
-                ]
-            )
+            RenderNode::Container(vec![
+                self.child
+                    .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
+                RenderNode::Instruction({
+                    let width = self.width();
+                    let height = self.height();
+                    self.border
+                        .as_mut()
+                        .unwrap()
+                        .set_size(width, height)
+                        .unwrap();
+                    Instruction::new(x, y, self.border.unwrap())
+                }),
+            ])
         } else {
             RenderNode::Extension {
                 node: Box::new({
                     RenderNode::Container(vec![
-                        self.child
-                            .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
+                        self.child.create_node(
+                            x + self.padding[3] + border,
+                            y + self.padding[0] + border,
+                        ),
                         RenderNode::Instruction({
                             let width = self.width();
                             let height = self.height();
-                            self.border.as_mut().unwrap().set_size(width, height).unwrap();
+                            self.border
+                                .as_mut()
+                                .unwrap()
+                                .set_size(width, height)
+                                .unwrap();
                             Instruction::new(0., 0., self.border.unwrap())
                         }),
                     ])
@@ -210,7 +251,11 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 background: {
                     let width = self.width();
                     let height = self.height();
-                    self.background.as_mut().unwrap().set_size(width, height).unwrap();
+                    self.background
+                        .as_mut()
+                        .unwrap()
+                        .set_size(width, height)
+                        .unwrap();
                     Instruction::new(x, y, self.background.unwrap())
                 },
             }

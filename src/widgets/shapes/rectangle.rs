@@ -1,4 +1,4 @@
-use crate::widgets::primitives::*;
+use crate::widgets::shapes::*;
 use crate::*;
 use scene::{Background, RenderNode};
 use std::f32::consts::PI;
@@ -33,7 +33,7 @@ impl Rectangle {
             width: size,
             height: size,
             style,
-            radius: [0.; 4]
+            radius: [0.; 4],
         }
     }
     pub fn new(width: f32, height: f32, style: Style) -> Self {
@@ -41,7 +41,7 @@ impl Rectangle {
             width,
             height,
             style,
-            radius: [0.; 4]
+            radius: [0.; 4],
         }
     }
     pub fn empty() -> Self {
@@ -49,7 +49,7 @@ impl Rectangle {
             width: 0.,
             height: 0.,
             style: Style::fill(0),
-            radius: [0.; 4]
+            radius: [0.; 4],
         }
     }
 }
@@ -73,15 +73,6 @@ impl Geometry for Rectangle {
 }
 
 impl Primitive for Rectangle {
-    fn same(&self, other: &dyn std::any::Any) -> bool {
-        compare(self, other)
-    }
-    fn to_background(&self) -> Background {
-        match self.style {
-            Style::Fill(source) => Background::Color(source),
-            _ => Background::Transparent,
-        }
-    }
     fn draw(&self, x: f32, y: f32, ctx: &mut Context) {
         let mut width = self.width();
         let mut height = self.height();
@@ -135,6 +126,10 @@ impl Primitive for Rectangle {
 }
 
 impl Shape for Rectangle {
+    fn set_radius(mut self, radius: f32) -> Self {
+        self.radius = [radius; 4];
+        self
+    }
     fn set_background(mut self, color: u32) -> Self {
         self.style = Style::fill(color);
         self
