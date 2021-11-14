@@ -3,7 +3,7 @@ pub mod scene;
 pub mod wayland;
 pub mod widgets;
 
-use context::Context;
+use context::*;
 use scene::RenderNode;
 use widgets::shapes::WidgetExt;
 
@@ -104,14 +104,18 @@ pub trait Geometry {
 }
 
 pub trait Primitive: Geometry + std::fmt::Debug {
-    fn draw(&self, x: f32, y: f32, ctx: &mut Context);
+    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext);
 }
 
 pub trait Widget: Geometry {
     // Widgets are expected to compute their layout when
     // they're creating their render node.
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
-    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event);
+    // I don't think the user should have access to the context as is
+    // because it exposes the Backend and I don't want a widget to have the ability
+    // to draw so I should create another DrawContext, perhaps SyncDrawContext and rename the
+    // previous DrawDrawContext. The SyncDrawContext would hold the Data.
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event);
 }
 
 pub trait Wrapable: Widget + Sized {

@@ -73,7 +73,7 @@ impl Geometry for Rectangle {
 }
 
 impl Primitive for Rectangle {
-    fn draw(&self, x: f32, y: f32, ctx: &mut Context) {
+    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
         let mut width = self.width();
         let mut height = self.height();
         let mut pb = PathBuilder::new();
@@ -126,19 +126,19 @@ impl Primitive for Rectangle {
 }
 
 impl Shape for Rectangle {
-    fn set_radius(mut self, radius: f32) -> Self {
+    fn radius(mut self, radius: f32) -> Self {
         self.radius = [radius; 4];
         self
     }
-    fn set_background(mut self, color: u32) -> Self {
+    fn background(mut self, color: u32) -> Self {
         self.style = Style::fill(color);
         self
     }
-    fn set_border(mut self, color: u32, width: f32) -> Self {
+    fn border(mut self, color: u32, width: f32) -> Self {
         self.style = Style::border(color, width);
         self
     }
-    fn set_border_color(mut self, color: u32) -> Self {
+    fn border_color(mut self, color: u32) -> Self {
         if let Style::Border(_, width) = self.style {
             self.style = Style::border(color, width);
         } else {
@@ -146,7 +146,7 @@ impl Shape for Rectangle {
         }
         self
     }
-    fn set_border_width(mut self, width: f32) -> Self {
+    fn border_width(mut self, width: f32) -> Self {
         if let Style::Border(color, _) = self.style {
             self.style = Style::Border(color, width);
         } else {
@@ -160,5 +160,5 @@ impl Widget for Rectangle {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, *self))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event) {}
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {}
 }

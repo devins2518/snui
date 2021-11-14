@@ -1,5 +1,5 @@
 use crate::context::Backend;
-use crate::context::Context;
+use crate::context::DrawContext;
 use crate::scene::*;
 use crate::wayland::Buffer;
 use crate::*;
@@ -138,7 +138,7 @@ pub struct Application {
 }
 
 pub struct CoreApplication {
-    ctx: Context,
+    ctx: DrawContext,
     globals: Rc<Globals>,
     mempool: DoubleMemPool,
     widget: Box<dyn Widget>,
@@ -718,7 +718,7 @@ impl Geometry for CoreApplication {
 }
 
 impl Deref for CoreApplication {
-    type Target = Context;
+    type Target = DrawContext;
     fn deref(&self) -> &Self::Target {
         &self.ctx
     }
@@ -740,7 +740,7 @@ impl InnerApplication {
         InnerApplication {
             core: CoreApplication {
                 render_node: None,
-                ctx: Context::new(backend),
+                ctx: DrawContext::new(backend),
                 surface: None,
                 widget: Box::new(widget),
                 mempool: globals.as_ref().create_mempool(),
@@ -758,7 +758,7 @@ impl InnerApplication {
         InnerApplication {
             core: CoreApplication {
                 render_node: None,
-                ctx: Context::new(backend),
+                ctx: DrawContext::new(backend),
                 surface: globals.as_ref().create_shell_surface_from(
                     &widget,
                     ShellConfig::default_layer_shell(),
@@ -781,7 +781,7 @@ impl InnerApplication {
         InnerApplication {
             core: CoreApplication {
                 render_node: None,
-                ctx: Context::new(backend),
+                ctx: DrawContext::new(backend),
                 surface: globals
                     .as_ref()
                     .create_shell_surface_from(&widget, config, None),
@@ -802,7 +802,7 @@ impl InnerApplication {
         let render;
         let initial_width = self.ctx.width();
         let initial_height = self.ctx.height();
-        self.core.widget.sync(&mut self.core.ctx, ev);
+        self.core.widget.sync(&mut self.core.ctx.sync(), ev);
         if let Some(render_node) = &self.core.render_node {
             let recent_node = self.core.widget.create_node(0., 0.);
             if initial_width != self.core.widget.width()
@@ -838,7 +838,7 @@ impl InnerApplication {
                     .set_size(self.core.widget.width(), self.core.widget.height())
                     .unwrap()
             }
-            // println!("{:#?}", node);
+            println!("{:#?}", node);
             node.render(&mut self.core.ctx);
             self.core.render_node = Some(node);
             render = true;

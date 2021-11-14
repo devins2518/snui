@@ -1,5 +1,5 @@
 use crate::*;
-use context::Context;
+use context::DrawContext;
 use raqote::*;
 use std::cmp::Ordering;
 use widgets::blend;
@@ -22,16 +22,24 @@ impl From<(f32, f32)> for Coords {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Background {
     Transparent,
+    Composite{
+        image: Image,
+        overlay: Box<Background>
+    },
     Color(SolidSource),
 }
 
 impl Background {
     pub fn from(instruction: &Instruction) -> Self {
-        match instruction.primitive {
+        match &instruction.primitive {
             PrimitiveType::Rectangle(r) => Background::Color(r.style.source()),
+            PrimitiveType::Image(image) => Background::Composite{
+                image: image.clone(),
+                overlay: Box::new(Background::Transparent)
+            },
             _ => Background::Transparent,
         }
     }
@@ -52,6 +60,8 @@ impl Background {
                     })
                 }
                 Background::Transparent => other,
+                // To-do
+                _ => other
             },
             _ => self.clone(),
         }
@@ -115,7 +125,7 @@ impl Coords {
 }
 
 impl Instruction {
-    fn render(&self, ctx: &mut Context) {
+    fn render(&self, ctx: &mut DrawContext) {
         let x = self.coords.x;
         let y = self.coords.y;
         match &self.primitive {
@@ -152,7 +162,7 @@ impl PartialEq for Instruction {
 }
 
 impl RenderNode {
-    pub fn render(&self, ctx: &mut Context) {
+    pub fn render(&self, ctx: &mut DrawContext) {
         match self {
             Self::Instruction(instruction) => instruction.render(ctx),
             Self::Container(c) => {
@@ -166,7 +176,7 @@ impl RenderNode {
             }
         }
     }
-    pub fn find_diff<'r>(&'r self, other: &'r Self, ctx: &mut Context, bg: &Background) {
+    pub fn find_diff<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(b) => {

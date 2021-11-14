@@ -1,6 +1,6 @@
 pub mod app;
 
-use crate::context::Context;
+use crate::context::DrawContext;
 use crate::*;
 use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
@@ -10,11 +10,11 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    ctx: &'b mut Context,
+    ctx: &'b mut DrawContext,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut MemPool, ctx: &'b mut Context) -> Result<(Self, WlBuffer), ()> {
+    fn new(mempool: &'b mut MemPool, ctx: &'b mut DrawContext) -> Result<(Self, WlBuffer), ()> {
         let width = ctx.width() as i32;
         let height = ctx.height() as i32;
         let stride = width * 4;
@@ -31,7 +31,7 @@ impl<'b> Buffer<'b> {
             Err(())
         }
     }
-    pub fn ctx(&mut self) -> &mut Context {
+    pub fn ctx(&mut self) -> &mut DrawContext {
         self.ctx
     }
     pub fn merge(mut self) {

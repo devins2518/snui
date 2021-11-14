@@ -9,11 +9,11 @@ pub use rectangle::Rectangle;
 use std::ops::{Deref, DerefMut};
 
 pub trait Shape {
-    fn set_radius(self, radius: f32) -> Self;
-    fn set_background(self, color: u32) -> Self;
-    fn set_border_width(self, width: f32) -> Self;
-    fn set_border_color(self, color: u32) -> Self;
-    fn set_border(self, color: u32, width: f32) -> Self;
+    fn radius(self, radius: f32) -> Self;
+    fn background(self, color: u32) -> Self;
+    fn border_width(self, width: f32) -> Self;
+    fn border_color(self, color: u32) -> Self;
+    fn border(self, color: u32, width: f32) -> Self;
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -43,17 +43,49 @@ impl<W: Widget> WidgetExt<W> {
     }
 }
 
-impl<W: Widget> Shape for WidgetExt<W> {
-    fn set_radius(self, radius: f32) -> Self {
+impl <W: Widget + Shape> WidgetExt<W> {
+    pub fn radius(self, radius: f32) -> Self {
         let background = if let Some(mut rect) = self.background {
             rect.set_size(self.width(), self.height()).unwrap();
-            Some(rect.set_radius(radius))
+            Some(rect.radius(radius))
         } else {
             None
         };
         let border = if let Some(mut rect) = self.border {
             rect.set_size(self.width(), self.height()).unwrap();
-            Some(rect.set_radius(radius))
+            Some(rect.radius(radius))
+        } else {
+            None
+        };
+        let border_width = if let Some(rectangle) = &self.border {
+            if let Style::Border(_, border) = rectangle.style {
+                border
+            } else {
+                0.
+            }
+        } else {
+            0.
+        };
+        Self {
+            border,
+            background,
+            child: self.child.radius(radius - border_width * 1.5),
+            padding: self.padding,
+        }
+    }
+}
+
+impl<W: Widget> Shape for WidgetExt<W> {
+    fn radius(self, radius: f32) -> Self {
+        let background = if let Some(mut rect) = self.background {
+            rect.set_size(self.width(), self.height()).unwrap();
+            Some(rect.radius(radius))
+        } else {
+            None
+        };
+        let border = if let Some(mut rect) = self.border {
+            rect.set_size(self.width(), self.height()).unwrap();
+            Some(rect.radius(radius))
         } else {
             None
         };
@@ -64,10 +96,10 @@ impl<W: Widget> Shape for WidgetExt<W> {
             padding: self.padding,
         }
     }
-    fn set_background(self, color: u32) -> Self {
+    fn background(self, color: u32) -> Self {
         let bg = if let Some(mut rect) = self.background {
             rect.set_size(self.width(), self.height()).unwrap();
-            rect.set_background(color)
+            rect.background(color)
         } else {
             Rectangle {
                 width: self.width(),
@@ -83,10 +115,10 @@ impl<W: Widget> Shape for WidgetExt<W> {
             padding: self.padding,
         }
     }
-    fn set_border(self, color: u32, width: f32) -> Self {
+    fn border(self, color: u32, width: f32) -> Self {
         let border = if let Some(mut rect) = self.border {
             rect.set_size(self.width(), self.height()).unwrap();
-            rect.set_border(color, width)
+            rect.border(color, width)
         } else {
             Rectangle {
                 width: self.width(),
@@ -102,10 +134,10 @@ impl<W: Widget> Shape for WidgetExt<W> {
             padding: self.padding,
         }
     }
-    fn set_border_width(self, width: f32) -> Self {
+    fn border_width(self, width: f32) -> Self {
         let border = if let Some(mut rect) = self.border {
             rect.set_size(self.width(), self.height()).unwrap();
-            rect.set_border_width(width)
+            rect.border_width(width)
         } else {
             Rectangle {
                 width: self.width(),
@@ -121,10 +153,10 @@ impl<W: Widget> Shape for WidgetExt<W> {
             padding: self.padding,
         }
     }
-    fn set_border_color(self, color: u32) -> Self {
+    fn border_color(self, color: u32) -> Self {
         let border = if let Some(mut rect) = self.border {
             rect.set_size(self.width(), self.height()).unwrap();
-            rect.set_border_color(color)
+            rect.border_color(color)
         } else {
             Rectangle {
                 width: self.width(),
@@ -261,7 +293,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
             }
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         self.child.sync(ctx, event);
     }
 }

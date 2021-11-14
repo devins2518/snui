@@ -24,13 +24,20 @@ pub enum Backend {
     Dummy,
 }
 
-pub struct Context {
+// Very WIP
+// I'm considering making a bigger context from which both
+// the SyncContext and DrawContext are derived.
+pub struct SyncContext<'c> {
+    pub font_cache: &'c mut FontCache,
+}
+
+pub struct DrawContext {
     pub backend: Backend,
     pub font_cache: FontCache,
     pending_damage: Vec<Region>,
 }
 
-impl Context {
+impl DrawContext {
     pub fn new(backend: Backend) -> Self {
         Self {
             backend,
@@ -66,13 +73,15 @@ impl Context {
                 ),
                 _ => {}
             },
+            // To-do
+            _ => unreachable!()
         }
         self.pending_damage.push(*region);
     }
     pub fn clear(&mut self) {
         match &mut self.backend {
             Backend::Raqote(dt) => {
-                dt.clear(SolidSource::from_unpremultiplied_argb(0, 0, 0, 0));
+                dt.clear(u32_to_source(0));
             }
             _ => {}
         }
@@ -108,29 +117,9 @@ impl Context {
             _ => {}
         }
     }
-    pub fn draw_ellipse(&mut self, x: f32, y: f32, width: f32, height: f32, style: &Style) {
-        // from https://github.com/ritobanrc/p5-rs/src/backend/raqote.rs
-        let arc = lyon_geom::Arc {
-            center: point2(x, y),
-            radii: vec2(width / 2., height / 2.),
-            start_angle: Angle::zero(),
-            sweep_angle: Angle::two_pi(),
-            x_rotation: Angle::zero(),
-        };
-
-        let mut pb = PathBuilder::new();
-
-        let start = arc.from();
-        pb.line_to(start.x, start.y);
-
-        arc.for_each_quadratic_bezier(&mut |q| {
-            pb.quad_to(q.ctrl.x, q.ctrl.y, q.to.x, q.to.y);
-        });
-
-        let path = pb.finish();
-        match &mut self.backend {
-            Backend::Raqote(dt) => fill_target(dt, &path, style),
-            _ => {}
+    pub fn sync(&mut self) -> SyncContext<'_> {
+        SyncContext {
+            font_cache: &mut self.font_cache
         }
     }
 }
@@ -149,13 +138,13 @@ fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
                 dash_array: Vec::new(),
                 dash_offset: 0.,
             };
-            dt.stroke(&path, &Source::Solid(*source), &stroke, &DRAW_OPTIONS);
+            dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
         }
         _ => {}
     }
 }
 
-impl Geometry for Context {
+impl Geometry for DrawContext {
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         match &mut self.backend {
             Backend::Raqote(dt) => {
@@ -179,7 +168,7 @@ impl Geometry for Context {
     }
 }
 
-impl Deref for Context {
+impl Deref for DrawContext {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         match &self.backend {
@@ -189,7 +178,7 @@ impl Deref for Context {
     }
 }
 
-impl DerefMut for Context {
+impl DerefMut for DrawContext {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.backend {
             Backend::Raqote(dt) => dt.get_data_u8_mut(),

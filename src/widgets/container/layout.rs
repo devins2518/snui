@@ -189,7 +189,7 @@ impl Widget for WidgetLayout {
                 .collect(),
         )
     }
-    fn sync<'d>(&'d mut self, ctx: &mut Context, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         // To-do
         for child in self.widgets.iter_mut() {
             if let Event::Pointer(mut x, mut y, p) = event {

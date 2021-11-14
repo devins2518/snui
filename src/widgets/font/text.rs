@@ -1,4 +1,3 @@
-use crate::widgets::font::FontProperty;
 use crate::*;
 use context::Backend;
 pub use fontdue::{
@@ -10,8 +9,9 @@ pub use fontdue::{
 };
 use raqote::*;
 use scene::Instruction;
-use std::hash::{Hash, Hasher};
 use widgets::u32_to_source;
+use std::hash::{Hash, Hasher};
+use crate::widgets::font::FontProperty;
 
 #[derive(Debug, Clone)]
 pub struct Label {
@@ -92,7 +92,7 @@ impl Geometry for Label {
 }
 
 impl Primitive for Label {
-    fn draw(&self, x: f32, y: f32, ctx: &mut Context) {
+    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
         if let Some(layout) = ctx.font_cache.layouts.get(self) {
             for gp in layout {
                 if let Some(glyph_cache) = ctx
@@ -129,7 +129,7 @@ impl Widget for Label {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut Context, _event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, _event: Event) {
         if self.size.is_none() {
             let size = ctx.font_cache.layout_label(self);
             self.size = Some(size);
