@@ -38,6 +38,10 @@ impl<W: Widget> WidgetExt<W> {
             padding: [0.; 4],
         }
     }
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding = [padding.round(); 4];
+        self
+    }
     pub fn unwrap(self) -> W {
         self.child
     }
@@ -57,6 +61,7 @@ impl <W: Widget + Shape> WidgetExt<W> {
         } else {
             None
         };
+        let ratio = self.child.width() / self.width();
         let border_width = if let Some(rectangle) = &self.border {
             if let Style::Border(_, border) = rectangle.style {
                 border
@@ -69,7 +74,7 @@ impl <W: Widget + Shape> WidgetExt<W> {
         Self {
             border,
             background,
-            child: self.child.radius(radius - border_width * 1.5),
+            child: self.child.radius((radius * ratio).round() - border_width),
             padding: self.padding,
         }
     }
