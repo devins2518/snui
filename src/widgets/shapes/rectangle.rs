@@ -150,24 +150,6 @@ impl Primitive for Rectangle {
                     };
                     dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
                 }
-                Style::LinearGradient(grad, spread) => {
-                    let source = Source::new_linear_gradient(
-                        grad.clone(),
-                        Point::new(x, y),
-                        Point::new(x + self.width, y + self.height),
-                        *spread
-                    );
-                    dt.fill(&path, &source, &DRAW_OPTIONS);
-                }
-                Style::RadialGradient(grad, spread, rad) => {
-                    let source = Source::new_radial_gradient(
-                        grad.clone(),
-                        Point::new(x, y),
-                        *rad,
-                        *spread
-                    );
-                    dt.fill(&path, &source, &DRAW_OPTIONS);
-                }
     		}
 		}
     }

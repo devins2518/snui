@@ -16,72 +16,10 @@ pub trait Shape {
     fn border(self, color: u32, width: f32) -> Self;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Style {
     Solid(SolidSource),
     Border(SolidSource, f32),
-    LinearGradient(Gradient, Spread),
-    RadialGradient(Gradient, Spread, f32),
-}
-
-impl PartialEq for Style {
-    fn eq(&self, other: &Self) -> bool {
-        match &self {
-            Self::Solid(s) => if let Self::Solid(o) = other {
-                return s == o;
-            }
-            Self::Border(s, b) => if let Self::Border(o, ob) = other {
-                return s == o && b == ob;
-            }
-            Self::LinearGradient(_, s) => if let Self::LinearGradient(_, os) = other {
-                match s {
-                    Spread::Pad => if let Spread::Pad = os { return true }
-                    Spread::Reflect => if let Spread::Reflect = os { return true }
-                    Spread::Repeat => if let Spread::Repeat = os { return true }
-                }
-            },
-            Self::RadialGradient(_, s, r) => if let Self::RadialGradient(_, os, or) = other {
-                return match s {
-                    Spread::Pad => if let Spread::Pad = os { true } else { false }
-                    Spread::Repeat => if let Spread::Repeat = os { true } else { false }
-                    Spread::Reflect => if let Spread::Reflect = os { true } else { false }
-                } && r == or
-            },
-        }
-        false
-    }
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
-}
-
-impl std::fmt::Debug for Style {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            Self::Solid(s) => {
-                f.debug_tuple("Solid")
-                	.field(s)
-                	.finish()
-            }
-            Self::Border(s, b) => {
-                f.debug_tuple("Border")
-                	.field(s)
-                	.field(b)
-                	.finish()
-            }
-            Self::LinearGradient(g, s) => {
-                f.debug_tuple("LinearGradient")
-                	.field(g)
-                	.finish()
-            }
-            Self::RadialGradient(g, s, r) => {
-                f.debug_tuple("RadialGradient")
-                	.field(g)
-                	.field(r)
-                	.finish()
-            }
-        }
-    }
 }
 
 pub struct WidgetExt<W: Widget> {
