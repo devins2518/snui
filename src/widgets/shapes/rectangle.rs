@@ -4,22 +4,35 @@ use scene::{Background, RenderNode};
 use std::f32::consts::PI;
 use widgets::u32_to_source;
 
+const DRAW_OPTIONS: DrawOptions = DrawOptions {
+    blend_mode: BlendMode::SrcOver,
+    alpha: 1.,
+    antialias: AntialiasMode::Gray,
+};
+
+const ATOP_OPTIONS: DrawOptions = DrawOptions {
+    alpha: 1.,
+    blend_mode: BlendMode::SrcAtop,
+    antialias: AntialiasMode::Gray,
+};
+
 impl Style {
-    pub fn fill(color: u32) -> Self {
-        Style::Fill(u32_to_source(color))
+    pub fn solid(color: u32) -> Self {
+        Style::Solid(u32_to_source(color))
     }
     pub fn border(color: u32, size: f32) -> Self {
         Style::Border(u32_to_source(color), size)
     }
     pub fn source(&self) -> SolidSource {
         match self {
+            Style::Solid(source) => *source,
             Style::Border(source, _) => *source,
-            Style::Fill(source) => *source,
+            _ => panic!("Gradient doesn't own a SolidSource")
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Rectangle {
     pub width: f32,
     pub height: f32,
@@ -48,7 +61,7 @@ impl Rectangle {
         Rectangle {
             width: 0.,
             height: 0.,
-            style: Style::fill(0),
+            style: Style::solid(0),
             radius: [0.; 4],
         }
     }
@@ -121,7 +134,42 @@ impl Primitive for Rectangle {
         pb.close();
         let path = pb.finish();
 
-        ctx.draw_path(path, &self.style);
+		if let Backend::Raqote(dt) = &mut ctx.backend {
+    		match &self.style {
+        		Style::Solid(source) => {
+                    dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
+        		}
+                Style::Border(source, border) => {
+                    let stroke = StrokeStyle {
+                        width: *border,
+                        cap: LineCap::Butt,
+                        join: LineJoin::Miter,
+                        miter_limit: 100.,
+                        dash_array: Vec::new(),
+                        dash_offset: 0.,
+                    };
+                    dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
+                }
+                Style::LinearGradient(grad, spread) => {
+                    let source = Source::new_linear_gradient(
+                        grad.clone(),
+                        Point::new(x, y),
+                        Point::new(x + self.width, y + self.height),
+                        *spread
+                    );
+                    dt.fill(&path, &source, &DRAW_OPTIONS);
+                }
+                Style::RadialGradient(grad, spread, rad) => {
+                    let source = Source::new_radial_gradient(
+                        grad.clone(),
+                        Point::new(x, y),
+                        *rad,
+                        *spread
+                    );
+                    dt.fill(&path, &source, &DRAW_OPTIONS);
+                }
+    		}
+		}
     }
 }
 
@@ -131,7 +179,7 @@ impl Shape for Rectangle {
         self
     }
     fn background(mut self, color: u32) -> Self {
-        self.style = Style::fill(color);
+        self.style = Style::solid(color);
         self
     }
     fn border(mut self, color: u32, width: f32) -> Self {
@@ -158,7 +206,7 @@ impl Shape for Rectangle {
 
 impl Widget for Rectangle {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(Instruction::new(x, y, *self))
+        RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {}
 }

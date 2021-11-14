@@ -1,11 +1,10 @@
 use crate::*;
-use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use scene::*;
-use std::ops::{Deref, DerefMut};
 use widgets::font::*;
-use widgets::shapes::Style;
 use widgets::u32_to_source;
+use std::ops::{Deref, DerefMut};
+use lyon_geom::euclid::{point2, vec2, Angle};
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
     alpha: 1.,
@@ -111,36 +110,10 @@ impl DrawContext {
             _ => {}
         }
     }
-    pub fn draw_path(&mut self, path: Path, style: &Style) {
-        match &mut self.backend {
-            Backend::Raqote(dt) => fill_target(dt, &path, style),
-            _ => {}
-        }
-    }
     pub fn sync(&mut self) -> SyncContext<'_> {
         SyncContext {
             font_cache: &mut self.font_cache
         }
-    }
-}
-
-fn fill_target(dt: &mut DrawTarget, path: &Path, style: &Style) {
-    match style {
-        Style::Fill(source) => {
-            dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
-        }
-        Style::Border(source, border) => {
-            let stroke = StrokeStyle {
-                width: *border,
-                cap: LineCap::Butt,
-                join: LineJoin::Miter,
-                miter_limit: 1.,
-                dash_array: Vec::new(),
-                dash_offset: 0.,
-            };
-            dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
-        }
-        _ => {}
     }
 }
 
