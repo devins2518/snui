@@ -1,3 +1,4 @@
+use crate::widgets::font::FontProperty;
 use crate::*;
 use context::Backend;
 pub use fontdue::{
@@ -9,9 +10,8 @@ pub use fontdue::{
 };
 use raqote::*;
 use scene::Instruction;
-use widgets::u32_to_source;
 use std::hash::{Hash, Hasher};
-use crate::widgets::font::FontProperty;
+use widgets::u32_to_source;
 
 #[derive(Debug, Clone)]
 pub struct Label {

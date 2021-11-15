@@ -1,10 +1,10 @@
 use crate::*;
+use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use scene::*;
+use std::ops::{Deref, DerefMut};
 use widgets::font::*;
 use widgets::u32_to_source;
-use std::ops::{Deref, DerefMut};
-use lyon_geom::euclid::{point2, vec2, Angle};
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
     alpha: 1.,
@@ -18,8 +18,8 @@ const DRAW_OPTIONS: DrawOptions = DrawOptions {
     antialias: AntialiasMode::Gray,
 };
 
-pub enum Backend {
-    Raqote(DrawTarget),
+pub enum Backend<'b> {
+    Raqote(&'b mut DrawTarget),
     Dummy,
 }
 
@@ -27,21 +27,31 @@ pub enum Backend {
 // I'm considering making a bigger context from which both
 // the SyncContext and DrawContext are derived.
 pub struct SyncContext<'c> {
+    pub render_node: Option<&'c mut RenderNode>,
     pub font_cache: &'c mut FontCache,
 }
 
-pub struct DrawContext {
-    pub backend: Backend,
-    pub font_cache: FontCache,
-    pending_damage: Vec<Region>,
+pub struct DrawContext<'c> {
+    pub backend: Backend<'c>,
+    pub font_cache: &'c mut FontCache,
+    pending_damage: &'c mut Vec<Region>,
 }
 
-impl DrawContext {
-    pub fn new(backend: Backend) -> Self {
+impl<'c> SyncContext<'c> {
+    pub fn new(render_node: Option<&'c mut RenderNode>, font_cache: &'c mut FontCache) -> Self {
+        Self {
+            render_node,
+            font_cache
+        }
+    }
+}
+
+impl<'c> DrawContext<'c> {
+    pub fn new(backend: Backend<'c>, font_cache: &'c mut FontCache, pending_damage: &'c mut Vec<Region>) -> Self {
         Self {
             backend,
-            pending_damage: Vec::new(),
-            font_cache: FontCache::new(),
+            font_cache,
+            pending_damage
         }
     }
     pub fn damage_region(&mut self, bg: &Background, region: &Region) {
@@ -73,7 +83,7 @@ impl DrawContext {
                 _ => {}
             },
             // To-do
-            _ => unreachable!()
+            _ => unreachable!(),
         }
         self.pending_damage.push(*region);
     }
@@ -110,18 +120,13 @@ impl DrawContext {
             _ => {}
         }
     }
-    pub fn sync(&mut self) -> SyncContext<'_> {
-        SyncContext {
-            font_cache: &mut self.font_cache
-        }
-    }
 }
 
-impl Geometry for DrawContext {
+impl<'c> Geometry for DrawContext<'c> {
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         match &mut self.backend {
             Backend::Raqote(dt) => {
-                *dt = DrawTarget::new(width as i32, height as i32);
+                **dt = DrawTarget::new(width as i32, height as i32);
             }
             _ => {}
         }
@@ -141,7 +146,7 @@ impl Geometry for DrawContext {
     }
 }
 
-impl Deref for DrawContext {
+impl<'c> Deref for DrawContext<'c> {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         match &self.backend {
@@ -151,7 +156,7 @@ impl Deref for DrawContext {
     }
 }
 
-impl DerefMut for DrawContext {
+impl<'c> DerefMut for DrawContext<'c> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.backend {
             Backend::Raqote(dt) => dt.get_data_u8_mut(),

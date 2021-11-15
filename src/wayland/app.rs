@@ -1,6 +1,7 @@
 use crate::context::Backend;
 use crate::context::DrawContext;
 use crate::scene::*;
+use crate::widgets::font::FontCache;
 use crate::wayland::Buffer;
 use crate::*;
 use raqote::*;
@@ -137,13 +138,24 @@ pub struct Application {
     token: RegistrationToken,
 }
 
+struct Context {
+    draw_target: DrawTarget,
+    render_node: Option<RenderNode>,
+    font_cache: crate::widgets::font::FontCache,
+}
+
+impl Context {
+    fn sync_ctx(&mut self) -> SyncContext<'_> {
+        SyncContext::new(self.render_node.as_mut(), &mut self.font_cache)
+    }
+}
+
 pub struct CoreApplication {
-    ctx: DrawContext,
+    ctx: Context,
     globals: Rc<Globals>,
     mempool: DoubleMemPool,
     widget: Box<dyn Widget>,
     surface: Option<Surface>,
-    render_node: Option<RenderNode>,
 }
 
 pub struct InnerApplication {
@@ -583,8 +595,7 @@ impl Application {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) {
-        let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
-        let iapp = InnerApplication::empty(widget, Backend::Raqote(dt), self.globals.clone(), cb);
+        let iapp = InnerApplication::empty(widget, self.globals.clone(), cb);
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
@@ -595,10 +606,8 @@ impl Application {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) {
-        let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
         let iapp = InnerApplication::new(
             widget,
-            Backend::Raqote(dt),
             config,
             self.globals.clone(),
             cb,
@@ -612,8 +621,7 @@ impl Application {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) {
-        let dt = DrawTarget::new(widget.width() as i32, widget.height() as i32);
-        let iapp = InnerApplication::default(widget, Backend::Raqote(dt), self.globals.clone(), cb);
+        let iapp = InnerApplication::default(widget, self.globals.clone(), cb);
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
@@ -639,17 +647,17 @@ impl DerefMut for InnerApplication {
 }
 
 impl CoreApplication {
-    pub fn render(&mut self) {
-        if let Some(pool) = self.mempool.pool() {
-            if let Some(surface) = &mut self.surface {
-                if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.ctx) {
-                    buffer.merge();
-                    surface.attach_buffer(wl_buffer, 0, 0);
-                }
-                surface.damage(self.ctx.report_damage());
-            }
-        }
-    }
+    // pub fn render(&mut self) {
+    //     if let Some(pool) = self.mempool.pool() {
+    //         if let Some(surface) = &mut self.surface {
+    //             if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.ctx) {
+    //                 buffer.merge();
+    //                 surface.attach_buffer(wl_buffer, 0, 0);
+    //             }
+    //             surface.damage(self.ctx.report_damage());
+    //         }
+    //     }
+    // }
     pub fn destroy(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
@@ -680,6 +688,9 @@ impl CoreApplication {
             );
         }
     }
+    pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
+        self.ctx.font_cache.load_font(name, path);
+    }
     pub fn replace_surface_by(&mut self, config: ShellConfig) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
@@ -705,42 +716,27 @@ impl Geometry for CoreApplication {
         self.widget.height()
     }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        let initial_width = self.ctx.width();
-        let initial_height = self.ctx.height();
-        if initial_width != self.widget.width() || initial_height != self.widget.height() {
-            if let Some(surface) = self.surface.as_ref() {
-                surface.set_size(self.widget.width() as u32, self.widget.height() as u32);
-            }
-            return self.ctx.set_size(self.widget.width(), self.widget.height());
+        if let Some(surface) = self.surface.as_ref() {
+            surface.set_size(width as u32, height as u32);
         }
+        self.ctx.draw_target = DrawTarget::new(width as i32, height as i32);
         Ok(())
-    }
-}
-
-impl Deref for CoreApplication {
-    type Target = DrawContext;
-    fn deref(&self) -> &Self::Target {
-        &self.ctx
-    }
-}
-
-impl DerefMut for CoreApplication {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.ctx
     }
 }
 
 impl InnerApplication {
     fn empty(
         widget: impl Widget + 'static,
-        backend: Backend,
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
-                render_node: None,
-                ctx: DrawContext::new(backend),
+                ctx: Context {
+                    draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
+                    font_cache: FontCache::new(),
+                    render_node: None,
+                },
                 surface: None,
                 widget: Box::new(widget),
                 mempool: globals.as_ref().create_mempool(),
@@ -751,14 +747,16 @@ impl InnerApplication {
     }
     fn default(
         widget: impl Widget + 'static,
-        backend: Backend,
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
-                render_node: None,
-                ctx: DrawContext::new(backend),
+                ctx: Context {
+                    draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
+                    font_cache: FontCache::new(),
+                    render_node: None,
+                },
                 surface: globals.as_ref().create_shell_surface_from(
                     &widget,
                     ShellConfig::default_layer_shell(),
@@ -773,15 +771,17 @@ impl InnerApplication {
     }
     fn new(
         widget: impl Widget + 'static,
-        backend: Backend,
         config: ShellConfig,
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
-                render_node: None,
-                ctx: DrawContext::new(backend),
+                ctx: Context {
+                    draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
+                    font_cache: FontCache::new(),
+                    render_node: None,
+                },
                 surface: globals
                     .as_ref()
                     .create_shell_surface_from(&widget, config, None),
@@ -800,65 +800,70 @@ impl InnerApplication {
     }
     pub fn dispatch(&mut self, ev: Event) {
         let render;
-        let initial_width = self.ctx.width();
-        let initial_height = self.ctx.height();
-        self.core.widget.sync(&mut self.core.ctx.sync(), ev);
-        if let Some(render_node) = &self.core.render_node {
-            let recent_node = self.core.widget.create_node(0., 0.);
-            if initial_width != self.core.widget.width()
-                || initial_height != self.core.widget.height()
-            {
-                if let Some(surface) = self.surface.as_ref() {
-                    surface.set_size(
-                        self.core.widget.width() as u32,
-                        self.core.widget.height() as u32,
-                    );
-                }
-                self.core
-                    .ctx
-                    .set_size(self.core.widget.width(), self.core.widget.height())
-                    .unwrap()
-            }
-            render_node.find_diff(&recent_node, &mut self.core.ctx, &Background::Transparent);
-            self.core.render_node = Some(recent_node);
+
+        // Sending the event to the widget tree
+        self.core.widget.sync(&mut self.core.ctx.sync_ctx(), ev);
+
+        // Creating the render node
+        let recent_node = self.core.widget.create_node(0., 0.);
+
+        // Getting the new size of the widget
+        let width = self.width();
+        let height = self.height();
+        let mut v = Vec::new();
+
+		// Resizing the surface in case the widget changed size
+        if self.core.ctx.draw_target.width() != width as i32
+        || self.core.ctx.draw_target.height() != height as i32 {
+            self.core.set_size(width, height).unwrap();
+        }
+
+        if let Some(render_node) = &self.core.ctx.render_node {
+            render_node.find_diff(
+                &recent_node,
+                &mut DrawContext::new(
+                    Backend::Raqote(&mut self.core.ctx.draw_target),
+                    &mut self.core.ctx.font_cache,
+                    &mut v
+                ),
+                &Background::Transparent
+            );
             render = false;
         } else {
-            let node = self.core.widget.create_node(0., 0.);
-            if initial_width != self.core.widget.width()
-                || initial_height != self.core.widget.height()
-            {
-                if let Some(surface) = self.surface.as_ref() {
-                    surface.set_size(
-                        self.core.widget.width() as u32,
-                        self.core.widget.height() as u32,
-                    );
-                }
-                self.core
-                    .ctx
-                    .set_size(self.core.widget.width(), self.core.widget.height())
-                    .unwrap()
-            }
-            println!("{:#?}", node);
-            node.render(&mut self.core.ctx);
-            self.core.render_node = Some(node);
+            recent_node.render(
+            &mut DrawContext::new(
+                    Backend::Raqote(&mut self.core.ctx.draw_target),
+                    &mut self.core.ctx.font_cache,
+                    &mut v
+                )
+            );
+            self.core.ctx.render_node = Some(recent_node);
             render = true;
         }
+
+        // Calling the application´s closure
         (self.cb)(&mut self.core, ev);
 
         if render && self.surface.is_some() {
             if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
-                    if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.core.ctx) {
+                    if let Ok((mut buffer, wl_buffer)) = Buffer::new(
+                        pool,
+                        DrawContext::new(
+                            Backend::Raqote(&mut self.core.ctx.draw_target),
+                            &mut self.core.ctx.font_cache,
+                            &mut v
+                        )
+                    ) {
                         buffer.merge();
                         surface.attach_buffer(wl_buffer, 0, 0);
+                        surface.damage(&v);
+                        surface.commit();
                     }
-                    surface.damage(self.core.ctx.report_damage());
-                    surface.commit();
                 }
+                // dc.flush();
             }
         }
-
-        self.ctx.flush();
     }
 }
 

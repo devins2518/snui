@@ -10,11 +10,11 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    ctx: &'b mut DrawContext,
+    ctx: DrawContext<'b>,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut MemPool, ctx: &'b mut DrawContext) -> Result<(Self, WlBuffer), ()> {
+    fn new(mempool: &'b mut MemPool, ctx: DrawContext<'b>) -> Result<(Self, WlBuffer), ()> {
         let width = ctx.width() as i32;
         let height = ctx.height() as i32;
         let stride = width * 4;
@@ -31,7 +31,7 @@ impl<'b> Buffer<'b> {
             Err(())
         }
     }
-    pub fn ctx(&mut self) -> &mut DrawContext {
+    pub fn ctx(self) -> DrawContext<'b> {
         self.ctx
     }
     pub fn merge(mut self) {

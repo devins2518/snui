@@ -25,9 +25,9 @@ impl From<(f32, f32)> for Coords {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Background {
     Transparent,
-    Composite{
+    Composite {
         image: Image,
-        overlay: Box<Background>
+        overlay: Box<Background>,
     },
     Color(SolidSource),
 }
@@ -36,9 +36,9 @@ impl Background {
     pub fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
             PrimitiveType::Rectangle(r) => Background::Color(r.style.source()),
-            PrimitiveType::Image(image) => Background::Composite{
+            PrimitiveType::Image(image) => Background::Composite {
                 image: image.clone(),
-                overlay: Box::new(Background::Transparent)
+                overlay: Box::new(Background::Transparent),
             },
             _ => Background::Transparent,
         }
@@ -61,7 +61,7 @@ impl Background {
                 }
                 Background::Transparent => other,
                 // To-do
-                _ => other
+                _ => other,
             },
             _ => self.clone(),
         }

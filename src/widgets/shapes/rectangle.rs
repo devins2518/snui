@@ -27,7 +27,7 @@ impl Style {
         match self {
             Style::Solid(source) => *source,
             Style::Border(source, _) => *source,
-            _ => panic!("Gradient doesn't own a SolidSource")
+            _ => panic!("Gradient doesn't own a SolidSource"),
         }
     }
 }
@@ -134,11 +134,11 @@ impl Primitive for Rectangle {
         pb.close();
         let path = pb.finish();
 
-		if let Backend::Raqote(dt) = &mut ctx.backend {
-    		match &self.style {
-        		Style::Solid(source) => {
+        if let Backend::Raqote(dt) = &mut ctx.backend {
+            match &self.style {
+                Style::Solid(source) => {
                     dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
-        		}
+                }
                 Style::Border(source, border) => {
                     let stroke = StrokeStyle {
                         width: *border,
@@ -150,8 +150,26 @@ impl Primitive for Rectangle {
                     };
                     dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
                 }
-    		}
-		}
+                Style::LinearGradient(grad, spread) => {
+                    let source = Source::new_linear_gradient(
+                        grad.as_ref().clone(),
+                        Point::new(x, y),
+                        Point::new(x + self.width, y + self.height),
+                        *spread,
+                    );
+                    dt.fill(&path, &source, &DRAW_OPTIONS);
+                }
+                Style::RadialGradient(grad, spread, rad) => {
+                    let source = Source::new_radial_gradient(
+                        grad.as_ref().clone(),
+                        Point::new(x, y),
+                        *rad,
+                        *spread,
+                    );
+                    dt.fill(&path, &source, &DRAW_OPTIONS);
+                }
+            }
+        }
     }
 }
 

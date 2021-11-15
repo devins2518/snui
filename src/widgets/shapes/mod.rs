@@ -5,6 +5,7 @@ use crate::scene::*;
 use crate::*;
 use raqote::*;
 pub use rectangle::Rectangle;
+use std::sync::Arc;
 // pub use button::Button;
 use std::ops::{Deref, DerefMut};
 
@@ -16,10 +17,116 @@ pub trait Shape {
     fn border(self, color: u32, width: f32) -> Self;
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum Style {
     Solid(SolidSource),
     Border(SolidSource, f32),
+    LinearGradient(Arc<Gradient>, Spread),
+    RadialGradient(Arc<Gradient>, Spread, f32),
+}
+
+impl PartialEq for Style {
+    fn eq(&self, other: &Self) -> bool {
+        match &self {
+            Self::Solid(s) => {
+                if let Self::Solid(o) = other {
+                    return s == o;
+                }
+            }
+            Self::Border(s, b) => {
+                if let Self::Border(o, ob) = other {
+                    return s == o && b == ob;
+                }
+            }
+            Self::LinearGradient(sg, s) => {
+                if let Self::LinearGradient(og, os) = other {
+                    return match s {
+                        Spread::Pad => {
+                            if let Spread::Pad = os {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        Spread::Reflect => {
+                            if let Spread::Reflect = os {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        Spread::Repeat => {
+                            if let Spread::Repeat = os {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    } && Arc::as_ptr(sg) == Arc::as_ptr(og);
+                }
+            }
+            Self::RadialGradient(sg, s, r) => {
+                if let Self::RadialGradient(og, os, or) = other {
+                    return match s {
+                        Spread::Pad => {
+                            if let Spread::Pad = os {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        Spread::Repeat => {
+                            if let Spread::Repeat = os {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        Spread::Reflect => {
+                            if let Spread::Reflect = os {
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    } && r == or
+                        && Arc::as_ptr(sg) == Arc::as_ptr(og);
+                }
+            }
+        }
+        false
+    }
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
+    }
+}
+
+impl std::fmt::Debug for Style {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            Self::Solid(s) => f.debug_tuple("Solid").field(s).finish(),
+            Self::Border(s, b) => f.debug_tuple("Border").field(s).field(b).finish(),
+            Self::LinearGradient(g, s) => f
+                .debug_tuple("LinearGradient")
+                .field(g)
+                .field(&match s {
+                    Spread::Pad => "Pad",
+                    Spread::Reflect => "Reflect",
+                    Spread::Repeat => "Repeat",
+                })
+                .finish(),
+            Self::RadialGradient(g, s, r) => f
+                .debug_tuple("RadialGradient")
+                .field(g)
+                .field(r)
+                .field(&match s {
+                    Spread::Pad => "Pad",
+                    Spread::Reflect => "Reflect",
+                    Spread::Repeat => "Repeat",
+                })
+                .finish(),
+        }
+    }
 }
 
 pub struct WidgetExt<W: Widget> {
@@ -47,7 +154,7 @@ impl<W: Widget> WidgetExt<W> {
     }
 }
 
-impl <W: Widget + Shape> WidgetExt<W> {
+impl<W: Widget + Shape> WidgetExt<W> {
     pub fn radius(self, radius: f32) -> Self {
         let width = self.width();
         let height = self.height();
