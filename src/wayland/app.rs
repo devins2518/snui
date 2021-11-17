@@ -847,7 +847,7 @@ impl InnerApplication {
         if render && self.surface.is_some() {
             if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
-                    if let Ok((mut buffer, wl_buffer)) = Buffer::new(
+                    if let Ok((buffer, wl_buffer)) = Buffer::new(
                         pool,
                         DrawContext::new(
                             Backend::Raqote(&mut self.core.ctx.draw_target),
@@ -861,7 +861,6 @@ impl InnerApplication {
                         surface.commit();
                     }
                 }
-                // dc.flush();
             }
         }
     }

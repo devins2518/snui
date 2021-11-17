@@ -400,7 +400,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                                 .unwrap()
                                 .set_size(width, height)
                                 .unwrap();
-                            Instruction::new(0., 0., self.border.clone().unwrap())
+                            Instruction::new(x, y, self.border.clone().unwrap())
                         }),
                     ])
                 }),

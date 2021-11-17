@@ -18,17 +18,57 @@ const DRAW_OPTIONS: DrawOptions = DrawOptions {
     antialias: AntialiasMode::Gray,
 };
 
+enum Data<'d> {
+    Null,
+    Int(i32),
+    Uint(u32),
+    Float(f32),
+    Boolean(bool),
+    String(&'d str),
+    Node(RenderNode),
+    Any(&'d dyn std::any::Any)
+}
+
+struct Message<'m> (
+    &'m str,
+    Data<'m>
+);
+
+enum ReceiveError {
+    Block
+}
+
+const CAPABILITIES: [&str; 1] = ["example"];
+
+trait Model {
+    // These interface are from the pov
+    // of the widgets
+    fn receive<'m>(&'m self, msg: Message) -> Option<Data<'m>>;
+    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ReceiveError>;
+    fn interface(&self) -> &[&str];
+}
+
 pub enum Backend<'b> {
     Raqote(&'b mut DrawTarget),
     Dummy,
 }
 
-// Very WIP
-// I'm considering making a bigger context from which both
-// the SyncContext and DrawContext are derived.
+struct DefaultModel {}
+
+impl Model for DefaultModel {
+    fn receive<'m>(&'m self, msg: Message) -> Option<Data<'m>> {
+        None
+    }
+    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ReceiveError> {
+        Ok(Data::Null)
+    }
+    fn interface(&self) -> &[&str] {&CAPABILITIES}
+}
+
 pub struct SyncContext<'c> {
-    pub render_node: Option<&'c mut RenderNode>,
+    model: Option<&'c mut dyn Model>,
     pub font_cache: &'c mut FontCache,
+    pub render_node: Option<&'c mut RenderNode>,
 }
 
 pub struct DrawContext<'c> {
@@ -40,6 +80,7 @@ pub struct DrawContext<'c> {
 impl<'c> SyncContext<'c> {
     pub fn new(render_node: Option<&'c mut RenderNode>, font_cache: &'c mut FontCache) -> Self {
         Self {
+            model: None,
             render_node,
             font_cache
         }
