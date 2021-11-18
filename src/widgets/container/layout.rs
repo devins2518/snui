@@ -97,9 +97,8 @@ impl Container for WidgetLayout {
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error> {
+    fn add(&mut self, widget: impl Widget + 'static) {
         self.widgets.push(Child::new(widget));
-        Ok(())
     }
 }
 
@@ -195,7 +194,7 @@ impl Widget for WidgetLayout {
             if let Event::Pointer(mut x, mut y, p) = event {
                 x -= child.coords.x;
                 y -= child.coords.y;
-                child.widget.sync(ctx, Event::Pointer(x, y, p))
+                child.widget.sync(ctx, Event::Pointer(x, y, p));
             } else {
                 child.widget.sync(ctx, event)
             }

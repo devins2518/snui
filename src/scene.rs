@@ -3,7 +3,7 @@ use context::DrawContext;
 use raqote::*;
 use std::cmp::Ordering;
 use widgets::blend;
-use widgets::font::text::*;
+use widgets::text::*;
 use widgets::shapes::*;
 use widgets::Image;
 
@@ -93,7 +93,7 @@ impl From<Image> for PrimitiveType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instruction {
     coords: Coords,
     primitive: PrimitiveType,
@@ -108,7 +108,7 @@ impl Instruction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RenderNode {
     Instruction(Instruction),
     Extension {

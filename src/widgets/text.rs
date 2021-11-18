@@ -1,4 +1,4 @@
-use crate::widgets::font::FontProperty;
+use crate::font::FontProperty;
 use crate::*;
 use context::Backend;
 pub use fontdue::{

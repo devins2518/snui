@@ -1,10 +1,13 @@
 pub mod context;
+pub mod data;
+pub mod font;
 pub mod scene;
 pub mod wayland;
 pub mod widgets;
 
 use context::*;
 use scene::RenderNode;
+use widgets::button::Button;
 use widgets::shapes::WidgetExt;
 
 pub const FG: u32 = 0xff_C8_BA_A4;
@@ -81,20 +84,12 @@ pub enum Event<'d> {
     Pointer(f32, f32, Pointer),
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum Error {
-    Null,
-    Overflow(&'static str, u32),
-    Dimension(&'static str, f32, f32),
-    Message(&'static str),
-}
-
 pub trait Container: Geometry {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn add(&mut self, widget: impl Widget + 'static) -> Result<(), Error>;
+    fn add(&mut self, widget: impl Widget + 'static);
 }
 
 pub trait Geometry {
@@ -120,7 +115,9 @@ pub trait Widget: Geometry {
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetExt<Self>;
+    fn into_button(self, cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static) -> Button<Self>;
 }
+
 impl<W> Wrapable for W
 where
     W: Widget,
@@ -128,22 +125,7 @@ where
     fn wrap(self) -> WidgetExt<W> {
         WidgetExt::default(self)
     }
-}
-
-impl Error {
-    pub fn debug(&self) {
-        match self {
-            Error::Dimension(name, w, h) => {
-                eprintln!(
-                    "requested dimension {}x{} is too large for \"{}\"",
-                    w, h, name
-                )
-            }
-            Error::Overflow(name, capacity) => {
-                eprintln!("\"{}\" reached its full capacity: {}", name, capacity);
-            }
-            Error::Message(msg) => eprintln!("{}", msg),
-            _ => {}
-        }
+    fn into_button(self, cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static) -> Button<Self> {
+        Button::new(self, cb)
     }
 }

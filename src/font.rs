@@ -1,5 +1,3 @@
-pub mod text;
-
 pub use fontdue::{
     layout,
     layout::{
@@ -12,7 +10,7 @@ use std::clone::Clone;
 use std::collections::HashMap;
 use std::fs::read;
 use std::path::Path;
-use text::Label;
+use crate::widgets::text::Label;
 
 pub fn font_from_path(path: &Path) -> Font {
     let font = read(path).unwrap();
@@ -55,7 +53,7 @@ pub struct FontProperty {
 }
 
 impl FontProperty {
-    fn new(name: &str) -> FontProperty {
+    pub fn new(name: &str) -> FontProperty {
         FontProperty {
             name: name.to_string(),
         }

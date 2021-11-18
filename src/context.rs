@@ -1,8 +1,9 @@
 use crate::*;
+use data::*;
 use raqote::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
-use widgets::font::*;
+use crate::font::FontCache;
 use widgets::u32_to_source;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
@@ -17,46 +18,13 @@ const DRAW_OPTIONS: DrawOptions = DrawOptions {
     antialias: AntialiasMode::Gray,
 };
 
-enum Data<'d> {
-    Null,
-    Int(i32),
-    Uint(u32),
-    Float(f32),
-    Boolean(bool),
-    String(&'d str),
-    Node(RenderNode),
-    Any(&'d dyn std::any::Any)
-}
-
-struct Message<'m> (
-    // The u32 is a bitmask
-    // Users can create an Enum and alias a bitmask to a value
-    u32,
-    Data<'m>
-);
-
-enum SendError {
-    Block,
-    WrongSerial,
-    MisssingInterface
-}
-
-trait Channel {
-    // These interface are from the pov
-    // of the widgets
-    fn get<'m>(&'m self, msg: Message) -> Option<Data<'m>>;
-    // By convention a message of object 0 should mark the beginning and ending of a transtion
-    // The Message must be a u32 serial.
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, SendError>;
-}
-
 pub enum Backend<'b> {
     Raqote(&'b mut DrawTarget),
     Dummy,
 }
 
 pub struct SyncContext<'c> {
-    model: Option<&'c mut dyn Channel>,
+    model: &'c mut dyn Model,
     pub font_cache: &'c mut FontCache,
     render_node: Option<&'c mut RenderNode>,
 }
@@ -68,21 +36,44 @@ pub struct DrawContext<'c> {
 }
 
 impl<'c> SyncContext<'c> {
-    pub fn new(render_node: Option<&'c mut RenderNode>, font_cache: &'c mut FontCache) -> Self {
+    pub fn new(
+        model: &'c mut impl Model,
+        render_node: Option<&'c mut RenderNode>,
+        font_cache: &'c mut FontCache,
+    ) -> Self {
         Self {
-            model: None,
+            model,
             render_node,
-            font_cache
+            font_cache,
         }
     }
 }
 
+impl<'c> Model for SyncContext<'c> {
+    fn deserialize(&mut self, token: u32) -> Result<(), ModelError> {
+        self.model.deserialize(token)
+    }
+    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ModelError> {
+        self.model.get(msg)
+    }
+    fn serialize(&mut self, msg: Message) -> Result<u32, ModelError> {
+        self.model.serialize(msg)
+    }
+    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ModelError> {
+        self.model.send(msg)
+    }
+}
+
 impl<'c> DrawContext<'c> {
-    pub fn new(backend: Backend<'c>, font_cache: &'c mut FontCache, pending_damage: &'c mut Vec<Region>) -> Self {
+    pub fn new(
+        backend: Backend<'c>,
+        font_cache: &'c mut FontCache,
+        pending_damage: &'c mut Vec<Region>,
+    ) -> Self {
         Self {
             backend,
             font_cache,
-            pending_damage
+            pending_damage,
         }
     }
     pub fn damage_region(&mut self, bg: &Background, region: &Region) {

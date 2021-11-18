@@ -418,7 +418,22 @@ impl<W: Widget> Widget for WidgetExt<W> {
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
-        self.child.sync(ctx, event);
+        if let Event::Pointer(mut x, mut y, p) = event {
+            let border = if let Some(border) = &self.border {
+                if let Style::Border(_, size) = border.style {
+                    size
+                } else {
+                    0.
+                }
+            } else {
+                0.
+            };
+            x -= border + self.padding[0] + self.padding[3];
+            y -= border + self.padding[1] + self.padding[2];
+            self.child.sync(ctx, Event::Pointer(x, y, p))
+        } else {
+            self.child.sync(ctx, event);
+        }
     }
 }
 

@@ -1,13 +1,13 @@
-pub mod container;
-pub mod font;
+pub mod text;
 pub mod image;
 pub mod shapes;
+pub mod button;
+pub mod container;
 
-pub use crate::widgets::image::Image;
-pub use container::layout::WidgetLayout;
-pub use font::*;
 use raqote::*;
 pub use shapes::Shape;
+pub use crate::widgets::image::Image;
+pub use container::layout::WidgetLayout;
 
 pub fn u32_to_source(color: u32) -> SolidSource {
     let color = color.to_be_bytes();
