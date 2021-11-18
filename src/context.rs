@@ -1,5 +1,4 @@
 use crate::*;
-use lyon_geom::euclid::{point2, vec2, Angle};
 use raqote::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
@@ -30,22 +29,25 @@ enum Data<'d> {
 }
 
 struct Message<'m> (
-    &'m str,
+    // The u32 is a bitmask
+    // Users can create an Enum and alias a bitmask to a value
+    u32,
     Data<'m>
 );
 
-enum ReceiveError {
-    Block
+enum SendError {
+    Block,
+    WrongSerial,
+    MisssingInterface
 }
 
-const CAPABILITIES: [&str; 1] = ["example"];
-
-trait Model {
+trait Channel {
     // These interface are from the pov
     // of the widgets
-    fn receive<'m>(&'m self, msg: Message) -> Option<Data<'m>>;
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ReceiveError>;
-    fn interface(&self) -> &[&str];
+    fn get<'m>(&'m self, msg: Message) -> Option<Data<'m>>;
+    // By convention a message of object 0 should mark the beginning and ending of a transtion
+    // The Message must be a u32 serial.
+    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, SendError>;
 }
 
 pub enum Backend<'b> {
@@ -53,22 +55,10 @@ pub enum Backend<'b> {
     Dummy,
 }
 
-struct DefaultModel {}
-
-impl Model for DefaultModel {
-    fn receive<'m>(&'m self, msg: Message) -> Option<Data<'m>> {
-        None
-    }
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ReceiveError> {
-        Ok(Data::Null)
-    }
-    fn interface(&self) -> &[&str] {&CAPABILITIES}
-}
-
 pub struct SyncContext<'c> {
-    model: Option<&'c mut dyn Model>,
+    model: Option<&'c mut dyn Channel>,
     pub font_cache: &'c mut FontCache,
-    pub render_node: Option<&'c mut RenderNode>,
+    render_node: Option<&'c mut RenderNode>,
 }
 
 pub struct DrawContext<'c> {
@@ -143,9 +133,6 @@ impl<'c> DrawContext<'c> {
     pub fn flush(&mut self) {
         self.pending_damage.clear();
         self.font_cache.layouts.clear();
-    }
-    pub fn report_damage(&self) -> &[Region] {
-        &self.pending_damage
     }
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
         match &mut self.backend {
