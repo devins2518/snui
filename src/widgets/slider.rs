@@ -76,7 +76,7 @@ impl Widget for Slider {
                                 Orientation::Horizontal => self.slider.width / self.size,
                                 Orientation::Vertical => self.slider.height / self.size,
                             };
-                            ctx.send(Message::new(0, ratio));
+                            ctx.send(Message::new(0, ratio)).unwrap();
                         }
                     }
                     Pointer::Scroll {
@@ -85,12 +85,12 @@ impl Widget for Slider {
                     } => match &self.orientation {
                         Orientation::Horizontal => {
                             let min = self.slider.radius[0].min(self.slider.radius[3]);
-                            self.slider.width = (self.slider.width - value).clamp(min, self.width())
+                            self.slider.width = (self.slider.width - value).clamp(min, self.width()).round()
                         }
                         Orientation::Vertical => {
                             let min = self.slider.radius[1].min(self.slider.radius[2]);
                             self.slider.height =
-                                (self.slider.height - value).clamp(min, self.height())
+                                (self.slider.height - value).clamp(min, self.height()).round()
                         }
                     },
                     Pointer::Hover => {
@@ -115,7 +115,7 @@ impl Widget for Slider {
                     Orientation::Horizontal => self.slider.width / self.size,
                     Orientation::Vertical => self.slider.height / self.size,
                 };
-                ctx.send(Message::new(0, ratio));
+                ctx.send(Message::new(0, ratio)).unwrap();
             }
         }
     }
