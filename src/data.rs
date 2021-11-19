@@ -25,7 +25,7 @@ pub struct Message<'m>(
 
 impl<'m> Message<'m> {
     pub fn new<D: Into<Data<'m>>>(obj: u32, data: D) -> Self {
-        Message ( obj, data.into() )
+        Message(obj, data.into())
     }
 }
 
@@ -107,14 +107,16 @@ impl Model for DummyModel {
         Ok(())
     }
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ModelError> {
-        if self.serial.is_some() {
-            return Err(ModelError::PendingSerial)
-        }
-        println!("{:?}", msg);
+        println!("<- {:?}", msg);
+        println!("-> Null");
         Ok(Data::Null)
     }
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ModelError> {
-        println!("{:?}", msg);
+        if let Some(serial) = &self.serial {
+            println!("<- {} : {:?}", serial, msg);
+        } else {
+            println!("<- {:?}", msg);
+        }
         Ok(Data::Null)
     }
 }

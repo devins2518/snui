@@ -1,9 +1,9 @@
+use crate::font::FontCache;
 use crate::*;
 use data::*;
 use raqote::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
-use crate::font::FontCache;
 use widgets::u32_to_source;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
@@ -82,8 +82,8 @@ impl<'c> DrawContext<'c> {
                 Backend::Raqote(dt) => dt.fill_rect(
                     region.x,
                     region.y,
-                    region.width,
-                    region.height,
+                    region.width.ceil(),
+                    region.height.ceil(),
                     &Source::Solid(*source),
                     &ATOP_OPTIONS,
                 ),

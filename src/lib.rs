@@ -13,6 +13,12 @@ use widgets::shapes::WidgetExt;
 pub const FG: u32 = 0xff_C8_BA_A4;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Orientation {
+    Vertical,
+    Horizontal,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Modifiers {
     pub ctrl: bool,
     pub alt: bool,
@@ -49,6 +55,10 @@ pub enum Pointer {
         time: u32,
         button: MouseButton,
         pressed: bool,
+    },
+    Scroll {
+        orientation: Orientation,
+        value: f32,
     },
     Hover,
     Enter,
@@ -115,7 +125,10 @@ pub trait Widget: Geometry {
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetExt<Self>;
-    fn into_button(self, cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static) -> Button<Self>;
+    fn into_button(
+        self,
+        cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static,
+    ) -> Button<Self>;
 }
 
 impl<W> Wrapable for W
@@ -125,7 +138,10 @@ where
     fn wrap(self) -> WidgetExt<W> {
         WidgetExt::default(self)
     }
-    fn into_button(self, cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static) -> Button<Self> {
+    fn into_button(
+        self,
+        cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static,
+    ) -> Button<Self> {
         Button::new(self, cb)
     }
 }

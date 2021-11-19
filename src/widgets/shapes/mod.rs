@@ -183,7 +183,7 @@ impl<W: Widget + Shape> WidgetExt<W> {
         Self {
             border,
             background,
-            child: self.child.radius((radius * ratio).round() - border_width),
+            child: self.child.radius((radius * ratio).round() - border_width - self.padding[0]),
             padding: self.padding,
         }
     }
@@ -366,7 +366,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                         .unwrap()
                         .set_size(width, height)
                         .unwrap();
-                    Instruction::new(0., 0., self.background.clone().unwrap())
+                    Instruction::new(x, y, self.background.clone().unwrap())
                 },
             }
         } else if self.background.is_none() {
@@ -428,8 +428,8 @@ impl<W: Widget> Widget for WidgetExt<W> {
             } else {
                 0.
             };
-            x -= border + self.padding[0] + self.padding[3];
-            y -= border + self.padding[1] + self.padding[2];
+            x -= border + self.padding[3];
+            y -= border + self.padding[0];
             self.child.sync(ctx, Event::Pointer(x, y, p))
         } else {
             self.child.sync(ctx, event);

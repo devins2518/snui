@@ -39,10 +39,7 @@ impl<W: Widget> Widget for Button<W> {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         self.child.sync(ctx, event);
         if let Event::Pointer(x, y, pointer) = event {
-            if x > 0.
-            && y > 0.
-            && x < self.width()
-            && y < self.height() {
+            if x > 0. && y > 0. && x < self.width() && y < self.height() {
                 if self.focused {
                     (self.cb)(&mut self.child, ctx, pointer);
                 } else {
@@ -53,7 +50,6 @@ impl<W: Widget> Widget for Button<W> {
                 self.focused = false;
                 (self.cb)(&mut self.child, ctx, Pointer::Leave);
             }
-        } else {
         }
     }
 }

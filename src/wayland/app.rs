@@ -1,9 +1,9 @@
 use crate::context::Backend;
 use crate::context::DrawContext;
 use crate::data::{DummyModel, Model};
+use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::Buffer;
-use crate::font::FontCache;
 use crate::*;
 use raqote::*;
 use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
@@ -828,6 +828,7 @@ impl<M: Model + Clone + 'static> InnerApplication<M> {
             self.core.set_size(width, height).unwrap();
         }
 
+        // println!("{:#?}", recent_node);
         if let Some(render_node) = &self.core.ctx.render_node {
             render_node.find_diff(
                 &recent_node,
@@ -916,6 +917,16 @@ fn assign_pointer<M: Model + Clone + 'static>(pointer: &Main<WlPointer>) {
         wl_pointer::Event::Frame => {
             if let Some(application) = inner.get::<Application<M>>() {
                 application.inner[index].dispatch(Event::Pointer(x as f32, y as f32, input));
+            }
+        }
+        wl_pointer::Event::Axis { time, axis, value } => {
+            input = Pointer::Scroll {
+                orientation: match axis {
+                    wl_pointer::Axis::VerticalScroll => Orientation::Vertical,
+                    wl_pointer::Axis::HorizontalScroll => Orientation::Horizontal,
+                    _ => Orientation::Vertical,
+                },
+                value: value as f32,
             }
         }
         wl_pointer::Event::Enter {

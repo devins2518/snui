@@ -2,12 +2,6 @@ use crate::*;
 use scene::{Coords, RenderNode};
 
 #[derive(Copy, Clone, Debug)]
-pub enum Orientation {
-    Vertical,
-    Horizontal,
-}
-
-#[derive(Copy, Clone, Debug)]
 pub enum Alignment {
     Start,
     Center,
@@ -56,16 +50,14 @@ impl Geometry for WidgetLayout {
         let mut width = 0.;
         match self.orientation {
             Orientation::Horizontal => {
-                if let Some(last) = self.widgets.last() {
-                    width = last.coords.x + last.width()
+                for w in &self.widgets {
+                    width += w.width() + self.spacing;
                 }
+                width -= self.spacing.min(width);
             }
             Orientation::Vertical => {
                 for w in &self.widgets {
-                    let lwidth = w.width();
-                    if lwidth > width {
-                        width = lwidth;
-                    }
+                    width = width.max(w.width());
                 }
             }
         }
@@ -74,18 +66,15 @@ impl Geometry for WidgetLayout {
     fn height(&self) -> f32 {
         let mut height = 0.;
         match self.orientation {
-            Orientation::Horizontal => {
-                if let Some(last) = self.widgets.last() {
-                    height = last.coords.y + last.height()
-                }
-            }
             Orientation::Vertical => {
                 for w in &self.widgets {
-                    let lheight = w.height();
-                    height += lheight + self.spacing;
+                    height += w.height() + self.spacing;
                 }
-                if height > self.spacing {
-                    height -= self.spacing
+                height -= self.spacing.min(height);
+            }
+            Orientation::Horizontal => {
+                for w in &self.widgets {
+                    height = height.max(w.height());
                 }
             }
         }

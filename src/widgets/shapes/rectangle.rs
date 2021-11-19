@@ -1,7 +1,7 @@
 use crate::widgets::shapes::*;
 use crate::*;
 use scene::{Background, RenderNode};
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 use widgets::u32_to_source;
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
@@ -109,67 +109,69 @@ impl Primitive for Rectangle {
         cursor.0 += self.radius[0];
         cursor.1 += self.radius[0];
 
-        // Drawing the outline
-        pb.arc(cursor.0, cursor.1, self.radius[0], PI, PI / 2.);
-        cursor.0 += top;
-        cursor.1 -= self.radius[0];
-        pb.line_to(cursor.0, cursor.1);
-        cursor.1 += self.radius[1];
-        pb.arc(cursor.0, cursor.1, self.radius[1], -PI / 2., PI / 2.);
-        cursor.0 += self.radius[1];
-        cursor.1 += right;
-        pb.line_to(cursor.0, cursor.1);
-        cursor.0 -= self.radius[2];
-        pb.arc(cursor.0, cursor.1, self.radius[2], 0., PI / 2.);
-        cursor.1 += self.radius[2];
-        cursor.0 -= bottom;
-        pb.line_to(cursor.0, cursor.1);
-        cursor.1 -= self.radius[3];
-        pb.arc(cursor.0, cursor.1, self.radius[3], PI / 2., PI / 2.);
-        cursor.0 -= self.radius[3];
-        cursor.1 -= left;
-        pb.line_to(cursor.0, cursor.1);
+		if top.is_sign_positive() && left.is_sign_positive() {
+            // Drawing the outline
+            pb.arc(cursor.0, cursor.1, self.radius[0], PI, FRAC_PI_2);
+            cursor.0 += top;
+            cursor.1 -= self.radius[0];
+            pb.line_to(cursor.0, cursor.1);
+            cursor.1 += self.radius[1];
+            pb.arc(cursor.0, cursor.1, self.radius[1], -FRAC_PI_2, FRAC_PI_2);
+            cursor.0 += self.radius[1];
+            cursor.1 += right;
+            pb.line_to(cursor.0, cursor.1);
+            cursor.0 -= self.radius[2];
+            pb.arc(cursor.0, cursor.1, self.radius[2], 0., FRAC_PI_2);
+            cursor.1 += self.radius[2];
+            cursor.0 -= bottom;
+            pb.line_to(cursor.0, cursor.1);
+            cursor.1 -= self.radius[3];
+            pb.arc(cursor.0, cursor.1, self.radius[3], FRAC_PI_2, FRAC_PI_2);
+            cursor.0 -= self.radius[3];
+            cursor.1 -= left;
+            pb.line_to(cursor.0, cursor.1);
 
-        // Closing path
-        pb.close();
-        let path = pb.finish();
+            // Closing path
+            pb.close();
+            let path = pb.finish();
 
-        if let Backend::Raqote(dt) = &mut ctx.backend {
-            match &self.style {
-                Style::Solid(source) => {
-                    dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
-                }
-                Style::Border(source, border) => {
-                    let stroke = StrokeStyle {
-                        width: *border,
-                        cap: LineCap::Butt,
-                        join: LineJoin::Miter,
-                        miter_limit: 100.,
-                        dash_array: Vec::new(),
-                        dash_offset: 0.,
-                    };
-                    dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
-                }
-                Style::LinearGradient(grad, spread) => {
-                    let source = Source::new_linear_gradient(
-                        grad.as_ref().clone(),
-                        Point::new(x, y),
-                        Point::new(x + self.width, y + self.height),
-                        *spread,
-                    );
-                    dt.fill(&path, &source, &DRAW_OPTIONS);
-                }
-                Style::RadialGradient(grad, spread, rad) => {
-                    let source = Source::new_radial_gradient(
-                        grad.as_ref().clone(),
-                        Point::new(x, y),
-                        *rad,
-                        *spread,
-                    );
-                    dt.fill(&path, &source, &DRAW_OPTIONS);
+            if let Backend::Raqote(dt) = &mut ctx.backend {
+                match &self.style {
+                    Style::Solid(source) => {
+                        dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
+                    }
+                    Style::Border(source, border) => {
+                        let stroke = StrokeStyle {
+                            width: *border,
+                            cap: LineCap::Butt,
+                            join: LineJoin::Miter,
+                            miter_limit: 100.,
+                            dash_array: Vec::new(),
+                            dash_offset: 0.,
+                        };
+                        dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
+                    }
+                    Style::LinearGradient(grad, spread) => {
+                        let source = Source::new_linear_gradient(
+                            grad.as_ref().clone(),
+                            Point::new(x, y),
+                            Point::new(x + self.width, y + self.height),
+                            *spread,
+                        );
+                        dt.fill(&path, &source, &DRAW_OPTIONS);
+                    }
+                    Style::RadialGradient(grad, spread, rad) => {
+                        let source = Source::new_radial_gradient(
+                            grad.as_ref().clone(),
+                            Point::new(x, y),
+                            *rad,
+                            *spread,
+                        );
+                        dt.fill(&path, &source, &DRAW_OPTIONS);
+                    }
                 }
             }
-        }
+		}
     }
 }
 

@@ -3,8 +3,8 @@ use context::DrawContext;
 use raqote::*;
 use std::cmp::Ordering;
 use widgets::blend;
-use widgets::text::*;
 use widgets::shapes::*;
+use widgets::text::*;
 use widgets::Image;
 
 #[derive(Clone, Debug, PartialEq)]
