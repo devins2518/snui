@@ -4,6 +4,7 @@ pub enum Data<'d> {
     Int(i32),
     Uint(u32),
     Float(f32),
+    Double(f64),
     Boolean(bool),
     String(&'d str),
     Any(&'d dyn std::any::Any),
@@ -11,7 +12,7 @@ pub enum Data<'d> {
 
 // Meant for testing purposes and default
 #[derive(Clone, Copy, Debug)]
-pub struct DummyModel {
+pub struct DummyController {
     serial: Option<u32>,
 }
 
@@ -19,8 +20,8 @@ pub struct DummyModel {
 pub struct Message<'m>(
     // The u32 is a bitmask
     // Users can create an Enum and alias a bitmask to a value
-    u32,
-    Data<'m>,
+    pub u32,
+    pub Data<'m>,
 );
 
 impl<'m> Message<'m> {
@@ -30,23 +31,24 @@ impl<'m> Message<'m> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum ModelError {
+pub enum ControllerError {
     Block,
+    NonBlocking,
     WrongSerial,
     PendingSerial,
 }
 
-pub trait Model {
+pub trait Controller {
     // Tells the model all incomming messages are linked
-    // The Model returns a token that can be used to deserialize
-    fn serialize(&mut self, msg: Message) -> Result<u32, ModelError>;
+    // The Controller returns a token that can be used to deserialize
+    fn serialize(&mut self, msg: Message) -> Result<u32, ControllerError>;
     // Ends the serialization
-    fn deserialize(&mut self, token: u32) -> Result<(), ModelError>;
+    fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
     // These interface are from the pov
     // of the widgets
-    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ModelError>;
+    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // The Message must be a u32 serial.
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ModelError>;
+    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
 }
 
 impl<'d> From<u32> for Data<'d> {
@@ -79,26 +81,26 @@ impl<'d> From<f32> for Data<'d> {
     }
 }
 
-impl DummyModel {
+impl DummyController {
     pub fn new() -> Self {
-        DummyModel { serial: None }
+        DummyController { serial: None }
     }
 }
 
-impl Model for DummyModel {
-    fn serialize(&mut self, msg: Message) -> Result<u32, ModelError> {
+impl Controller for DummyController {
+    fn serialize(&mut self, msg: Message) -> Result<u32, ControllerError> {
         if self.serial.is_some() {
-            return Err(ModelError::PendingSerial);
+            return Err(ControllerError::PendingSerial);
         } else {
             self.serial = Some(1)
         }
         println!("Serialize Token: {}", 1);
         Ok(1)
     }
-    fn deserialize(&mut self, token: u32) -> Result<(), ModelError> {
+    fn deserialize(&mut self, token: u32) -> Result<(), ControllerError> {
         if let Some(serial) = self.serial {
             if serial != token {
-                return Err(ModelError::WrongSerial);
+                return Err(ControllerError::WrongSerial);
             } else {
                 println!("Deserialize: {}", 1);
                 self.serial = None;
@@ -106,12 +108,12 @@ impl Model for DummyModel {
         }
         Ok(())
     }
-    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ModelError> {
+    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError> {
         println!("<- {:?}", msg);
         println!("-> Null");
         Ok(Data::Null)
     }
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ModelError> {
+    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
         if let Some(serial) = &self.serial {
             println!("<- {} : {:?}", serial, msg);
         } else {

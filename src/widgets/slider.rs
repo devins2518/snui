@@ -4,6 +4,7 @@ use widgets::shapes::rectangle::Rectangle;
 use widgets::{shapes::Style, Shape};
 
 pub struct Slider {
+    id: u32,
     size: f32,
     step: f32,
     pressed: bool,
@@ -12,8 +13,19 @@ pub struct Slider {
 }
 
 impl Slider {
-    pub fn new(width: u32, height: u32, style: Style) -> Self {
+    pub fn vertical(id: u32, width: u32, height: u32, style: Style) -> Self {
         Slider {
+            id,
+            step: 1.,
+            size: height as f32,
+            pressed: false,
+            orientation: Orientation::Vertical,
+            slider: Rectangle::new(width as f32, height as f32 / 2., style),
+        }
+    }
+    pub fn horizontal(id: u32, width: u32, height: u32, style: Style) -> Self {
+        Slider {
+            id,
             step: 1.,
             size: width as f32,
             pressed: false,
@@ -76,22 +88,28 @@ impl Widget for Slider {
                                 Orientation::Horizontal => self.slider.width / self.size,
                                 Orientation::Vertical => self.slider.height / self.size,
                             };
-                            ctx.send(Message::new(0, ratio)).unwrap();
+                            ctx.send(Message::new(self.id, ratio)).unwrap();
                         }
                     }
                     Pointer::Scroll {
                         orientation: _,
                         value,
-                    } => match &self.orientation {
-                        Orientation::Horizontal => {
-                            let min = self.slider.radius[0].min(self.slider.radius[3]);
-                            self.slider.width = (self.slider.width - value).clamp(min, self.width())
-                        }
-                        Orientation::Vertical => {
-                            let min = self.slider.radius[1].min(self.slider.radius[2]);
-                            self.slider.height =
-                                (self.slider.height - value).clamp(min, self.height())
-                        }
+                    } => {
+                        let ratio = match &self.orientation {
+                            Orientation::Horizontal => {
+                                let min = self.slider.radius[0].min(self.slider.radius[3]);
+                                self.slider.width =
+                                	(self.slider.width - value).clamp(min, self.width());
+                                self.slider.width / self.size
+                            }
+                            Orientation::Vertical => {
+                                let min = self.slider.radius[1].min(self.slider.radius[2]);
+                                self.slider.height =
+                                    (self.slider.height - value).clamp(min, self.height());
+                                self.slider.height / self.size
+                            }
+                        };
+                        ctx.send(Message::new(self.id, ratio)).unwrap();
                     },
                     Pointer::Hover => {
                         if self.pressed {
@@ -124,6 +142,7 @@ impl Widget for Slider {
 impl Shape for Slider {
     fn background(self, color: u32) -> Self {
         Self {
+            id: self.id,
             size: self.size,
             step: self.step,
             pressed: false,
@@ -133,6 +152,7 @@ impl Shape for Slider {
     }
     fn border(self, color: u32, width: f32) -> Self {
         Self {
+            id: self.id,
             size: self.size,
             step: self.step,
             pressed: false,
@@ -142,6 +162,7 @@ impl Shape for Slider {
     }
     fn border_color(self, color: u32) -> Self {
         Self {
+            id: self.id,
             size: self.size,
             step: self.step,
             pressed: false,
@@ -151,6 +172,7 @@ impl Shape for Slider {
     }
     fn border_width(self, width: f32) -> Self {
         Self {
+            id: self.id,
             size: self.size,
             step: self.step,
             pressed: false,
@@ -160,6 +182,7 @@ impl Shape for Slider {
     }
     fn radius(self, radius: f32) -> Self {
         Self {
+            id: self.id,
             size: self.size,
             step: self.step,
             pressed: false,

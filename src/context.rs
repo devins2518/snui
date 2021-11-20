@@ -3,6 +3,7 @@ use crate::*;
 use data::*;
 use raqote::*;
 use scene::*;
+use widgets::text::Label;
 use std::ops::{Deref, DerefMut};
 use widgets::u32_to_source;
 
@@ -24,13 +25,13 @@ pub enum Backend<'b> {
 }
 
 pub struct SyncContext<'c> {
-    model: &'c mut dyn Model,
+    model: &'c mut dyn Controller,
     pub font_cache: &'c mut FontCache,
 }
 
 pub struct DrawContext<'c> {
-    pub backend: Backend<'c>,
-    pub font_cache: &'c mut FontCache,
+    backend: Backend<'c>,
+    font_cache: &'c mut FontCache,
     pending_damage: &'c mut Vec<Region>,
 }
 
@@ -79,7 +80,7 @@ impl<'c> DerefMut for Backend<'c> {
 
 impl<'c> SyncContext<'c> {
     pub fn new(
-        model: &'c mut impl Model,
+        model: &'c mut impl Controller,
         font_cache: &'c mut FontCache,
     ) -> Self {
         Self {
@@ -89,17 +90,17 @@ impl<'c> SyncContext<'c> {
     }
 }
 
-impl<'c> Model for SyncContext<'c> {
-    fn deserialize(&mut self, token: u32) -> Result<(), ModelError> {
+impl<'c> Controller for SyncContext<'c> {
+    fn deserialize(&mut self, token: u32) -> Result<(), ControllerError> {
         self.model.deserialize(token)
     }
-    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ModelError> {
+    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError> {
         self.model.get(msg)
     }
-    fn serialize(&mut self, msg: Message) -> Result<u32, ModelError> {
+    fn serialize(&mut self, msg: Message) -> Result<u32, ControllerError> {
         self.model.serialize(msg)
     }
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ModelError> {
+    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
         self.model.send(msg)
     }
 }
@@ -171,6 +172,37 @@ impl<'c> DrawContext<'c> {
             _ => {}
         }
     }
+    pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
+        if let Some(layout) = self.font_cache.layouts.get(label) {
+            for gp in layout {
+                if let Some(glyph_cache) = self
+                    .font_cache
+                    .fonts
+                    .get_mut(&label.fonts[gp.key.font_index as usize])
+                {
+                    if let Some(pixmap) = glyph_cache.render_glyph(gp) {
+                        match &mut self.backend {
+                            Backend::Raqote(dt) => dt.draw_image_at(
+                                x.round() + gp.x,
+                                y.round() + gp.y,
+                                &Image {
+                                    data: &pixmap,
+                                    width: gp.width as i32,
+                                    height: gp.height as i32,
+                                },
+                                &DrawOptions {
+                                    blend_mode: BlendMode::SrcAtop,
+                                    alpha: 1.,
+                                    antialias: AntialiasMode::Gray,
+                                },
+                            ),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
     pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
         match &mut self.backend {
             Backend::Raqote(dt) => {
@@ -181,26 +213,15 @@ impl<'c> DrawContext<'c> {
     }
 }
 
-impl<'c> Geometry for DrawContext<'c> {
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        match &mut self.backend {
-            Backend::Raqote(dt) => {
-                **dt = DrawTarget::new(width as i32, height as i32);
-            }
-            _ => {}
-        }
-        Ok(())
+impl<'c> Deref for DrawContext<'c> {
+    type Target = Backend<'c>;
+    fn deref(&self) -> &Self::Target {
+        &self.backend
     }
-    fn width(&self) -> f32 {
-        match &self.backend {
-            Backend::Raqote(dt) => dt.width() as f32,
-            _ => 0.,
-        }
-    }
-    fn height(&self) -> f32 {
-        match &self.backend {
-            Backend::Raqote(dt) => dt.height() as f32,
-            _ => 0.,
-        }
+}
+
+impl<'c> DerefMut for DrawContext<'c> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.backend
     }
 }

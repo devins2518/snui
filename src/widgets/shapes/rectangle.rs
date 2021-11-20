@@ -3,6 +3,7 @@ use crate::*;
 use scene::{Background, RenderNode};
 use std::f32::consts::{FRAC_PI_2, PI};
 use widgets::u32_to_source;
+use std::ops::{Deref, DerefMut};
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
     blend_mode: BlendMode::SrcOver,
@@ -142,7 +143,7 @@ impl Primitive for Rectangle {
         pb.close();
         let path = pb.finish();
 
-        if let Backend::Raqote(dt) = &mut ctx.backend {
+        if let Backend::Raqote(dt) = ctx.deref_mut() {
             match &self.style {
                 Style::Solid(source) => {
                     dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);

@@ -1,6 +1,6 @@
 use crate::context::Backend;
 use crate::context::DrawContext;
-use crate::data::{DummyModel, Model};
+use crate::data::{DummyController, Controller};
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::Buffer;
@@ -131,7 +131,7 @@ struct Globals {
     shell: Option<Main<ZwlrLayerShellV1>>,
 }
 
-pub struct Application<M: Model + Clone + 'static> {
+pub struct Application<M: Controller + Clone + 'static> {
     display: Display,
     globals: Rc<Globals>,
     global_manager: GlobalManager,
@@ -145,7 +145,7 @@ struct Context {
     font_cache: FontCache,
 }
 
-pub struct CoreApplication<M: Model + Clone> {
+pub struct CoreApplication<M: Controller + Clone> {
     model: M,
     ctx: Context,
     globals: Rc<Globals>,
@@ -154,7 +154,7 @@ pub struct CoreApplication<M: Model + Clone> {
     surface: Option<Surface>,
 }
 
-pub struct InnerApplication<M: Model + Clone> {
+pub struct InnerApplication<M: Controller + Clone> {
     core: CoreApplication<M>,
     cb: Box<dyn FnMut(&mut CoreApplication<M>, Event)>,
 }
@@ -235,7 +235,7 @@ impl Globals {
             shell: None,
         }
     }
-    pub fn create_shell_surface<M: Model + Clone + 'static>(
+    pub fn create_shell_surface<M: Controller + Clone + 'static>(
         &self,
         geometry: &dyn Widget,
         namespace: &str,
@@ -275,7 +275,7 @@ impl Globals {
             ))
         }
     }
-    pub fn create_shell_surface_from<M: Model + Clone + 'static>(
+    pub fn create_shell_surface_from<M: Controller + Clone + 'static>(
         &self,
         geometry: &dyn Widget,
         config: ShellConfig,
@@ -336,7 +336,7 @@ impl Output {
     }
 }
 
-impl<M: Model + Clone + 'static> Application<M> {
+impl<M: Controller + Clone + 'static> Application<M> {
     pub fn new(pointer: bool) -> (Self, EventLoop<'static, Self>) {
         let display = Display::connect_to_env().unwrap();
         let mut event_queue = display.create_event_queue();
@@ -627,20 +627,20 @@ impl<M: Model + Clone + 'static> Application<M> {
     }
 }
 
-impl<M: Model + Clone> Deref for InnerApplication<M> {
+impl<M: Controller + Clone> Deref for InnerApplication<M> {
     type Target = CoreApplication<M>;
     fn deref(&self) -> &Self::Target {
         &self.core
     }
 }
 
-impl<M: Model + Clone> DerefMut for InnerApplication<M> {
+impl<M: Controller + Clone> DerefMut for InnerApplication<M> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.core
     }
 }
 
-impl<M: Model + Clone + 'static> CoreApplication<M> {
+impl<M: Controller + Clone + 'static> CoreApplication<M> {
     fn sync(&mut self, ev: Event) {
         let mut sync_ctx = SyncContext::new(
             &mut self.model,
@@ -699,7 +699,7 @@ impl<M: Model + Clone + 'static> CoreApplication<M> {
     }
 }
 
-impl<M: Model + Clone> Geometry for CoreApplication<M> {
+impl<M: Controller + Clone> Geometry for CoreApplication<M> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -715,7 +715,7 @@ impl<M: Model + Clone> Geometry for CoreApplication<M> {
     }
 }
 
-impl<M: Model + Clone + 'static> InnerApplication<M> {
+impl<M: Controller + Clone + 'static> InnerApplication<M> {
     fn empty(
         model: M,
         widget: impl Widget + 'static,
@@ -873,7 +873,7 @@ impl Modifiers {
     }
 }
 
-fn assign_pointer<M: Model + Clone + 'static>(pointer: &Main<WlPointer>) {
+fn assign_pointer<M: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
     let mut index = 0;
     let mut input = Pointer::Enter;
     let (mut x, mut y) = (0., 0.);
@@ -938,7 +938,7 @@ fn assign_pointer<M: Model + Clone + 'static>(pointer: &Main<WlPointer>) {
     });
 }
 
-fn assign_surface<M: Model + Clone + 'static>(shell: &Main<ZwlrLayerSurfaceV1>) {
+fn assign_surface<M: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurfaceV1>) {
     shell.quick_assign(|shell, event, mut inner| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,

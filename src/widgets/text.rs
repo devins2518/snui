@@ -12,6 +12,7 @@ use raqote::*;
 use scene::Instruction;
 use std::hash::{Hash, Hasher};
 use widgets::u32_to_source;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Clone)]
 pub struct Label {
@@ -93,35 +94,7 @@ impl Geometry for Label {
 
 impl Primitive for Label {
     fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
-        if let Some(layout) = ctx.font_cache.layouts.get(self) {
-            for gp in layout {
-                if let Some(glyph_cache) = ctx
-                    .font_cache
-                    .fonts
-                    .get_mut(&self.fonts[gp.key.font_index as usize])
-                {
-                    if let Some(pixmap) = glyph_cache.render_glyph(gp) {
-                        match &mut ctx.backend {
-                            Backend::Raqote(dt) => dt.draw_image_at(
-                                x.round() + gp.x,
-                                y.round() + gp.y,
-                                &Image {
-                                    data: &pixmap,
-                                    width: gp.width as i32,
-                                    height: gp.height as i32,
-                                },
-                                &DrawOptions {
-                                    blend_mode: BlendMode::SrcAtop,
-                                    alpha: 1.,
-                                    antialias: AntialiasMode::Gray,
-                                },
-                            ),
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
+        ctx.draw_label(&self, x, y)
     }
 }
 
