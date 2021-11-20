@@ -131,11 +131,11 @@ struct Globals {
     shell: Option<Main<ZwlrLayerShellV1>>,
 }
 
-pub struct Application<M: Controller + Clone + 'static> {
+pub struct Application<C: Controller + Clone + 'static> {
     display: Display,
     globals: Rc<Globals>,
     global_manager: GlobalManager,
-    pub inner: Vec<InnerApplication<M>>,
+    pub inner: Vec<InnerApplication<C>>,
     token: RegistrationToken,
 }
 
@@ -145,8 +145,8 @@ struct Context {
     font_cache: FontCache,
 }
 
-pub struct CoreApplication<M: Controller + Clone> {
-    model: M,
+pub struct CoreApplication<C: Controller + Clone> {
+    model: C,
     ctx: Context,
     globals: Rc<Globals>,
     mempool: DoubleMemPool,
@@ -154,9 +154,9 @@ pub struct CoreApplication<M: Controller + Clone> {
     surface: Option<Surface>,
 }
 
-pub struct InnerApplication<M: Controller + Clone> {
-    core: CoreApplication<M>,
-    cb: Box<dyn FnMut(&mut CoreApplication<M>, Event)>,
+pub struct InnerApplication<C: Controller + Clone> {
+    core: CoreApplication<C>,
+    cb: Box<dyn FnMut(&mut CoreApplication<C>, Event)>,
 }
 
 impl Surface {
@@ -235,7 +235,7 @@ impl Globals {
             shell: None,
         }
     }
-    pub fn create_shell_surface<M: Controller + Clone + 'static>(
+    pub fn create_shell_surface<C: Controller + Clone + 'static>(
         &self,
         geometry: &dyn Widget,
         namespace: &str,
@@ -262,7 +262,7 @@ impl Globals {
             }
             shell.set_size(geometry.width() as u32, geometry.height() as u32);
             shell.set_margin(margin[0], margin[1], margin[2], margin[3]);
-            assign_surface::<M>(&shell);
+            assign_surface::<C>(&shell);
             surface.commit();
             Some(Surface::new(
                 surface,
@@ -275,7 +275,7 @@ impl Globals {
             ))
         }
     }
-    pub fn create_shell_surface_from<M: Controller + Clone + 'static>(
+    pub fn create_shell_surface_from<C: Controller + Clone + 'static>(
         &self,
         geometry: &dyn Widget,
         config: ShellConfig,
@@ -306,7 +306,7 @@ impl Globals {
                 config.margin[3],
             );
             surface.commit();
-            assign_surface::<M>(&shell);
+            assign_surface::<C>(&shell);
             Some(Surface::new(
                 surface,
                 Shell::LayerShell {
@@ -336,7 +336,7 @@ impl Output {
     }
 }
 
-impl<M: Controller + Clone + 'static> Application<M> {
+impl<C: Controller + Clone + 'static> Application<C> {
     pub fn new(pointer: bool) -> (Self, EventLoop<'static, Self>) {
         let display = Display::connect_to_env().unwrap();
         let mut event_queue = display.create_event_queue();
@@ -483,7 +483,7 @@ impl<M: Controller + Clone + 'static> Application<M> {
                     RepeatKind::System,
                     move |ev, _, mut inner| match ev {
                         keyboard::Event::Modifiers { modifiers } => {
-                            if let Some(application) = inner.get::<Application<M>>() {
+                            if let Some(application) = inner.get::<Application<C>>() {
                                 application.inner[index].dispatch(Event::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[],
@@ -498,7 +498,7 @@ impl<M: Controller + Clone + 'static> Application<M> {
                             rawkeys: _,
                             keysyms: _,
                         } => {
-                            if let Some(application) = inner.get::<Application<M>>() {
+                            if let Some(application) = inner.get::<Application<C>>() {
                                 index = application.get_index(&surface);
                             }
                         }
@@ -511,7 +511,7 @@ impl<M: Controller + Clone + 'static> Application<M> {
                             utf8,
                         } => {
                             ch = utf8;
-                            if let Some(application) = inner.get::<Application<M>>() {
+                            if let Some(application) = inner.get::<Application<C>>() {
                                 application.inner[index].dispatch(Event::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[rawkey],
@@ -526,7 +526,7 @@ impl<M: Controller + Clone + 'static> Application<M> {
                             keysym,
                             utf8: _,
                         } => {
-                            if let Some(application) = inner.get::<Application<M>>() {
+                            if let Some(application) = inner.get::<Application<C>>() {
                                 application.inner[index].dispatch(Event::Keyboard(Key {
                                     utf8: ch.as_ref(),
                                     value: &[keysym],
@@ -542,7 +542,7 @@ impl<M: Controller + Clone + 'static> Application<M> {
             }
             if pointer && seat.capabilities & Capability::Pointer == Capability::Pointer {
                 let pointer = seat.seat.get_pointer();
-                assign_pointer::<M>(&pointer);
+                assign_pointer::<C>(&pointer);
             }
         }
 
@@ -571,7 +571,7 @@ impl<M: Controller + Clone + 'static> Application<M> {
         }
         0
     }
-    fn get_application(&mut self, surface: &WlSurface) -> Option<&mut InnerApplication<M>> {
+    fn get_application(&mut self, surface: &WlSurface) -> Option<&mut InnerApplication<C>> {
         for inner in &mut self.inner {
             if inner.eq(surface) {
                 return Some(inner);
@@ -587,10 +587,10 @@ impl<M: Controller + Clone + 'static> Application<M> {
     }
     pub fn create_empty_inner_application<Data: 'static>(
         &mut self,
-        model: M,
+        model: C,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
         let iapp = InnerApplication::empty(model, widget, self.globals.clone(), cb);
         self.inner.push(iapp);
@@ -598,11 +598,11 @@ impl<M: Controller + Clone + 'static> Application<M> {
     }
     pub fn create_inner_application_from<Data: 'static>(
         &mut self,
-        model: M,
+        model: C,
         config: ShellConfig,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
         let iapp = InnerApplication::new(model, widget, config, self.globals.clone(), cb);
         self.inner.push(iapp);
@@ -610,10 +610,10 @@ impl<M: Controller + Clone + 'static> Application<M> {
     }
     pub fn create_inner_application<Data: 'static>(
         &mut self,
-        model: M,
+        model: C,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
         let iapp = InnerApplication::default(model, widget, self.globals.clone(), cb);
         self.inner.push(iapp);
@@ -627,20 +627,20 @@ impl<M: Controller + Clone + 'static> Application<M> {
     }
 }
 
-impl<M: Controller + Clone> Deref for InnerApplication<M> {
-    type Target = CoreApplication<M>;
+impl<C: Controller + Clone> Deref for InnerApplication<C> {
+    type Target = CoreApplication<C>;
     fn deref(&self) -> &Self::Target {
         &self.core
     }
 }
 
-impl<M: Controller + Clone> DerefMut for InnerApplication<M> {
+impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.core
     }
 }
 
-impl<M: Controller + Clone + 'static> CoreApplication<M> {
+impl<C: Controller + Clone + 'static> CoreApplication<C> {
     fn sync(&mut self, ev: Event) {
         let mut sync_ctx = SyncContext::new(
             &mut self.model,
@@ -663,7 +663,7 @@ impl<M: Controller + Clone + 'static> CoreApplication<M> {
             surface.destroy();
             match &surface.shell {
                 Shell::LayerShell { config, surface: _ } => {
-                    self.surface = self.globals.as_ref().create_shell_surface_from::<M>(
+                    self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
                         self.widget.deref(),
                         config.clone(),
                         Some(surface.clone()),
@@ -671,7 +671,7 @@ impl<M: Controller + Clone + 'static> CoreApplication<M> {
                 }
             }
         } else {
-            self.surface = self.globals.as_ref().create_shell_surface_from::<M>(
+            self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
                 self.widget.deref(),
                 ShellConfig::default_layer_shell(),
                 None,
@@ -684,13 +684,13 @@ impl<M: Controller + Clone + 'static> CoreApplication<M> {
     pub fn replace_surface_by(&mut self, config: ShellConfig) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
-            self.surface = self.globals.as_ref().create_shell_surface_from::<M>(
+            self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
                 self.widget.deref(),
                 config,
                 Some(surface.clone()),
             );
         } else {
-            self.surface = self.globals.as_ref().create_shell_surface_from::<M>(
+            self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
                 self.widget.deref(),
                 config,
                 None,
@@ -699,7 +699,7 @@ impl<M: Controller + Clone + 'static> CoreApplication<M> {
     }
 }
 
-impl<M: Controller + Clone> Geometry for CoreApplication<M> {
+impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -715,12 +715,12 @@ impl<M: Controller + Clone> Geometry for CoreApplication<M> {
     }
 }
 
-impl<M: Controller + Clone + 'static> InnerApplication<M> {
+impl<C: Controller + Clone + 'static> InnerApplication<C> {
     fn empty(
-        model: M,
+        model: C,
         widget: impl Widget + 'static,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication<M>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
@@ -739,10 +739,10 @@ impl<M: Controller + Clone + 'static> InnerApplication<M> {
         }
     }
     fn default(
-        model: M,
+        model: C,
         widget: impl Widget + 'static,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication<M>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
@@ -752,7 +752,7 @@ impl<M: Controller + Clone + 'static> InnerApplication<M> {
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
-                surface: globals.as_ref().create_shell_surface_from::<M>(
+                surface: globals.as_ref().create_shell_surface_from::<C>(
                     &widget,
                     ShellConfig::default_layer_shell(),
                     None,
@@ -765,11 +765,11 @@ impl<M: Controller + Clone + 'static> InnerApplication<M> {
         }
     }
     fn new(
-        model: M,
+        model: C,
         widget: impl Widget + 'static,
         config: ShellConfig,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication<M>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
@@ -781,7 +781,7 @@ impl<M: Controller + Clone + 'static> InnerApplication<M> {
                 },
                 surface: globals
                     .as_ref()
-                    .create_shell_surface_from::<M>(&widget, config, None),
+                    .create_shell_surface_from::<C>(&widget, config, None),
                 widget: Box::new(widget),
                 mempool: globals.as_ref().create_mempool(),
                 globals,
@@ -873,14 +873,14 @@ impl Modifiers {
     }
 }
 
-fn assign_pointer<M: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
+fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
     let mut index = 0;
     let mut input = Pointer::Enter;
     let (mut x, mut y) = (0., 0.);
     pointer.quick_assign(move |_, event, mut inner| match event {
         wl_pointer::Event::Leave { serial: _, surface } => {
             input = Pointer::Leave;
-            if let Some(application) = inner.get::<Application<M>>() {
+            if let Some(application) = inner.get::<Application<C>>() {
                 if let Some(inner) = application.get_application(&surface) {
                     inner.dispatch(Event::Pointer(x as f32, y as f32, input));
                 }
@@ -899,7 +899,7 @@ fn assign_pointer<M: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
             };
         }
         wl_pointer::Event::Frame => {
-            if let Some(application) = inner.get::<Application<M>>() {
+            if let Some(application) = inner.get::<Application<C>>() {
                 application.inner[index].dispatch(Event::Pointer(x as f32, y as f32, input));
             }
         }
@@ -919,7 +919,7 @@ fn assign_pointer<M: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
             surface_x,
             surface_y,
         } => {
-            if let Some(application) = inner.get::<Application<M>>() {
+            if let Some(application) = inner.get::<Application<C>>() {
                 x = surface_x;
                 y = surface_y;
                 index = application.get_index(&surface);
@@ -938,7 +938,7 @@ fn assign_pointer<M: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
     });
 }
 
-fn assign_surface<M: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurfaceV1>) {
+fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurfaceV1>) {
     shell.quick_assign(|shell, event, mut inner| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
@@ -946,7 +946,7 @@ fn assign_surface<M: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
             height: _,
         } => {
             shell.ack_configure(serial);
-            if let Some(application) = inner.get::<Application<M>>() {
+            if let Some(application) = inner.get::<Application<C>>() {
                 for a in &mut application.inner {
                     if let Some(app_surface) = a.surface.as_mut() {
                         match &app_surface.shell {
