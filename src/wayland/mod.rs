@@ -1,6 +1,6 @@
 pub mod app;
 
-use crate::context::DrawContext;
+use crate::context::Backend;
 use crate::*;
 use smithay_client_toolkit::shm::{Format, MemPool};
 use std::io::Write;
@@ -10,20 +10,20 @@ const FORMAT: Format = Format::Argb8888;
 
 pub struct Buffer<'b> {
     mmap: &'b mut [u8],
-    ctx: DrawContext<'b>,
+    backend: Backend<'b>,
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut MemPool, ctx: DrawContext<'b>) -> Result<(Self, WlBuffer), ()> {
-        let width = ctx.width() as i32;
-        let height = ctx.height() as i32;
+    fn new(mempool: &'b mut MemPool, backend: Backend<'b>) -> Result<(Self, WlBuffer), ()> {
+        let width = backend.width() as i32;
+        let height = backend.height() as i32;
         let stride = width * 4;
         if mempool.resize((stride * height) as usize).is_ok() {
             let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
             Ok((
                 Self {
                     mmap: mempool.mmap(),
-                    ctx,
+                    backend,
                 },
                 wlbuf,
             ))
@@ -31,11 +31,8 @@ impl<'b> Buffer<'b> {
             Err(())
         }
     }
-    pub fn ctx(self) -> DrawContext<'b> {
-        self.ctx
-    }
     pub fn merge(mut self) {
-        self.mmap.write_all(&self.ctx).unwrap();
+        self.mmap.write_all(&self.backend).unwrap();
         self.mmap.flush().unwrap();
     }
 }

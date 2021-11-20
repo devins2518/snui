@@ -26,7 +26,6 @@ pub enum Backend<'b> {
 pub struct SyncContext<'c> {
     model: &'c mut dyn Model,
     pub font_cache: &'c mut FontCache,
-    render_node: Option<&'c mut RenderNode>,
 }
 
 pub struct DrawContext<'c> {
@@ -35,15 +34,56 @@ pub struct DrawContext<'c> {
     pending_damage: &'c mut Vec<Region>,
 }
 
+impl<'b> Geometry for Backend<'b> {
+    fn width(&self) -> f32 {
+        match self {
+            Backend::Dummy => 0.,
+            Backend::Raqote(dt) => dt.width() as f32
+        }
+    }
+    fn height(&self) -> f32 {
+        match self {
+            Backend::Dummy => 0.,
+            Backend::Raqote(dt) => dt.height() as f32
+        }
+    }
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        match self {
+            Backend::Dummy => Err((0., 0.)),
+            Backend::Raqote(dt) => {
+                **dt = DrawTarget::new(width as i32, height as i32);
+                Ok(())
+            }
+        }
+    }
+}
+
+impl<'b> Deref for Backend<'b> {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        match &self {
+            Backend::Raqote(dt) => dt.get_data_u8(),
+            _ => panic!("Dummy backend cannot return a slice"),
+        }
+    }
+}
+
+impl<'c> DerefMut for Backend<'c> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            Backend::Raqote(dt) => dt.get_data_u8_mut(),
+            _ => panic!("Dummy backend cannot return a slice"),
+        }
+    }
+}
+
 impl<'c> SyncContext<'c> {
     pub fn new(
         model: &'c mut impl Model,
-        render_node: Option<&'c mut RenderNode>,
         font_cache: &'c mut FontCache,
     ) -> Self {
         Self {
             model,
-            render_node,
             font_cache,
         }
     }
@@ -82,8 +122,8 @@ impl<'c> DrawContext<'c> {
                 Backend::Raqote(dt) => dt.fill_rect(
                     region.x,
                     region.y,
-                    region.width.ceil(),
-                    region.height.ceil(),
+                    region.width,
+                    region.height,
                     &Source::Solid(*source),
                     &ATOP_OPTIONS,
                 ),
@@ -161,25 +201,6 @@ impl<'c> Geometry for DrawContext<'c> {
         match &self.backend {
             Backend::Raqote(dt) => dt.height() as f32,
             _ => 0.,
-        }
-    }
-}
-
-impl<'c> Deref for DrawContext<'c> {
-    type Target = [u8];
-    fn deref(&self) -> &Self::Target {
-        match &self.backend {
-            Backend::Raqote(dt) => dt.get_data_u8(),
-            _ => panic!("Dummy backend cannot return a slice"),
-        }
-    }
-}
-
-impl<'c> DerefMut for DrawContext<'c> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match &mut self.backend {
-            Backend::Raqote(dt) => dt.get_data_u8_mut(),
-            _ => panic!("Dummy backend cannot return a slice"),
         }
     }
 }

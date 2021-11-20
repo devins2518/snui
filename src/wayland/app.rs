@@ -641,21 +641,9 @@ impl<M: Model + Clone> DerefMut for InnerApplication<M> {
 }
 
 impl<M: Model + Clone + 'static> CoreApplication<M> {
-    // pub fn render(&mut self) {
-    //     if let Some(pool) = self.mempool.pool() {
-    //         if let Some(surface) = &mut self.surface {
-    //             if let Ok((buffer, wl_buffer)) = Buffer::new(pool, &mut self.ctx) {
-    //                 buffer.merge();
-    //                 surface.attach_buffer(wl_buffer, 0, 0);
-    //             }
-    //             surface.damage(self.ctx.report_damage());
-    //         }
-    //     }
-    // }
     fn sync(&mut self, ev: Event) {
         let mut sync_ctx = SyncContext::new(
             &mut self.model,
-            self.ctx.render_node.as_mut(),
             &mut self.ctx.font_cache,
         );
         self.widget.sync(&mut sync_ctx, ev);
@@ -859,11 +847,7 @@ impl<M: Model + Clone + 'static> InnerApplication<M> {
                 if let Some(surface) = &mut self.core.surface {
                     if let Ok((buffer, wl_buffer)) = Buffer::new(
                         pool,
-                        DrawContext::new(
-                            Backend::Raqote(&mut self.core.ctx.draw_target),
-                            &mut self.core.ctx.font_cache,
-                            &mut v,
-                        ),
+                        Backend::Raqote(&mut self.core.ctx.draw_target),
                     ) {
                         buffer.merge();
                         surface.attach_buffer(wl_buffer, 0, 0);

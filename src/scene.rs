@@ -110,6 +110,7 @@ impl Instruction {
 
 #[derive(Debug, Clone)]
 pub enum RenderNode {
+    None,
     Instruction(Instruction),
     Extension {
         background: Instruction,
@@ -174,6 +175,7 @@ impl RenderNode {
                 background.render(ctx);
                 node.render(ctx);
             }
+            _ => {}
         }
     }
     pub fn find_diff<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
@@ -227,6 +229,7 @@ impl RenderNode {
                     other.render(ctx);
                 }
             }
+            RenderNode::None => other.render(ctx)
         }
     }
 }

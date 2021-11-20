@@ -12,13 +12,13 @@ pub struct Slider {
 }
 
 impl Slider {
-    pub fn new(width: f32, height: f32, style: Style) -> Self {
+    pub fn new(width: u32, height: u32, style: Style) -> Self {
         Slider {
             step: 1.,
-            size: width,
+            size: width as f32,
             pressed: false,
             orientation: Orientation::Horizontal,
-            slider: Rectangle::new(width / 2., height, style),
+            slider: Rectangle::new(width as f32 / 2., height as f32, style),
         }
     }
 }
@@ -85,12 +85,12 @@ impl Widget for Slider {
                     } => match &self.orientation {
                         Orientation::Horizontal => {
                             let min = self.slider.radius[0].min(self.slider.radius[3]);
-                            self.slider.width = (self.slider.width - value).clamp(min, self.width()).round()
+                            self.slider.width = (self.slider.width - value).clamp(min, self.width())
                         }
                         Orientation::Vertical => {
                             let min = self.slider.radius[1].min(self.slider.radius[2]);
                             self.slider.height =
-                                (self.slider.height - value).clamp(min, self.height()).round()
+                                (self.slider.height - value).clamp(min, self.height())
                         }
                     },
                     Pointer::Hover => {

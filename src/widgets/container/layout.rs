@@ -154,7 +154,7 @@ impl Widget for WidgetLayout {
                         Orientation::Horizontal => {
                             match alignment {
                                 Alignment::Start => dy = 0.,
-                                Alignment::Center => dy = (sh - wh) / 2.,
+                                Alignment::Center => dy = ((sh - wh) / 2.).floor(),
                                 Alignment::End => dy = sh - wh,
                             }
                             node = child.widget.create_node(x + dx, y + dy);
@@ -164,7 +164,7 @@ impl Widget for WidgetLayout {
                         Orientation::Vertical => {
                             match alignment {
                                 Alignment::Start => dx = 0.,
-                                Alignment::Center => dx = (sw - ww) / 2.,
+                                Alignment::Center => dx = ((sw - ww) / 2.).floor(),
                                 Alignment::End => dx = sw - ww,
                             }
                             node = child.widget.create_node(x + dx, y + dy);

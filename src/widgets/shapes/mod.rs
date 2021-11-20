@@ -156,8 +156,9 @@ impl<W: Widget> WidgetExt<W> {
 
 impl<W: Widget + Shape> WidgetExt<W> {
     pub fn radius(self, radius: f32) -> Self {
-        let width = self.width();
-        let height = self.height();
+        let delta = (radius - 2_f32.sqrt().powi(-1) * radius).round();
+        let width = self.width() + delta;
+        let height = self.height() + delta;
         let ratio = self.child.width() / self.width();
         let border_width = if let Some(rectangle) = &self.border {
             if let Style::Border(_, border) = rectangle.style {
@@ -180,11 +181,17 @@ impl<W: Widget + Shape> WidgetExt<W> {
         } else {
             None
         };
+        let padding = [
+            self.padding[0] + delta,
+            self.padding[1] + delta,
+            self.padding[2] + delta,
+            self.padding[3] + delta,
+        ];
         Self {
             border,
             background,
-            child: self.child.radius((radius * ratio).round() - border_width - self.padding[0]),
-            padding: self.padding,
+            child: self.child.radius((radius * ratio).round() - border_width - self.padding[0] - delta),
+            padding,
         }
     }
 }
