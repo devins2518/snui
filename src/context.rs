@@ -3,8 +3,8 @@ use crate::*;
 use data::*;
 use raqote::*;
 use scene::*;
-use widgets::text::Label;
 use std::ops::{Deref, DerefMut};
+use widgets::text::Label;
 use widgets::u32_to_source;
 
 const ATOP_OPTIONS: DrawOptions = DrawOptions {
@@ -39,13 +39,13 @@ impl<'b> Geometry for Backend<'b> {
     fn width(&self) -> f32 {
         match self {
             Backend::Dummy => 0.,
-            Backend::Raqote(dt) => dt.width() as f32
+            Backend::Raqote(dt) => dt.width() as f32,
         }
     }
     fn height(&self) -> f32 {
         match self {
             Backend::Dummy => 0.,
-            Backend::Raqote(dt) => dt.height() as f32
+            Backend::Raqote(dt) => dt.height() as f32,
         }
     }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
@@ -79,14 +79,8 @@ impl<'c> DerefMut for Backend<'c> {
 }
 
 impl<'c> SyncContext<'c> {
-    pub fn new(
-        model: &'c mut impl Controller,
-        font_cache: &'c mut FontCache,
-    ) -> Self {
-        Self {
-            model,
-            font_cache,
-        }
+    pub fn new(model: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {
+        Self { model, font_cache }
     }
 }
 

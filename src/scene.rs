@@ -7,7 +7,7 @@ use widgets::shapes::*;
 use widgets::text::*;
 use widgets::Image;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Coords {
     pub x: f32,
     pub y: f32,
@@ -26,6 +26,7 @@ impl From<(f32, f32)> for Coords {
 pub enum Background {
     Transparent,
     Composite {
+        coords: Coords,
         image: Image,
         overlay: Box<Background>,
     },
@@ -37,6 +38,7 @@ impl Background {
         match &instruction.primitive {
             PrimitiveType::Rectangle(r) => Background::Color(r.style.source()),
             PrimitiveType::Image(image) => Background::Composite {
+                coords: instruction.coords,
                 image: image.clone(),
                 overlay: Box::new(Background::Transparent),
             },
@@ -132,7 +134,7 @@ impl Instruction {
         match &self.primitive {
             PrimitiveType::Image(i) => i.draw(x, y, ctx),
             PrimitiveType::Rectangle(r) => r.draw(x, y, ctx),
-            PrimitiveType::Label(l) => l.draw(x, y, ctx),
+            PrimitiveType::Label(l) => ctx.draw_label(l, x, y),
         }
     }
     fn region(&self) -> Region {
@@ -229,7 +231,7 @@ impl RenderNode {
                     other.render(ctx);
                 }
             }
-            RenderNode::None => other.render(ctx)
+            RenderNode::None => other.render(ctx),
         }
     }
 }

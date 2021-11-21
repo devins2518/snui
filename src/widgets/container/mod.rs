@@ -1,3 +1,3 @@
 pub mod layout;
 
-pub use layout::{Alignment, WidgetLayout};
+pub use layout::WidgetLayout;

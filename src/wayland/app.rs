@@ -1,6 +1,6 @@
 use crate::context::Backend;
 use crate::context::DrawContext;
-use crate::data::{DummyController, Controller};
+use crate::data::{Controller, DummyController};
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::Buffer;
@@ -642,10 +642,7 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
     fn sync(&mut self, ev: Event) {
-        let mut sync_ctx = SyncContext::new(
-            &mut self.model,
-            &mut self.ctx.font_cache,
-        );
+        let mut sync_ctx = SyncContext::new(&mut self.model, &mut self.ctx.font_cache);
         self.widget.sync(&mut sync_ctx, ev);
     }
     pub fn destroy(&mut self) {
@@ -845,10 +842,9 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         if render && self.surface.is_some() {
             if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
-                    if let Ok((buffer, wl_buffer)) = Buffer::new(
-                        pool,
-                        Backend::Raqote(&mut self.core.ctx.draw_target),
-                    ) {
+                    if let Ok((buffer, wl_buffer)) =
+                        Buffer::new(pool, Backend::Raqote(&mut self.core.ctx.draw_target))
+                    {
                         buffer.merge();
                         surface.attach_buffer(wl_buffer, 0, 0);
                         surface.damage(&v);

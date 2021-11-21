@@ -5,10 +5,12 @@ pub mod shapes;
 pub mod slider;
 pub mod text;
 
+use raqote::*;
+use crate::*;
+pub use shapes::Shape;
+use crate::scene::Coords;
 pub use crate::widgets::image::Image;
 pub use container::layout::WidgetLayout;
-use raqote::*;
-pub use shapes::Shape;
 
 pub fn u32_to_source(color: u32) -> SolidSource {
     let color = color.to_be_bytes();
@@ -42,4 +44,108 @@ pub fn blend(pix_a: &[u8], pix_b: &[u8], t: f32) -> [u8; 4] {
 
 fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
     a + ((b - a) * r)
+}
+
+pub const START: Alignment = Alignment::Start;
+pub const CENTER: Alignment = Alignment::Center;
+pub const END: Alignment = Alignment::End;
+
+#[derive(Copy, Clone, Debug)]
+pub enum Alignment {
+    Start,
+    Center,
+    End,
+}
+
+pub enum Constraint {
+    // Size remains the same regardless
+    Fixed,
+    // The size is the maximum size the widget can take
+    Upward,
+    // The size is the minimum size the widget can take
+    Downward
+}
+
+pub struct WidgetBox<W: Widget> {
+    child: W,
+    coords: Coords,
+    size: (f32, f32),
+    constraint: Constraint,
+    anchor: (Alignment, Alignment),
+}
+
+impl<W: Widget> Geometry for WidgetBox<W> {
+    fn width(&self) -> f32 {
+        match &self.constraint {
+            Constraint::Fixed => self.size.0,
+            Constraint::Upward => self.width().min(self.size.0),
+            Constraint::Downward => self.width().max(self.size.0),
+        }
+    }
+    fn height(&self) -> f32 {
+        match &self.constraint {
+            Constraint::Fixed => self.size.1,
+            Constraint::Upward => self.height().max(self.size.1),
+            Constraint::Downward => self.height().min(self.size.1),
+        }
+    }
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        match &self.constraint {
+            Constraint::Fixed => Err(self.size),
+            _ => if width > self.child.width()
+            	&& height > self.child.height() {
+                	self.size = (width, height);
+                	Ok(())
+            } else {
+                Err(self.size)
+            }
+        }
+    }
+}
+
+impl<W: Widget> Widget for WidgetBox<W> {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+        if let Event::Pointer(mut x, mut y, pointer) = event {
+            x -= self.coords.x;
+            y -= self.coords.y;
+            self.child.sync(ctx, Event::Pointer(x, y, pointer));
+        } else {
+            self.child.sync(ctx, event);
+        }
+    }
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        let (horizontal, vertical) = &self.anchor;
+        let dx = match horizontal {
+            Alignment::Start => 0.,
+            Alignment::Center => ((self.width() - self.child.width()) / 2.).floor(),
+            Alignment::End => (self.width() - self.child.width()).floor()
+        };
+        let dy = match vertical {
+            Alignment::Start => 0.,
+            Alignment::Center => ((self.height() - self.child.height()) / 2.).floor(),
+            Alignment::End => (self.height() - self.child.height()).floor()
+        };
+        self.coords = Coords::new(dx, dy);
+        self.child.create_node(x + dx, y + dy)
+    }
+}
+
+impl<W: Widget> WidgetBox<W> {
+    pub fn default(child: W, width: f32, height: f32) -> Self {
+        Self {
+            size: (width.max(child.width()), height.max(child.height())),
+            child,
+            coords: Coords::new(0., 0.),
+            anchor: (Alignment::Center, Alignment::Center),
+            constraint: Constraint::Fixed,
+        }
+    }
+    pub fn constraint(mut self, constraint: Constraint) -> Self {
+        self.constraint = constraint;
+        self
+    }
+    pub fn anchor(mut self, x: Alignment, y: Alignment) -> Self {
+        self.anchor = (x, y);
+        self
+    }
 }

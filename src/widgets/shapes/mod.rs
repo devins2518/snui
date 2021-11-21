@@ -190,7 +190,9 @@ impl<W: Widget + Shape> WidgetExt<W> {
         Self {
             border,
             background,
-            child: self.child.radius((radius * ratio).round() - border_width - self.padding[0] - delta),
+            child: self
+                .child
+                .radius((radius * ratio).round() - border_width - self.padding[0] - delta),
             padding,
         }
     }
@@ -251,7 +253,9 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 width: self.width(),
                 height: self.height(),
                 style: Style::border(color, size),
-                radius: [0.; 4],
+                radius: if let Some(background) = &self.background {
+                    background.radius
+                } else { [0.; 4] },
             }
         };
         Self {

@@ -1,5 +1,5 @@
-use crate::*;
 use crate::data::*;
+use crate::*;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::{shapes::Style, Shape};
 
@@ -99,7 +99,7 @@ impl Widget for Slider {
                             Orientation::Horizontal => {
                                 let min = self.slider.radius[0].min(self.slider.radius[3]);
                                 self.slider.width =
-                                	(self.slider.width - value).clamp(min, self.width());
+                                    (self.slider.width - value).clamp(min, self.width());
                                 self.slider.width / self.size
                             }
                             Orientation::Vertical => {
@@ -110,7 +110,7 @@ impl Widget for Slider {
                             }
                         };
                         ctx.send(Message::new(self.id, ratio)).unwrap();
-                    },
+                    }
                     Pointer::Hover => {
                         if self.pressed {
                             match &self.orientation {

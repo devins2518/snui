@@ -8,6 +8,7 @@ pub mod widgets;
 use context::*;
 use scene::RenderNode;
 use widgets::button::Button;
+use widgets::WidgetBox;
 use widgets::shapes::{Shape, WidgetExt};
 
 pub const FG: u32 = 0xff_C8_BA_A4;
@@ -125,6 +126,7 @@ pub trait Widget: Geometry {
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetExt<Self>;
+    fn boxed(self, width: u32, height: u32) -> WidgetBox<Self>;
     fn into_button(
         self,
         cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static,
@@ -135,6 +137,9 @@ impl<W> Wrapable for W
 where
     W: Widget,
 {
+    fn boxed(self, width: u32, height: u32) -> WidgetBox<Self> {
+        WidgetBox::default(self, width as f32, height as f32)
+    }
     fn wrap(self) -> WidgetExt<W> {
         WidgetExt::default(self)
     }

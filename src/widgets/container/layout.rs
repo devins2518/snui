@@ -1,12 +1,6 @@
 use crate::*;
+use crate::widgets::Alignment;
 use scene::{Coords, RenderNode};
-
-#[derive(Copy, Clone, Debug)]
-pub enum Alignment {
-    Start,
-    Center,
-    End,
-}
 
 struct Child {
     coords: Coords,

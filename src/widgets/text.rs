@@ -1,6 +1,4 @@
-use crate::font::FontProperty;
 use crate::*;
-use context::Backend;
 pub use fontdue::{
     layout,
     layout::{
@@ -10,9 +8,9 @@ pub use fontdue::{
 };
 use raqote::*;
 use scene::Instruction;
-use std::hash::{Hash, Hasher};
 use widgets::u32_to_source;
-use std::ops::{Deref, DerefMut};
+use std::hash::{Hash, Hasher};
+use crate::font::FontProperty;
 
 #[derive(Debug, Clone)]
 pub struct Label {
@@ -89,12 +87,6 @@ impl Geometry for Label {
     }
     fn set_size(&mut self, _width: f32, _height: f32) -> Result<(), (f32, f32)> {
         Err(self.size.unwrap_or((0., 0.)))
-    }
-}
-
-impl Primitive for Label {
-    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
-        ctx.draw_label(&self, x, y)
     }
 }
 

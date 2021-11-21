@@ -2,8 +2,8 @@ use crate::widgets::shapes::*;
 use crate::*;
 use scene::{Background, RenderNode};
 use std::f32::consts::{FRAC_PI_2, PI};
-use widgets::u32_to_source;
 use std::ops::{Deref, DerefMut};
+use widgets::u32_to_source;
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
     blend_mode: BlendMode::SrcOver,
@@ -100,13 +100,13 @@ impl Primitive for Rectangle {
             _ => (x, y),
         };
 
-		let size = self.width.min(self.height) / 2.;
-		let radius = [
-			self.radius[0].min(size),
-			self.radius[1].min(size),
-			self.radius[2].min(size),
-			self.radius[3].min(size),
-		];
+        let size = self.width.min(self.height) / 2.;
+        let radius = [
+            self.radius[0].min(size),
+            self.radius[1].min(size),
+            self.radius[2].min(size),
+            self.radius[3].min(size),
+        ];
 
         // Sides length
         let top = width - radius[0] - radius[1];
