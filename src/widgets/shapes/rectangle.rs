@@ -1,8 +1,8 @@
 use crate::widgets::shapes::*;
 use crate::*;
-use scene::{Background, RenderNode};
+use scene::{RenderNode};
 use std::f32::consts::{FRAC_PI_2, PI};
-use std::ops::{Deref, DerefMut};
+use std::ops::{DerefMut};
 use widgets::u32_to_source;
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {
@@ -217,5 +217,5 @@ impl Widget for Rectangle {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {}
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) {}
 }

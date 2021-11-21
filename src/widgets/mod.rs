@@ -12,6 +12,10 @@ use crate::scene::Coords;
 pub use crate::widgets::image::Image;
 pub use container::layout::WidgetLayout;
 
+pub const START: Alignment = Alignment::Start;
+pub const CENTER: Alignment = Alignment::Center;
+pub const END: Alignment = Alignment::End;
+
 pub fn u32_to_source(color: u32) -> SolidSource {
     let color = color.to_be_bytes();
     SolidSource {
@@ -45,10 +49,6 @@ pub fn blend(pix_a: &[u8], pix_b: &[u8], t: f32) -> [u8; 4] {
 fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
     a + ((b - a) * r)
 }
-
-pub const START: Alignment = Alignment::Start;
-pub const CENTER: Alignment = Alignment::Center;
-pub const END: Alignment = Alignment::End;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Alignment {

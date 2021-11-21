@@ -36,7 +36,7 @@ pub struct WidgetLayout {
 }
 
 impl Geometry for WidgetLayout {
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+    fn set_size(&mut self, _width: f32, _height: f32) -> Result<(), (f32, f32)> {
         // To-do
         Err((self.width(), self.height()))
     }

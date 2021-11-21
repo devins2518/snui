@@ -88,7 +88,7 @@ impl DummyController {
 }
 
 impl Controller for DummyController {
-    fn serialize(&mut self, msg: Message) -> Result<u32, ControllerError> {
+    fn serialize(&mut self, _msg: Message) -> Result<u32, ControllerError> {
         if self.serial.is_some() {
             return Err(ControllerError::PendingSerial);
         } else {

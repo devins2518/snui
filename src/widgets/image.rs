@@ -1,6 +1,6 @@
 use crate::*;
 use image::io::Reader as ImageReader;
-use raqote::*;
+
 use scene::Instruction;
 use std::path::Path;
 use std::sync::Arc;
@@ -82,7 +82,7 @@ impl Widget for Image {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {}
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) {}
 }
 
 impl std::fmt::Debug for Image {
