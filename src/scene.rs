@@ -180,6 +180,27 @@ impl RenderNode {
             _ => {}
         }
     }
+    fn clear(&self, ctx: &mut DrawContext, bg: &Background) {
+        match self {
+            RenderNode::Instruction(instruction) => {
+                ctx.damage_region(
+                    bg, &instruction.region()
+                );
+            }
+            RenderNode::Extension { background, node:_ } => {
+                ctx.damage_region(
+                    bg, &background.region()
+                );
+            }
+            RenderNode::Container(nodes) => {
+                for node in nodes {
+                    node.clear(ctx, bg)
+                }
+            }
+            RenderNode::None => {}
+        }
+    }
+
     pub fn find_diff<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(a) => match other {
@@ -189,6 +210,7 @@ impl RenderNode {
                         b.render(ctx);
                     }
                 }
+                RenderNode::None => {},
                 _ => {
                     ctx.damage_region(bg, &a.region());
                     other.render(ctx);
@@ -197,6 +219,7 @@ impl RenderNode {
             RenderNode::Container(sv) => match other {
                 RenderNode::Container(ov) => {
                     if sv.len() != ov.len() {
+                        self.clear(ctx, bg);
                         other.render(ctx);
                     } else {
                         for i in 0..ov.len().min(sv.len()) {
@@ -204,7 +227,11 @@ impl RenderNode {
                         }
                     }
                 }
-                _ => other.render(ctx),
+                RenderNode::None => {},
+                _ => {
+                    self.clear(ctx, bg);
+                    other.render(ctx);
+                }
             },
             RenderNode::Extension { background, node } => {
                 let this_node = node;
