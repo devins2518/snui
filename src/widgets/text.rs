@@ -85,8 +85,15 @@ impl Geometry for Label {
         }
         0.
     }
-    fn set_size(&mut self, _width: f32, _height: f32) -> Result<(), (f32, f32)> {
-        Err(self.size.unwrap_or((0., 0.)))
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        Err(if let Some(size) = &self.size {
+            size.0
+        } else { 0. })
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        Err(if let Some(size) = &self.size {
+            size.1
+        } else { 0. })
     }
 }
 

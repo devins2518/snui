@@ -106,7 +106,26 @@ pub trait Container: Geometry {
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)>;
+    fn set_width(&mut self, width: f32) -> Result<(), f32>;
+    fn set_height(&mut self, height: f32) -> Result<(), f32>;
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        let err_width = self.set_width(width);
+        let err_height = self.set_height(height);
+
+        if let Err(width) = err_width {
+            if let Err(height) = err_height {
+                Err((width, height))
+            } else {
+                Err((width, height))
+            }
+        } else {
+            if let Err(height) = err_height {
+                Err((width, height))
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 pub trait Primitive: Geometry + std::fmt::Debug {
@@ -126,8 +145,7 @@ pub trait Widget: Geometry {
 
 pub trait Wrapable: Widget + Sized {
     fn wrap(self) -> WidgetExt<Self>;
-    fn boxed(self, width: u32, height: u32) -> WidgetBox<Self>;
-    fn anchor(self, anchor: (Alignment, Alignment), width: u32, height: u32) -> WidgetBox<Self>;
+    fn into_box(self) -> WidgetBox<Self>;
     fn into_button(
         self,
         cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static,
@@ -138,11 +156,10 @@ impl<W> Wrapable for W
 where
     W: Widget,
 {
-    fn boxed(self, width: u32, height: u32) -> WidgetBox<Self> {
-        WidgetBox::default(self, width as f32, height as f32)
-    }
-    fn anchor(self, anchor: (Alignment, Alignment), width: u32, height: u32) -> WidgetBox<Self> {
-        WidgetBox::new(self, anchor, width as f32, height as f32)
+    fn into_box(self) -> WidgetBox<Self> {
+        let width = self.width();
+        let height = self.height();
+        WidgetBox::default(self, width, height)
     }
     fn wrap(self) -> WidgetExt<W> {
         WidgetExt::default(self)

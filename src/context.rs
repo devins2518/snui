@@ -48,6 +48,24 @@ impl<'b> Geometry for Backend<'b> {
             Backend::Raqote(dt) => dt.height() as f32,
         }
     }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        match self {
+            Backend::Dummy => Err(0.),
+            Backend::Raqote(dt) => {
+                **dt = DrawTarget::new(width as i32, dt.height());
+                Ok(())
+            }
+        }
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        match self {
+            Backend::Dummy => Err(0.),
+            Backend::Raqote(dt) => {
+                **dt = DrawTarget::new(dt.width(), height as i32);
+                Ok(())
+            }
+        }
+    }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         match self {
             Backend::Dummy => Err((0., 0.)),

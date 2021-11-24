@@ -75,14 +75,19 @@ impl Geometry for Rectangle {
     fn height(&self) -> f32 {
         self.height
     }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        if width > 0. && height > 0. {
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        if width.is_sign_positive() {
             self.width = width;
-            self.height = height;
-        } else {
-            return Err((self.width, self.height));
+            return Ok(());
         }
-        Ok(())
+        Err(self.width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        if height.is_sign_positive() {
+            self.height = height;
+            return Ok(());
+        }
+        Err(self.height)
     }
 }
 

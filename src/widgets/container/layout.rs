@@ -23,8 +23,11 @@ impl Geometry for Child {
     fn height(&self) -> f32 {
         self.widget.height()
     }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        self.widget.set_size(width, height)
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.widget.set_width(width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.widget.set_height(height)
     }
 }
 
@@ -36,9 +39,11 @@ pub struct WidgetLayout {
 }
 
 impl Geometry for WidgetLayout {
-    fn set_size(&mut self, _width: f32, _height: f32) -> Result<(), (f32, f32)> {
-        // To-do
-        Err((self.width(), self.height()))
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        Err(self.width())
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        Err(self.height())
     }
     fn width(&self) -> f32 {
         let mut width = 0.;

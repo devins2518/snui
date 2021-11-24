@@ -310,15 +310,26 @@ impl<W: Widget> Shape for WidgetExt<W> {
 }
 
 impl<W: Widget> Geometry for WidgetExt<W> {
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if let Some(background) = self.background.as_mut() {
-            background.set_size(width, height)?;
+            background.set_width(width)?;
         }
         if let Some(border) = self.border.as_mut() {
-            border.set_size(width, height)?;
+            border.set_width(width)?;
         }
-        self.child.set_size(
+        self.child.set_width(
             width - self.padding[1] - self.padding[3],
+        )?;
+        Ok(())
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        if let Some(background) = self.background.as_mut() {
+            background.set_height(height)?;
+        }
+        if let Some(border) = self.border.as_mut() {
+            border.set_height(height)?;
+        }
+        self.child.set_height(
             height - self.padding[0] - self.padding[2],
         )?;
         Ok(())

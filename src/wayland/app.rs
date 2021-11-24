@@ -703,6 +703,20 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     fn height(&self) -> f32 {
         self.widget.height()
     }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        if let Some(surface) = self.surface.as_ref() {
+            surface.set_size(width as u32, self.height() as u32);
+        }
+        self.ctx.draw_target = DrawTarget::new(width as i32, self.height() as i32);
+        Ok(())
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        if let Some(surface) = self.surface.as_ref() {
+            surface.set_size(self.width() as u32, height as u32);
+        }
+        self.ctx.draw_target = DrawTarget::new(self.width() as i32, height as i32);
+        Ok(())
+    }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);

@@ -50,11 +50,27 @@ impl Geometry for Slider {
             self.slider.height()
         }
     }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
         match &self.orientation {
-            Orientation::Horizontal => self.slider.set_size(width.clamp(0., self.size), height),
-            Orientation::Vertical => self.slider.set_size(width, height.clamp(0., self.size)),
+            Orientation::Horizontal => {
+                self.size = width.max(0.);
+            }
+            Orientation::Vertical => {
+                self.slider.set_width(width.max(0.));
+            }
         }
+        Ok(())
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        match &self.orientation {
+            Orientation::Vertical => {
+                self.size = height.max(0.);
+            }
+            Orientation::Horizontal => {
+                self.slider.set_height(height.max(0.));
+            }
+        }
+        Ok(())
     }
 }
 

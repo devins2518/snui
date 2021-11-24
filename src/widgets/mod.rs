@@ -9,6 +9,7 @@ use raqote::*;
 use crate::*;
 pub use shapes::Shape;
 use crate::scene::Coords;
+use std::ops::{Deref, DerefMut};
 pub use crate::widgets::image::Image;
 pub use container::layout::WidgetLayout;
 
@@ -57,6 +58,7 @@ pub enum Alignment {
     End,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Constraint {
     // Size remains the same regardless
     Fixed,
@@ -89,17 +91,19 @@ impl<W: Widget> Geometry for WidgetBox<W> {
             Constraint::Downward => self.child.height().max(self.size.1),
         }
     }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        match &self.constraint {
-            Constraint::Fixed => Err(self.size),
-            _ => if width > self.child.width()
-            	&& height > self.child.height() {
-                	self.size = (width, height);
-                	Ok(())
-            } else {
-                Err(self.size)
-            }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        if width.is_sign_positive() {
+            self.size.0 = width;
+            return Ok(())
         }
+        Err(self.size.0)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        if height.is_sign_positive() {
+            self.size.1 = height;
+            return Ok(())
+        }
+        Err(self.size.1)
     }
 }
 
@@ -114,11 +118,12 @@ impl<W: Widget> Widget for WidgetBox<W> {
         }
     }
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        if let Constraint::Fixed = &self.constraint {
-            if self.child.width() >= self.size.0
-            && self.child.height() >= self.size.1 {
-                return RenderNode::None
-            }
+        if self.constraint == Constraint::Fixed
+        && (
+            self.child.width() > self.size.0 || self.child.height() > self.size.1
+        ) {
+            eprintln!("WidgetBox exceeded bounds: {} x {}", self.width(), self.height());
+            return RenderNode::None
         }
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
@@ -128,7 +133,9 @@ impl<W: Widget> Widget for WidgetBox<W> {
         };
         let dy = match vertical {
             Alignment::Start => 0.,
-            Alignment::Center => ((self.height() - self.child.height()) / 2.).floor(),
+            Alignment::Center => {
+                ((self.height() - self.child.height()) / 2.).floor()
+            }
             Alignment::End => (self.height() - self.child.height()).floor()
         };
         self.coords = Coords::new(dx, dy);
@@ -145,6 +152,9 @@ impl<W: Widget> WidgetBox<W> {
             anchor: (Alignment::Center, Alignment::Center),
             constraint: Constraint::Fixed,
         }
+    }
+    pub fn coords(&self) -> Coords {
+        self.coords
     }
     pub fn new(child: W, anchor: (Alignment, Alignment), width: f32, height: f32) -> Self {
         Self {
@@ -168,5 +178,18 @@ impl<W: Widget> WidgetBox<W> {
     }
     pub fn set_anchor(&mut self, x: Alignment, y: Alignment) {
         self.anchor = (x, y);
+    }
+}
+
+impl<W: Widget> Deref for WidgetBox<W> {
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.child
+    }
+}
+
+impl<W: Widget> DerefMut for WidgetBox<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.child
     }
 }

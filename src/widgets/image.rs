@@ -56,10 +56,19 @@ impl Geometry for Image {
     fn height(&self) -> f32 {
         self.height as f32
     }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        self.width = width.max(0.) as u32;
-        self.height = height.max(0.) as u32;
-        Ok(())
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        if width.is_sign_positive() {
+            self.width = width as u32;
+            return Ok(())
+        }
+        Err(self.width as f32)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        if height.is_sign_positive() {
+            self.height = height as u32;
+            return Ok(())
+        }
+        Err(self.height as f32)
     }
 }
 
