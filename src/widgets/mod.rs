@@ -78,15 +78,15 @@ impl<W: Widget> Geometry for WidgetBox<W> {
     fn width(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.size.0,
-            Constraint::Upward => self.width().min(self.size.0),
-            Constraint::Downward => self.width().max(self.size.0),
+            Constraint::Upward => self.child.width().min(self.size.0),
+            Constraint::Downward => self.child.width().max(self.size.0),
         }
     }
     fn height(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.size.1,
-            Constraint::Upward => self.height().max(self.size.1),
-            Constraint::Downward => self.height().min(self.size.1),
+            Constraint::Upward => self.child.height().min(self.size.1),
+            Constraint::Downward => self.child.height().max(self.size.1),
         }
     }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
@@ -114,6 +114,12 @@ impl<W: Widget> Widget for WidgetBox<W> {
         }
     }
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        if let Constraint::Fixed = &self.constraint {
+            if self.child.width() >= self.size.0
+            && self.child.height() >= self.size.1 {
+                return RenderNode::None
+            }
+        }
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
             Alignment::Start => 0.,
@@ -140,12 +146,27 @@ impl<W: Widget> WidgetBox<W> {
             constraint: Constraint::Fixed,
         }
     }
+    pub fn new(child: W, anchor: (Alignment, Alignment), width: f32, height: f32) -> Self {
+        Self {
+            size: (width.max(child.width()), height.max(child.height())),
+            child,
+            coords: Coords::new(0., 0.),
+            anchor,
+            constraint: Constraint::Fixed,
+        }
+    }
     pub fn constraint(mut self, constraint: Constraint) -> Self {
         self.constraint = constraint;
         self
     }
+    pub fn set_constraint(&mut self, constraint: Constraint) {
+        self.constraint = constraint;
+    }
     pub fn anchor(mut self, x: Alignment, y: Alignment) -> Self {
         self.anchor = (x, y);
         self
+    }
+    pub fn set_anchor(&mut self, x: Alignment, y: Alignment) {
+        self.anchor = (x, y);
     }
 }

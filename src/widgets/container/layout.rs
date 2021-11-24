@@ -2,7 +2,7 @@ use crate::*;
 use crate::widgets::Alignment;
 use scene::{Coords, RenderNode};
 
-struct Child {
+pub struct Child {
     coords: Coords,
     widget: Box<dyn Widget>,
 }
@@ -30,7 +30,7 @@ impl Geometry for Child {
 
 pub struct WidgetLayout {
     spacing: f32,
-    widgets: Vec<Child>,
+    pub widgets: Vec<Child>,
     alignment: Alignment,
     orientation: Orientation,
 }
@@ -117,6 +117,9 @@ impl WidgetLayout {
             widgets: Vec::new(),
             alignment: Alignment::Start,
         }
+    }
+    pub fn orientation(&self) -> Orientation {
+        self.orientation
     }
     pub fn set_spacing(&mut self, spacing: u32) {
         self.spacing = spacing as f32;
