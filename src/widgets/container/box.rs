@@ -154,9 +154,6 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
 				}
 				order.sort();
 
-				// println!("real_height: {}, height: {}", real_height, self.height);
-				// println!("{:?}", order);
-
                 let delta = (space / order.len() as f32).floor();
 
 				for h in order.iter().rev() {

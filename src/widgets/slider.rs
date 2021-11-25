@@ -56,7 +56,7 @@ impl Geometry for Slider {
                 self.size = width.max(0.);
             }
             Orientation::Vertical => {
-                self.slider.set_width(width.max(0.));
+                self.slider.set_width(width.max(0.)).unwrap();
             }
         }
         Ok(())
@@ -67,7 +67,7 @@ impl Geometry for Slider {
                 self.size = height.max(0.);
             }
             Orientation::Horizontal => {
-                self.slider.set_height(height.max(0.));
+                self.slider.set_height(height.max(0.)).unwrap();
             }
         }
         Ok(())
