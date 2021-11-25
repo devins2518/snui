@@ -2,6 +2,7 @@
 pub enum Data<'d> {
     Null,
     Int(i32),
+    Byte(u8),
     Uint(u32),
     Float(f32),
     Double(f64),
@@ -49,6 +50,12 @@ pub trait Controller {
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
+}
+
+impl<'d> From<u8> for Data<'d> {
+    fn from(byte: u8) -> Self {
+        Data::Byte(byte)
+    }
 }
 
 impl<'d> From<u32> for Data<'d> {

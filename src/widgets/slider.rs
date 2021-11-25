@@ -114,14 +114,14 @@ impl Widget for Slider {
                         let ratio = match &self.orientation {
                             Orientation::Horizontal => {
                                 let min = self.slider.radius[0].min(self.slider.radius[3]);
-                                self.slider.width =
-                                    (self.slider.width - value).clamp(min, self.width());
+                                self.slider.set_width(
+                                    (self.slider.width - value).clamp(min, self.width())).unwrap();
                                 self.slider.width / self.size
                             }
                             Orientation::Vertical => {
                                 let min = self.slider.radius[1].min(self.slider.radius[2]);
-                                self.slider.height =
-                                    (self.slider.height - value).clamp(min, self.height());
+                                self.slider.set_height(
+                                    (self.slider.height - value).clamp(min, self.height())).unwrap();
                                 self.slider.height / self.size
                             }
                         };

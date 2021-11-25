@@ -25,6 +25,7 @@ pub enum Backend<'b> {
 }
 
 pub struct SyncContext<'c> {
+    pub sync: bool,
     model: &'c mut dyn Controller,
     pub font_cache: &'c mut FontCache,
 }
@@ -98,7 +99,7 @@ impl<'c> DerefMut for Backend<'c> {
 
 impl<'c> SyncContext<'c> {
     pub fn new(model: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {
-        Self { model, font_cache }
+        Self { sync: true, model, font_cache }
     }
 }
 

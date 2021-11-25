@@ -77,14 +77,14 @@ impl Geometry for Rectangle {
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width.is_sign_positive() {
-            self.width = width;
+            self.width = width.round();
             return Ok(());
         }
         Err(self.width)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height.is_sign_positive() {
-            self.height = height;
+            self.height = height.round();
             return Ok(());
         }
         Err(self.height)

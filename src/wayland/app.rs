@@ -146,7 +146,7 @@ struct Context {
 }
 
 pub struct CoreApplication<C: Controller + Clone> {
-    model: C,
+    pub controller: C,
     ctx: Context,
     globals: Rc<Globals>,
     mempool: DoubleMemPool,
@@ -393,7 +393,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 physical_height: _,
                                 subpixel: _,
                                 make,
-                                model: _,
+                                controller: _,
                                 transform: _,
                             } => {
                                 if let Some(globals) = globals.get::<Globals>() {
@@ -587,35 +587,35 @@ impl<C: Controller + Clone + 'static> Application<C> {
     }
     pub fn create_empty_inner_application<Data: 'static>(
         &mut self,
-        model: C,
+        controller: C,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let iapp = InnerApplication::empty(model, widget, self.globals.clone(), cb);
+        let iapp = InnerApplication::empty(controller, widget, self.globals.clone(), cb);
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
     pub fn create_inner_application_from<Data: 'static>(
         &mut self,
-        model: C,
+        controller: C,
         config: ShellConfig,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let iapp = InnerApplication::new(model, widget, config, self.globals.clone(), cb);
+        let iapp = InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
     pub fn create_inner_application<Data: 'static>(
         &mut self,
-        model: C,
+        controller: C,
         widget: impl Widget + 'static,
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let iapp = InnerApplication::default(model, widget, self.globals.clone(), cb);
+        let iapp = InnerApplication::default(controller, widget, self.globals.clone(), cb);
         self.inner.push(iapp);
         handle.update(&self.token).unwrap();
     }
@@ -641,9 +641,12 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 }
 
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
-    fn sync(&mut self, ev: Event) {
-        let mut sync_ctx = SyncContext::new(&mut self.model, &mut self.ctx.font_cache);
-        self.widget.sync(&mut sync_ctx, ev);
+    pub fn sync(&mut self, ev: Event) {
+        let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
+        while sync_ctx.sync {
+            sync_ctx.sync = false;
+            self.widget.sync(&mut sync_ctx, ev);
+        }
     }
     pub fn destroy(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
@@ -728,14 +731,14 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
 
 impl<C: Controller + Clone + 'static> InnerApplication<C> {
     fn empty(
-        model: C,
+        controller: C,
         widget: impl Widget + 'static,
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
-                model,
+                controller,
                 ctx: Context {
                     draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
                     font_cache: FontCache::new(),
@@ -750,14 +753,14 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         }
     }
     fn default(
-        model: C,
+        controller: C,
         widget: impl Widget + 'static,
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
-                model,
+                controller,
                 ctx: Context {
                     draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
                     font_cache: FontCache::new(),
@@ -776,7 +779,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         }
     }
     fn new(
-        model: C,
+        controller: C,
         widget: impl Widget + 'static,
         config: ShellConfig,
         globals: Rc<Globals>,
@@ -784,7 +787,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
     ) -> Self {
         InnerApplication {
             core: CoreApplication {
-                model,
+                controller,
                 ctx: Context {
                     draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
                     font_cache: FontCache::new(),
@@ -811,6 +814,9 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
 
         // Sending the event to the widget tree
         self.sync(ev);
+
+        // Calling the application´s closure
+        (self.cb)(&mut self.core, ev);
 
         // Creating the render node
         let recent_node = self.core.widget.create_node(0., 0.);
@@ -849,9 +855,6 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             self.core.ctx.render_node = Some(recent_node);
             render = true;
         }
-
-        // Calling the application´s closure
-        (self.cb)(&mut self.core, ev);
 
         if render && self.surface.is_some() {
             if let Some(pool) = self.core.mempool.pool() {
