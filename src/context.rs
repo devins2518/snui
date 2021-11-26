@@ -98,6 +98,9 @@ impl<'c> DerefMut for Backend<'c> {
 }
 
 impl<'c> SyncContext<'c> {
+    pub fn sync(&mut self) {
+        self.sync = true;
+    }
     pub fn new(model: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {
         Self { sync: true, model, font_cache }
     }

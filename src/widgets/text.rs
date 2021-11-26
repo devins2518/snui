@@ -10,7 +10,7 @@ use raqote::*;
 use scene::Instruction;
 use widgets::u32_to_source;
 use std::hash::{Hash, Hasher};
-use crate::font::FontProperty;
+pub use crate::font::FontProperty;
 
 #[derive(Debug, Clone)]
 pub struct Label {
@@ -56,17 +56,25 @@ impl Label {
         Label {
             text: String::from(text),
             font_size,
-            fonts: vec![FontProperty::new("Default")],
+            fonts: Vec::new(),
             source: u32_to_source(FG),
             size: None,
         }
     }
-    pub fn default() -> Label {
+    pub fn font_property(mut self, font: FontProperty) -> Self {
+        self.fonts.push(font);
+        self
+    }
+    pub fn color(mut self, color: u32) -> Self {
+        self.source = u32_to_source(color);
+        self
+    }
+    pub fn default(text: &str, font_size: f32) -> Label {
         Label {
-            text: String::new(),
-            font_size: 0.,
-            fonts: Vec::new(),
-            source: u32_to_source(0),
+            text: String::from(text),
+            font_size,
+            fonts: vec![FontProperty::new("Default")],
+            source: u32_to_source(FG),
             size: None,
         }
     }

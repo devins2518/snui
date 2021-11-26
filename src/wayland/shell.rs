@@ -393,7 +393,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 physical_height: _,
                                 subpixel: _,
                                 make,
-                                controller: _,
+                                model: _,
                                 transform: _,
                             } => {
                                 if let Some(globals) = globals.get::<Globals>() {
@@ -643,9 +643,10 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
     pub fn sync(&mut self, ev: Event) {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
+        self.widget.sync(&mut sync_ctx, ev);
         while sync_ctx.sync {
             sync_ctx.sync = false;
-            self.widget.sync(&mut sync_ctx, ev);
+            self.widget.sync(&mut sync_ctx, Event::Prepare);
         }
     }
     pub fn destroy(&mut self) {

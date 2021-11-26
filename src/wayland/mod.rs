@@ -1,4 +1,4 @@
-pub mod app;
+pub mod shell;
 
 use crate::context::Backend;
 use crate::*;

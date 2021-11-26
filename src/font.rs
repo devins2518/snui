@@ -49,7 +49,7 @@ fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct FontProperty {
-    name: String,
+    pub name: String,
 }
 
 impl FontProperty {

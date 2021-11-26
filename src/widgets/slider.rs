@@ -104,7 +104,10 @@ impl Widget for Slider {
                                 Orientation::Horizontal => self.slider.width / self.size,
                                 Orientation::Vertical => self.slider.height / self.size,
                             };
-                            ctx.send(Message::new(self.id, ratio)).unwrap();
+                            match ctx.send(Message::new(self.id, ratio)) {
+                                Ok(_) => ctx.sync(),
+                                Err(e) => eprintln!("{} : {:?}", self.id, e)
+                            }
                         }
                     }
                     Pointer::Scroll {
@@ -125,7 +128,10 @@ impl Widget for Slider {
                                 self.slider.height / self.size
                             }
                         };
-                        ctx.send(Message::new(self.id, ratio)).unwrap();
+                        match ctx.send(Message::new(self.id, ratio)) {
+                            Ok(_) => ctx.sync(),
+                            Err(e) => eprintln!("{} : {:?}", self.id, e)
+                        }
                     }
                     Pointer::Hover => {
                         if self.pressed {
@@ -149,7 +155,10 @@ impl Widget for Slider {
                     Orientation::Horizontal => self.slider.width / self.size,
                     Orientation::Vertical => self.slider.height / self.size,
                 };
-                ctx.send(Message::new(0, ratio)).unwrap();
+                match ctx.send(Message::new(self.id, ratio)) {
+                    Ok(_) => ctx.sync(),
+                    Err(e) => eprintln!("{} : {:?}", self.id, e)
+                }
             }
         }
     }
