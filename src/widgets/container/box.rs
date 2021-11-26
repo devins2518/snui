@@ -1,7 +1,7 @@
-use crate::*;
 use crate::widgets::*;
-use std::ops::{Deref, DerefMut};
+use crate::*;
 use scene::{Coords, RenderNode};
+use std::ops::{Deref, DerefMut};
 
 pub struct Centerbox<F: Widget, S: Widget, L: Widget> {
     width: f32,
@@ -16,7 +16,7 @@ impl<F: Widget, S: Widget, L: Widget> Centerbox<F, S, L> {
             width: a.width() + b.width() + c.width(),
             height: a.height().max(b.height()).max(c.height()),
             orientation: Orientation::Horizontal,
-            childs: (a.into_box(), b.into_box(), c.into_box())
+            childs: (a.into_box(), b.into_box(), c.into_box()),
         }
     }
     pub fn vertical(a: F, b: S, c: L) -> Self {
@@ -24,7 +24,7 @@ impl<F: Widget, S: Widget, L: Widget> Centerbox<F, S, L> {
             height: a.height() + b.height() + c.height(),
             width: a.width().max(b.width()).max(c.width()),
             orientation: Orientation::Vertical,
-            childs: (a.into_box(), b.into_box(), c.into_box())
+            childs: (a.into_box(), b.into_box(), c.into_box()),
         }
     }
 }
@@ -61,66 +61,66 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
                 );
                 let mut real_width = aw + bw + cw;
 
-				let mut order = Vec::new();
-				if real_width <= self.width {
-    				order.push(aw as u32);
-    				order.push(bw as u32);
-    				order.push(cw as u32);
-				} else if {
-    				real_width -= cw;
-    				real_width <= self.width
-				} {
-    				order.push(aw as u32);
-    				order.push(bw as u32);
-				} else if {
-    				real_width -= bw;
-    				real_width <= self.width
-				} {
-    				order.push(aw as u32);
-				} else {
-    				return RenderNode::None
-				}
-				order.sort();
+                let mut order = Vec::new();
+                if real_width <= self.width {
+                    order.push(aw as u32);
+                    order.push(bw as u32);
+                    order.push(cw as u32);
+                } else if {
+                    real_width -= cw;
+                    real_width <= self.width
+                } {
+                    order.push(aw as u32);
+                    order.push(bw as u32);
+                } else if {
+                    real_width -= bw;
+                    real_width <= self.width
+                } {
+                    order.push(aw as u32);
+                } else {
+                    return RenderNode::None;
+                }
+                order.sort();
 
                 let delta = (space / order.len() as f32).floor();
 
-				for w in order.iter().rev() {
-    				if space >= 0. {
-        				if *w == aw as u32 {
-                        	self.childs.0.set_size(
-                            	aw.max(delta).min(space),
-                            	self.height
-                        	).unwrap();
-                        	space -= self.childs.0.width();
-        				} else if *w == bw as u32 {
-                        	self.childs.1.set_size(
-                            	bw.max(delta).min(space),
-                            	self.height
-                        	).unwrap();
-                        	space -= self.childs.1.width();
-        				} else if *w == cw as u32 {
-                        	self.childs.2.set_size(
-                            	cw.max(delta).min(space),
-                            	self.height
-                        	).unwrap();
-                        	space -= self.childs.2.width();
-        				} else {
-            				break;
-        				}
-    				}
-				}
+                for w in order.iter().rev() {
+                    if space >= 0. {
+                        if *w == aw as u32 {
+                            self.childs
+                                .0
+                                .set_size(aw.max(delta).min(space), self.height)
+                                .unwrap();
+                            space -= self.childs.0.width();
+                        } else if *w == bw as u32 {
+                            self.childs
+                                .1
+                                .set_size(bw.max(delta).min(space), self.height)
+                                .unwrap();
+                            space -= self.childs.1.width();
+                        } else if *w == cw as u32 {
+                            self.childs
+                                .2
+                                .set_size(cw.max(delta).min(space), self.height)
+                                .unwrap();
+                            space -= self.childs.2.width();
+                        } else {
+                            break;
+                        }
+                    }
+                }
 
-            	if order.len() > 0 {
-                	nodes.push(self.childs.0.create_node(x + dx, y));
+                if order.len() > 0 {
+                    nodes.push(self.childs.0.create_node(x + dx, y));
                     dx += self.childs.0.width();
-            	}
-            	if order.len() > 1 {
-                	nodes.push(self.childs.1.create_node(x + dx, y));
+                }
+                if order.len() > 1 {
+                    nodes.push(self.childs.1.create_node(x + dx, y));
                     dx += self.childs.1.width();
-            	}
-            	if order.len() > 2 {
-                	nodes.push(self.childs.2.create_node(x + dx, y));
-            	}
+                }
+                if order.len() > 2 {
+                    nodes.push(self.childs.2.create_node(x + dx, y));
+                }
             }
             Orientation::Vertical => {
                 let mut dy = 0.;
@@ -133,114 +133,132 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
                 );
                 let mut real_height = ah + bh + ch;
 
-				let mut order = Vec::new();
-				if real_height <= self.height {
-    				order.push(ah as u32);
-    				order.push(bh as u32);
-    				order.push(ch as u32);
-				} else if {
-    				real_height -= bh;
-    				real_height <= self.height
-				} {
-    				order.push(ah as u32);
-    				order.push(bh as u32);
-				} else if {
-    				real_height -= ch;
-    				real_height <= self.height
-				} {
-    				order.push(ah as u32);
-				} else {
-    				return RenderNode::None
-				}
-				order.sort();
+                let mut order = Vec::new();
+                if real_height <= self.height {
+                    order.push(ah as u32);
+                    order.push(bh as u32);
+                    order.push(ch as u32);
+                } else if {
+                    real_height -= bh;
+                    real_height <= self.height
+                } {
+                    order.push(ah as u32);
+                    order.push(bh as u32);
+                } else if {
+                    real_height -= ch;
+                    real_height <= self.height
+                } {
+                    order.push(ah as u32);
+                } else {
+                    return RenderNode::None;
+                }
+                order.sort();
 
                 let delta = (space / order.len() as f32).floor();
 
-				for h in order.iter().rev() {
-    				if space >= 0. {
-        				if *h == ah as u32 {
-                        	self.childs.0.set_size(
-                            	self.width,
-                            	ah.max(delta).min(space),
-                        	).unwrap();
-                        	space -= self.childs.0.height();
-        				} else if *h == bh as u32 {
-                        	self.childs.1.set_size(
-                            	self.width,
-                            	bh.max(delta).min(space),
-                        	).unwrap();
-                        	space -= self.childs.1.height();
-        				} else if *h == ch as u32 {
-                        	self.childs.2.set_size(
-                            	self.width,
-                            	ch.max(delta).min(space),
-                        	).unwrap();
-                        	space -= self.childs.2.height();
-        				} else {
-            				break;
-        				}
-    				}
-				}
+                for h in order.iter().rev() {
+                    if space >= 0. {
+                        if *h == ah as u32 {
+                            self.childs
+                                .0
+                                .set_size(self.width, ah.max(delta).min(space))
+                                .unwrap();
+                            space -= self.childs.0.height();
+                        } else if *h == bh as u32 {
+                            self.childs
+                                .1
+                                .set_size(self.width, bh.max(delta).min(space))
+                                .unwrap();
+                            space -= self.childs.1.height();
+                        } else if *h == ch as u32 {
+                            self.childs
+                                .2
+                                .set_size(self.width, ch.max(delta).min(space))
+                                .unwrap();
+                            space -= self.childs.2.height();
+                        } else {
+                            break;
+                        }
+                    }
+                }
 
-            	if order.len() > 0 {
-                	nodes.push(self.childs.0.create_node(x, y + dy));
+                if order.len() > 0 {
+                    nodes.push(self.childs.0.create_node(x, y + dy));
                     dy += self.childs.0.height();
-            	}
-            	if order.len() > 1 {
-                	nodes.push(self.childs.1.create_node(x, y + dy));
+                }
+                if order.len() > 1 {
+                    nodes.push(self.childs.1.create_node(x, y + dy));
                     dy += self.childs.1.height();
-            	}
-            	if order.len() > 2 {
-                	nodes.push(self.childs.2.create_node(x, y + dy));
-            	}
+                }
+                if order.len() > 2 {
+                    nodes.push(self.childs.2.create_node(x, y + dy));
+                }
             }
         }
         RenderNode::Container(nodes)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         match event {
-            Event::Pointer(mut x, mut y, p) => {
-                match &self.orientation {
-                    Orientation::Horizontal => {
-                        self.childs.0.sync(ctx, Event::Pointer(x, y, p));
-                        x -= self.childs.0.width();
+            Event::Pointer(mut x, mut y, p) => match &self.orientation {
+                Orientation::Horizontal => {
+                    self.childs.0.sync(ctx, Event::Pointer(x, y, p));
+                    x -= self.childs.0.width();
 
-                        self.childs.1.sync(ctx, Event::Pointer(x, y, p));
-                        x -= self.childs.1.width();
+                    self.childs.1.sync(ctx, Event::Pointer(x, y, p));
+                    x -= self.childs.1.width();
 
-                        self.childs.2.sync(ctx, Event::Pointer(x, y, p));
-                    }
-                    Orientation::Vertical => {
-                        self.childs.0.sync(ctx, Event::Pointer(x, y, p));
-                        y -= self.childs.0.height();
-
-                        self.childs.1.sync(ctx, Event::Pointer(x, y, p));
-                        y -= self.childs.1.height();
-
-                        self.childs.2.sync(ctx, Event::Pointer(x, y, p));
-                    }
+                    self.childs.2.sync(ctx, Event::Pointer(x, y, p));
                 }
-            }
+                Orientation::Vertical => {
+                    self.childs.0.sync(ctx, Event::Pointer(x, y, p));
+                    y -= self.childs.0.height();
+
+                    self.childs.1.sync(ctx, Event::Pointer(x, y, p));
+                    y -= self.childs.1.height();
+
+                    self.childs.2.sync(ctx, Event::Pointer(x, y, p));
+                }
+            },
             Event::Commit => {
                 self.childs.0.sync(ctx, event);
                 self.childs.1.sync(ctx, event);
                 self.childs.2.sync(ctx, event);
                 match &self.orientation {
                     Orientation::Horizontal => {
-                        self.width = self.width.max(self.childs.0.deref().width()
-                        	.max(self.childs.1.deref().width())
-                        	.max(self.childs.2.deref().width()) * 3.);
-                        self.height = self.childs.0.deref().height()
-                        	.max(self.childs.1.deref().height())
-                        	.max(self.childs.2.deref().height());
+                        self.width = self.width.max(
+                            self.childs
+                                .0
+                                .deref()
+                                .width()
+                                .max(self.childs.1.deref().width())
+                                .max(self.childs.2.deref().width())
+                                * 3.,
+                        );
+                        self.height = self
+                            .childs
+                            .0
+                            .deref()
+                            .height()
+                            .max(self.childs.1.deref().height())
+                            .max(self.childs.2.deref().height());
                     }
                     Orientation::Vertical => {
-                        self.width = self.childs.0.deref().width()
-                        	.max(self.childs.1.deref().width())
-                        	.max(self.childs.2.deref().width());
-                        self.height = self.height.max(self.childs.0.deref().height()
-                        	.max(self.childs.1.deref().height())
-                        	.max(self.childs.2.deref().height()) * 3.);
+                        self.width = self
+                            .childs
+                            .0
+                            .deref()
+                            .width()
+                            .max(self.childs.1.deref().width())
+                            .max(self.childs.2.deref().width());
+                        self.height = self.height.max(
+                            self.childs
+                                .0
+                                .deref()
+                                .height()
+                                .max(self.childs.1.deref().height())
+                                .max(self.childs.2.deref().height())
+                                * 3.,
+                        );
                     }
                 }
             }
@@ -254,11 +272,7 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
 }
 
 impl<'w, F: Widget, S: Widget, L: Widget> Deref for Centerbox<F, S, L> {
-    type Target = (
-        WidgetBox<F>,
-        WidgetBox<S>,
-        WidgetBox<L>,
-    );
+    type Target = (WidgetBox<F>, WidgetBox<S>, WidgetBox<L>);
     fn deref(&self) -> &Self::Target {
         &self.childs
     }

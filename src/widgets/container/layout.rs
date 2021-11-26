@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::Alignment;
+use crate::*;
 use scene::{Coords, RenderNode};
 
 pub struct Child {

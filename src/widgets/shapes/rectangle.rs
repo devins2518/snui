@@ -1,8 +1,8 @@
 use crate::widgets::shapes::*;
 use crate::*;
-use scene::{RenderNode};
+use scene::RenderNode;
 use std::f32::consts::{FRAC_PI_2, PI};
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
 use widgets::u32_to_source;
 
 const DRAW_OPTIONS: DrawOptions = DrawOptions {

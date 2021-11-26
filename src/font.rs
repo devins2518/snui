@@ -17,7 +17,7 @@ pub fn font_from_path(path: &Path) -> Font {
     Font::from_bytes(font, fontdue::FontSettings::default()).unwrap()
 }
 
-fn create_layout(max_width: Option<f32>, max_height: Option<f32>) -> (LayoutSettings, Layout) {
+pub fn create_layout(max_width: Option<f32>, max_height: Option<f32>) -> (LayoutSettings, Layout) {
     let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
     let setting = LayoutSettings {
         x: 0.,
@@ -33,7 +33,7 @@ fn create_layout(max_width: Option<f32>, max_height: Option<f32>) -> (LayoutSett
     (setting, layout)
 }
 
-fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
+pub fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
     let mut width = 0;
     let mut height = 0;
     for gp in glyphs {
@@ -63,14 +63,12 @@ impl FontProperty {
 #[derive(Debug)]
 pub struct FontCache {
     pub fonts: HashMap<FontProperty, GlyphCache>,
-    pub layouts: HashMap<Label, Vec<GlyphPosition<SolidSource>>>,
 }
 
 impl FontCache {
     pub fn new() -> Self {
         FontCache {
             fonts: HashMap::new(),
-            layouts: HashMap::new(),
         }
     }
     pub fn get_fonts(&self, fonts: &[FontProperty]) -> Vec<&Font> {
@@ -94,29 +92,46 @@ impl FontCache {
             );
         }
     }
-    pub fn layout_label(&mut self, label: &Label) -> (f32, f32) {
-        let fonts = self.get_fonts(&label.fonts);
-        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
-        for c in label.text.chars() {
+    pub fn write(&mut self, layout: &mut Layout<SolidSource>, label: &Label, string: &str) {
+        let fonts = self.get_fonts(label.fonts());
+        for c in label.text().chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
                     layout.append(
                         &fonts,
                         &TextStyle::with_user_data(
                             &c.to_string(),
-                            label.font_size as f32,
+                            label.font_size(),
                             i,
-                            label.source,
+                            label.source(),
                         ),
                     );
                     break;
                 }
             }
         }
-        let glyphs = layout.glyphs().clone();
-        let size = get_size(&glyphs);
-        self.layouts.insert(label.clone(), glyphs);
-        size
+    }
+    pub fn layout_label(&mut self, label: &Label) -> Layout<SolidSource> {
+        let fonts = self.get_fonts(label.fonts());
+        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
+        layout.reset(label.settings());
+        for c in label.text().chars() {
+            for (i, font) in fonts.iter().enumerate() {
+                if font.lookup_glyph_index(c) != 0 {
+                    layout.append(
+                        &fonts,
+                        &TextStyle::with_user_data(
+                            &c.to_string(),
+                            label.font_size(),
+                            i,
+                            label.source(),
+                        ),
+                    );
+                    break;
+                }
+            }
+        }
+        layout
     }
 }
 

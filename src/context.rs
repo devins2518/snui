@@ -102,7 +102,11 @@ impl<'c> SyncContext<'c> {
         self.sync = true;
     }
     pub fn new(model: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {
-        Self { sync: true, model, font_cache }
+        Self {
+            sync: true,
+            model,
+            font_cache,
+        }
     }
 }
 
@@ -180,7 +184,6 @@ impl<'c> DrawContext<'c> {
     }
     pub fn flush(&mut self) {
         self.pending_damage.clear();
-        self.font_cache.layouts.clear();
     }
     pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
         match &mut self.backend {
@@ -189,12 +192,12 @@ impl<'c> DrawContext<'c> {
         }
     }
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
-        if let Some(layout) = self.font_cache.layouts.get(label) {
-            for gp in layout {
+        if let Some(layout) = label.layout() {
+            for gp in layout.as_ref() {
                 if let Some(glyph_cache) = self
                     .font_cache
                     .fonts
-                    .get_mut(&label.fonts[gp.key.font_index as usize])
+                    .get_mut(&label.fonts()[gp.key.font_index as usize])
                 {
                     if let Some(pixmap) = glyph_cache.render_glyph(gp) {
                         match &mut self.backend {

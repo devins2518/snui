@@ -8,8 +8,8 @@ pub mod widgets;
 use context::*;
 use scene::RenderNode;
 use widgets::button::Button;
-use widgets::{WidgetBox, Alignment};
-use widgets::shapes::{WidgetExt};
+use widgets::shapes::WidgetExt;
+use widgets::{Alignment, WidgetBox};
 
 pub const FG: u32 = 0xff_C8_BA_A4;
 

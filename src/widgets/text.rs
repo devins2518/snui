@@ -1,3 +1,4 @@
+pub use crate::font::FontProperty;
 use crate::*;
 pub use fontdue::{
     layout,
@@ -8,30 +9,44 @@ pub use fontdue::{
 };
 use raqote::*;
 use scene::Instruction;
+use std::rc::Rc;
 use widgets::u32_to_source;
-use std::hash::{Hash, Hasher};
-pub use crate::font::FontProperty;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Label {
-    pub text: String,
-    pub font_size: f32,
-    pub source: SolidSource,
-    pub fonts: Vec<FontProperty>,
-    size: Option<(f32, f32)>,
+    text: String,
+    font_size: f32,
+    source: SolidSource,
+    settings: LayoutSettings,
+    fonts: Vec<FontProperty>,
+    layout: Option<Rc<Vec<GlyphPosition<SolidSource>>>>,
+    size: (f32, f32),
 }
 
-impl Hash for Label {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        ((self.font_size * 100.) as u32).hash(state);
-        self.text.hash(state);
-        self.source.a.hash(state);
-        self.source.r.hash(state);
-        self.source.g.hash(state);
-        self.source.b.hash(state);
-        for font in &self.fonts {
-            font.hash(state);
-        }
+pub struct Text {
+    label: Label,
+    buffer: Option<String>,
+    layout: Layout<SolidSource>,
+}
+
+impl Label {
+    pub fn text(&self) -> &str {
+        self.text.as_str()
+    }
+    pub fn font_size(&self) -> f32 {
+        self.font_size
+    }
+    pub fn fonts(&self) -> &[FontProperty] {
+        &self.fonts
+    }
+    pub fn source(&self) -> SolidSource {
+        self.source
+    }
+    pub fn settings(&self) -> &LayoutSettings {
+        &self.settings
+    }
+    pub fn layout(&self) -> Option<&Rc<Vec<GlyphPosition<SolidSource>>>> {
+        self.layout.as_ref()
     }
 }
 
@@ -40,6 +55,7 @@ impl PartialEq for Label {
         self.font_size == other.font_size
             && self.text == other.text
             && self.source == other.source
+            && self.settings == other.settings
             && self.fonts.len() > 0
             && other.fonts.len() > 0
             && self.fonts[0] == other.fonts[0]
@@ -51,14 +67,52 @@ impl PartialEq for Label {
 
 impl Eq for Label {}
 
+impl std::fmt::Debug for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Label")
+            .field("text", &self.text)
+            .field("font_size", &self.font_size)
+            .field("source", &self.source)
+            .field("fonts", &self.fonts)
+            .finish()
+    }
+}
+
+impl From<Label> for Text {
+    fn from(label: Label) -> Self {
+        Text {
+            label,
+            buffer: None,
+            layout: Layout::new(CoordinateSystem::PositiveYDown),
+        }
+    }
+}
+
+impl Text {
+    pub fn write(&mut self, s: &str) {
+        self.label.text.push_str(s);
+        if let Some(buf) = self.buffer.as_mut() {
+            buf.push_str(s);
+        } else {
+            self.buffer = Some(s.to_string());
+        }
+    }
+    pub fn edit(&mut self, s: &str) {
+        self.label.text = s.to_string();
+        self.label.layout = None;
+    }
+}
+
 impl Label {
     pub fn new(text: &str, font_size: f32) -> Label {
         Label {
             text: String::from(text),
             font_size,
             fonts: Vec::new(),
+            settings: LayoutSettings::default(),
             source: u32_to_source(FG),
-            size: None,
+            layout: None,
+            size: (0., 0.),
         }
     }
     pub fn font_property(mut self, font: FontProperty) -> Self {
@@ -73,35 +127,31 @@ impl Label {
         Label {
             text: String::from(text),
             font_size,
+            settings: LayoutSettings::default(),
             fonts: vec![FontProperty::new("Default")],
             source: u32_to_source(FG),
-            size: None,
+            layout: None,
+            size: (0., 0.),
         }
     }
 }
 
 impl Geometry for Label {
     fn width(&self) -> f32 {
-        if let Some((width, _)) = self.size {
-            return width;
-        }
-        0.
+        self.size.0
     }
     fn height(&self) -> f32 {
-        if let Some((_, height)) = self.size {
-            return height;
-        }
-        0.
+        self.size.1
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        Err(if let Some(size) = &self.size {
-            size.0
-        } else { 0. })
+        self.settings.max_width = Some(width);
+        self.layout = None;
+        Ok(())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        Err(if let Some(size) = &self.size {
-            size.1
-        } else { 0. })
+        self.settings.max_height = Some(height);
+        self.layout = None;
+        Ok(())
     }
 }
 
@@ -110,9 +160,41 @@ impl Widget for Label {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, _event: Event) {
-        if self.size.is_none() {
-            let size = ctx.font_cache.layout_label(self);
-            self.size = Some(size);
+        if self.layout.is_none() {
+            let layout = ctx.font_cache.layout_label(self).glyphs().clone();
+            self.size = font::get_size(&layout);
+            self.layout = Some(Rc::new(layout));
         }
+    }
+}
+
+impl Geometry for Text {
+    fn height(&self) -> f32 {
+        self.label.height()
+    }
+    fn width(&self) -> f32 {
+        self.label.width()
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.label.set_width(width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.label.set_height(height)
+    }
+}
+
+impl Widget for Text {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        self.label.create_node(x, y)
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+        if let Some(string) = &self.buffer {
+            ctx.font_cache.write(&mut self.layout, &self.label, string);
+            let glyphs = self.layout.glyphs().clone();
+            self.label.size = font::get_size(&glyphs);
+            self.label.layout = Some(Rc::new(glyphs));
+            self.buffer = None;
+        }
+        self.label.sync(ctx, event);
     }
 }

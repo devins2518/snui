@@ -106,7 +106,7 @@ impl Widget for Slider {
                             };
                             match ctx.send(Message::new(self.id, ratio)) {
                                 Ok(_) => ctx.sync(),
-                                Err(e) => eprintln!("{} : {:?}", self.id, e)
+                                Err(e) => eprintln!("{} : {:?}", self.id, e),
                             }
                         }
                     }
@@ -117,20 +117,24 @@ impl Widget for Slider {
                         let ratio = match &self.orientation {
                             Orientation::Horizontal => {
                                 let min = self.slider.radius[0].min(self.slider.radius[3]);
-                                self.slider.set_width(
-                                    (self.slider.width - value).clamp(min, self.width())).unwrap();
+                                self.slider
+                                    .set_width((self.slider.width - value).clamp(min, self.width()))
+                                    .unwrap();
                                 self.slider.width / self.size
                             }
                             Orientation::Vertical => {
                                 let min = self.slider.radius[1].min(self.slider.radius[2]);
-                                self.slider.set_height(
-                                    (self.slider.height - value).clamp(min, self.height())).unwrap();
+                                self.slider
+                                    .set_height(
+                                        (self.slider.height - value).clamp(min, self.height()),
+                                    )
+                                    .unwrap();
                                 self.slider.height / self.size
                             }
                         };
                         match ctx.send(Message::new(self.id, ratio)) {
                             Ok(_) => ctx.sync(),
-                            Err(e) => eprintln!("{} : {:?}", self.id, e)
+                            Err(e) => eprintln!("{} : {:?}", self.id, e),
                         }
                     }
                     Pointer::Hover => {
@@ -157,7 +161,7 @@ impl Widget for Slider {
                 };
                 match ctx.send(Message::new(self.id, ratio)) {
                     Ok(_) => ctx.sync(),
-                    Err(e) => eprintln!("{} : {:?}", self.id, e)
+                    Err(e) => eprintln!("{} : {:?}", self.id, e),
                 }
             }
         }

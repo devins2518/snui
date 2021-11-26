@@ -255,7 +255,9 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 style: Style::border(color, size),
                 radius: if let Some(background) = &self.background {
                     background.radius
-                } else { [0.; 4] },
+                } else {
+                    [0.; 4]
+                },
             }
         };
         Self {
@@ -317,9 +319,8 @@ impl<W: Widget> Geometry for WidgetExt<W> {
         if let Some(border) = self.border.as_mut() {
             border.set_width(width)?;
         }
-        self.child.set_width(
-            width - self.padding[1] - self.padding[3],
-        )?;
+        self.child
+            .set_width(width - self.padding[1] - self.padding[3])?;
         Ok(())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
@@ -329,9 +330,8 @@ impl<W: Widget> Geometry for WidgetExt<W> {
         if let Some(border) = self.border.as_mut() {
             border.set_height(height)?;
         }
-        self.child.set_height(
-            height - self.padding[0] - self.padding[2],
-        )?;
+        self.child
+            .set_height(height - self.padding[0] - self.padding[2])?;
         Ok(())
     }
     fn width(&self) -> f32 {
@@ -376,10 +376,11 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 .create_node(x + self.padding[3] + border, y + self.padding[0] + border)
         } else if self.border.is_none() {
             RenderNode::Extension {
-                node: Box::new(
+                node: Box::new((
                     self.child
                         .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
-                ),
+                    RenderNode::None,
+                )),
                 background: {
                     let width = self.width();
                     let height = self.height();
@@ -408,24 +409,20 @@ impl<W: Widget> Widget for WidgetExt<W> {
             ])
         } else {
             RenderNode::Extension {
-                node: Box::new({
-                    RenderNode::Container(vec![
-                        self.child.create_node(
-                            x + self.padding[3] + border,
-                            y + self.padding[0] + border,
-                        ),
-                        RenderNode::Instruction({
-                            let width = self.width();
-                            let height = self.height();
-                            self.border
-                                .as_mut()
-                                .unwrap()
-                                .set_size(width, height)
-                                .unwrap();
-                            Instruction::new(x, y, self.border.clone().unwrap())
-                        }),
-                    ])
-                }),
+                node: Box::new((
+                    self.child
+                        .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
+                    RenderNode::Instruction({
+                        let width = self.width();
+                        let height = self.height();
+                        self.border
+                            .as_mut()
+                            .unwrap()
+                            .set_size(width, height)
+                            .unwrap();
+                        Instruction::new(x, y, self.border.clone().unwrap())
+                    }),
+                )),
                 background: {
                     let width = self.width();
                     let height = self.height();

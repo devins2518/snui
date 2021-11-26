@@ -110,13 +110,13 @@ impl Instruction {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RenderNode {
     None,
     Instruction(Instruction),
     Extension {
         background: Instruction,
-        node: Box<RenderNode>,
+        node: Box<(RenderNode, RenderNode)>,
     },
     Container(Vec<RenderNode>),
 }
@@ -175,7 +175,9 @@ impl RenderNode {
             }
             Self::Extension { background, node } => {
                 background.render(ctx);
-                node.render(ctx);
+                let (child, border) = node.as_ref();
+                child.render(ctx);
+                border.render(ctx);
             }
             _ => {}
         }
@@ -183,14 +185,13 @@ impl RenderNode {
     fn clear(&self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(instruction) => {
-                ctx.damage_region(
-                    bg, &instruction.region()
-                );
+                ctx.damage_region(bg, &instruction.region());
             }
-            RenderNode::Extension { background, node:_ } => {
-                ctx.damage_region(
-                    bg, &background.region()
-                );
+            RenderNode::Extension {
+                background,
+                node: _,
+            } => {
+                ctx.damage_region(bg, &background.region());
             }
             RenderNode::Container(nodes) => {
                 for node in nodes {
@@ -210,7 +211,7 @@ impl RenderNode {
                         b.render(ctx);
                     }
                 }
-                RenderNode::None => {},
+                RenderNode::None => {}
                 _ => {
                     ctx.damage_region(bg, &a.region());
                     other.render(ctx);
@@ -227,19 +228,20 @@ impl RenderNode {
                         }
                     }
                 }
-                RenderNode::None => {},
+                RenderNode::None => {}
                 _ => {
                     self.clear(ctx, bg);
                     other.render(ctx);
                 }
             },
             RenderNode::Extension { background, node } => {
-                let this_node = node;
                 let this_background = background;
+                let (this_child, this_border) = node.as_ref();
                 if let RenderNode::Extension { background, node } = other {
-                    if this_background == background {
-                        this_node.find_diff(
-                            node,
+                    let (other_child, other_border) = node.as_ref();
+                    if this_background == background && this_border == other_border {
+                        this_child.find_diff(
+                            other_child,
                             ctx,
                             &bg.merge(Background::from(this_background)),
                         );

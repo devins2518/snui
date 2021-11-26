@@ -1,6 +1,6 @@
 use crate::context::Backend;
 use crate::context::DrawContext;
-use crate::data::{Controller};
+use crate::data::Controller;
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::Buffer;
@@ -917,7 +917,11 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
                 application.inner[index].dispatch(Event::Pointer(x as f32, y as f32, input));
             }
         }
-        wl_pointer::Event::Axis { time: _, axis, value } => {
+        wl_pointer::Event::Axis {
+            time: _,
+            axis,
+            value,
+        } => {
             input = Pointer::Scroll {
                 orientation: match axis {
                     wl_pointer::Axis::VerticalScroll => Orientation::Vertical,
