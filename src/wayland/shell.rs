@@ -217,11 +217,8 @@ impl Surface {
                 .damage(d.x as i32, d.y as i32, d.width as i32, d.height as i32);
         }
     }
-    fn attach_buffer(&mut self, buffer: WlBuffer, _x: i32, _y: i32) {
+    fn attach_buffer(&mut self, buffer: WlBuffer) {
         self.buffer = Some(buffer);
-    }
-    fn is_alive(&self) -> bool {
-        self.alive
     }
 }
 
@@ -641,7 +638,7 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 }
 
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
-    pub fn sync(&mut self, ev: Event) {
+    fn sync(&mut self, ev: Event) {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
         self.widget.sync(&mut sync_ctx, ev);
         while sync_ctx.sync {
@@ -831,12 +828,13 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         if self.core.ctx.draw_target.width() != width as i32
             || self.core.ctx.draw_target.height() != height as i32
         {
-            self.core.set_size(width, height).unwrap();
+            if let Err(size) = self.core.set_size(width, height) {
+                eprintln!("Minimim surface size: {} x {}", size.0, size.1)
+            }
         }
 
-        // println!("{:#?}", recent_node);
         if let Some(render_node) = &self.core.ctx.render_node {
-            render_node.find_diff(
+            render_node.invalidate(
                 &recent_node,
                 &mut DrawContext::new(
                     Backend::Raqote(&mut self.core.ctx.draw_target),
@@ -864,7 +862,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                         Buffer::new(pool, Backend::Raqote(&mut self.core.ctx.draw_target))
                     {
                         buffer.merge();
-                        surface.attach_buffer(wl_buffer, 0, 0);
+                        surface.attach_buffer(wl_buffer);
                         surface.damage(&v);
                         surface.commit();
                     }

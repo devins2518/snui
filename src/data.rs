@@ -34,6 +34,7 @@ impl<'m> Message<'m> {
 #[derive(Clone, Copy, Debug)]
 pub enum ControllerError {
     Block,
+    WrongObject,
     NonBlocking,
     WrongSerial,
     PendingSerial,
@@ -45,8 +46,7 @@ pub trait Controller {
     fn serialize(&mut self, msg: Message) -> Result<u32, ControllerError>;
     // Ends the serialization
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
-    // These interface are from the pov
-    // of the widgets
+    // These interface are from the pov of the widgets
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
@@ -118,7 +118,7 @@ impl Controller for DummyController {
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError> {
         println!("<- {:?}", msg);
         println!("-> Null");
-        Ok(Data::Null)
+        Err(ControllerError::WrongObject)
     }
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
         if let Some(serial) = &self.serial {
@@ -126,6 +126,6 @@ impl Controller for DummyController {
         } else {
             println!("<- {:?}", msg);
         }
-        Ok(Data::Null)
+        Err(ControllerError::WrongObject)
     }
 }

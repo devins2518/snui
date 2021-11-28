@@ -19,16 +19,25 @@ const ATOP_OPTIONS: DrawOptions = DrawOptions {
 
 impl Style {
     pub fn solid(color: u32) -> Self {
-        Style::Solid(u32_to_source(color))
+        Style::Background(Background::Color(u32_to_source(color)))
     }
     pub fn border(color: u32, size: f32) -> Self {
         Style::Border(u32_to_source(color), size)
     }
+    pub fn background(&self) -> Background {
+        match self {
+            Style::Background(background) => background.clone(),
+            _ => Background::Transparent,
+        }
+    }
     pub fn source(&self) -> SolidSource {
         match self {
-            Style::Solid(source) => *source,
+            Style::Background(background) => match background {
+                Background::Transparent => u32_to_source(0),
+                Background::Color(source) => *source,
+                _ => panic!("Composite doesn't own a SolidSource"),
+            },
             Style::Border(source, _) => *source,
-            _ => panic!("Gradient doesn't own a SolidSource"),
         }
     }
 }
@@ -77,6 +86,11 @@ impl Geometry for Rectangle {
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width.is_sign_positive() {
+            if let Style::Background(background) = &mut self.style {
+                if let Background::Image(img) = background {
+                    img.set_width(width)?;
+                }
+            }
             self.width = width.round();
             return Ok(());
         }
@@ -84,6 +98,11 @@ impl Geometry for Rectangle {
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height.is_sign_positive() {
+            if let Style::Background(background) = &mut self.style {
+                if let Background::Image(img) = background {
+                    img.set_height(height)?;
+                }
+            }
             self.height = height.round();
             return Ok(());
         }
@@ -150,9 +169,28 @@ impl Primitive for Rectangle {
 
         if let Backend::Raqote(dt) = ctx.deref_mut() {
             match &self.style {
-                Style::Solid(source) => {
-                    dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
-                }
+                Style::Background(background) => match background {
+                    Background::Color(source) => {
+                        dt.fill(&path, &Source::Solid(*source), &DRAW_OPTIONS);
+                    }
+                    Background::Image(image) => {
+                        let image = image.as_image();
+                        dt.fill(
+                            &path,
+                            &Source::Image(
+                                image,
+                                ExtendMode::Pad,
+                                FilterMode::Nearest,
+                                Transform::create_translation(-x, -y).post_scale(
+                                    image.width as f32 / self.width,
+                                    image.height as f32 / self.height,
+                                ),
+                            ),
+                            &DRAW_OPTIONS,
+                        );
+                    }
+                    _ => {}
+                },
                 Style::Border(source, border) => {
                     let stroke = StrokeStyle {
                         width: *border,
@@ -164,41 +202,42 @@ impl Primitive for Rectangle {
                     };
                     dt.stroke(&path, &Source::Solid(*source), &stroke, &ATOP_OPTIONS);
                 }
-                Style::LinearGradient(grad, spread) => {
-                    let source = Source::new_linear_gradient(
-                        grad.as_ref().clone(),
-                        Point::new(x, y),
-                        Point::new(x + self.width, y + self.height),
-                        *spread,
-                    );
-                    dt.fill(&path, &source, &DRAW_OPTIONS);
-                }
-                Style::RadialGradient(grad, spread, rad) => {
-                    let source = Source::new_radial_gradient(
-                        grad.as_ref().clone(),
-                        Point::new(x, y),
-                        *rad,
-                        *spread,
-                    );
-                    dt.fill(&path, &source, &DRAW_OPTIONS);
-                }
             }
         }
     }
 }
 
 impl Shape for Rectangle {
+    fn set_radius(&mut self, radius: f32) {
+        self.radius = [radius; 4];
+    }
     fn radius(mut self, radius: f32) -> Self {
         self.radius = [radius; 4];
         self
     }
-    fn background(mut self, color: u32) -> Self {
-        self.style = Style::solid(color);
+    fn set_background(&mut self, background: Background) {
+        self.style = Style::Background(background);
+    }
+    fn background(mut self, mut background: Background) -> Self {
+        if let Background::Image(img) = &mut background {
+            img.set_size(self.width(), self.height()).unwrap();
+        }
+        self.style = Style::Background(background);
         self
+    }
+    fn set_border(&mut self, color: u32, width: f32) {
+        self.style = Style::border(color, width);
     }
     fn border(mut self, color: u32, width: f32) -> Self {
         self.style = Style::border(color, width);
         self
+    }
+    fn set_border_color(&mut self, color: u32) {
+        if let Style::Border(_, width) = self.style {
+            self.style = Style::border(color, width);
+        } else {
+            self.style = Style::border(color, 0.);
+        }
     }
     fn border_color(mut self, color: u32) -> Self {
         if let Style::Border(_, width) = self.style {
@@ -207,6 +246,13 @@ impl Shape for Rectangle {
             self.style = Style::border(color, 0.);
         }
         self
+    }
+    fn set_border_width(&mut self, width: f32) {
+        if let Style::Border(color, _) = self.style {
+            self.style = Style::Border(color, width);
+        } else {
+            self.style = Style::border(0, width);
+        }
     }
     fn border_width(mut self, width: f32) -> Self {
         if let Style::Border(color, _) = self.style {

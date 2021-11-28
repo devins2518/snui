@@ -90,28 +90,25 @@ impl FontCache {
                 },
                 glyph_cache,
             );
+        } else {
+            eprintln!("No font at {:?}", path);
         }
     }
-    pub fn write(&mut self, layout: &mut Layout<SolidSource>, label: &Label, string: &str) {
+    pub fn write(&mut self, layout: &mut Layout, label: &Label, _string: &str) {
         let fonts = self.get_fonts(label.fonts());
         for c in label.text().chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
                     layout.append(
                         &fonts,
-                        &TextStyle::with_user_data(
-                            &c.to_string(),
-                            label.font_size(),
-                            i,
-                            label.source(),
-                        ),
+                        &TextStyle::new(&c.to_string(), label.font_size(), i),
                     );
                     break;
                 }
             }
         }
     }
-    pub fn layout_label(&mut self, label: &Label) -> Layout<SolidSource> {
+    pub fn layout(&mut self, label: &Label) -> Layout {
         let fonts = self.get_fonts(label.fonts());
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.reset(label.settings());
@@ -120,12 +117,7 @@ impl FontCache {
                 if font.lookup_glyph_index(c) != 0 {
                     layout.append(
                         &fonts,
-                        &TextStyle::with_user_data(
-                            &c.to_string(),
-                            label.font_size(),
-                            i,
-                            label.source(),
-                        ),
+                        &TextStyle::new(&c.to_string(), label.font_size(), i),
                     );
                     break;
                 }
@@ -162,7 +154,7 @@ impl GlyphCache {
             FontResult::Err("Invalid path")
         }
     }
-    pub fn render_glyph(&mut self, glyph: &GlyphPosition<SolidSource>) -> Option<Vec<u32>> {
+    pub fn render_glyph(&mut self, glyph: &GlyphPosition, source: SolidSource) -> Option<Vec<u32>> {
         if !glyph.char_data.is_missing() {
             let pixmap: Vec<u32>;
             if let Some(coverage) = self.glyphs.get(&glyph.key) {
@@ -172,13 +164,8 @@ impl GlyphCache {
                         if a == &0 {
                             0
                         } else {
-                            SolidSource::from_unpremultiplied_argb(
-                                *a,
-                                glyph.user_data.r,
-                                glyph.user_data.g,
-                                glyph.user_data.b,
-                            )
-                            .to_u32()
+                            SolidSource::from_unpremultiplied_argb(*a, source.r, source.g, source.b)
+                                .to_u32()
                         }
                     })
                     .collect();
@@ -190,13 +177,8 @@ impl GlyphCache {
                         if a == &0 {
                             0
                         } else {
-                            SolidSource::from_unpremultiplied_argb(
-                                *a,
-                                glyph.user_data.r,
-                                glyph.user_data.g,
-                                glyph.user_data.b,
-                            )
-                            .to_u32()
+                            SolidSource::from_unpremultiplied_argb(*a, source.r, source.g, source.b)
+                                .to_u32()
                         }
                     })
                     .collect();

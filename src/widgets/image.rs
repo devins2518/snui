@@ -10,7 +10,6 @@ pub struct Image {
     image: Arc<[u8]>,
     width: u32,
     height: u32,
-    radius: [f32; 4],
     size: (u32, u32),
 }
 
@@ -26,7 +25,6 @@ impl Image {
             width,
             height,
             size: (width, height),
-            radius: [0.; 4],
         })
     }
     pub fn new_with_size(
@@ -44,8 +42,24 @@ impl Image {
             width,
             height,
             size,
-            radius: [0.; 4],
         })
+    }
+    pub fn scale(&self) -> (f32, f32) {
+        (
+            self.size.0 as f32 / self.width as f32,
+            self.size.1 as f32 / self.height as f32,
+        )
+    }
+    pub fn as_image<'i>(&'i self) -> raqote::Image<'i> {
+        let p = self.image.as_ptr();
+        let len = self.image.len();
+        let data =
+            unsafe { std::slice::from_raw_parts(p as *mut u32, len / std::mem::size_of::<u32>()) };
+        raqote::Image {
+            width: self.size.0 as i32,
+            height: self.size.1 as i32,
+            data,
+        }
     }
 }
 

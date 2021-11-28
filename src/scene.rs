@@ -1,7 +1,6 @@
 use crate::*;
 use context::DrawContext;
 use raqote::*;
-use std::cmp::Ordering;
 use widgets::blend;
 use widgets::shapes::*;
 use widgets::text::*;
@@ -22,33 +21,64 @@ impl From<(f32, f32)> for Coords {
     }
 }
 
+impl Coords {
+    pub fn new(x: f32, y: f32) -> Coords {
+        Coords { x, y }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Background {
     Transparent,
+    Image(Image),
     Composite {
         coords: Coords,
-        image: Image,
+        base: Box<Background>,
         overlay: Box<Background>,
     },
     Color(SolidSource),
 }
 
+impl From<Style> for Background {
+    fn from(style: Style) -> Self {
+        match style {
+            Style::Background(bg) => bg,
+            Style::Border(_, _) => Background::Transparent,
+        }
+    }
+}
+
+impl From<u32> for Background {
+    fn from(color: u32) -> Self {
+        Background::Color(widgets::u32_to_source(color))
+    }
+}
+
 impl Background {
-    pub fn from(instruction: &Instruction) -> Self {
+    pub fn solid(color: u32) -> Background {
+        Background::Color(widgets::u32_to_source(color))
+    }
+    pub fn image(path: &std::path::Path) -> Background {
+        Background::Image(Image::new(path).unwrap())
+    }
+    fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
-            PrimitiveType::Rectangle(r) => Background::Color(r.style.source()),
+            PrimitiveType::Rectangle(r) => r.style.background(),
             PrimitiveType::Image(image) => Background::Composite {
                 coords: instruction.coords,
-                image: image.clone(),
                 overlay: Box::new(Background::Transparent),
+                base: Box::new(Background::Image(image.clone())),
             },
             _ => Background::Transparent,
         }
     }
-    pub fn merge(&self, other: Self) -> Self {
-        match other {
-            Background::Color(bsource) => match self {
-                Background::Color(asource) => {
+    fn merge<C: Into<Coords>>(&self, other: Self, local: C) -> Self {
+        match self {
+            Background::Color(asource) => match other {
+                Background::Color(bsource) => {
+                    if bsource.a == 255 {
+                        return other;
+                    }
                     let source = blend(
                         &asource.to_u32().to_be_bytes(),
                         &bsource.to_u32().to_be_bytes(),
@@ -61,11 +91,53 @@ impl Background {
                         b: source[3],
                     })
                 }
-                Background::Transparent => other,
-                // To-do
-                _ => other,
+                Background::Transparent => self.clone(),
+                Background::Image(_) => Background::Composite {
+                    coords: local.into(),
+                    base: Box::new(self.clone()),
+                    overlay: Box::new(other),
+                },
+                Background::Composite {
+                    coords,
+                    base: _,
+                    overlay: _,
+                } => Background::Composite {
+                    coords: coords.clone(),
+                    base: Box::new(self.clone()),
+                    overlay: Box::new(other),
+                },
             },
-            _ => self.clone(),
+            Background::Image(_) => {
+                if let Background::Color(source) = other {
+                    if source.a == 255 {
+                        return other;
+                    }
+                }
+                Background::Composite {
+                    coords: local.into(),
+                    base: Box::new(self.clone()),
+                    overlay: Box::new(other),
+                }
+            }
+            Background::Composite {
+                coords,
+                base,
+                overlay,
+            } => Background::Composite {
+                coords: coords.clone(),
+                base: base.clone(),
+                overlay: Box::new(overlay.as_ref().merge(other, local)),
+            },
+            Background::Transparent => {
+                if let Background::Image(_) = other {
+                    return Background::Composite {
+                        coords: local.into(),
+                        base: Box::new(other),
+                        overlay: Box::new(Background::Transparent),
+                    };
+                }
+                other
+            }
         }
     }
 }
@@ -112,6 +184,7 @@ impl Instruction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenderNode {
+    // Add a region to None
     None,
     Instruction(Instruction),
     Extension {
@@ -119,12 +192,6 @@ pub enum RenderNode {
         node: Box<(RenderNode, RenderNode)>,
     },
     Container(Vec<RenderNode>),
-}
-
-impl Coords {
-    pub fn new(x: f32, y: f32) -> Coords {
-        Coords { x, y }
-    }
 }
 
 impl Instruction {
@@ -202,7 +269,10 @@ impl RenderNode {
         }
     }
 
-    pub fn find_diff<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
+    /*
+     * Renders to the DrawContext where the RenderNode differs
+     */
+    pub fn invalidate<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(b) => {
@@ -224,7 +294,7 @@ impl RenderNode {
                         other.render(ctx);
                     } else {
                         for i in 0..ov.len().min(sv.len()) {
-                            sv[i].find_diff(&ov[i], ctx, bg);
+                            sv[i].invalidate(&ov[i], ctx, bg);
                         }
                     }
                 }
@@ -240,27 +310,24 @@ impl RenderNode {
                 if let RenderNode::Extension { background, node } = other {
                     let (other_child, other_border) = node.as_ref();
                     if this_background == background && this_border == other_border {
-                        this_child.find_diff(
+                        this_child.invalidate(
                             other_child,
                             ctx,
-                            &bg.merge(Background::from(this_background)),
+                            &bg.merge(Background::from(this_background), this_background.region()),
                         );
                     } else {
-                        ctx.damage_region(
-                            &Background::from(this_background),
-                            &this_background.region(),
-                        );
+                        ctx.damage_region(bg, &this_background.region());
                         other.render(ctx);
                     }
                 } else {
-                    ctx.damage_region(
-                        &Background::from(this_background),
-                        &this_background.region(),
-                    );
+                    ctx.damage_region(bg, &this_background.region());
                     other.render(ctx);
                 }
             }
-            RenderNode::None => other.render(ctx),
+            RenderNode::None => {
+                other.clear(ctx, bg);
+                other.render(ctx)
+            }
         }
     }
 }
@@ -271,6 +338,12 @@ pub struct Region {
     pub y: f32,
     pub width: f32,
     pub height: f32,
+}
+
+impl From<Region> for Coords {
+    fn from(r: Region) -> Self {
+        Coords::new(r.x, r.y)
+    }
 }
 
 impl Region {
@@ -289,10 +362,12 @@ impl Region {
             && self.height == other.height
     }
     pub fn crop_region(&self, other: &Self) -> Region {
-        let max = self.max(other);
-        let min = self.min(other);
-
-        Region::new(max.x - min.x, max.y - min.y, min.width, min.height)
+        Region::new(
+            self.x.max(other.x),
+            self.y.max(other.y),
+            self.width.min(other.width),
+            self.height.min(other.height),
+        )
     }
     pub fn merge(&mut self, other: &Self) {
         if self.contains(other.x, other.y) {
@@ -320,31 +395,5 @@ impl PartialEq for Region {
     }
     fn ne(&self, other: &Self) -> bool {
         !self.eq(other)
-    }
-}
-
-impl PartialOrd for Region {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.x > other.x + other.width || self.y > other.y + other.height {
-            Some(Ordering::Greater)
-        } else if self.x + self.width < other.x || self.y + self.height < other.y {
-            Some(Ordering::Less)
-        } else {
-            Some(Ordering::Equal)
-        }
-    }
-}
-
-impl Eq for Region {}
-
-impl Ord for Region {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self < other {
-            Ordering::Less
-        } else if self > other {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
     }
 }

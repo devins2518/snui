@@ -40,10 +40,24 @@ pub struct WidgetLayout {
 
 impl Geometry for WidgetLayout {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        Err(self.width())
+        if let Orientation::Vertical = &self.orientation {
+            for child in self.widgets.iter_mut() {
+                child.set_width(width)?
+            }
+            Ok(())
+        } else {
+            Err(self.width())
+        }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        Err(self.height())
+        if let Orientation::Horizontal = &self.orientation {
+            for child in self.widgets.iter_mut() {
+                child.set_height(height)?
+            }
+            Ok(())
+        } else {
+            Err(self.height())
+        }
     }
     fn width(&self) -> f32 {
         let mut width = 0.;
@@ -180,7 +194,6 @@ impl Widget for WidgetLayout {
         )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
-        // To-do
         for child in self.widgets.iter_mut() {
             if let Event::Pointer(mut x, mut y, p) = event {
                 x -= child.coords.x;

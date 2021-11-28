@@ -150,23 +150,39 @@ impl<'c> DrawContext<'c> {
                 ),
                 _ => {}
             },
-            Background::Transparent => match &mut self.backend {
-                Backend::Raqote(dt) => dt.fill_rect(
-                    region.x,
-                    region.y,
-                    region.width,
-                    region.height,
-                    &Source::Solid(u32_to_source(0)),
-                    &DrawOptions {
-                        alpha: 1.,
-                        antialias: AntialiasMode::Gray,
-                        blend_mode: BlendMode::SrcIn,
-                    },
-                ),
-                _ => {}
-            },
-            // To-do
-            _ => unreachable!(),
+            Background::Composite {
+                coords,
+                base,
+                overlay,
+            } => {
+                let crop;
+                if let Background::Image(image) = base.as_ref() {
+                    crop = Region::new(coords.x, coords.y, image.width(), image.height())
+                        .crop_region(region);
+                    self.damage_region(base.as_ref(), region);
+                    let (x, y) = image.scale();
+                    let source = image.as_image();
+                    if let Backend::Raqote(dt) = &mut self.backend {
+                        dt.fill_rect(
+                            region.x,
+                            region.y,
+                            region.width,
+                            region.height,
+                            &Source::Image(
+                                source,
+                                ExtendMode::Pad,
+                                FilterMode::Bilinear,
+                                Transform::create_translation(coords.x, coords.y).post_scale(x, y),
+                            ),
+                            &ATOP_OPTIONS,
+                        );
+                    }
+                } else {
+                    crop = *region;
+                }
+                self.damage_region(overlay.as_ref(), &crop);
+            }
+            _ => {}
         }
         self.pending_damage.push(*region);
     }
@@ -199,7 +215,7 @@ impl<'c> DrawContext<'c> {
                     .fonts
                     .get_mut(&label.fonts()[gp.key.font_index as usize])
                 {
-                    if let Some(pixmap) = glyph_cache.render_glyph(gp) {
+                    if let Some(pixmap) = glyph_cache.render_glyph(gp, label.source()) {
                         match &mut self.backend {
                             Backend::Raqote(dt) => dt.draw_image_at(
                                 x.round() + gp.x,

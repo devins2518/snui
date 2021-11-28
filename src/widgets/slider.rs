@@ -169,14 +169,29 @@ impl Widget for Slider {
 }
 
 impl Shape for Slider {
-    fn background(self, color: u32) -> Self {
+    fn set_background(&mut self, background: scene::Background) {
+        self.slider.set_background(background);
+    }
+    fn set_border(&mut self, color: u32, width: f32) {
+        self.slider.set_border(color, width);
+    }
+    fn set_border_color(&mut self, color: u32) {
+        self.slider.set_border_color(color);
+    }
+    fn set_radius(&mut self, radius: f32) {
+        self.slider.set_radius(radius);
+    }
+    fn set_border_width(&mut self, width: f32) {
+        self.slider.set_border_width(width);
+    }
+    fn background(self, background: scene::Background) -> Self {
         Self {
             id: self.id,
             size: self.size,
             step: self.step,
             pressed: false,
             orientation: self.orientation,
-            slider: self.slider.background(color),
+            slider: self.slider.background(background),
         }
     }
     fn border(self, color: u32, width: f32) -> Self {

@@ -8,6 +8,7 @@ pub mod text;
 use crate::scene::Coords;
 pub use crate::widgets::image::Image;
 use crate::*;
+pub use button::Button;
 pub use container::layout::WidgetLayout;
 use raqote::*;
 pub use shapes::Shape;
@@ -118,7 +119,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
         }
     }
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        if self.constraint == Constraint::Fixed
+        if (self.constraint == Constraint::Fixed || self.constraint == Constraint::Upward)
             && (self.child.width() > self.size.0 || self.child.height() > self.size.1)
         {
             eprintln!(

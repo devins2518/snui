@@ -1,6 +1,6 @@
 use crate::widgets::*;
 use crate::*;
-use scene::{Coords, RenderNode};
+use scene::RenderNode;
 use std::ops::{Deref, DerefMut};
 
 pub struct Centerbox<F: Widget, S: Widget, L: Widget> {

@@ -5,127 +5,30 @@ use crate::scene::*;
 use crate::*;
 use raqote::*;
 pub use rectangle::Rectangle;
-use std::sync::Arc;
-// pub use button::Button;
 use std::ops::{Deref, DerefMut};
 
 pub trait Shape {
     fn radius(self, radius: f32) -> Self;
-    fn background(self, color: u32) -> Self;
+    fn background(self, background: Background) -> Self;
     fn border_width(self, width: f32) -> Self;
     fn border_color(self, color: u32) -> Self;
     fn border(self, color: u32, width: f32) -> Self;
+    fn set_radius(&mut self, radius: f32);
+    fn set_background(&mut self, background: Background);
+    fn set_border_width(&mut self, width: f32);
+    fn set_border_color(&mut self, color: u32);
+    fn set_border(&mut self, color: u32, width: f32);
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Style {
-    Solid(SolidSource),
+    Background(Background),
     Border(SolidSource, f32),
-    LinearGradient(Arc<Gradient>, Spread),
-    RadialGradient(Arc<Gradient>, Spread, f32),
 }
 
-impl PartialEq for Style {
-    fn eq(&self, other: &Self) -> bool {
-        match &self {
-            Self::Solid(s) => {
-                if let Self::Solid(o) = other {
-                    return s == o;
-                }
-            }
-            Self::Border(s, b) => {
-                if let Self::Border(o, ob) = other {
-                    return s == o && b == ob;
-                }
-            }
-            Self::LinearGradient(sg, s) => {
-                if let Self::LinearGradient(og, os) = other {
-                    return match s {
-                        Spread::Pad => {
-                            if let Spread::Pad = os {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        Spread::Reflect => {
-                            if let Spread::Reflect = os {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        Spread::Repeat => {
-                            if let Spread::Repeat = os {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    } && Arc::as_ptr(sg) == Arc::as_ptr(og);
-                }
-            }
-            Self::RadialGradient(sg, s, r) => {
-                if let Self::RadialGradient(og, os, or) = other {
-                    return match s {
-                        Spread::Pad => {
-                            if let Spread::Pad = os {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        Spread::Repeat => {
-                            if let Spread::Repeat = os {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        Spread::Reflect => {
-                            if let Spread::Reflect = os {
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    } && r == or
-                        && Arc::as_ptr(sg) == Arc::as_ptr(og);
-                }
-            }
-        }
-        false
-    }
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
-}
-
-impl std::fmt::Debug for Style {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            Self::Solid(s) => f.debug_tuple("Solid").field(s).finish(),
-            Self::Border(s, b) => f.debug_tuple("Border").field(s).field(b).finish(),
-            Self::LinearGradient(g, s) => f
-                .debug_tuple("LinearGradient")
-                .field(g)
-                .field(&match s {
-                    Spread::Pad => "Pad",
-                    Spread::Reflect => "Reflect",
-                    Spread::Repeat => "Repeat",
-                })
-                .finish(),
-            Self::RadialGradient(g, s, r) => f
-                .debug_tuple("RadialGradient")
-                .field(g)
-                .field(r)
-                .field(&match s {
-                    Spread::Pad => "Pad",
-                    Spread::Reflect => "Reflect",
-                    Spread::Repeat => "Repeat",
-                })
-                .finish(),
-        }
+impl From<u32> for Style {
+    fn from(color: u32) -> Self {
+        Style::Background(color.into())
     }
 }
 
@@ -199,6 +102,14 @@ impl<W: Widget + Shape> WidgetExt<W> {
 }
 
 impl<W: Widget> Shape for WidgetExt<W> {
+    fn set_radius(&mut self, radius: f32) {
+        if let Some(rect) = self.background.as_mut() {
+            rect.set_radius(radius)
+        }
+        if let Some(rect) = self.border.as_mut() {
+            rect.set_radius(radius);
+        }
+    }
     fn radius(self, radius: f32) -> Self {
         let width = self.width();
         let height = self.height();
@@ -221,17 +132,29 @@ impl<W: Widget> Shape for WidgetExt<W> {
             padding: self.padding,
         }
     }
-    fn background(self, color: u32) -> Self {
+    fn set_background(&mut self, background: Background) {
+        if let Some(rect) = self.background.as_mut() {
+            rect.set_background(background);
+        } else {
+            self.background = Some(Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::Background(background),
+                radius: [0.; 4],
+            });
+        }
+    }
+    fn background(self, background: Background) -> Self {
         let width = self.width();
         let height = self.height();
         let bg = if let Some(mut rect) = self.background {
             rect.set_size(width, height).unwrap();
-            rect.background(color)
+            rect.background(background)
         } else {
             Rectangle {
                 width: self.width(),
                 height: self.height(),
-                style: Style::solid(color),
+                style: Style::Background(background),
                 radius: [0.; 4],
             }
         };
@@ -241,6 +164,22 @@ impl<W: Widget> Shape for WidgetExt<W> {
             child: self.child,
             padding: self.padding,
         }
+    }
+    fn set_border(&mut self, color: u32, width: f32) {
+        if let Some(rect) = self.border.as_mut() {
+            rect.set_border(color, width);
+        } else {
+            self.border = Some(Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::border(color, width),
+                radius: if let Some(background) = &self.background {
+                    background.radius
+                } else {
+                    [0.; 4]
+                },
+            });
+        };
     }
     fn border(self, color: u32, size: f32) -> Self {
         let width = self.width();
@@ -267,6 +206,18 @@ impl<W: Widget> Shape for WidgetExt<W> {
             padding: self.padding,
         }
     }
+    fn set_border_width(&mut self, width: f32) {
+        if let Some(rect) = self.border.as_mut() {
+            rect.set_border_width(width);
+        } else {
+            self.border = Some(Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::border(FG, width),
+                radius: [0.; 4],
+            });
+        }
+    }
     fn border_width(self, size: f32) -> Self {
         let width = self.width();
         let height = self.height();
@@ -275,8 +226,8 @@ impl<W: Widget> Shape for WidgetExt<W> {
             rect.border_width(size)
         } else {
             Rectangle {
-                width: self.width(),
-                height: self.height(),
+                width,
+                height,
                 style: Style::border(FG, size),
                 radius: [0.; 4],
             }
@@ -287,6 +238,18 @@ impl<W: Widget> Shape for WidgetExt<W> {
             child: self.child,
             padding: self.padding,
         }
+    }
+    fn set_border_color(&mut self, color: u32) {
+        if let Some(rect) = self.border.as_mut() {
+            rect.set_border_color(color)
+        } else {
+            self.border = Some(Rectangle {
+                width: self.width(),
+                height: self.height(),
+                style: Style::border(color, 0.),
+                radius: [0.; 4],
+            })
+        };
     }
     fn border_color(self, color: u32) -> Self {
         let width = self.width();
