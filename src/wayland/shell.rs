@@ -3,9 +3,8 @@ use crate::context::DrawContext;
 use crate::data::Controller;
 use crate::font::FontCache;
 use crate::scene::*;
-use crate::wayland::Buffer;
+use crate::wayland::*;
 use crate::*;
-use raqote::*;
 use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 use smithay_client_toolkit::seat::keyboard::{
     self, map_keyboard_repeat, ModifiersState, RepeatKind,
@@ -31,106 +30,6 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
-#[derive(Debug, Clone)]
-pub enum Shell {
-    LayerShell {
-        config: ShellConfig,
-        surface: Main<ZwlrLayerSurfaceV1>,
-    },
-}
-
-#[derive(Debug, Clone)]
-pub struct ShellConfig {
-    pub layer: Layer,
-    pub anchor: Option<Anchor>,
-    pub output: Option<WlOutput>,
-    pub namespace: String,
-    pub exclusive: i32,
-    pub interactivity: KeyboardInteractivity,
-    pub margin: [i32; 4],
-}
-
-impl ShellConfig {
-    pub fn default_layer_shell() -> Self {
-        ShellConfig {
-            layer: Layer::Top,
-            anchor: None,
-            output: None,
-            exclusive: 0,
-            interactivity: KeyboardInteractivity::None,
-            namespace: "".to_string(),
-            margin: [0; 4],
-        }
-    }
-    pub fn layer_shell(
-        layer: Layer,
-        anchor: Option<Anchor>,
-        output: Option<WlOutput>,
-        namespace: &str,
-        margin: [i32; 4],
-    ) -> Self {
-        ShellConfig {
-            layer,
-            anchor,
-            output,
-            exclusive: 0,
-            interactivity: KeyboardInteractivity::None,
-            namespace: namespace.to_string(),
-            margin,
-        }
-    }
-}
-
-impl Shell {
-    fn destroy(&self) {
-        match self {
-            Shell::LayerShell { config: _, surface } => {
-                surface.destroy();
-            }
-        }
-    }
-    fn set_size(&self, width: u32, height: u32) {
-        match self {
-            Shell::LayerShell { config: _, surface } => {
-                surface.set_size(width, height);
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Surface {
-    alive: bool,
-    shell: Shell,
-    region: Main<WlRegion>,
-    surface: Main<WlSurface>,
-    buffer: Option<WlBuffer>,
-    previous: Option<Box<Self>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Output {
-    pub width: i32,
-    pub height: i32,
-    pub scale: i32,
-    pub name: String,
-    pub output: Main<WlOutput>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Seat {
-    pub seat: Main<WlSeat>,
-    pub capabilities: Capability,
-}
-
-struct Globals {
-    outputs: Vec<Output>,
-    seats: Vec<Seat>,
-    shm: Option<Main<WlShm>>,
-    compositor: Option<Main<WlCompositor>>,
-    shell: Option<Main<ZwlrLayerShellV1>>,
-}
-
 pub struct Application<C: Controller + Clone + 'static> {
     display: Display,
     globals: Rc<Globals>,
@@ -140,7 +39,6 @@ pub struct Application<C: Controller + Clone + 'static> {
 }
 
 struct Context {
-    draw_target: DrawTarget,
     render_node: Option<RenderNode>,
     font_cache: FontCache,
 }
@@ -638,13 +536,13 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 }
 
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
-    fn sync(&mut self, ev: Event) {
+    fn sync(&mut self, ev: Event) -> bool {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
         self.widget.sync(&mut sync_ctx, ev);
-        while sync_ctx.sync {
-            sync_ctx.sync = false;
+        while let Ok(_) = sync_ctx.sync() {
             self.widget.sync(&mut sync_ctx, Event::Prepare);
         }
+        sync_ctx.damage()
     }
     pub fn destroy(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
@@ -705,24 +603,16 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
         self.widget.height()
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if let Some(surface) = self.surface.as_ref() {
-            surface.set_size(width as u32, self.height() as u32);
-        }
-        self.ctx.draw_target = DrawTarget::new(width as i32, self.height() as i32);
-        Ok(())
+        Err(self.width())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if let Some(surface) = self.surface.as_ref() {
-            surface.set_size(self.width() as u32, height as u32);
-        }
-        self.ctx.draw_target = DrawTarget::new(self.width() as i32, height as i32);
-        Ok(())
+        Err(self.height())
     }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);
         }
-        self.ctx.draw_target = DrawTarget::new(width as i32, height as i32);
+        // self.ctx.draw_target = DrawTarget::new(width as i32, height as i32);
         Ok(())
     }
 }
@@ -738,7 +628,6 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             core: CoreApplication {
                 controller,
                 ctx: Context {
-                    draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -760,7 +649,6 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             core: CoreApplication {
                 controller,
                 ctx: Context {
-                    draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -787,7 +675,6 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             core: CoreApplication {
                 controller,
                 ctx: Context {
-                    draw_target: DrawTarget::new(widget.width() as i32, widget.height() as i32),
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -808,60 +695,51 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         false
     }
     pub fn dispatch(&mut self, ev: Event) {
-        let render;
+        let size = (self.width(), self.height());
 
         // Sending the event to the widget tree
-        self.sync(ev);
+        if self.sync(ev) || ev == Event::Commit {
+            // Calling the application´s closure
+            (self.cb)(&mut self.core, ev);
 
-        // Calling the application´s closure
-        (self.cb)(&mut self.core, ev);
+            // Creating the render node
+            let recent_node = self.core.widget.create_node(0., 0.);
 
-        // Creating the render node
-        let recent_node = self.core.widget.create_node(0., 0.);
+            // Getting the new size of the widget
+            let width = self.width();
+            let height = self.height();
+            let mut v = Vec::new();
 
-        // Getting the new size of the widget
-        let width = self.width();
-        let height = self.height();
-        let mut v = Vec::new();
-
-        // Resizing the surface in case the widget changed size
-        if self.core.ctx.draw_target.width() != width as i32
-            || self.core.ctx.draw_target.height() != height as i32
-        {
-            if let Err(size) = self.core.set_size(width, height) {
-                eprintln!("Minimim surface size: {} x {}", size.0, size.1)
+            // Resizing the surface in case the widget changed size
+            if size.0 != width || size.1 != height {
+                if let Err(size) = self.core.set_size(width, height) {
+                    eprintln!("Minimim surface size: {} x {}", size.0, size.1)
+                }
             }
-        }
 
-        if let Some(render_node) = &self.core.ctx.render_node {
-            render_node.invalidate(
-                &recent_node,
-                &mut DrawContext::new(
-                    Backend::Raqote(&mut self.core.ctx.draw_target),
-                    &mut self.core.ctx.font_cache,
-                    &mut v,
-                ),
-                &Background::Transparent,
-            );
-            render = !v.is_empty();
-            self.core.ctx.render_node = Some(recent_node);
-        } else {
-            recent_node.render(&mut DrawContext::new(
-                Backend::Raqote(&mut self.core.ctx.draw_target),
-                &mut self.core.ctx.font_cache,
-                &mut v,
-            ));
-            self.core.ctx.render_node = Some(recent_node);
-            render = true;
-        }
-
-        if render && self.surface.is_some() {
             if let Some(pool) = self.core.mempool.pool() {
                 if let Some(surface) = &mut self.core.surface {
-                    if let Ok((buffer, wl_buffer)) =
-                        Buffer::new(pool, Backend::Raqote(&mut self.core.ctx.draw_target))
+                    if let Ok((buffer, wl_buffer)) = Buffer::new(pool, width as i32, height as i32)
                     {
-                        buffer.merge();
+                        if let Some(render_node) = &self.core.ctx.render_node {
+                            render_node.invalidate(
+                                &recent_node,
+                                &mut DrawContext::new(
+                                    buffer.backend,
+                                    &mut self.core.ctx.font_cache,
+                                    &mut v,
+                                ),
+                                &Background::Transparent,
+                            );
+                            self.core.ctx.render_node = Some(recent_node);
+                        } else {
+                            recent_node.render(&mut DrawContext::new(
+                                buffer.backend,
+                                &mut self.core.ctx.font_cache,
+                                &mut v,
+                            ));
+                            self.core.ctx.render_node = Some(recent_node);
+                        }
                         surface.attach_buffer(wl_buffer);
                         surface.damage(&v);
                         surface.commit();

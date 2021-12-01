@@ -1,31 +1,30 @@
 use crate::font::FontCache;
 use crate::*;
 use data::*;
-use raqote::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
+use tiny_skia::*;
 use widgets::text::Label;
-use widgets::u32_to_source;
 
-const ATOP_OPTIONS: DrawOptions = DrawOptions {
-    alpha: 1.,
-    blend_mode: BlendMode::SrcAtop,
-    antialias: AntialiasMode::Gray,
+pub const PIX_PAINT: PixmapPaint = PixmapPaint {
+    blend_mode: BlendMode::SourceOver,
+    opacity: 1.0,
+    quality: FilterQuality::Nearest,
 };
 
-const DRAW_OPTIONS: DrawOptions = DrawOptions {
-    blend_mode: BlendMode::SrcOver,
-    alpha: 1.,
-    antialias: AntialiasMode::Gray,
+pub const TEXT: PixmapPaint = PixmapPaint {
+    blend_mode: BlendMode::SourceAtop,
+    opacity: 1.0,
+    quality: FilterQuality::Bilinear,
 };
 
 pub enum Backend<'b> {
-    Raqote(&'b mut DrawTarget),
+    Pixmap(PixmapMut<'b>),
     Dummy,
 }
 
 pub struct SyncContext<'c> {
-    pub sync: bool,
+    draw: bool,
     model: &'c mut dyn Controller,
     pub font_cache: &'c mut FontCache,
 }
@@ -40,49 +39,28 @@ impl<'b> Geometry for Backend<'b> {
     fn width(&self) -> f32 {
         match self {
             Backend::Dummy => 0.,
-            Backend::Raqote(dt) => dt.width() as f32,
+            Backend::Pixmap(dt) => dt.width() as f32,
         }
     }
     fn height(&self) -> f32 {
         match self {
             Backend::Dummy => 0.,
-            Backend::Raqote(dt) => dt.height() as f32,
+            Backend::Pixmap(dt) => dt.height() as f32,
         }
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        match self {
-            Backend::Dummy => Err(0.),
-            Backend::Raqote(dt) => {
-                **dt = DrawTarget::new(width as i32, dt.height());
-                Ok(())
-            }
-        }
+    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
+        Err(self.width())
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        match self {
-            Backend::Dummy => Err(0.),
-            Backend::Raqote(dt) => {
-                **dt = DrawTarget::new(dt.width(), height as i32);
-                Ok(())
-            }
-        }
-    }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        match self {
-            Backend::Dummy => Err((0., 0.)),
-            Backend::Raqote(dt) => {
-                **dt = DrawTarget::new(width as i32, height as i32);
-                Ok(())
-            }
-        }
+    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
+        Err(self.height())
     }
 }
 
 impl<'b> Deref for Backend<'b> {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
-        match &self {
-            Backend::Raqote(dt) => dt.get_data_u8(),
+        match self {
+            Backend::Pixmap(dt) => dt.as_ref().data(),
             _ => panic!("Dummy backend cannot return a slice"),
         }
     }
@@ -91,19 +69,23 @@ impl<'b> Deref for Backend<'b> {
 impl<'c> DerefMut for Backend<'c> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
-            Backend::Raqote(dt) => dt.get_data_u8_mut(),
+            Backend::Pixmap(dt) => dt.data_mut(),
             _ => panic!("Dummy backend cannot return a slice"),
         }
     }
 }
 
 impl<'c> SyncContext<'c> {
-    pub fn sync(&mut self) {
-        self.sync = true;
+    pub fn sync(&mut self) {}
+    pub fn request_draw(&mut self) {
+        self.draw = true;
+    }
+    pub fn damage(self) -> bool {
+        self.draw
     }
     pub fn new(model: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {
         Self {
-            sync: true,
+            draw: false,
             model,
             font_cache,
         }
@@ -123,6 +105,9 @@ impl<'c> Controller for SyncContext<'c> {
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
         self.model.send(msg)
     }
+    fn sync(&self) -> Result<(), ControllerError> {
+        self.model.sync()
+    }
 }
 
 impl<'c> DrawContext<'c> {
@@ -139,73 +124,56 @@ impl<'c> DrawContext<'c> {
     }
     pub fn damage_region(&mut self, bg: &Background, region: &Region) {
         match bg {
-            Background::Color(source) => match &mut self.backend {
-                Backend::Raqote(dt) => dt.fill_rect(
-                    region.x,
-                    region.y,
-                    region.width,
-                    region.height,
-                    &Source::Solid(*source),
-                    &ATOP_OPTIONS,
-                ),
+            Background::Color(color) => match &mut self.backend {
+                Backend::Pixmap(dt) => dt
+                    .fill_rect(
+                        region.into(),
+                        &Paint {
+                            shader: Shader::SolidColor(*color),
+                            blend_mode: BlendMode::SourceAtop,
+                            anti_alias: false,
+                            force_hq_pipeline: false,
+                        },
+                        Transform::from_scale(1., 1.),
+                        None,
+                    )
+                    .unwrap(),
                 _ => {}
             },
-            Background::Composite {
-                coords,
-                base,
-                overlay,
-            } => {
-                let crop;
-                if let Background::Image(image) = base.as_ref() {
-                    crop = Region::new(coords.x, coords.y, image.width(), image.height())
-                        .crop_region(region);
-                    self.damage_region(base.as_ref(), region);
-                    let (x, y) = image.scale();
-                    let source = image.as_image();
-                    if let Backend::Raqote(dt) = &mut self.backend {
-                        dt.fill_rect(
-                            region.x,
-                            region.y,
-                            region.width,
-                            region.height,
-                            &Source::Image(
-                                source,
-                                ExtendMode::Pad,
-                                FilterMode::Bilinear,
-                                Transform::create_translation(coords.x, coords.y).post_scale(x, y),
-                            ),
-                            &ATOP_OPTIONS,
-                        );
-                    }
-                } else {
-                    crop = *region;
+            Background::Image(coords, image) => {
+                let crop = Region::new(coords.x, coords.y, image.width(), image.height())
+                    .crop(region);
+                let (sx, sy) = image.scale();
+                let source = image.pixmap();
+                if let Backend::Pixmap(dt) = &mut self.backend {
+                    let mut clip = ClipMask::new();
+                    clip.set_path(
+                        image.width() as u32,
+                        image.height() as u32,
+                        &PathBuilder::from_rect((&crop).into()),
+                        FillRule::Winding,
+                        false,
+                    );
+                    dt.draw_pixmap(
+                        coords.x as i32,
+                        coords.y as i32,
+                        source,
+                        &PIX_PAINT,
+                        Transform::from_scale(sx, sy),
+                        Some(&clip),
+                    );
                 }
-                self.damage_region(overlay.as_ref(), &crop);
+            }
+            Background::Composite(base, overlay) => {
+                self.damage_region(base.as_ref(), &region);
+                self.damage_region(overlay.as_ref(), &region);
             }
             _ => {}
         }
         self.pending_damage.push(*region);
     }
-    pub fn clear(&mut self) {
-        match &mut self.backend {
-            Backend::Raqote(dt) => {
-                dt.clear(u32_to_source(0));
-            }
-            _ => {}
-        }
-        self.flush();
-    }
-    pub fn is_damaged(&self) -> bool {
-        !self.pending_damage.is_empty()
-    }
     pub fn flush(&mut self) {
         self.pending_damage.clear();
-    }
-    pub fn draw_image(&mut self, x: f32, y: f32, image: Image) {
-        match &mut self.backend {
-            Backend::Raqote(dt) => dt.draw_image_at(x, y, &image, &DRAW_OPTIONS),
-            _ => {}
-        }
     }
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
         if let Some(layout) = label.layout() {
@@ -216,34 +184,33 @@ impl<'c> DrawContext<'c> {
                     .get_mut(&label.fonts()[gp.key.font_index as usize])
                 {
                     if let Some(pixmap) = glyph_cache.render_glyph(gp, label.source()) {
-                        match &mut self.backend {
-                            Backend::Raqote(dt) => dt.draw_image_at(
-                                x.round() + gp.x,
-                                y.round() + gp.y,
-                                &Image {
-                                    data: &pixmap,
-                                    width: gp.width as i32,
-                                    height: gp.height as i32,
-                                },
-                                &DrawOptions {
-                                    blend_mode: BlendMode::SrcAtop,
-                                    alpha: 1.,
-                                    antialias: AntialiasMode::Gray,
-                                },
-                            ),
-                            _ => {}
+                        if let Some(pixmap) = PixmapRef::from_bytes(
+                            unsafe {
+                                std::slice::from_raw_parts(
+                                    pixmap.as_ptr() as *mut u8,
+                                    pixmap.len() * std::mem::size_of::<u32>(),
+                                )
+                            },
+                            gp.width as u32,
+                            gp.height as u32,
+                        ) {
+                            match &mut self.backend {
+                                Backend::Pixmap(dt) => {
+                                    dt.draw_pixmap(
+                                        (x.round() + gp.x) as i32,
+                                        (y.round() + gp.y) as i32,
+                                        pixmap,
+                                        &TEXT,
+                                        Transform::from_scale(1., 1.),
+                                        None,
+                                    );
+                                }
+                                _ => (),
+                            }
                         }
                     }
                 }
             }
-        }
-    }
-    pub fn draw_image_with_size(&mut self, x: f32, y: f32, image: Image, width: f32, height: f32) {
-        match &mut self.backend {
-            Backend::Raqote(dt) => {
-                dt.draw_image_with_size_at(width, height, x, y, &image, &DRAW_OPTIONS)
-            }
-            _ => {}
         }
     }
 }

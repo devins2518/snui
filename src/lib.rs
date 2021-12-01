@@ -7,7 +7,7 @@ pub mod widgets;
 
 use context::*;
 use scene::RenderNode;
-use widgets::button::Button;
+use widgets::button::{Button, Proxy};
 use widgets::shapes::WidgetExt;
 use widgets::WidgetBox;
 
@@ -91,7 +91,7 @@ pub enum Event<'d> {
     Commit,
     Prepare,
     Keyboard(Key<'d>),
-    Message(&'d str),
+    Message(data::Message<'d>),
     Pointer(f32, f32, Pointer),
 }
 
@@ -148,7 +148,7 @@ pub trait Wrapable: Widget + Sized {
     fn into_box(self) -> WidgetBox<Self>;
     fn into_button(
         self,
-        cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static,
+        cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
     ) -> Button<Self>;
 }
 
@@ -166,7 +166,7 @@ where
     }
     fn into_button(
         self,
-        cb: impl for<'d> FnMut(&'d mut Self, &'d mut SyncContext, Pointer) + 'static,
+        cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
     ) -> Button<Self> {
         Button::new(self, cb)
     }

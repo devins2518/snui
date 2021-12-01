@@ -1,15 +1,24 @@
 use crate::*;
 use image::io::Reader as ImageReader;
+use std::ops::{Deref, DerefMut};
+use tiny_skia::*;
 
 use scene::Instruction;
 use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Clone, PartialEq)]
+enum Scale {
+    Fill,
+    Size,
+}
+
+#[derive(Clone, PartialEq)]
 pub struct Image {
     image: Arc<[u8]>,
     width: u32,
     height: u32,
+    scale: Scale,
     size: (u32, u32),
 }
 
@@ -24,6 +33,7 @@ impl Image {
             image,
             width,
             height,
+            scale: Scale::Fill,
             size: (width, height),
         })
     }
@@ -42,24 +52,27 @@ impl Image {
             width,
             height,
             size,
+            scale: Scale::Fill,
         })
     }
     pub fn scale(&self) -> (f32, f32) {
-        (
-            self.size.0 as f32 / self.width as f32,
-            self.size.1 as f32 / self.height as f32,
-        )
-    }
-    pub fn as_image<'i>(&'i self) -> raqote::Image<'i> {
-        let p = self.image.as_ptr();
-        let len = self.image.len();
-        let data =
-            unsafe { std::slice::from_raw_parts(p as *mut u32, len / std::mem::size_of::<u32>()) };
-        raqote::Image {
-            width: self.size.0 as i32,
-            height: self.size.1 as i32,
-            data,
+        match &self.scale {
+            Scale::Size => (
+                self.width as f32 / self.size.0 as f32,
+                self.height as f32 / self.size.1 as f32,
+            ),
+            Scale::Fill => {
+                let ratio = (self.width as f32 / self.size.0 as f32)
+                    .max(self.height as f32 / self.size.1 as f32);
+                (ratio, ratio)
+            }
         }
+    }
+    pub fn pixmap(&self) -> PixmapRef {
+        PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap()
+    }
+    pub fn as_ref(&self) -> &[u8] {
+        self.image.as_ref()
     }
 }
 
@@ -88,16 +101,18 @@ impl Geometry for Image {
 
 impl Primitive for Image {
     fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
-        let p = self.image.as_ptr();
-        let len = self.image.len();
-        let data =
-            unsafe { std::slice::from_raw_parts(p as *mut u32, len / std::mem::size_of::<u32>()) };
-        let image = raqote::Image {
-            width: self.size.0 as i32,
-            height: self.size.1 as i32,
-            data,
-        };
-        ctx.draw_image_with_size(x, y, image, self.width as f32, self.height as f32);
+        if let Backend::Pixmap(dt) = ctx.deref_mut() {
+            let (sw, sh) = self.scale();
+            dt.draw_pixmap(
+                x as i32,
+                y as i32,
+                PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap(),
+                &crate::context::PIX_PAINT,
+                Transform::from_scale(sw, sh),
+                None,
+            );
+        }
+        // ctx.draw_image_with_size(x, y, image, self.width as f32, self.height as f32);
     }
 }
 

@@ -6,11 +6,11 @@ pub use fontdue::{
     },
     Font, FontResult, FontSettings,
 };
-use raqote::*;
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::fs::read;
 use std::path::Path;
+use tiny_skia::*;
 
 pub fn font_from_path(path: &Path) -> Font {
     let font = read(path).unwrap();
@@ -154,7 +154,7 @@ impl GlyphCache {
             FontResult::Err("Invalid path")
         }
     }
-    pub fn render_glyph(&mut self, glyph: &GlyphPosition, source: SolidSource) -> Option<Vec<u32>> {
+    pub fn render_glyph(&mut self, glyph: &GlyphPosition, source: Color) -> Option<Vec<u32>> {
         if !glyph.char_data.is_missing() {
             let pixmap: Vec<u32>;
             if let Some(coverage) = self.glyphs.get(&glyph.key) {
@@ -164,8 +164,9 @@ impl GlyphCache {
                         if a == &0 {
                             0
                         } else {
-                            SolidSource::from_unpremultiplied_argb(*a, source.r, source.g, source.b)
-                                .to_u32()
+                            let mut color = source;
+                            color.apply_opacity(*a as f32 / 255.);
+                            color.premultiply().to_color_u8().get()
                         }
                     })
                     .collect();
@@ -177,8 +178,9 @@ impl GlyphCache {
                         if a == &0 {
                             0
                         } else {
-                            SolidSource::from_unpremultiplied_argb(*a, source.r, source.g, source.b)
-                                .to_u32()
+                            let mut color = source;
+                            color.apply_opacity(*a as f32 / 255.);
+                            color.premultiply().to_color_u8().get()
                         }
                     })
                     .collect();

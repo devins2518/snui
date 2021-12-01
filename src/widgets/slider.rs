@@ -91,11 +91,11 @@ impl Widget for Slider {
                         if pressed && button == MouseButton::Left {
                             match &self.orientation {
                                 Orientation::Horizontal => {
-                                    let min = self.slider.radius[0].min(self.slider.radius[3]);
+                                    let min = self.slider.radius.0.min(self.slider.radius.3);
                                     self.slider.width = x.max(min).round();
                                 }
                                 Orientation::Vertical => {
-                                    let min = self.slider.radius[1].min(self.slider.radius[2]);
+                                    let min = self.slider.radius.1.min(self.slider.radius.2);
                                     self.slider.height = y.max(min).round();
                                 }
                             }
@@ -104,9 +104,10 @@ impl Widget for Slider {
                                 Orientation::Horizontal => self.slider.width / self.size,
                                 Orientation::Vertical => self.slider.height / self.size,
                             };
+                            ctx.request_draw();
                             match ctx.send(Message::new(self.id, ratio)) {
-                                Ok(_) => ctx.sync(),
                                 Err(e) => eprintln!("{} : {:?}", self.id, e),
+                                _ => {}
                             }
                         }
                     }
@@ -116,14 +117,14 @@ impl Widget for Slider {
                     } => {
                         let ratio = match &self.orientation {
                             Orientation::Horizontal => {
-                                let min = self.slider.radius[0].min(self.slider.radius[3]);
+                                let min = self.slider.radius.0.min(self.slider.radius.3);
                                 self.slider
                                     .set_width((self.slider.width - value).clamp(min, self.width()))
                                     .unwrap();
                                 self.slider.width / self.size
                             }
                             Orientation::Vertical => {
-                                let min = self.slider.radius[1].min(self.slider.radius[2]);
+                                let min = self.slider.radius.1.min(self.slider.radius.2);
                                 self.slider
                                     .set_height(
                                         (self.slider.height - value).clamp(min, self.height()),
@@ -132,20 +133,21 @@ impl Widget for Slider {
                                 self.slider.height / self.size
                             }
                         };
+                        ctx.request_draw();
                         match ctx.send(Message::new(self.id, ratio)) {
-                            Ok(_) => ctx.sync(),
                             Err(e) => eprintln!("{} : {:?}", self.id, e),
+                            _ => {}
                         }
                     }
                     Pointer::Hover => {
                         if self.pressed {
                             match &self.orientation {
                                 Orientation::Horizontal => {
-                                    let min = self.slider.radius[0].min(self.slider.radius[3]);
+                                    let min = self.slider.radius.0.min(self.slider.radius.3);
                                     self.slider.width = x.max(min).round();
                                 }
                                 Orientation::Vertical => {
-                                    let min = self.slider.radius[1].min(self.slider.radius[2]);
+                                    let min = self.slider.radius.1.min(self.slider.radius.2);
                                     self.slider.height = y.max(min).round();
                                 }
                             }
@@ -159,9 +161,10 @@ impl Widget for Slider {
                     Orientation::Horizontal => self.slider.width / self.size,
                     Orientation::Vertical => self.slider.height / self.size,
                 };
+                ctx.request_draw();
                 match ctx.send(Message::new(self.id, ratio)) {
-                    Ok(_) => ctx.sync(),
                     Err(e) => eprintln!("{} : {:?}", self.id, e),
+                    _ => {}
                 }
             }
         }

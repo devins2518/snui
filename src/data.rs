@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Data<'d> {
     Null,
     Int(i32),
@@ -8,7 +8,6 @@ pub enum Data<'d> {
     Double(f64),
     Boolean(bool),
     String(&'d str),
-    Any(&'d dyn std::any::Any),
 }
 
 // Meant for testing purposes and default
@@ -17,7 +16,7 @@ pub struct DummyController {
     serial: Option<u32>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Message<'m>(
     // The u32 is a bitmask
     // Users can create an Enum and alias a bitmask to a value
@@ -50,6 +49,8 @@ pub trait Controller {
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
+    // Returns an Ok if the application needs to be synced
+    fn sync(&self) -> Result<(), ControllerError>;
 }
 
 impl<'d> From<u8> for Data<'d> {
@@ -127,5 +128,8 @@ impl Controller for DummyController {
             println!("<- {:?}", msg);
         }
         Err(ControllerError::WrongObject)
+    }
+    fn sync(&self) -> Result<(), ControllerError> {
+        Err(ControllerError::NonBlocking)
     }
 }

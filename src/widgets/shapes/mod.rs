@@ -3,9 +3,9 @@ pub mod rectangle;
 
 use crate::scene::*;
 use crate::*;
-use raqote::*;
 pub use rectangle::Rectangle;
 use std::ops::{Deref, DerefMut};
+use tiny_skia::*;
 
 pub trait Shape {
     fn radius(self, radius: f32) -> Self;
@@ -23,7 +23,7 @@ pub trait Shape {
 #[derive(Clone, PartialEq, Debug)]
 pub enum Style {
     Background(Background),
-    Border(SolidSource, f32),
+    Border(Color, f32),
 }
 
 impl From<u32> for Style {
@@ -140,7 +140,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 width: self.width(),
                 height: self.height(),
                 style: Style::Background(background),
-                radius: [0.; 4],
+                radius: (0., 0., 0., 0.),
             });
         }
     }
@@ -155,7 +155,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 width: self.width(),
                 height: self.height(),
                 style: Style::Background(background),
-                radius: [0.; 4],
+                radius: (0., 0., 0., 0.),
             }
         };
         Self {
@@ -176,7 +176,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 radius: if let Some(background) = &self.background {
                     background.radius
                 } else {
-                    [0.; 4]
+                    (0., 0., 0., 0.)
                 },
             });
         };
@@ -195,7 +195,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 radius: if let Some(background) = &self.background {
                     background.radius
                 } else {
-                    [0.; 4]
+                    (0., 0., 0., 0.)
                 },
             }
         };
@@ -214,7 +214,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 width: self.width(),
                 height: self.height(),
                 style: Style::border(FG, width),
-                radius: [0.; 4],
+                radius: (0., 0., 0., 0.),
             });
         }
     }
@@ -229,7 +229,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 width,
                 height,
                 style: Style::border(FG, size),
-                radius: [0.; 4],
+                radius: (0., 0., 0., 0.),
             }
         };
         Self {
@@ -247,7 +247,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 width: self.width(),
                 height: self.height(),
                 style: Style::border(color, 0.),
-                radius: [0.; 4],
+                radius: (0., 0., 0., 0.),
             })
         };
     }
@@ -262,7 +262,7 @@ impl<W: Widget> Shape for WidgetExt<W> {
                 width: self.width(),
                 height: self.height(),
                 style: Style::border(color, 0.),
-                radius: [0.; 4],
+                radius: (0., 0., 0., 0.),
             }
         };
         Self {
@@ -342,7 +342,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 node: Box::new((
                     self.child
                         .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
-                    RenderNode::None,
+                    RenderNode::empty(x, y, self.width(), self.height()),
                 )),
                 background: {
                     let width = self.width();

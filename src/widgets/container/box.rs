@@ -78,7 +78,7 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
                 } {
                     order.push(aw as u32);
                 } else {
-                    return RenderNode::None;
+                    return RenderNode::empty(x, y, self.width(), self.height());
                 }
                 order.sort();
 
@@ -150,7 +150,7 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
                 } {
                     order.push(ah as u32);
                 } else {
-                    return RenderNode::None;
+                    return RenderNode::empty(x, y, self.width(), self.height());
                 }
                 order.sort();
 

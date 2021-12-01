@@ -10,42 +10,28 @@ pub use crate::widgets::image::Image;
 use crate::*;
 pub use button::Button;
 pub use container::layout::WidgetLayout;
-use raqote::*;
 pub use shapes::Shape;
 use std::ops::{Deref, DerefMut};
+use tiny_skia::*;
 
 pub const START: Alignment = Alignment::Start;
 pub const CENTER: Alignment = Alignment::Center;
 pub const END: Alignment = Alignment::End;
 
-pub fn u32_to_source(color: u32) -> SolidSource {
+pub fn u32_to_source(color: u32) -> Color {
     let color = color.to_be_bytes();
-    SolidSource {
-        a: color[0],
-        r: color[1],
-        g: color[2],
-        b: color[3],
-    }
+    Color::from_rgba8(color[3], color[2], color[1], color[0])
 }
 
-pub fn blend(pix_a: &[u8], pix_b: &[u8], t: f32) -> [u8; 4] {
-    let (r_a, g_a, b_a, a_a) = (
-        pix_a[1] as f32,
-        pix_a[2] as f32,
-        pix_a[3] as f32,
-        pix_a[0] as f32,
-    );
-    let (r_b, g_b, b_b, a_b) = (
-        pix_b[1] as f32,
-        pix_b[2] as f32,
-        pix_b[3] as f32,
-        pix_b[0] as f32,
-    );
+pub fn blend(pix_a: &Color, pix_b: &Color, t: f32) -> Color {
+    let (r_a, g_a, b_a, a_a) = (pix_a.red(), pix_a.green(), pix_a.blue(), pix_a.alpha());
+    let (r_b, g_b, b_b, a_b) = (pix_b.red(), pix_b.green(), pix_b.blue(), pix_b.alpha());
     let red = blend_f32(r_a, r_b, t);
     let green = blend_f32(g_a, g_b, t);
     let blue = blend_f32(b_a, b_b, t);
     let alpha = blend_f32(a_a, a_b, t);
-    [alpha as u8, red as u8, green as u8, blue as u8]
+
+    Color::from_rgba(red, green, blue, alpha).unwrap()
 }
 
 fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
@@ -127,7 +113,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
                 self.width(),
                 self.height()
             );
-            return RenderNode::None;
+            return RenderNode::empty(x, y, self.width(), self.height());
         }
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {

@@ -7,17 +7,17 @@ pub use fontdue::{
     },
     Font, FontResult, FontSettings,
 };
-use raqote::*;
 use scene::Instruction;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use tiny_skia::*;
 use widgets::u32_to_source;
 
 #[derive(Clone)]
 pub struct Label {
     text: String,
     font_size: f32,
-    source: SolidSource,
+    source: Color,
     settings: LayoutSettings,
     fonts: Vec<FontProperty>,
     layout: Option<Rc<Vec<GlyphPosition>>>,
@@ -52,7 +52,7 @@ impl Label {
     pub fn set_color(&mut self, color: u32) {
         self.source = u32_to_source(color);
     }
-    pub fn source(&self) -> SolidSource {
+    pub fn source(&self) -> Color {
         self.source
     }
     pub fn settings(&self) -> &LayoutSettings {
