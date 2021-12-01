@@ -1,6 +1,6 @@
 use crate::*;
 use image::io::Reader as ImageReader;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use tiny_skia::*;
 
 use scene::Instruction;
@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Clone, PartialEq)]
-enum Scale {
+pub enum Scale {
     Fill,
     Size,
 }
@@ -54,6 +54,10 @@ impl Image {
             size,
             scale: Scale::Fill,
         })
+    }
+    pub fn fit(mut self, scale: Scale) -> Self {
+        self.scale = scale;
+        self
     }
     pub fn scale(&self) -> (f32, f32) {
         match &self.scale {

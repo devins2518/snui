@@ -91,18 +91,16 @@ impl Widget for Slider {
                         if pressed && button == MouseButton::Left {
                             match &self.orientation {
                                 Orientation::Horizontal => {
-                                    let min = self.slider.radius.0.min(self.slider.radius.3);
-                                    self.slider.width = x.max(min).round();
+                                    self.slider.set_width(x.round());
                                 }
                                 Orientation::Vertical => {
-                                    let min = self.slider.radius.1.min(self.slider.radius.2);
-                                    self.slider.height = y.max(min).round();
+                                    self.slider.set_height(y.round());
                                 }
                             }
                         } else {
                             let ratio = match &self.orientation {
-                                Orientation::Horizontal => self.slider.width / self.size,
-                                Orientation::Vertical => self.slider.height / self.size,
+                                Orientation::Horizontal => self.slider.width() / self.size,
+                                Orientation::Vertical => self.slider.height() / self.size,
                             };
                             ctx.request_draw();
                             match ctx.send(Message::new(self.id, ratio)) {
@@ -117,20 +115,16 @@ impl Widget for Slider {
                     } => {
                         let ratio = match &self.orientation {
                             Orientation::Horizontal => {
-                                let min = self.slider.radius.0.min(self.slider.radius.3);
-                                self.slider
-                                    .set_width((self.slider.width - value).clamp(min, self.width()))
-                                    .unwrap();
-                                self.slider.width / self.size
+                                self.slider.set_width(
+                                    (self.slider.width() - value).clamp(0., self.width()),
+                                );
+                                self.slider.width() / self.size
                             }
                             Orientation::Vertical => {
-                                let min = self.slider.radius.1.min(self.slider.radius.2);
-                                self.slider
-                                    .set_height(
-                                        (self.slider.height - value).clamp(min, self.height()),
-                                    )
-                                    .unwrap();
-                                self.slider.height / self.size
+                                self.slider.set_height(
+                                    (self.slider.height() - value).clamp(0., self.height()),
+                                );
+                                self.slider.height() / self.size
                             }
                         };
                         ctx.request_draw();
@@ -143,14 +137,13 @@ impl Widget for Slider {
                         if self.pressed {
                             match &self.orientation {
                                 Orientation::Horizontal => {
-                                    let min = self.slider.radius.0.min(self.slider.radius.3);
-                                    self.slider.width = x.max(min).round();
+                                    self.slider.set_width(x.round());
                                 }
                                 Orientation::Vertical => {
-                                    let min = self.slider.radius.1.min(self.slider.radius.2);
-                                    self.slider.height = y.max(min).round();
+                                    self.slider.set_width(y.round());
                                 }
                             }
+                            ctx.request_draw();
                         }
                     }
                     _ => {}
@@ -158,8 +151,8 @@ impl Widget for Slider {
             } else if self.pressed {
                 self.pressed = false;
                 let ratio = match &self.orientation {
-                    Orientation::Horizontal => self.slider.width / self.size,
-                    Orientation::Vertical => self.slider.height / self.size,
+                    Orientation::Horizontal => self.slider.width() / self.size,
+                    Orientation::Vertical => self.slider.height() / self.size,
                 };
                 ctx.request_draw();
                 match ctx.send(Message::new(self.id, ratio)) {
@@ -172,7 +165,7 @@ impl Widget for Slider {
 }
 
 impl Shape for Slider {
-    fn set_background(&mut self, background: scene::Background) {
+    fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.slider.set_background(background);
     }
     fn set_border(&mut self, color: u32, width: f32) {
@@ -181,13 +174,13 @@ impl Shape for Slider {
     fn set_border_color(&mut self, color: u32) {
         self.slider.set_border_color(color);
     }
-    fn set_radius(&mut self, radius: f32) {
-        self.slider.set_radius(radius);
+    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        self.slider.set_radius(tl, tr, br, bl);
     }
     fn set_border_width(&mut self, width: f32) {
         self.slider.set_border_width(width);
     }
-    fn background(self, background: scene::Background) -> Self {
+    fn background<B: Into<scene::Background>>(self, background: B) -> Self {
         Self {
             id: self.id,
             size: self.size,
@@ -227,14 +220,14 @@ impl Shape for Slider {
             slider: self.slider.border_width(width),
         }
     }
-    fn radius(self, radius: f32) -> Self {
+    fn radius(self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
         Self {
             id: self.id,
             size: self.size,
             step: self.step,
             pressed: false,
             orientation: self.orientation,
-            slider: self.slider.radius(radius),
+            slider: self.slider.radius(tl, tr, br, bl),
         }
     }
 }

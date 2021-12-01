@@ -59,7 +59,7 @@ impl Background {
     }
     fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
-            PrimitiveType::Rectangle(r) => r.style.background(),
+            PrimitiveType::Rectangle(r) => r.get_style().background(),
             PrimitiveType::Image(image) => Background::Image(instruction.coords, image.clone()),
             _ => Background::Transparent,
         }

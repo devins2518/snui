@@ -141,8 +141,8 @@ impl<'c> DrawContext<'c> {
                 _ => {}
             },
             Background::Image(coords, image) => {
-                let crop = Region::new(coords.x, coords.y, image.width(), image.height())
-                    .crop(region);
+                let crop =
+                    Region::new(coords.x, coords.y, image.width(), image.height()).crop(region);
                 let (sx, sy) = image.scale();
                 let source = image.pixmap();
                 if let Backend::Pixmap(dt) = &mut self.backend {

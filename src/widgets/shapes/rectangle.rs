@@ -33,10 +33,10 @@ impl Style {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rectangle {
-    pub width: f32,
-    pub height: f32,
-    pub style: Style,
-    pub radius: (f32, f32, f32, f32),
+    width: f32,
+    height: f32,
+    style: Style,
+    radius: (f32, f32, f32, f32),
 }
 
 impl Rectangle {
@@ -64,6 +64,12 @@ impl Rectangle {
             style: Style::Background(Background::Transparent),
         }
     }
+    pub fn get_style(&self) -> &Style {
+        &self.style
+    }
+    pub fn get_radius(&self) -> (f32, f32, f32, f32) {
+        self.radius
+    }
 }
 
 impl Geometry for Rectangle {
@@ -74,28 +80,34 @@ impl Geometry for Rectangle {
         self.height
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width.is_sign_positive() {
-            if let Style::Background(background) = &mut self.style {
-                if let Background::Image(_, img) = background {
-                    img.set_width(width)?;
-                }
+        self.width = self
+            .radius
+            .0
+            .max(width.round())
+            .max(self.radius.1)
+            .max(self.radius.2)
+            .max(self.radius.3);
+        if let Style::Background(background) = &mut self.style {
+            if let Background::Image(_, img) = background {
+                img.set_width(width)?;
             }
-            self.width = width.round();
-            return Ok(());
         }
-        Err(self.width)
+        return Ok(());
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height.is_sign_positive() {
-            if let Style::Background(background) = &mut self.style {
-                if let Background::Image(_, img) = background {
-                    img.set_height(height)?;
-                }
+        self.height = self
+            .radius
+            .0
+            .max(height.round())
+            .max(self.radius.1)
+            .max(self.radius.2)
+            .max(self.radius.3);
+        if let Style::Background(background) = &mut self.style {
+            if let Background::Image(_, img) = background {
+                img.set_height(height)?;
             }
-            self.height = height.round();
-            return Ok(());
         }
-        Err(self.height)
+        return Ok(());
     }
 }
 
@@ -261,17 +273,18 @@ impl Primitive for Rectangle {
 }
 
 impl Shape for Rectangle {
-    fn set_radius(&mut self, radius: f32) {
-        self.radius = (radius, radius, radius, radius);
+    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        self.radius = (tl, tr, br, bl);
     }
-    fn radius(mut self, radius: f32) -> Self {
-        self.radius = (radius, radius, radius, radius);
+    fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
+        self.radius = (tl, tr, br, bl);
         self
     }
-    fn set_background(&mut self, background: Background) {
-        self.style = Style::Background(background);
+    fn set_background<B: Into<Background>>(&mut self, background: B) {
+        self.style = Style::Background(background.into());
     }
-    fn background(mut self, mut background: Background) -> Self {
+    fn background<B: Into<Background>>(mut self, background: B) -> Self {
+        let mut background = background.into();
         if let Background::Image(_, img) = &mut background {
             img.set_size(self.width(), self.height()).unwrap();
         }

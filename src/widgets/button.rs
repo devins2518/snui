@@ -52,11 +52,11 @@ impl<W: Widget> Widget for Proxy<W> {
         self.child.create_node(x, y)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+        self.child.sync(ctx, event);
         if self.damage {
             ctx.request_draw();
             self.damage = false;
         }
-        self.child.sync(ctx, event);
     }
 }
 
@@ -105,7 +105,6 @@ impl<W: Widget> Widget for Button<W> {
         self.proxy.create_node(x, y)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
-        self.proxy.sync(ctx, event);
         if let Event::Pointer(x, y, pointer) = event {
             if x > 0. && y > 0. && x < self.width() && y < self.height() {
                 if self.focused {
@@ -119,6 +118,7 @@ impl<W: Widget> Widget for Button<W> {
                 (self.cb)(&mut self.proxy, ctx, Pointer::Leave);
             }
         }
+        self.proxy.sync(ctx, event);
     }
 }
 
