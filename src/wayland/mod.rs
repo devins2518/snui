@@ -2,15 +2,15 @@ pub mod shell;
 
 use tiny_skia::*;
 use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_output::{self, WlOutput};
-use wayland_client::protocol::wl_pointer::{self, WlPointer};
+use wayland_client::protocol::wl_output::{WlOutput};
+
 use wayland_client::protocol::wl_region::WlRegion;
-use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
+use wayland_client::protocol::wl_seat::{Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::{Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy};
+use wayland_client::{Main};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
-    zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
+    zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
     zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::KeyboardInteractivity,
     zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };

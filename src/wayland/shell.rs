@@ -1,4 +1,4 @@
-use crate::context::Backend;
+
 use crate::context::DrawContext;
 use crate::data::Controller;
 use crate::font::FontCache;
@@ -26,7 +26,7 @@ use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::{Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
-    zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::KeyboardInteractivity,
+    zwlr_layer_surface_v1::Anchor,
     zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
@@ -602,10 +602,10 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     fn height(&self) -> f32 {
         self.widget.height()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
         Err(self.width())
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
         Err(self.height())
     }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
