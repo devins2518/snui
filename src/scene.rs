@@ -1,10 +1,11 @@
 use crate::*;
+use std::rc::Rc;
 use context::DrawContext;
-use tiny_skia::*;
 use widgets::blend;
 use widgets::shapes::*;
 use widgets::text::*;
 use widgets::Image;
+pub use tiny_skia::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Coords {
@@ -21,18 +22,71 @@ impl From<(f32, f32)> for Coords {
     }
 }
 
+impl From<&Coords> for Point {
+    fn from(coords: &Coords) -> Self {
+        Point::from_xy(coords.x, coords.y)
+    }
+}
+
+impl Into<Point> for Coords {
+    fn into(self) -> Point {
+        Point::from_xy(self.x, self.y)
+    }
+}
+
 impl Coords {
     pub fn new(x: f32, y: f32) -> Coords {
         Coords { x, y }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Background {
     Transparent,
     Image(Coords, Image),
+    LinearGradient {
+        start: Coords,
+        end: Coords,
+        mode: SpreadMode,
+        stops: Rc<[GradientStop]>
+    },
     Composite(Box<Background>, Box<Background>),
     Color(Color),
+}
+
+impl PartialEq for Background {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Self::Transparent => if let Self::Transparent = other { return true },
+            Self::Color(sc) => if let Self::Color(oc) = other { return sc == oc },
+            Self::Image(scoords, simage) => if let Self::Image(ocoords, oimage) = other {
+                return scoords == ocoords && simage.eq(&oimage)
+            }
+            Self::LinearGradient {
+                start,
+                end,
+                stops,
+                mode
+            } => {
+                let ss = start;
+                let se = end;
+                let sg = stops;
+                let sm = mode;
+                if let Self::LinearGradient {
+                    start,
+                    end,
+                    stops,
+                    mode
+                }= other {
+                    return ss == start && se == end && Rc::as_ptr(sg) == Rc::as_ptr(stops) && sm == mode
+                }
+            }
+            Self::Composite(sb, so) => if let Self::Composite(ob, oo) = other {
+                return sb as *const Box<Background> == ob as *const Box<Background> && so as *const Box<Background> == oo as *const Box<Background>;
+            }
+        }
+        false
+    }
 }
 
 impl From<Style> for Background {
@@ -50,12 +104,39 @@ impl From<u32> for Background {
     }
 }
 
+impl From<Color> for Background {
+    fn from(color: Color) -> Self {
+        Background::Color(color)
+    }
+}
+
+impl From<ColorU8> for Background {
+    fn from(color: ColorU8) -> Self {
+        color.get().into()
+    }
+}
+
+impl From<Image> for Background {
+    fn from(image: Image) -> Self {
+        Background::Image(Coords::new(0., 0.), image)
+    }
+}
+
 impl Background {
     pub fn solid(color: u32) -> Background {
         Background::Color(widgets::u32_to_source(color))
     }
     pub fn image(path: &std::path::Path) -> Background {
         Background::Image(Coords::new(0., 0.), Image::new(path).unwrap())
+    }
+    pub fn linear_gradient(stops: Vec<GradientStop>, mode: SpreadMode) -> Background {
+        let stops: Rc<[GradientStop]> = stops.into();
+        Background::LinearGradient {
+            start: Coords::new(0., 0.),
+            end: Coords::new(0., 0.),
+            mode,
+            stops
+        }
     }
     fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
@@ -87,6 +168,19 @@ impl Background {
                 Background::Transparent => self.clone(),
                 _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
             },
+            Background::LinearGradient {
+                start:_, end:_, stops:_, mode:_
+            }=> match other {
+                Background::Color(color) => {
+                    if color.is_opaque() {
+                        return other;
+                    } else {
+                        Background::Composite(Box::new(self.clone()), Box::new(other))
+                    }
+                }
+                Background::Transparent => return self.clone(),
+                _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
+            }
             Background::Image(_, _) => match other {
                 Background::Color(color) => {
                     if color.is_opaque() {
@@ -320,6 +414,16 @@ impl Region {
             y,
             width,
             height,
+        }
+    }
+    pub fn from_coords(start: &Coords, end: &Coords) -> Self {
+        let x = start.x.min(end.x);
+        let y = start.y.min(end.y);
+        Region {
+            x,
+            y,
+            width: start.x.max(end.x) - x,
+            height: start.y.max(end.y) - y,
         }
     }
     pub fn same(&self, other: &Self) -> bool {

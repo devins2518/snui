@@ -226,13 +226,13 @@ impl<W: Widget> Shape for WidgetExt<W> {
         };
     }
     fn border(self, color: u32, size: f32) -> Self {
-        let width = self.width();
-        let height = self.height();
+        let width = self.width() - size;
+        let height = self.height() - size;
         let border = if let Some(mut rect) = self.border {
             rect.set_size(width, height).unwrap();
             rect.border(color, size)
         } else {
-            let r = Rectangle::new(self.width(), self.height(), Style::border(color, size));
+            let r = Rectangle::new(width, height, Style::border(color, size));
             if let Some(background) = &self.background {
                 let (tl, tr, br, bl) = background.get_radius();
                 r.radius(tl, tr, br, bl)
@@ -252,20 +252,20 @@ impl<W: Widget> Shape for WidgetExt<W> {
             rect.set_border_width(width);
         } else {
             self.border = Some(Rectangle::new(
-                self.width(),
-                self.height(),
+                self.width() - 2. * width,
+                self.height() - 2. * width,
                 Style::border(FG, width),
             ));
         }
     }
     fn border_width(self, size: f32) -> Self {
-        let width = self.width();
-        let height = self.height();
+        let width = self.width() - 2. * size;
+        let height = self.height() - 2. * size;
         let border = if let Some(mut rect) = self.border {
             rect.set_size(width, height).unwrap();
             rect.border_width(size)
         } else {
-            Rectangle::new(self.width(), self.height(), Style::border(FG, width))
+            Rectangle::new(width, height, Style::border(FG, width))
         };
         Self {
             border: Some(border),
@@ -374,14 +374,19 @@ impl<W: Widget> Widget for WidgetExt<W> {
                     RenderNode::empty(x, y, self.width(), self.height()),
                 )),
                 background: {
-                    let width = self.width();
-                    let height = self.height();
+                    let width = self.width() - 2. * border;
+                    let height = self.height() - 2. * border;
                     self.background
                         .as_mut()
                         .unwrap()
                         .set_size(width, height)
                         .unwrap();
-                    Instruction::new(x, y, self.background.clone().unwrap())
+                    if let RenderNode::Instruction(rect) =
+                        self.background.as_mut().unwrap().create_node(x + border, y + border) {
+                            rect
+                    } else {
+                        panic!("Broken Rectangle")
+                    }
                 },
             }
         } else if self.background.is_none() {
@@ -389,14 +394,19 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 self.child
                     .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
                 RenderNode::Instruction({
-                    let width = self.width();
-                    let height = self.height();
+                    let width = self.width() - 2. * border;
+                    let height = self.height() - 2. * border;
                     self.border
                         .as_mut()
                         .unwrap()
                         .set_size(width, height)
                         .unwrap();
-                    Instruction::new(x, y, self.border.clone().unwrap())
+                    if let RenderNode::Instruction(rect) =
+                        self.border.as_mut().unwrap().create_node(x, y) {
+                            rect
+                    } else {
+                        panic!("Broken Rectangle")
+                    }
                 }),
             ])
         } else {
@@ -405,25 +415,35 @@ impl<W: Widget> Widget for WidgetExt<W> {
                     self.child
                         .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
                     RenderNode::Instruction({
-                        let width = self.width();
-                        let height = self.height();
+                        let width = self.width() - 2. * border;
+                        let height = self.height() - 2. * border;
                         self.border
                             .as_mut()
                             .unwrap()
                             .set_size(width, height)
                             .unwrap();
-                        Instruction::new(x, y, self.border.clone().unwrap())
+                        if let RenderNode::Instruction(rect) =
+                            self.border.as_mut().unwrap().create_node(x, y) {
+                                rect
+                        } else {
+                            panic!("Broken Rectangle")
+                        }
                     }),
                 )),
                 background: {
-                    let width = self.width();
-                    let height = self.height();
+                    let width = self.width() - 2. * border;
+                    let height = self.height() - 2. * border;
                     self.background
                         .as_mut()
                         .unwrap()
                         .set_size(width, height)
                         .unwrap();
-                    Instruction::new(x, y, self.background.clone().unwrap())
+                    if let RenderNode::Instruction(rect) =
+                        self.background.as_mut().unwrap().create_node(x + border, y + border) {
+                            rect
+                    } else {
+                        panic!("Broken Rectangle")
+                    }
                 },
             }
         }

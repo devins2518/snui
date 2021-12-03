@@ -134,12 +134,40 @@ impl<'c> DrawContext<'c> {
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },
-                        Transform::from_scale(1., 1.),
+                        Transform::identity(),
                         None,
                     )
                     .unwrap(),
                 _ => {}
             },
+            Background::LinearGradient {
+                start,
+                end,
+                stops,
+                mode
+            } => {
+                if let Backend::Pixmap(dt) = &mut self.backend {
+                    if let Some(grad) = LinearGradient::new(
+                        start.into(),
+                        end.into(),
+                        stops.as_ref().to_vec(),
+                        *mode,
+                        Transform::identity()
+                    ) {
+                        dt.fill_rect(
+                            region.into(),
+                            &Paint {
+                                shader: grad,
+                                blend_mode: BlendMode::SourceAtop,
+                                anti_alias: false,
+                                force_hq_pipeline: false,
+                            },
+                            Transform::identity(),
+                            None
+                        );
+                    }
+                }
+            }
             Background::Image(coords, image) => {
                 let crop =
                     Region::new(coords.x, coords.y, image.width(), image.height()).crop(region);

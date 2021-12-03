@@ -39,7 +39,6 @@ impl<'b> Buffer<'b> {
                     wlbuf,
                 ))
             } else {
-                println!("err");
                 return Err(());
             }
         } else {

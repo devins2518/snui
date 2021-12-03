@@ -13,13 +13,19 @@ pub enum Scale {
     Size,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Image {
     image: Arc<[u8]>,
     width: u32,
     height: u32,
     scale: Scale,
     size: (u32, u32),
+}
+
+impl PartialEq for Image {
+    fn eq(&self, other: &Self) -> bool {
+        self.image.as_ptr() == other.image.as_ptr()
+    }
 }
 
 impl Image {
@@ -116,7 +122,6 @@ impl Primitive for Image {
                 None,
             );
         }
-        // ctx.draw_image_with_size(x, y, image, self.width as f32, self.height as f32);
     }
 }
 

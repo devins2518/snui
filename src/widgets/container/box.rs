@@ -127,9 +127,9 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
                 let mut space = self.height;
 
                 let (ah, bh, ch) = (
-                    self.childs.0.deref().height().ceil(),
-                    self.childs.1.deref().height().ceil(),
-                    self.childs.2.deref().height().ceil(),
+                    self.childs.0.deref().height().floor(),
+                    self.childs.1.deref().height().floor(),
+                    self.childs.2.deref().height().floor(),
                 );
                 let mut real_height = ah + bh + ch;
 

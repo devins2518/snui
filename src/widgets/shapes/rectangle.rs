@@ -74,10 +74,14 @@ impl Rectangle {
 
 impl Geometry for Rectangle {
     fn width(&self) -> f32 {
-        self.width
+        self.width + if let Style::Border(_, size) = &self.style {
+            2. * *size
+        } else { 0. }
     }
     fn height(&self) -> f32 {
-        self.height
+        self.height + if let Style::Border(_, size) = &self.style {
+            2. * *size
+        } else { 0. }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         self.width = self
@@ -112,11 +116,15 @@ impl Geometry for Rectangle {
 }
 
 impl Primitive for Rectangle {
-    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
-        let width = self.width();
-        let height = self.height();
-        let mut pb = PathBuilder::new();
+    fn draw(&self, mut x: f32, mut y: f32, ctx: &mut DrawContext) {
+        let width = self.width;
+        let height = self.height;
+        if let Style::Border(_, size) = &self.style {
+            x += size;
+            y += size;
+        }
         let mut cursor = Coords::new(x, y);
+        let mut pb = PathBuilder::new();
 
         let (tl, tr, br, bl) = self.radius;
 
@@ -242,14 +250,41 @@ impl Primitive for Rectangle {
                                 None,
                             );
                         }
+                        Background::LinearGradient {
+                            start:_,
+                            end:_,
+                            stops,
+                            mode
+                        } => {
+                            if let Some(grad) = LinearGradient::new(
+                                Point::from_xy(x, y),
+                                Point::from_xy(x + width, y + height),
+                                stops.as_ref().to_vec(),
+                                *mode,
+                                Transform::identity()
+                            ) {
+                                dt.fill_path(
+                                    &path,
+                                    &Paint {
+                                        shader: grad,
+                                        blend_mode: BlendMode::SourceOver,
+                                        anti_alias: false,
+                                        force_hq_pipeline: false,
+                                    },
+                                    FillRule::EvenOdd,
+                                    Transform::identity(),
+                                    None
+                                );
+                            }
+                        }
                         _ => {}
                     },
                     Style::Border(color, border) => {
                         let stroke = Stroke {
                             width: *border,
-                            line_cap: LineCap::Butt,
+                            line_cap: LineCap::Round,
                             line_join: LineJoin::Miter,
-                            miter_limit: 10.,
+                            miter_limit: 4.,
                             dash: None,
                         };
                         dt.stroke_path(
@@ -258,7 +293,7 @@ impl Primitive for Rectangle {
                                 shader: Shader::SolidColor(*color),
                                 blend_mode: BlendMode::SourceOver,
                                 anti_alias: true,
-                                force_hq_pipeline: false,
+                                force_hq_pipeline: true,
                             },
                             &stroke,
                             Transform::identity(),
@@ -285,6 +320,12 @@ impl Shape for Rectangle {
     }
     fn background<B: Into<Background>>(mut self, background: B) -> Self {
         let mut background = background.into();
+        match &mut background {
+            Background::Image(_, image) => {
+                image.set_size(self.width(), self.height()).unwrap();
+            }
+            _ => {}
+        }
         if let Background::Image(_, img) = &mut background {
             img.set_size(self.width(), self.height()).unwrap();
         }
@@ -332,10 +373,19 @@ impl Shape for Rectangle {
 
 impl Widget for Rectangle {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        if let Style::Background(backgorund) = &mut self.style {
-            if let Background::Image(coords, _) = backgorund {
-                coords.x = x;
-                coords.y = y;
+        if let Style::Background(background) = &mut self.style {
+            match background {
+                Background::Image(coords, _) => {
+                    coords.x = x;
+                    coords.y = y;
+                }
+                Background::LinearGradient { start, end, stops:_, mode:_ } => {
+                    start.x = x;
+                    start.y = y;
+                    end.x = x + self.width;
+                    end.y = y + self.height;
+                }
+                _ => {}
             }
         }
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
