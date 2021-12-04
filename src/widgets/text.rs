@@ -1,5 +1,6 @@
 pub use crate::font::FontProperty;
 use crate::*;
+use crate::data::*;
 pub use fontdue::{
     layout,
     layout::{
@@ -22,12 +23,6 @@ pub struct Label {
     fonts: Vec<FontProperty>,
     layout: Option<Rc<Vec<GlyphPosition>>>,
     size: (f32, f32),
-}
-
-pub struct Text {
-    label: Label,
-    buffer: Option<String>,
-    layout: Layout,
 }
 
 impl Label {
@@ -71,9 +66,6 @@ impl PartialEq for Label {
             && self.settings == other.settings
             && self.fonts.eq(&other.fonts)
     }
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
 }
 
 impl Eq for Label {}
@@ -113,8 +105,8 @@ impl Label {
         self.settings = settings;
         self
     }
-    pub fn size(mut self, width: f32, height: f32) -> WidgetBox<Self> {
-        let mut w = WidgetBox::default(self);
+    pub fn size(self, width: f32, height: f32) -> WidgetBox<Self> {
+        let mut w = WidgetBox::new(self);
         w.set_size(width, height).unwrap();
         w.constraint(widgets::Constraint::Downward)
     }
@@ -161,6 +153,12 @@ impl Widget for Label {
             self.layout = Some(Rc::new(layout));
         }
     }
+}
+
+pub struct Text {
+    label: Label,
+    buffer: Option<String>,
+    layout: Layout,
 }
 
 impl From<Label> for Text {

@@ -229,11 +229,40 @@ impl Background {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum PrimitiveType {
     Label(Label),
     Image(Image),
     Rectangle(Rectangle),
+    Other {
+        name: &'static str,
+        id: u64,
+        primitive: Rc<dyn Primitive>
+    },
+}
+
+impl PartialEq for PrimitiveType {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            PrimitiveType::Rectangle(s) => if let PrimitiveType::Rectangle(o) = other {
+                return s.eq(o)
+            },
+            PrimitiveType::Label(s) => if let PrimitiveType::Label(o) = other {
+                return s.eq(o)
+            },
+            PrimitiveType::Image(s) => if let PrimitiveType::Image(o) = other {
+                return s.eq(o)
+            },
+            PrimitiveType::Other { name, id, primitive:_ } => {
+                let sn = name;
+                let sid = id;
+                if let PrimitiveType::Other {id, name, primitive:_} = other {
+                    return sn == name && id == sid;
+                }
+            }
+        }
+        false
+    }
 }
 
 impl From<Rectangle> for PrimitiveType {
@@ -269,22 +298,17 @@ impl Instruction {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum RenderNode {
-    Instruction(Instruction),
-    Extension {
-        background: Instruction,
-        node: Box<(RenderNode, RenderNode)>,
-    },
-    Container(Vec<RenderNode>),
-}
-
 impl Instruction {
     fn render(&self, ctx: &mut DrawContext) {
         let x = self.coords.x;
         let y = self.coords.y;
         match &self.primitive {
             PrimitiveType::Image(i) => i.draw(x, y, ctx),
+            PrimitiveType::Other {
+                id:_, name:_, primitive
+            } => {
+                primitive.draw(x, y, ctx);
+            }
             PrimitiveType::Rectangle(r) => r.draw(x, y, ctx),
             PrimitiveType::Label(l) => ctx.draw_label(l, x, y),
         }
@@ -297,11 +321,21 @@ impl Instruction {
                 PrimitiveType::Image(i) => i.width(),
                 PrimitiveType::Rectangle(r) => r.width(),
                 PrimitiveType::Label(l) => l.width(),
+                PrimitiveType::Other {
+                    id:_, name:_, primitive
+                } => {
+                    primitive.width()
+                }
             },
             match &self.primitive {
                 PrimitiveType::Image(i) => i.height(),
                 PrimitiveType::Rectangle(r) => r.height(),
                 PrimitiveType::Label(l) => l.height(),
+                PrimitiveType::Other {
+                    id:_, name:_, primitive
+                } => {
+                    primitive.height()
+                }
             },
         )
     }
@@ -316,12 +350,21 @@ impl PartialEq for Instruction {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum RenderNode {
+    Instruction(Instruction),
+    Extension {
+        background: Instruction,
+        node: Box<(RenderNode, RenderNode)>,
+    },
+    None(Region),
+    Container(Vec<RenderNode>),
+    Draw(Vec<Instruction>),
+}
+
 impl RenderNode {
     pub fn empty(x: f32, y: f32, width: f32, height: f32) -> RenderNode {
-        RenderNode::Instruction(Instruction {
-            coords: Coords::new(x, y),
-            primitive: Rectangle::empty(width, height).into(),
-        })
+        RenderNode::None(Region::new(x, y, width, height))
     }
     pub fn render(&self, ctx: &mut DrawContext) {
         match self {
@@ -337,12 +380,16 @@ impl RenderNode {
                 child.render(ctx);
                 border.render(ctx);
             }
+            _ => {}
         }
     }
     fn clear(&self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(instruction) => {
                 ctx.damage_region(bg, &instruction.region());
+            }
+            RenderNode::None(region) => {
+                ctx.damage_region(bg, &region);
             }
             RenderNode::Extension {
                 background,
@@ -353,6 +400,11 @@ impl RenderNode {
             RenderNode::Container(nodes) => {
                 for node in nodes {
                     node.clear(ctx, bg)
+                }
+            }
+            RenderNode::Draw(instructions) => {
+                for i in instructions {
+                    ctx.damage_region(bg, &i.region());
                 }
             }
         }
@@ -370,22 +422,28 @@ impl RenderNode {
                         b.render(ctx);
                     }
                 }
+                RenderNode::None(_) => {},
                 _ => {
                     ctx.damage_region(bg, &a.region());
                     other.render(ctx);
                 }
             },
+            RenderNode::None(region) => {
+                ctx.damage_region(bg, region);
+                other.render(ctx);
+            }
             RenderNode::Container(sv) => match other {
                 RenderNode::Container(ov) => {
                     if sv.len() != ov.len() {
                         self.clear(ctx, bg);
                         other.render(ctx);
                     } else {
-                        for i in 0..ov.len().min(sv.len()) {
+                        for i in 0..ov.len() {
                             sv[i].invalidate(&ov[i], ctx, bg);
                         }
                     }
                 }
+                RenderNode::None(_) => {},
                 _ => {
                     self.clear(ctx, bg);
                     other.render(ctx);
@@ -408,6 +466,31 @@ impl RenderNode {
                     }
                 } else {
                     ctx.damage_region(bg, &this_background.region());
+                    other.render(ctx);
+                }
+            }
+            RenderNode::Draw(sv) => match other {
+                RenderNode::Draw(ov) => {
+                    if sv.len() != ov.len() {
+                        self.clear(ctx, bg);
+                        other.render(ctx);
+                    } else {
+                        let mut draw = false;
+                        for i in 0..ov.len() {
+                            if sv[i] == ov[i] {
+                                draw = true;
+                                break;
+                            }
+                        }
+                        if draw {
+                            self.clear(ctx, bg);
+                            other.render(ctx);
+                        }
+                    }
+                }
+                RenderNode::None(_) => {},
+                _ => {
+                    self.clear(ctx, bg);
                     other.render(ctx);
                 }
             }

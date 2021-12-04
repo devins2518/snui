@@ -132,7 +132,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
 }
 
 impl<W: Widget> WidgetBox<W> {
-    pub fn default(child: W) -> Self {
+    pub fn new(child: W) -> Self {
         Self {
             size: (child.width(), child.height()),
             child,
@@ -143,15 +143,6 @@ impl<W: Widget> WidgetBox<W> {
     }
     pub fn coords(&self) -> Coords {
         self.coords
-    }
-    pub fn new(child: W, anchor: (Alignment, Alignment), width: f32, height: f32) -> Self {
-        Self {
-            size: (width.max(child.width()), height.max(child.height())),
-            child,
-            coords: Coords::new(0., 0.),
-            anchor,
-            constraint: Constraint::Fixed,
-        }
     }
     pub fn constraint(mut self, constraint: Constraint) -> Self {
         self.constraint = constraint;

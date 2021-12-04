@@ -537,8 +537,8 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
     fn sync(&mut self, ev: Event) -> bool {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
         self.widget.sync(&mut sync_ctx, ev);
-        while let Ok(_) = sync_ctx.sync() {
-            self.widget.sync(&mut sync_ctx, Event::Prepare);
+        while let Ok(signal) = sync_ctx.sync() {
+            self.widget.sync(&mut sync_ctx, Event::Message(signal));
         }
         sync_ctx.damage()
     }

@@ -265,7 +265,7 @@ impl Primitive for Rectangle {
                         } => {
                             if let Some(grad) = LinearGradient::new(
                                 Point::from_xy(x, y),
-                                Point::from_xy(x + width, y + height * angle.tan()),
+                                Point::from_xy(x + width, y + width * angle.tan()),
                                 stops.as_ref().to_vec(),
                                 *mode,
                                 Transform::identity(),
@@ -396,7 +396,7 @@ impl Widget for Rectangle {
                     start.x = x;
                     start.y = y;
                     end.x = x + self.width;
-                    end.y = y + self.height * angle.tan();
+                    end.y = y + self.width * angle.tan();
                 }
                 _ => {}
             }

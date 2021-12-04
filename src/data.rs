@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum Data<'d> {
     Null,
     Int(i32),
@@ -8,6 +8,7 @@ pub enum Data<'d> {
     Double(f64),
     Boolean(bool),
     String(&'d str),
+    Any(&'d dyn std::any::Any)
 }
 
 // Meant for testing purposes and default
@@ -16,7 +17,7 @@ pub struct DummyController {
     serial: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy,PartialEq)]
 pub struct Message<'m>(
     // The u32 is a bitmask
     // Users can create an Enum and alias a bitmask to a value
@@ -49,8 +50,8 @@ pub trait Controller {
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
-    // Returns an Ok if the application needs to be synced
-    fn sync(&self) -> Result<(), ControllerError>;
+    // Returns an Ok(u32) if the application needs to be synced
+    fn sync(&self) -> Result<u32, ControllerError>;
 }
 
 impl<'d> From<u8> for Data<'d> {
@@ -88,6 +89,45 @@ impl<'d> From<f32> for Data<'d> {
         Data::Float(f)
     }
 }
+
+impl<'d> From<&'d dyn std::any::Any> for Data<'d> {
+    fn from(any: &'d dyn std::any::Any) -> Self {
+        Data::Any(any)
+    }
+}
+
+// Always returns false for Any
+impl<'d> PartialEq for Data<'d> {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Data::Boolean(s) => if let Data::Boolean(o) = other {
+                return s == o;
+            }
+            Data::Uint(s) => if let Data::Uint(o) = other {
+                return s == o;
+            }
+            Data::Int(s) => if let Data::Int(o) = other {
+                return s == o;
+            }
+            Data::String(s) => if let Data::String(o) = other {
+                return s == o;
+            }
+            Data::Byte(s) => if let Data::Byte(o) = other {
+                return s == o;
+            }
+            Data::Double(s) => if let Data::Double(o) = other {
+                return s == o;
+            }
+            Data::Float(s) => if let Data::Float(o) = other {
+                return s == o;
+            }
+            _ => {}
+        }
+        false
+    }
+}
+
+impl<'d> Eq for Data<'d> {}
 
 impl DummyController {
     pub fn new() -> Self {
@@ -129,7 +169,7 @@ impl Controller for DummyController {
         }
         Err(ControllerError::WrongObject)
     }
-    fn sync(&self) -> Result<(), ControllerError> {
+    fn sync(&self) -> Result<u32, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
 }

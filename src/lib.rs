@@ -90,8 +90,9 @@ impl MouseButton {
 pub enum Event<'d> {
     Commit,
     Prepare,
+    // Your message object
+    Message(u32),
     Keyboard(Key<'d>),
-    Message(data::Message<'d>),
     Pointer(f32, f32, Pointer),
 }
 
@@ -157,7 +158,7 @@ where
     W: Widget,
 {
     fn into_box(self) -> WidgetBox<Self> {
-        WidgetBox::default(self)
+        WidgetBox::new(self)
     }
     fn wrap(self) -> WidgetExt<W> {
         WidgetExt::default(self)

@@ -38,12 +38,8 @@ pub fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
     let mut width = 0;
     let mut height = 0;
     for gp in glyphs {
-        if width < gp.width + gp.x as usize {
-            width = gp.width + gp.x as usize
-        }
-        if height < gp.height + gp.y as usize {
-            height = gp.height + gp.y as usize
-        }
+        width = width.max(gp.width + gp.x as usize);
+        height = height.max(gp.height + gp.y as usize)
     }
     (width as f32, height as f32)
 }

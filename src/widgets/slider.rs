@@ -91,10 +91,10 @@ impl Widget for Slider {
                         if pressed && button == MouseButton::Left {
                             match &self.orientation {
                                 Orientation::Horizontal => {
-                                    self.slider.set_width(x.round());
+                                    let _ = self.slider.set_width(x.round());
                                 }
                                 Orientation::Vertical => {
-                                    self.slider.set_height(y.round());
+                                    let _ = self.slider.set_height(y.round());
                                 }
                             }
                         } else {
@@ -103,10 +103,7 @@ impl Widget for Slider {
                                 Orientation::Vertical => self.slider.height() / self.size,
                             };
                             ctx.request_draw();
-                            match ctx.send(Message::new(self.id, ratio)) {
-                                Err(e) => eprintln!("{} : {:?}", self.id, e),
-                                _ => {}
-                            }
+                            let _ = ctx.send(Message::new(self.id, ratio));
                         }
                     }
                     Pointer::Scroll {
@@ -115,32 +112,29 @@ impl Widget for Slider {
                     } => {
                         let ratio = match &self.orientation {
                             Orientation::Horizontal => {
-                                self.slider.set_width(
+                                let _ = self.slider.set_width(
                                     (self.slider.width() - value).clamp(0., self.width()),
                                 );
                                 self.slider.width() / self.size
                             }
                             Orientation::Vertical => {
-                                self.slider.set_height(
+                                let _ = self.slider.set_height(
                                     (self.slider.height() - value).clamp(0., self.height()),
                                 );
                                 self.slider.height() / self.size
                             }
                         };
                         ctx.request_draw();
-                        match ctx.send(Message::new(self.id, ratio)) {
-                            Err(e) => eprintln!("{} : {:?}", self.id, e),
-                            _ => {}
-                        }
+                        let _ = ctx.send(Message::new(self.id, ratio));
                     }
                     Pointer::Hover => {
                         if self.pressed {
                             match &self.orientation {
                                 Orientation::Horizontal => {
-                                    self.slider.set_width(x.round());
+                                    let _ = self.slider.set_width(x.round());
                                 }
                                 Orientation::Vertical => {
-                                    self.slider.set_width(y.round());
+                                    let _ = self.slider.set_width(y.round());
                                 }
                             }
                             ctx.request_draw();
@@ -155,10 +149,7 @@ impl Widget for Slider {
                     Orientation::Vertical => self.slider.height() / self.size,
                 };
                 ctx.request_draw();
-                match ctx.send(Message::new(self.id, ratio)) {
-                    Err(e) => eprintln!("{} : {:?}", self.id, e),
-                    _ => {}
-                }
+                let _ = ctx.send(Message::new(self.id, ratio));
             }
         }
     }

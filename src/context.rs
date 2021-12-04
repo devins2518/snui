@@ -6,6 +6,28 @@ use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 use widgets::text::Label;
 
+pub mod canvas {
+    use crate::scene::*;
+    use crate::widgets::shapes::*;
+
+    pub struct Canvas {
+        steps: Vec<Instruction>
+    }
+
+    impl Canvas {
+        pub fn draw_rectangle<R: Into<Rectangle>>(&mut self, x: f32, y: f32, rectangle: R) {
+            self.steps.push(
+                Instruction::new(x, y, rectangle.into())
+            )
+        }
+        pub fn finish(self) -> RenderNode {
+            RenderNode::Draw(self.steps)
+        }
+        // pub fn draw_oval(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        // }
+    }
+}
+
 pub const PIX_PAINT: PixmapPaint = PixmapPaint {
     blend_mode: BlendMode::SourceOver,
     opacity: 1.0,
@@ -105,7 +127,7 @@ impl<'c> Controller for SyncContext<'c> {
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
         self.model.send(msg)
     }
-    fn sync(&self) -> Result<(), ControllerError> {
+    fn sync(&self) -> Result<u32, ControllerError> {
         self.model.sync()
     }
 }
@@ -199,7 +221,13 @@ impl<'c> DrawContext<'c> {
             }
             _ => {}
         }
-        self.pending_damage.push(*region);
+        if let Some(r) = self.pending_damage.last() {
+            if r != region {
+                self.pending_damage.push(*region);
+            }
+        } else {
+            self.pending_damage.push(*region);
+        }
     }
     pub fn flush(&mut self) {
         self.pending_damage.clear();
