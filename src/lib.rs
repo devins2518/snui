@@ -157,9 +157,7 @@ where
     W: Widget,
 {
     fn into_box(self) -> WidgetBox<Self> {
-        let width = self.width();
-        let height = self.height();
-        WidgetBox::default(self, width, height)
+        WidgetBox::default(self)
     }
     fn wrap(self) -> WidgetExt<W> {
         WidgetExt::default(self)

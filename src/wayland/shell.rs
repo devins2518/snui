@@ -1,4 +1,3 @@
-
 use crate::context::DrawContext;
 use crate::data::Controller;
 use crate::font::FontCache;
@@ -26,8 +25,7 @@ use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_client::{Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy};
 use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
-    zwlr_layer_surface_v1::Anchor,
-    zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+    zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
 pub struct Application<C: Controller + Clone + 'static> {
@@ -573,9 +571,6 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
                 None,
             );
         }
-    }
-    pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
-        self.ctx.font_cache.load_font(name, path);
     }
     pub fn replace_surface_by(&mut self, config: ShellConfig) {
         if let Some(surface) = self.surface.as_mut() {

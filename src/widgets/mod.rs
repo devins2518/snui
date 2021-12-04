@@ -10,7 +10,7 @@ pub use crate::widgets::image::Image;
 use crate::*;
 pub use button::Button;
 pub use container::layout::WidgetLayout;
-pub use shapes::Shape;
+pub use shapes::Style;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
@@ -132,9 +132,9 @@ impl<W: Widget> Widget for WidgetBox<W> {
 }
 
 impl<W: Widget> WidgetBox<W> {
-    pub fn default(child: W, width: f32, height: f32) -> Self {
+    pub fn default(child: W) -> Self {
         Self {
-            size: (width.max(child.width()), height.max(child.height())),
+            size: (child.width(), child.height()),
             child,
             coords: Coords::new(0., 0.),
             anchor: (Alignment::Center, Alignment::Center),

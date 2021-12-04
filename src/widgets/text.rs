@@ -17,7 +17,7 @@ use widgets::u32_to_source;
 pub struct Label {
     text: String,
     font_size: f32,
-    source: Color,
+    color: Color,
     settings: LayoutSettings,
     fonts: Vec<FontProperty>,
     layout: Option<Rc<Vec<GlyphPosition>>>,
@@ -31,10 +31,10 @@ pub struct Text {
 }
 
 impl Label {
-    pub fn text(&self) -> &str {
+    pub fn get_text(&self) -> &str {
         self.text.as_str()
     }
-    pub fn font_size(&self) -> f32 {
+    pub fn get_font_size(&self) -> f32 {
         self.font_size
     }
     pub fn fonts(&self) -> &[FontProperty] {
@@ -50,15 +50,15 @@ impl Label {
             .max(self.size.1)
     }
     pub fn set_color(&mut self, color: u32) {
-        self.source = u32_to_source(color);
+        self.color = u32_to_source(color);
     }
-    pub fn source(&self) -> Color {
-        self.source
+    pub fn get_color(&self) -> Color {
+        self.color
     }
-    pub fn settings(&self) -> &LayoutSettings {
+    pub fn get_settings(&self) -> &LayoutSettings {
         &self.settings
     }
-    pub fn layout(&self) -> Option<&Rc<Vec<GlyphPosition>>> {
+    pub fn get_layout(&self) -> Option<&Rc<Vec<GlyphPosition>>> {
         self.layout.as_ref()
     }
 }
@@ -67,7 +67,7 @@ impl PartialEq for Label {
     fn eq(&self, other: &Self) -> bool {
         self.font_size == other.font_size
             && self.text == other.text
-            && self.source == other.source
+            && self.color == other.color
             && self.settings == other.settings
             && self.fonts.eq(&other.fonts)
     }
@@ -83,7 +83,7 @@ impl std::fmt::Debug for Label {
         f.debug_struct("Label")
             .field("text", &self.text)
             .field("font_size", &self.font_size)
-            .field("source", &self.source)
+            .field("color", &self.color)
             .field("fonts", &self.fonts)
             .finish()
     }
@@ -96,30 +96,35 @@ impl Label {
             font_size,
             fonts: Vec::new(),
             settings: LayoutSettings::default(),
-            source: u32_to_source(FG),
+            color: u32_to_source(FG),
             layout: None,
             size: (0., 0.),
         }
     }
-    pub fn font_property(mut self, font: FontProperty) -> Self {
+    pub fn font(mut self, font: FontProperty) -> Self {
         self.fonts.push(font);
         self
     }
     pub fn color(mut self, color: u32) -> Self {
-        self.source = u32_to_source(color);
+        self.color = u32_to_source(color);
         self
     }
-    pub fn size(mut self, width: f32, height: f32) -> Self {
-        self.set_size(width, height).unwrap();
+    pub fn settings(mut self, settings: LayoutSettings) -> Self {
+        self.settings = settings;
         self
+    }
+    pub fn size(mut self, width: f32, height: f32) -> WidgetBox<Self> {
+        let mut w = WidgetBox::default(self);
+        w.set_size(width, height).unwrap();
+        w.constraint(widgets::Constraint::Downward)
     }
     pub fn default(text: &str, font_size: f32) -> Label {
         Label {
             text: String::from(text),
             font_size,
             settings: LayoutSettings::default(),
-            fonts: vec![FontProperty::new("Default")],
-            source: u32_to_source(FG),
+            fonts: vec![FontProperty::new("sans serif")],
+            color: u32_to_source(FG),
             layout: None,
             size: (0., 0.),
         }

@@ -143,8 +143,9 @@ impl<'c> DrawContext<'c> {
             Background::LinearGradient {
                 start,
                 end,
+                angle: _,
                 stops,
-                mode
+                mode,
             } => {
                 if let Backend::Pixmap(dt) = &mut self.backend {
                     if let Some(grad) = LinearGradient::new(
@@ -152,7 +153,7 @@ impl<'c> DrawContext<'c> {
                         end.into(),
                         stops.as_ref().to_vec(),
                         *mode,
-                        Transform::identity()
+                        Transform::identity(),
                     ) {
                         dt.fill_rect(
                             region.into(),
@@ -163,7 +164,7 @@ impl<'c> DrawContext<'c> {
                                 force_hq_pipeline: false,
                             },
                             Transform::identity(),
-                            None
+                            None,
                         );
                     }
                 }
@@ -204,14 +205,14 @@ impl<'c> DrawContext<'c> {
         self.pending_damage.clear();
     }
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
-        if let Some(layout) = label.layout() {
+        if let Some(layout) = label.get_layout() {
             for gp in layout.as_ref() {
                 if let Some(glyph_cache) = self
                     .font_cache
                     .fonts
                     .get_mut(&label.fonts()[gp.key.font_index as usize])
                 {
-                    if let Some(pixmap) = glyph_cache.render_glyph(gp, label.source()) {
+                    if let Some(pixmap) = glyph_cache.render_glyph(gp, label.get_color()) {
                         if let Some(pixmap) = PixmapRef::from_bytes(
                             unsafe {
                                 std::slice::from_raw_parts(

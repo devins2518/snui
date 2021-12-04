@@ -1,7 +1,7 @@
 use crate::data::*;
 use crate::*;
 use widgets::shapes::rectangle::Rectangle;
-use widgets::{shapes::Style, Shape};
+use widgets::shapes::{ShapeStyle, Style};
 
 pub struct Slider {
     id: u32,
@@ -13,7 +13,7 @@ pub struct Slider {
 }
 
 impl Slider {
-    pub fn vertical(id: u32, width: u32, height: u32, style: Style) -> Self {
+    pub fn vertical(id: u32, width: u32, height: u32, style: ShapeStyle) -> Self {
         Slider {
             id,
             step: 1.,
@@ -23,7 +23,7 @@ impl Slider {
             slider: Rectangle::new(width as f32, height as f32 / 2., style),
         }
     }
-    pub fn horizontal(id: u32, width: u32, height: u32, style: Style) -> Self {
+    pub fn horizontal(id: u32, width: u32, height: u32, style: ShapeStyle) -> Self {
         Slider {
             id,
             step: 1.,
@@ -164,7 +164,7 @@ impl Widget for Slider {
     }
 }
 
-impl Shape for Slider {
+impl Style for Slider {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.slider.set_background(background);
     }

@@ -1,4 +1,5 @@
 use crate::widgets::text::Label;
+use fontconfig::Fontconfig;
 pub use fontdue::{
     layout,
     layout::{
@@ -48,26 +49,46 @@ pub fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum FontStyle {
+    Regular,
+    Italic,
+    Bold,
+}
+
+impl FontStyle {
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::Regular => None,
+            Self::Italic => Some("italic"),
+            Self::Bold => Some("bold"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct FontProperty {
     pub name: String,
+    pub style: FontStyle,
 }
 
 impl FontProperty {
     pub fn new(name: &str) -> FontProperty {
         FontProperty {
             name: name.to_string(),
+            style: FontStyle::Regular,
         }
     }
 }
 
-#[derive(Debug)]
 pub struct FontCache {
+    fc: Option<Fontconfig>,
     pub fonts: HashMap<FontProperty, GlyphCache>,
 }
 
 impl FontCache {
     pub fn new() -> Self {
         FontCache {
+            fc: Fontconfig::new(),
             fonts: HashMap::new(),
         }
     }
@@ -82,26 +103,33 @@ impl FontCache {
             })
             .collect()
     }
-    pub fn load_font(&mut self, name: &str, path: &std::path::Path) {
-        if let Ok(glyph_cache) = GlyphCache::load(path) {
-            self.fonts.insert(
-                FontProperty {
-                    name: name.to_owned(),
-                },
-                glyph_cache,
-            );
-        } else {
-            eprintln!("No font at {:?}", path);
+    pub fn load_font(&mut self, config: &FontProperty) {
+        if self.fonts.get(&config).is_none() {
+            if let Some(fc) = self.fc.as_ref() {
+                if let Some(fc_font) = fc.find(&config.name, config.style.as_str()) {
+                    match GlyphCache::load(fc_font.path.as_path()) {
+                        Ok(glyph_cache) => {
+                            self.fonts.insert(config.clone(), glyph_cache);
+                        }
+                        Err(e) => {
+                            eprintln!("{}: {:?}", e, config);
+                        }
+                    }
+                }
+            }
         }
     }
-    pub fn write(&mut self, layout: &mut Layout, label: &Label, _string: &str) {
+    pub fn write(&mut self, layout: &mut Layout, label: &Label, string: &str) {
+        for font in label.fonts() {
+            self.load_font(font);
+        }
         let fonts = self.get_fonts(label.fonts());
-        for c in label.text().chars() {
+        for c in string.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
                     layout.append(
                         &fonts,
-                        &TextStyle::new(&c.to_string(), label.font_size(), i),
+                        &TextStyle::new(&c.to_string(), label.get_font_size(), i),
                     );
                     break;
                 }
@@ -109,15 +137,18 @@ impl FontCache {
         }
     }
     pub fn layout(&mut self, label: &Label) -> Layout {
+        for font in label.fonts() {
+            self.load_font(font);
+        }
         let fonts = self.get_fonts(label.fonts());
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
-        layout.reset(label.settings());
-        for c in label.text().chars() {
+        layout.reset(label.get_settings());
+        for c in label.get_text().chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
                     layout.append(
                         &fonts,
-                        &TextStyle::new(&c.to_string(), label.font_size(), i),
+                        &TextStyle::new(&c.to_string(), label.get_font_size(), i),
                     );
                     break;
                 }

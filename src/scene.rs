@@ -1,11 +1,11 @@
 use crate::*;
-use std::rc::Rc;
 use context::DrawContext;
+use std::rc::Rc;
+pub use tiny_skia::*;
 use widgets::blend;
 use widgets::shapes::*;
 use widgets::text::*;
 use widgets::Image;
-pub use tiny_skia::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Coords {
@@ -47,8 +47,9 @@ pub enum Background {
     LinearGradient {
         start: Coords,
         end: Coords,
+        angle: f32,
         mode: SpreadMode,
-        stops: Rc<[GradientStop]>
+        stops: Rc<[GradientStop]>,
     },
     Composite(Box<Background>, Box<Background>),
     Color(Color),
@@ -57,16 +58,27 @@ pub enum Background {
 impl PartialEq for Background {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            Self::Transparent => if let Self::Transparent = other { return true },
-            Self::Color(sc) => if let Self::Color(oc) = other { return sc == oc },
-            Self::Image(scoords, simage) => if let Self::Image(ocoords, oimage) = other {
-                return scoords == ocoords && simage.eq(&oimage)
+            Self::Transparent => {
+                if let Self::Transparent = other {
+                    return true;
+                }
+            }
+            Self::Color(sc) => {
+                if let Self::Color(oc) = other {
+                    return sc == oc;
+                }
+            }
+            Self::Image(sc, si) => {
+                if let Self::Image(oc, oi) = other {
+                    return sc == oc && si.eq(&oi);
+                }
             }
             Self::LinearGradient {
                 start,
                 end,
+                angle: _,
                 stops,
-                mode
+                mode,
             } => {
                 let ss = start;
                 let se = end;
@@ -75,25 +87,33 @@ impl PartialEq for Background {
                 if let Self::LinearGradient {
                     start,
                     end,
+                    angle: _,
                     stops,
-                    mode
-                }= other {
-                    return ss == start && se == end && Rc::as_ptr(sg) == Rc::as_ptr(stops) && sm == mode
+                    mode,
+                } = other
+                {
+                    return ss == start
+                        && se == end
+                        && Rc::as_ptr(sg) == Rc::as_ptr(stops)
+                        && sm == mode;
                 }
             }
-            Self::Composite(sb, so) => if let Self::Composite(ob, oo) = other {
-                return sb as *const Box<Background> == ob as *const Box<Background> && so as *const Box<Background> == oo as *const Box<Background>;
+            Self::Composite(sb, so) => {
+                if let Self::Composite(ob, oo) = other {
+                    return sb as *const Box<Background> == ob as *const Box<Background>
+                        && so as *const Box<Background> == oo as *const Box<Background>;
+                }
             }
         }
         false
     }
 }
 
-impl From<Style> for Background {
-    fn from(style: Style) -> Self {
+impl From<ShapeStyle> for Background {
+    fn from(style: ShapeStyle) -> Self {
         match style {
-            Style::Background(bg) => bg,
-            Style::Border(_, _) => Background::Transparent,
+            ShapeStyle::Background(bg) => bg,
+            ShapeStyle::Border(_, _) => Background::Transparent,
         }
     }
 }
@@ -129,13 +149,17 @@ impl Background {
     pub fn image(path: &std::path::Path) -> Background {
         Background::Image(Coords::new(0., 0.), Image::new(path).unwrap())
     }
-    pub fn linear_gradient(stops: Vec<GradientStop>, mode: SpreadMode) -> Background {
+    /*
+     * The angle is a radiant representing the tild of the gradient clock wise.
+     */
+    pub fn linear_gradient(stops: Vec<GradientStop>, mode: SpreadMode, angle: f32) -> Background {
         let stops: Rc<[GradientStop]> = stops.into();
         Background::LinearGradient {
+            angle,
             start: Coords::new(0., 0.),
             end: Coords::new(0., 0.),
             mode,
-            stops
+            stops,
         }
     }
     fn from(instruction: &Instruction) -> Self {
@@ -169,8 +193,12 @@ impl Background {
                 _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
             },
             Background::LinearGradient {
-                start:_, end:_, stops:_, mode:_
-            }=> match other {
+                start: _,
+                end: _,
+                stops: _,
+                mode: _,
+                angle: _,
+            } => match other {
                 Background::Color(color) => {
                     if color.is_opaque() {
                         return other;
@@ -180,7 +208,7 @@ impl Background {
                 }
                 Background::Transparent => return self.clone(),
                 _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
-            }
+            },
             Background::Image(_, _) => match other {
                 Background::Color(color) => {
                     if color.is_opaque() {
