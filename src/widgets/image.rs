@@ -10,7 +10,7 @@ use std::sync::Arc;
 #[derive(Clone, PartialEq)]
 pub enum Scale {
     Fill,
-    Size,
+    Fit,
 }
 
 #[derive(Clone)]
@@ -67,7 +67,7 @@ impl Image {
     }
     pub fn scale(&self) -> (f32, f32) {
         match &self.scale {
-            Scale::Size => (
+            Scale::Fit => (
                 self.width as f32 / self.size.0 as f32,
                 self.height as f32 / self.size.1 as f32,
             ),
@@ -110,18 +110,18 @@ impl Geometry for Image {
 }
 
 impl Primitive for Image {
-    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
-        if let Backend::Pixmap(dt) = ctx.deref_mut() {
-            let (sw, sh) = self.scale();
-            dt.draw_pixmap(
-                x as i32,
-                y as i32,
-                PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap(),
-                &crate::context::PIX_PAINT,
-                Transform::from_scale(sw, sh),
-                None,
-            );
-        }
+    fn draw_with_transform_clip(&self, x: f32, y: f32, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>) {
+       if let Backend::Pixmap(dt) = ctx.deref_mut() {
+           let (sx, sy) = self.scale();
+           dt.draw_pixmap(
+               x as i32,
+               y as i32,
+               PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap(),
+               &crate::context::PIX_PAINT,
+               transform.post_scale(sx, sy),
+               clip,
+           );
+       }
     }
 }
 

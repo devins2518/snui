@@ -92,6 +92,7 @@ pub enum Event<'d> {
     Prepare,
     // Your message object
     Message(u32),
+    // Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     Pointer(f32, f32, Pointer),
 }
@@ -130,18 +131,29 @@ pub trait Geometry {
 }
 
 pub trait Primitive: Geometry + std::fmt::Debug {
-    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext);
+    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
+        self.draw_with_transform_clip(x, y, ctx, tiny_skia::Transform::identity(), None);
+    }
+    fn draw_with_clip(&self, x: f32, y: f32, ctx: &mut DrawContext, clip: Option<&tiny_skia::ClipMask>) {
+        self.draw_with_transform_clip(x, y, ctx, tiny_skia::Transform::identity(), clip);
+    }
+    fn draw_with_tranform(&self, x: f32, y: f32, ctx: &mut DrawContext, tranform: tiny_skia::Transform) {
+        self.draw_with_transform_clip(x, y, ctx, tranform, None);
+    }
+    fn draw_with_transform_clip(&self, x: f32, y: f32, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>);
 }
 
 pub trait Widget: Geometry {
     // Widgets are expected to compute their layout when
     // they're creating their render node.
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
-    // I don't think the user should have access to the context as is
-    // because it exposes the Backend and I don't want a widget to have the ability
-    // to draw so I should create another DrawContext, perhaps SyncDrawContext and rename the
-    // previous DrawDrawContext. The SyncDrawContext would hold the Data.
+    // Interface to communicate with the application and retained mode draw operation
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event);
+    fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
+        context::canvas::Canvas::new(scene::Region::new(
+            x, y, self.width(), self.height()
+        ))
+    }
 }
 
 pub trait Wrapable: Widget + Sized {

@@ -229,7 +229,7 @@ impl Background {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum PrimitiveType {
     Label(Label),
     Image(Image),
@@ -237,7 +237,7 @@ pub enum PrimitiveType {
     Other {
         name: &'static str,
         id: u64,
-        primitive: Rc<dyn Primitive>
+        primitive: Box<dyn Primitive>
     },
 }
 
@@ -283,18 +283,49 @@ impl From<Image> for PrimitiveType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Instruction {
     coords: Coords,
+    clip: Option<Region>,
+    transform: Transform,
     primitive: PrimitiveType,
 }
 
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 impl Instruction {
+    pub fn other<P: 'static + Hash + Primitive>(x: f32, y: f32, primitive: P) -> Instruction {
+        let mut hasher = DefaultHasher::new();
+        primitive.hash(&mut hasher);
+        Instruction {
+            clip: None,
+            coords: Coords::new(x, y),
+            transform: Transform::identity(),
+            primitive: PrimitiveType::Other {
+                name: std::any::type_name::<P>(),
+                id: hasher.finish(),
+                primitive: Box::new(primitive)
+            }
+        }
+    }
     pub fn new<P: Into<PrimitiveType>>(x: f32, y: f32, primitive: P) -> Instruction {
         Instruction {
+            clip: None,
             coords: Coords::new(x, y),
             primitive: primitive.into(),
+            transform: Transform::identity(),
         }
+    }
+    pub fn set_clip(&mut self, clip: Region) {
+        self.clip = Some(clip);
+    }
+    pub fn clip(mut self, clip: Region) -> Instruction {
+        self.clip = Some(clip);
+        self
+    }
+    pub fn transform(mut self, tranform: Transform) -> Instruction {
+        self.transform = tranform;
+        self
     }
 }
 
@@ -302,14 +333,25 @@ impl Instruction {
     fn render(&self, ctx: &mut DrawContext) {
         let x = self.coords.x;
         let y = self.coords.y;
+        let clip = if let Some(region) = self.clip.as_ref() {
+            let mut clip = ClipMask::new();
+            clip.set_path(
+                ctx.width() as u32,
+                ctx.height() as u32,
+                &PathBuilder::from_rect(region.into()),
+                FillRule::Winding,
+                false,
+            );
+            Some(clip)
+        } else { None };
         match &self.primitive {
-            PrimitiveType::Image(i) => i.draw(x, y, ctx),
+            PrimitiveType::Image(i) => i.draw_with_transform_clip(x, y, ctx, self.transform, clip.as_ref()),
             PrimitiveType::Other {
                 id:_, name:_, primitive
             } => {
-                primitive.draw(x, y, ctx);
+                primitive.draw_with_transform_clip(x, y, ctx, self.transform, clip.as_ref());
             }
-            PrimitiveType::Rectangle(r) => r.draw(x, y, ctx),
+            PrimitiveType::Rectangle(r) => r.draw_with_transform_clip(x, y, ctx, self.transform, clip.as_ref()),
             PrimitiveType::Label(l) => ctx.draw_label(l, x, y),
         }
     }
@@ -350,7 +392,7 @@ impl PartialEq for Instruction {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum RenderNode {
     Instruction(Instruction),
     Extension {
@@ -379,6 +421,11 @@ impl RenderNode {
                 let (child, border) = node.as_ref();
                 child.render(ctx);
                 border.render(ctx);
+            }
+            Self::Draw(d) => {
+                for n in d {
+                    n.render(ctx);
+                }
             }
             _ => {}
         }
@@ -477,7 +524,7 @@ impl RenderNode {
                     } else {
                         let mut draw = false;
                         for i in 0..ov.len() {
-                            if sv[i] == ov[i] {
+                            if sv[i] != ov[i] {
                                 draw = true;
                                 break;
                             }

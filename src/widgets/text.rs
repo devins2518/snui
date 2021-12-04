@@ -1,6 +1,5 @@
 pub use crate::font::FontProperty;
 use crate::*;
-use crate::data::*;
 pub use fontdue::{
     layout,
     layout::{

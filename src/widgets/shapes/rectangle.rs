@@ -39,6 +39,17 @@ pub struct Rectangle {
     radius: (f32, f32, f32, f32),
 }
 
+impl From<Region> for Rectangle {
+    fn from(region: Region) -> Self {
+        Rectangle {
+            width: region.x,
+            height: region.y,
+            style: ShapeStyle::Background(Background::Transparent),
+            radius: (0., 0., 0., 0.),
+        }
+    }
+}
+
 impl Rectangle {
     pub fn square(size: f32, style: ShapeStyle) -> Self {
         Rectangle {
@@ -122,7 +133,7 @@ impl Geometry for Rectangle {
 }
 
 impl Primitive for Rectangle {
-    fn draw(&self, mut x: f32, mut y: f32, ctx: &mut DrawContext) {
+    fn draw_with_transform_clip(&self, mut x: f32, mut y: f32, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>) {
         let width = self.width;
         let height = self.height;
         if let ShapeStyle::Border(_, size) = &self.style {
@@ -231,8 +242,8 @@ impl Primitive for Rectangle {
                                     force_hq_pipeline: false,
                                 },
                                 FillRule::EvenOdd,
-                                Transform::identity(),
-                                None,
+                                transform,
+                                clip,
                             );
                         }
                         Background::Image(_, image) => {
@@ -252,8 +263,8 @@ impl Primitive for Rectangle {
                                     force_hq_pipeline: false,
                                 },
                                 FillRule::EvenOdd,
-                                Transform::identity(),
-                                None,
+                                transform,
+                                clip,
                             );
                         }
                         Background::LinearGradient {
@@ -268,7 +279,7 @@ impl Primitive for Rectangle {
                                 Point::from_xy(x + width, y + width * angle.tan()),
                                 stops.as_ref().to_vec(),
                                 *mode,
-                                Transform::identity(),
+                                transform,
                             ) {
                                 dt.fill_path(
                                     &path,
@@ -279,8 +290,8 @@ impl Primitive for Rectangle {
                                         force_hq_pipeline: false,
                                     },
                                     FillRule::EvenOdd,
-                                    Transform::identity(),
-                                    None,
+                                    transform,
+                                    clip,
                                 );
                             }
                         }
@@ -303,10 +314,9 @@ impl Primitive for Rectangle {
                                 force_hq_pipeline: false,
                             },
                             &stroke,
-                            Transform::identity(),
-                            None,
-                        )
-                        .unwrap();
+                            transform,
+                            clip,
+                        );
                     }
                 }
             }

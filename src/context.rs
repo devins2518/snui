@@ -6,21 +6,58 @@ use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 use widgets::text::Label;
 
-pub mod canvas {
+pub(crate) mod canvas {
+    use crate::*;
     use crate::scene::*;
     use crate::widgets::shapes::*;
 
     pub struct Canvas {
+        coords: Coords,
+        region: Region,
         steps: Vec<Instruction>
     }
 
     impl Canvas {
-        pub fn draw_rectangle<R: Into<Rectangle>>(&mut self, x: f32, y: f32, rectangle: R) {
+        pub fn new(region: Region) -> Self {
+            Canvas {
+                coords: Coords::new(region.x, region.y),
+                steps: Vec::new(),
+                region
+            }
+        }
+        pub fn draw<P: Into<PrimitiveType>>(&mut self, x: f32, y: f32, p: P) {
+            let x = x + self.coords.x;
+            let y = y + self.coords.y;
+            self.region.x = self.region.x.min(x);
+            self.region.y = self.region.y.min(y);
             self.steps.push(
-                Instruction::new(x, y, rectangle.into())
+                Instruction::new(x, y, p.into())
             )
         }
-        pub fn finish(self) -> RenderNode {
+        pub fn draw_rectangle<B: Into<Background>>(&mut self, region: Region, bg: B) {
+            let x = region.x + self.coords.x;
+            let y = region.y + self.coords.y;
+            self.region.x = self.region.x.min(x);
+            self.region.y = self.region.y.min(y);
+            let rect: Rectangle = region.into();
+            self.steps.push(
+                Instruction::new(x, y, rect.background(bg))
+            )
+        }
+        pub fn draw_at_angle<P: Into<PrimitiveType> + Primitive>(&mut self, x: f32, y: f32, p: P, angle: f32) {
+            let x = x + self.coords.x;
+            let y = y + self.coords.y;
+            self.region.x = self.region.x.min(x);
+            self.region.y = self.region.y.min(y);
+            self.steps.push(
+                Instruction::new(x, y, p.into())
+                .transform(Transform::from_rotate_at(angle, x, y))
+            )
+        }
+        pub fn finish(mut self) -> RenderNode {
+            for i in self.steps.iter_mut() {
+                i.set_clip(self.region);
+            }
             RenderNode::Draw(self.steps)
         }
         // pub fn draw_oval(&mut self, x: f32, y: f32, width: f32, height: f32) {
@@ -199,8 +236,8 @@ impl<'c> DrawContext<'c> {
                 if let Backend::Pixmap(dt) = &mut self.backend {
                     let mut clip = ClipMask::new();
                     clip.set_path(
-                        image.width() as u32,
-                        image.height() as u32,
+                        dt.width(),
+                        dt.height(),
                         &PathBuilder::from_rect((&crop).into()),
                         FillRule::Winding,
                         false,

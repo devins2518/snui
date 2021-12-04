@@ -485,8 +485,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let iapp = InnerApplication::empty(controller, widget, self.globals.clone(), cb);
-        self.inner.push(iapp);
+        let i = InnerApplication::empty(controller, widget, self.globals.clone(), cb);
+        self.inner.push(i);
         handle.update(&self.token).unwrap();
     }
     pub fn create_inner_application_from<Data: 'static>(
@@ -497,8 +497,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let iapp = InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
-        self.inner.push(iapp);
+        let i = InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
+        self.inner.push(i);
         handle.update(&self.token).unwrap();
     }
     pub fn create_inner_application<Data: 'static>(
@@ -508,8 +508,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let iapp = InnerApplication::default(controller, widget, self.globals.clone(), cb);
-        self.inner.push(iapp);
+        let i = InnerApplication::default(controller, widget, self.globals.clone(), cb);
+        self.inner.push(i);
         handle.update(&self.token).unwrap();
     }
     pub fn run(mut self, event_loop: &mut EventLoop<'static, Self>) {
@@ -607,7 +607,6 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);
         }
-        // self.ctx.draw_target = DrawTarget::new(width as i32, height as i32);
         Ok(())
     }
 }
@@ -707,9 +706,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
 
             // Resizing the surface in case the widget changed size
             if size.0 != width || size.1 != height {
-                if let Err(size) = self.core.set_size(width, height) {
-                    eprintln!("Minimim surface size: {} x {}", size.0, size.1)
-                }
+                let _ = self.core.set_size(width, height);
             }
 
             if let Some(pool) = self.core.mempool.pool() {
