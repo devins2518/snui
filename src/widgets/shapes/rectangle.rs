@@ -133,9 +133,15 @@ impl Geometry for Rectangle {
 }
 
 impl Primitive for Rectangle {
-    fn draw_with_transform_clip(&self, mut x: f32, mut y: f32, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>) {
+    fn draw_with_transform_clip(
+        &self,
+        ctx: &mut DrawContext,
+        transform: tiny_skia::Transform,
+        clip: Option<&tiny_skia::ClipMask>,
+    ) {
         let width = self.width;
         let height = self.height;
+        let (mut x, mut y) = (0., 0.);
         if let ShapeStyle::Border(_, size) = &self.style {
             x += size;
             y += size;

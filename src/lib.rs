@@ -132,15 +132,32 @@ pub trait Geometry {
 
 pub trait Primitive: Geometry + std::fmt::Debug {
     fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
-        self.draw_with_transform_clip(x, y, ctx, tiny_skia::Transform::identity(), None);
+        self.draw_with_transform_clip(ctx, tiny_skia::Transform::from_translate(x, y), None);
     }
-    fn draw_with_clip(&self, x: f32, y: f32, ctx: &mut DrawContext, clip: Option<&tiny_skia::ClipMask>) {
-        self.draw_with_transform_clip(x, y, ctx, tiny_skia::Transform::identity(), clip);
+    fn draw_with_clip(
+        &self,
+        x: f32,
+        y: f32,
+        ctx: &mut DrawContext,
+        clip: Option<&tiny_skia::ClipMask>,
+    ) {
+        self.draw_with_transform_clip(ctx, tiny_skia::Transform::from_translate(x, y), clip);
     }
-    fn draw_with_tranform(&self, x: f32, y: f32, ctx: &mut DrawContext, tranform: tiny_skia::Transform) {
-        self.draw_with_transform_clip(x, y, ctx, tranform, None);
+    fn draw_with_tranform(
+        &self,
+        x: f32,
+        y: f32,
+        ctx: &mut DrawContext,
+        tranform: tiny_skia::Transform,
+    ) {
+        self.draw_with_transform_clip(ctx, tranform.pre_translate(x, y), None);
     }
-    fn draw_with_transform_clip(&self, x: f32, y: f32, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>);
+    fn draw_with_transform_clip(
+        &self,
+        ctx: &mut DrawContext,
+        transform: tiny_skia::Transform,
+        clip: Option<&tiny_skia::ClipMask>,
+    );
 }
 
 pub trait Widget: Geometry {
@@ -150,9 +167,7 @@ pub trait Widget: Geometry {
     // Interface to communicate with the application and retained mode draw operation
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event);
     fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
-        context::canvas::Canvas::new(scene::Region::new(
-            x, y, self.width(), self.height()
-        ))
+        context::canvas::Canvas::new(scene::Region::new(x, y, self.width(), self.height()))
     }
 }
 

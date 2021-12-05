@@ -110,18 +110,23 @@ impl Geometry for Image {
 }
 
 impl Primitive for Image {
-    fn draw_with_transform_clip(&self, x: f32, y: f32, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>) {
-       if let Backend::Pixmap(dt) = ctx.deref_mut() {
-           let (sx, sy) = self.scale();
-           dt.draw_pixmap(
-               x as i32,
-               y as i32,
-               PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap(),
-               &crate::context::PIX_PAINT,
-               transform.post_scale(sx, sy),
-               clip,
-           );
-       }
+    fn draw_with_transform_clip(
+        &self,
+        ctx: &mut DrawContext,
+        transform: tiny_skia::Transform,
+        clip: Option<&tiny_skia::ClipMask>,
+    ) {
+        if let Backend::Pixmap(dt) = ctx.deref_mut() {
+            let (sx, sy) = self.scale();
+            dt.draw_pixmap(
+                0,
+                0,
+                PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap(),
+                &crate::context::PIX_PAINT,
+                transform.post_scale(sx, sy),
+                clip,
+            );
+        }
     }
 }
 

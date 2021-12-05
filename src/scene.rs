@@ -1,5 +1,6 @@
 use crate::*;
 use context::DrawContext;
+use std::mem;
 use std::rc::Rc;
 pub use tiny_skia::*;
 use widgets::blend;
@@ -165,7 +166,10 @@ impl Background {
     fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
             PrimitiveType::Rectangle(r) => r.get_style().background(),
-            PrimitiveType::Image(image) => Background::Image(instruction.coords, image.clone()),
+            PrimitiveType::Image(image) => {
+                let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
+                Background::Image(coords, image.clone())
+            }
             _ => Background::Transparent,
         }
     }
@@ -237,26 +241,41 @@ pub enum PrimitiveType {
     Other {
         name: &'static str,
         id: u64,
-        primitive: Box<dyn Primitive>
+        primitive: Box<dyn Primitive>,
     },
 }
 
 impl PartialEq for PrimitiveType {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            PrimitiveType::Rectangle(s) => if let PrimitiveType::Rectangle(o) = other {
-                return s.eq(o)
-            },
-            PrimitiveType::Label(s) => if let PrimitiveType::Label(o) = other {
-                return s.eq(o)
-            },
-            PrimitiveType::Image(s) => if let PrimitiveType::Image(o) = other {
-                return s.eq(o)
-            },
-            PrimitiveType::Other { name, id, primitive:_ } => {
+            PrimitiveType::Rectangle(s) => {
+                if let PrimitiveType::Rectangle(o) = other {
+                    return s.eq(o);
+                }
+            }
+            PrimitiveType::Label(s) => {
+                if let PrimitiveType::Label(o) = other {
+                    return s.eq(o);
+                }
+            }
+            PrimitiveType::Image(s) => {
+                if let PrimitiveType::Image(o) = other {
+                    return s.eq(o);
+                }
+            }
+            PrimitiveType::Other {
+                name,
+                id,
+                primitive: _,
+            } => {
                 let sn = name;
                 let sid = id;
-                if let PrimitiveType::Other {id, name, primitive:_} = other {
+                if let PrimitiveType::Other {
+                    id,
+                    name,
+                    primitive: _,
+                } = other
+                {
                     return sn == name && id == sid;
                 }
             }
@@ -285,99 +304,80 @@ impl From<Image> for PrimitiveType {
 
 #[derive(Debug)]
 pub struct Instruction {
-    coords: Coords,
-    clip: Option<Region>,
+    // coords: Coords,
     transform: Transform,
     primitive: PrimitiveType,
 }
 
-use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 impl Instruction {
     pub fn other<P: 'static + Hash + Primitive>(x: f32, y: f32, primitive: P) -> Instruction {
         let mut hasher = DefaultHasher::new();
         primitive.hash(&mut hasher);
         Instruction {
-            clip: None,
-            coords: Coords::new(x, y),
-            transform: Transform::identity(),
+            // coords: Coords::new(x, y),
+            transform: Transform::from_translate(x, y),
             primitive: PrimitiveType::Other {
                 name: std::any::type_name::<P>(),
                 id: hasher.finish(),
-                primitive: Box::new(primitive)
-            }
+                primitive: Box::new(primitive),
+            },
         }
     }
     pub fn new<P: Into<PrimitiveType>>(x: f32, y: f32, primitive: P) -> Instruction {
         Instruction {
-            clip: None,
-            coords: Coords::new(x, y),
+            // coords: Coords::new(x, y),
             primitive: primitive.into(),
-            transform: Transform::identity(),
+            transform: Transform::from_translate(x, y),
         }
     }
-    pub fn set_clip(&mut self, clip: Region) {
-        self.clip = Some(clip);
-    }
-    pub fn clip(mut self, clip: Region) -> Instruction {
-        self.clip = Some(clip);
-        self
-    }
     pub fn transform(mut self, tranform: Transform) -> Instruction {
-        self.transform = tranform;
+        self.transform = self.transform.post_concat(tranform);
         self
     }
 }
 
 impl Instruction {
-    fn render(&self, ctx: &mut DrawContext) {
-        let x = self.coords.x;
-        let y = self.coords.y;
-        let clip = if let Some(region) = self.clip.as_ref() {
-            let mut clip = ClipMask::new();
-            clip.set_path(
-                ctx.width() as u32,
-                ctx.height() as u32,
-                &PathBuilder::from_rect(region.into()),
-                FillRule::Winding,
-                false,
-            );
-            Some(clip)
-        } else { None };
+    fn render(&self, ctx: &mut DrawContext, clip: Option<&ClipMask>) {
+        let x = self.transform.tx;
+        let y = self.transform.ty;
         match &self.primitive {
-            PrimitiveType::Image(i) => i.draw_with_transform_clip(x, y, ctx, self.transform, clip.as_ref()),
+            PrimitiveType::Image(i) => i.draw_with_transform_clip(ctx, self.transform, clip),
             PrimitiveType::Other {
-                id:_, name:_, primitive
+                id: _,
+                name: _,
+                primitive,
             } => {
-                primitive.draw_with_transform_clip(x, y, ctx, self.transform, clip.as_ref());
+                primitive.draw_with_transform_clip(ctx, self.transform, clip);
             }
-            PrimitiveType::Rectangle(r) => r.draw_with_transform_clip(x, y, ctx, self.transform, clip.as_ref()),
+            PrimitiveType::Rectangle(r) => r.draw_with_transform_clip(ctx, self.transform, clip),
             PrimitiveType::Label(l) => ctx.draw_label(l, x, y),
         }
     }
     fn region(&self) -> Region {
         Region::new(
-            self.coords.x,
-            self.coords.y,
+            self.transform.tx,
+            self.transform.ty,
             match &self.primitive {
                 PrimitiveType::Image(i) => i.width(),
                 PrimitiveType::Rectangle(r) => r.width(),
                 PrimitiveType::Label(l) => l.width(),
                 PrimitiveType::Other {
-                    id:_, name:_, primitive
-                } => {
-                    primitive.width()
-                }
+                    id: _,
+                    name: _,
+                    primitive,
+                } => primitive.width(),
             },
             match &self.primitive {
                 PrimitiveType::Image(i) => i.height(),
                 PrimitiveType::Rectangle(r) => r.height(),
                 PrimitiveType::Label(l) => l.height(),
                 PrimitiveType::Other {
-                    id:_, name:_, primitive
-                } => {
-                    primitive.height()
-                }
+                    id: _,
+                    name: _,
+                    primitive,
+                } => primitive.height(),
             },
         )
     }
@@ -385,7 +385,7 @@ impl Instruction {
 
 impl PartialEq for Instruction {
     fn eq(&self, other: &Self) -> bool {
-        self.coords.eq(&other.coords) && self.primitive.eq(&other.primitive)
+        self.transform.eq(&other.transform) && self.primitive.eq(&other.primitive)
     }
     fn ne(&self, other: &Self) -> bool {
         !self.eq(other)
@@ -399,32 +399,49 @@ pub enum RenderNode {
         background: Instruction,
         node: Box<(RenderNode, RenderNode)>,
     },
-    None(Region),
+    None,
     Container(Vec<RenderNode>),
-    Draw(Vec<Instruction>),
+    Draw {
+        region: Region,
+        steps: Vec<Instruction>,
+    },
+}
+
+impl Default for RenderNode {
+    fn default() -> Self {
+        RenderNode::None
+    }
 }
 
 impl RenderNode {
-    pub fn empty(x: f32, y: f32, width: f32, height: f32) -> RenderNode {
-        RenderNode::None(Region::new(x, y, width, height))
-    }
     pub fn render(&self, ctx: &mut DrawContext) {
         match self {
-            Self::Instruction(instruction) => instruction.render(ctx),
+            Self::Instruction(instruction) => instruction.render(ctx, None),
             Self::Container(c) => {
                 for n in c {
                     n.render(ctx);
                 }
             }
             Self::Extension { background, node } => {
-                background.render(ctx);
+                background.render(ctx, None);
                 let (child, border) = node.as_ref();
                 child.render(ctx);
                 border.render(ctx);
             }
-            Self::Draw(d) => {
-                for n in d {
-                    n.render(ctx);
+            Self::Draw { region, steps } => {
+                /*
+                 * ClipMask expects the mask to be the size of the buffer
+                 */
+                let mut clip = ClipMask::new();
+                clip.set_path(
+                    ctx.width() as u32,
+                    ctx.height() as u32,
+                    &PathBuilder::from_rect(region.into()),
+                    FillRule::Winding,
+                    false,
+                );
+                for n in steps {
+                    n.render(ctx, Some(&clip));
                 }
             }
             _ => {}
@@ -434,9 +451,6 @@ impl RenderNode {
         match self {
             RenderNode::Instruction(instruction) => {
                 ctx.damage_region(bg, &instruction.region());
-            }
-            RenderNode::None(region) => {
-                ctx.damage_region(bg, &region);
             }
             RenderNode::Extension {
                 background,
@@ -449,9 +463,107 @@ impl RenderNode {
                     node.clear(ctx, bg)
                 }
             }
-            RenderNode::Draw(instructions) => {
-                for i in instructions {
-                    ctx.damage_region(bg, &i.region());
+            RenderNode::Draw { region, steps: _ } => {
+                ctx.damage_region(bg, region);
+            }
+            _ => {}
+        }
+    }
+    pub fn merge<'r>(&'r mut self, other: Self, ctx: &mut DrawContext, bg: &Background) {
+        match self {
+            RenderNode::Instruction(a) => match other {
+                RenderNode::Instruction(ref b) => {
+                    if b.ne(a) {
+                        ctx.damage_region(bg, &a.region());
+                        b.render(ctx, None);
+                        *self = other;
+                    }
+                }
+                RenderNode::None => {}
+                _ => {
+                    ctx.damage_region(bg, &a.region());
+                    *self = other;
+                    self.render(ctx);
+                }
+            },
+            RenderNode::None => {
+                *self = other;
+                self.render(ctx);
+            }
+            RenderNode::Container(sv) => match other {
+                RenderNode::Container(mut ov) => {
+                    if sv.len() != ov.len() {
+                        self.clear(ctx, bg);
+                        *self = RenderNode::Container(ov);
+                        self.render(ctx);
+                    } else {
+                        for i in 0..ov.len() {
+                            sv[i].merge(mem::take(&mut ov[i]), ctx, bg);
+                        }
+                    }
+                }
+                RenderNode::None => {}
+                _ => {
+                    self.clear(ctx, bg);
+                    *self = other;
+                    self.render(ctx);
+                }
+            },
+            RenderNode::Extension { background, node } => {
+                let this_background = background;
+                let (this_child, this_border) = node.as_mut();
+                if let RenderNode::Extension { background, node } = other {
+                    let (other_child, other_border) = *node;
+                    if background.eq(this_background) && other_border.eq(this_border) {
+                        this_child.merge(
+                            other_child,
+                            ctx,
+                            &bg.merge(Background::from(this_background)),
+                        );
+                    } else {
+                        ctx.damage_region(bg, &this_background.region());
+                        *self = RenderNode::Extension {
+                            background,
+                            node: Box::new((other_child, other_border)),
+                        };
+                        self.render(ctx);
+                    }
+                } else {
+                    ctx.damage_region(bg, &this_background.region());
+                    *self = other;
+                    self.render(ctx);
+                }
+            }
+            RenderNode::Draw { region, steps } => {
+                let this_region = region;
+                let this_steps = steps;
+                match other {
+                    RenderNode::Draw { region, steps } => {
+                        if region.eq(this_region) && this_steps.len() != steps.len() {
+                            self.clear(ctx, bg);
+                            *self = RenderNode::Draw { region, steps };
+                            self.render(ctx);
+                        } else {
+                            let mut draw = false;
+                            for i in 0..steps.len() {
+                                if this_steps[i] != steps[i] {
+                                    draw = true;
+                                    break;
+                                }
+                            }
+                            if draw {
+                                self.clear(ctx, bg);
+                                *self = RenderNode::Draw { region, steps };
+                                self.render(ctx);
+                            }
+                        }
+                    }
+                    RenderNode::None => {}
+                    _ => {
+                        self.clear(ctx, bg);
+                        *self = other;
+                        self.render(ctx);
+                    }
                 }
             }
         }
@@ -460,23 +572,22 @@ impl RenderNode {
     /*
      * Renders to the DrawContext where the RenderNode differs
      */
-    pub fn invalidate<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
+    pub fn compare<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(b) => {
                     if a.ne(b) {
                         ctx.damage_region(bg, &a.region());
-                        b.render(ctx);
+                        b.render(ctx, None);
                     }
                 }
-                RenderNode::None(_) => {},
+                RenderNode::None => {}
                 _ => {
                     ctx.damage_region(bg, &a.region());
                     other.render(ctx);
                 }
             },
-            RenderNode::None(region) => {
-                ctx.damage_region(bg, region);
+            RenderNode::None => {
                 other.render(ctx);
             }
             RenderNode::Container(sv) => match other {
@@ -486,11 +597,11 @@ impl RenderNode {
                         other.render(ctx);
                     } else {
                         for i in 0..ov.len() {
-                            sv[i].invalidate(&ov[i], ctx, bg);
+                            sv[i].compare(&ov[i], ctx, bg);
                         }
                     }
                 }
-                RenderNode::None(_) => {},
+                RenderNode::None => {}
                 _ => {
                     self.clear(ctx, bg);
                     other.render(ctx);
@@ -502,7 +613,7 @@ impl RenderNode {
                 if let RenderNode::Extension { background, node } = other {
                     let (other_child, other_border) = node.as_ref();
                     if this_background == background && this_border == other_border {
-                        this_child.invalidate(
+                        this_child.compare(
                             other_child,
                             ctx,
                             &bg.merge(Background::from(this_background)),
@@ -516,29 +627,33 @@ impl RenderNode {
                     other.render(ctx);
                 }
             }
-            RenderNode::Draw(sv) => match other {
-                RenderNode::Draw(ov) => {
-                    if sv.len() != ov.len() {
-                        self.clear(ctx, bg);
-                        other.render(ctx);
-                    } else {
-                        let mut draw = false;
-                        for i in 0..ov.len() {
-                            if sv[i] != ov[i] {
-                                draw = true;
-                                break;
-                            }
-                        }
-                        if draw {
+            RenderNode::Draw { region, steps } => {
+                let this_region = region;
+                let this_steps = steps;
+                match other {
+                    RenderNode::Draw { region, steps } => {
+                        if this_region == region && this_steps.len() != steps.len() {
                             self.clear(ctx, bg);
                             other.render(ctx);
+                        } else {
+                            let mut draw = false;
+                            for i in 0..steps.len() {
+                                if this_steps[i] != steps[i] {
+                                    draw = true;
+                                    break;
+                                }
+                            }
+                            if draw {
+                                self.clear(ctx, bg);
+                                other.render(ctx);
+                            }
                         }
                     }
-                }
-                RenderNode::None(_) => {},
-                _ => {
-                    self.clear(ctx, bg);
-                    other.render(ctx);
+                    RenderNode::None => {}
+                    _ => {
+                        self.clear(ctx, bg);
+                        other.render(ctx);
+                    }
                 }
             }
         }

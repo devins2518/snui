@@ -326,7 +326,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 node: Box::new((
                     self.child
                         .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
-                    RenderNode::empty(x, y, self.width(), self.height()),
+                    RenderNode::None,
                 )),
                 background: {
                     let width = self.inner_width();

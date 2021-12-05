@@ -1,5 +1,5 @@
-pub mod r#box;
+pub mod center;
 pub mod layout;
 
+pub use center::Centerbox;
 pub use layout::WidgetLayout;
-pub use r#box::Centerbox;

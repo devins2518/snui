@@ -8,7 +8,7 @@ pub enum Data<'d> {
     Double(f64),
     Boolean(bool),
     String(&'d str),
-    Any(&'d dyn std::any::Any)
+    Any(&'d dyn std::any::Any),
 }
 
 // Meant for testing purposes and default
@@ -17,7 +17,7 @@ pub struct DummyController {
     serial: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy,PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Message<'m>(
     // The u32 is a bitmask
     // Users can create an Enum and alias a bitmask to a value
@@ -100,26 +100,40 @@ impl<'d> From<&'d dyn std::any::Any> for Data<'d> {
 impl<'d> PartialEq for Data<'d> {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            Data::Boolean(s) => if let Data::Boolean(o) = other {
-                return s == o;
+            Data::Boolean(s) => {
+                if let Data::Boolean(o) = other {
+                    return s == o;
+                }
             }
-            Data::Uint(s) => if let Data::Uint(o) = other {
-                return s == o;
+            Data::Uint(s) => {
+                if let Data::Uint(o) = other {
+                    return s == o;
+                }
             }
-            Data::Int(s) => if let Data::Int(o) = other {
-                return s == o;
+            Data::Int(s) => {
+                if let Data::Int(o) = other {
+                    return s == o;
+                }
             }
-            Data::String(s) => if let Data::String(o) = other {
-                return s == o;
+            Data::String(s) => {
+                if let Data::String(o) = other {
+                    return s == o;
+                }
             }
-            Data::Byte(s) => if let Data::Byte(o) = other {
-                return s == o;
+            Data::Byte(s) => {
+                if let Data::Byte(o) = other {
+                    return s == o;
+                }
             }
-            Data::Double(s) => if let Data::Double(o) = other {
-                return s == o;
+            Data::Double(s) => {
+                if let Data::Double(o) = other {
+                    return s == o;
+                }
             }
-            Data::Float(s) => if let Data::Float(o) = other {
-                return s == o;
+            Data::Float(s) => {
+                if let Data::Float(o) = other {
+                    return s == o;
+                }
             }
             _ => {}
         }
@@ -129,6 +143,10 @@ impl<'d> PartialEq for Data<'d> {
 
 impl<'d> Eq for Data<'d> {}
 
+/*
+ * Barebone implementation of Controller.
+ * Can be used for debugging your application.
+ */
 impl DummyController {
     pub fn new() -> Self {
         DummyController { serial: None }

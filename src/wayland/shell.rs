@@ -235,7 +235,6 @@ impl<C: Controller + Clone + 'static> Application<C> {
         let mut event_queue = display.create_event_queue();
         let attached_display = (*display).clone().attach(event_queue.token());
 
-        // Creating the Globals struct
         let mut globals = Globals::new();
 
         let global_manager = GlobalManager::new_with_cb(
@@ -713,9 +712,9 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 if let Some(surface) = &mut self.core.surface {
                     if let Ok((buffer, wl_buffer)) = Buffer::new(pool, width as i32, height as i32)
                     {
-                        if let Some(render_node) = &self.core.ctx.render_node {
-                            render_node.invalidate(
-                                &recent_node,
+                        if let Some(render_node) = self.core.ctx.render_node.as_mut() {
+                            render_node.merge(
+                                recent_node,
                                 &mut DrawContext::new(
                                     buffer.backend,
                                     &mut self.core.ctx.font_cache,
@@ -723,7 +722,6 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                                 ),
                                 &Background::Transparent,
                             );
-                            self.core.ctx.render_node = Some(recent_node);
                         } else {
                             recent_node.render(&mut DrawContext::new(
                                 buffer.backend,
@@ -828,8 +826,8 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
     shell.quick_assign(|shell, event, mut inner| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
-            width: _,
-            height: _,
+            width,
+            height,
         } => {
             shell.ack_configure(serial);
             if let Some(application) = inner.get::<Application<C>>() {
@@ -839,6 +837,11 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
+                                    if let Err((w, h)) =
+                                        a.widget.set_size(width as f32, height as f32)
+                                    {
+                                        eprintln!("Minimum size: {} x {}", w, h);
+                                    }
                                     a.dispatch(Event::Commit);
                                 }
                             }

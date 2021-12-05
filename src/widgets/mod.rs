@@ -113,7 +113,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
                 self.width(),
                 self.height()
             );
-            return RenderNode::empty(x, y, self.width(), self.height());
+            return RenderNode::None;
         }
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
