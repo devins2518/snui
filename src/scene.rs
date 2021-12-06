@@ -304,7 +304,6 @@ impl From<Image> for PrimitiveType {
 
 #[derive(Debug)]
 pub struct Instruction {
-    // coords: Coords,
     transform: Transform,
     primitive: PrimitiveType,
 }
@@ -316,7 +315,6 @@ impl Instruction {
         let mut hasher = DefaultHasher::new();
         primitive.hash(&mut hasher);
         Instruction {
-            // coords: Coords::new(x, y),
             transform: Transform::from_translate(x, y),
             primitive: PrimitiveType::Other {
                 name: std::any::type_name::<P>(),
@@ -327,7 +325,6 @@ impl Instruction {
     }
     pub fn new<P: Into<PrimitiveType>>(x: f32, y: f32, primitive: P) -> Instruction {
         Instruction {
-            // coords: Coords::new(x, y),
             primitive: primitive.into(),
             transform: Transform::from_translate(x, y),
         }
@@ -343,16 +340,26 @@ impl Instruction {
         let x = self.transform.tx;
         let y = self.transform.ty;
         match &self.primitive {
-            PrimitiveType::Image(i) => i.draw_with_transform_clip(ctx, self.transform, clip),
+            PrimitiveType::Image(i) => {
+                i.draw_with_transform_clip(ctx, self.transform, clip);
+                ctx.commit(Region::new(x, y, i.width(), i.height()));
+            }
             PrimitiveType::Other {
                 id: _,
                 name: _,
                 primitive,
             } => {
                 primitive.draw_with_transform_clip(ctx, self.transform, clip);
+                ctx.commit(Region::new(x, y, primitive.width(), primitive.height()));
             }
-            PrimitiveType::Rectangle(r) => r.draw_with_transform_clip(ctx, self.transform, clip),
-            PrimitiveType::Label(l) => ctx.draw_label(l, x, y),
+            PrimitiveType::Rectangle(r) => {
+                r.draw_with_transform_clip(ctx, self.transform, clip);
+                ctx.commit(Region::new(x, y, r.width(), r.height()));
+            }
+            PrimitiveType::Label(l) => {
+                ctx.draw_label(l, x, y);
+                ctx.commit(Region::new(x, y, l.width(), l.height()));
+            }
         }
     }
     fn region(&self) -> Region {
@@ -429,9 +436,7 @@ impl RenderNode {
                 border.render(ctx);
             }
             Self::Draw { region, steps } => {
-                /*
-                 * ClipMask expects the mask to be the size of the buffer
-                 */
+                // ClipMask expects the mask to be the size of the buffer
                 let mut clip = ClipMask::new();
                 clip.set_path(
                     ctx.width() as u32,
@@ -450,13 +455,17 @@ impl RenderNode {
     fn clear(&self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(instruction) => {
-                ctx.damage_region(bg, &instruction.region());
+                ctx.damage_region(bg, instruction.region());
             }
             RenderNode::Extension {
                 background,
-                node: _,
+                node,
             } => {
-                ctx.damage_region(bg, &background.region());
+                if let RenderNode::None = node.1 {
+                    ctx.damage_region(bg, background.region());
+                } else {
+                    node.1.clear(ctx, bg);
+                }
             }
             RenderNode::Container(nodes) => {
                 for node in nodes {
@@ -464,7 +473,7 @@ impl RenderNode {
                 }
             }
             RenderNode::Draw { region, steps: _ } => {
-                ctx.damage_region(bg, region);
+                ctx.damage_region(bg, *region);
             }
             _ => {}
         }
@@ -474,14 +483,14 @@ impl RenderNode {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
-                        ctx.damage_region(bg, &a.region());
+                        ctx.damage_region(bg, a.region());
                         b.render(ctx, None);
                         *self = other;
                     }
                 }
                 RenderNode::None => {}
                 _ => {
-                    ctx.damage_region(bg, &a.region());
+                    ctx.damage_region(bg, a.region());
                     *self = other;
                     self.render(ctx);
                 }
@@ -521,7 +530,7 @@ impl RenderNode {
                             &bg.merge(Background::from(this_background)),
                         );
                     } else {
-                        ctx.damage_region(bg, &this_background.region());
+                        self.clear(ctx, bg);
                         *self = RenderNode::Extension {
                             background,
                             node: Box::new((other_child, other_border)),
@@ -529,7 +538,7 @@ impl RenderNode {
                         self.render(ctx);
                     }
                 } else {
-                    ctx.damage_region(bg, &this_background.region());
+                    self.clear(ctx, bg);
                     *self = other;
                     self.render(ctx);
                 }
@@ -569,21 +578,19 @@ impl RenderNode {
         }
     }
 
-    /*
-     * Renders to the DrawContext where the RenderNode differs
-     */
+    // Renders to the DrawContext where the RenderNode differs
     pub fn compare<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
         match self {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(b) => {
                     if a.ne(b) {
-                        ctx.damage_region(bg, &a.region());
+                        ctx.damage_region(bg, a.region());
                         b.render(ctx, None);
                     }
                 }
                 RenderNode::None => {}
                 _ => {
-                    ctx.damage_region(bg, &a.region());
+                    ctx.damage_region(bg, a.region());
                     other.render(ctx);
                 }
             },
@@ -619,11 +626,11 @@ impl RenderNode {
                             &bg.merge(Background::from(this_background)),
                         );
                     } else {
-                        ctx.damage_region(bg, &this_background.region());
+                        self.clear(ctx, bg);
                         other.render(ctx);
                     }
                 } else {
-                    ctx.damage_region(bg, &this_background.region());
+                    self.clear(ctx, bg);
                     other.render(ctx);
                 }
             }
@@ -680,6 +687,12 @@ impl From<&Region> for Rect {
     }
 }
 
+impl From<Region> for Rect {
+    fn from(r: Region) -> Self {
+        Rect::from_xywh(r.x, r.y, r.width, r.height).unwrap()
+    }
+}
+
 impl Region {
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Region {
         Region {
@@ -712,6 +725,29 @@ impl Region {
             self.width.min(other.width),
             self.height.min(other.height),
         )
+    }
+    pub fn substract(&self, other: Self) -> Self {
+
+        let ox = other.x + other.width;
+        let oy = other.y + other.height;
+        let sx = self.x + self.width;
+        let sy = self.y + self.height;
+
+        if other.contains(self.x, self.y)
+        	|| other.contains(sx, self.y) {
+            let mut new = *self;
+            new.x = ox.min(sx);
+            if other.contains(new.x, sx)
+            || other.contains(sx, sy) {
+                new.y = oy.min(sy);
+            }
+
+            new.width = sx - new.x;
+            new.height = sy - new.y;
+
+            return new
+        }
+		*self
     }
     pub fn merge(&mut self, other: &Self) {
         if self.contains(other.x, other.y) {

@@ -28,8 +28,6 @@ pub(crate) mod canvas {
         pub fn draw<P: Into<PrimitiveType>>(&mut self, x: f32, y: f32, p: P) {
             let x = x + self.coords.x;
             let y = y + self.coords.y;
-            self.region.x = self.region.x.min(x);
-            self.region.y = self.region.y.min(y);
             self.steps.push(Instruction::new(x, y, p.into()))
         }
         pub fn draw_rectangle<B: Into<Background>>(
@@ -42,8 +40,6 @@ pub(crate) mod canvas {
         ) {
             let x = x + self.coords.x;
             let y = y + self.coords.y;
-            self.region.x = self.region.x.min(x);
-            self.region.y = self.region.y.min(y);
             let rect = Rectangle::empty(width, height).background(bg);
             self.steps.push(Instruction::new(x, y, rect))
         }
@@ -56,10 +52,16 @@ pub(crate) mod canvas {
         ) {
             let x = x + self.coords.x;
             let y = y + self.coords.y;
-            self.region.x = self.region.x.min(x);
-            self.region.y = self.region.y.min(y);
+            let w = p.width();
+            let h = p.height();
             self.steps.push(
-                Instruction::new(x, y, p.into()).transform(Transform::from_rotate_at(angle, x, y)),
+                Instruction::new(x, y, p.into())
+                	.transform(Transform::from_rotate_at(
+                    	angle,
+                    	x + w / 2.,
+                    	y + h / 2.
+                	)
+            	)
             )
         }
         pub fn finish(self) -> RenderNode {
@@ -143,7 +145,6 @@ impl<'c> DerefMut for Backend<'c> {
 }
 
 impl<'c> SyncContext<'c> {
-    pub fn sync(&mut self) {}
     pub fn request_draw(&mut self) {
         self.draw = true;
     }
@@ -172,7 +173,7 @@ impl<'c> Controller for SyncContext<'c> {
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
         self.model.send(msg)
     }
-    fn sync(&self) -> Result<u32, ControllerError> {
+    fn sync(&mut self) -> Result<u32, ControllerError> {
         self.model.sync()
     }
 }
@@ -189,10 +190,27 @@ impl<'c> DrawContext<'c> {
             pending_damage,
         }
     }
-    pub fn damage_region(&mut self, bg: &Background, region: &Region) {
+    pub fn commit(&mut self, region: Region) {
+        if let Some(r) = self.pending_damage.last_mut() {
+            if region.eq(r) {
+                *r = region;
+            } else if r != &region {
+                self.pending_damage.push(region);
+            }
+        } else {
+            self.pending_damage.push(region);
+        }
+    }
+    pub fn damage_region(&mut self, bg: &Background, mut region: Region) {
+        if let Some(r) = self.pending_damage.last() {
+            if region.ne(r) {
+                region = region.substract(*r);
+            }
+        }
         match bg {
             Background::Color(color) => match &mut self.backend {
-                Backend::Pixmap(dt) => dt
+                Backend::Pixmap(dt) => {
+                    dt
                     .fill_rect(
                         region.into(),
                         &Paint {
@@ -203,8 +221,8 @@ impl<'c> DrawContext<'c> {
                         },
                         Transform::identity(),
                         None,
-                    )
-                    .unwrap(),
+                    );
+                }
                 _ => {}
             },
             Background::LinearGradient {
@@ -238,7 +256,7 @@ impl<'c> DrawContext<'c> {
             }
             Background::Image(coords, image) => {
                 let crop =
-                    Region::new(coords.x, coords.y, image.width(), image.height()).crop(region);
+                    Region::new(coords.x, coords.y, image.width(), image.height()).crop(&region);
                 let (sx, sy) = image.scale();
                 let source = image.pixmap();
                 if let Backend::Pixmap(dt) = &mut self.backend {
@@ -261,17 +279,10 @@ impl<'c> DrawContext<'c> {
                 }
             }
             Background::Composite(base, overlay) => {
-                self.damage_region(base.as_ref(), &region);
-                self.damage_region(overlay.as_ref(), &region);
+                self.damage_region(base.as_ref(), region);
+                self.damage_region(overlay.as_ref(), region);
             }
             _ => {}
-        }
-        if let Some(r) = self.pending_damage.last() {
-            if r != region {
-                self.pending_damage.push(*region);
-            }
-        } else {
-            self.pending_damage.push(*region);
         }
     }
     pub fn flush(&mut self) {
@@ -303,7 +314,7 @@ impl<'c> DrawContext<'c> {
                                         (y.round() + gp.y) as i32,
                                         pixmap,
                                         &TEXT,
-                                        Transform::from_scale(1., 1.),
+                                        Transform::identity(),
                                         None,
                                     );
                                 }

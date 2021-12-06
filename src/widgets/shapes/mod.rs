@@ -311,7 +311,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let border = if let Some(border) = &self.border {
             if let ShapeStyle::Border(_, size) = border.get_style() {
-                *size
+                (*size / 2.).ceil()
             } else {
                 0.
             }

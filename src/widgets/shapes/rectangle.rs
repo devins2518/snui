@@ -87,7 +87,7 @@ impl Geometry for Rectangle {
     fn width(&self) -> f32 {
         self.width
             + if let ShapeStyle::Border(_, size) = &self.style {
-                2. * *size
+                *size
             } else {
                 0.
             }
@@ -95,7 +95,7 @@ impl Geometry for Rectangle {
     fn height(&self) -> f32 {
         self.height
             + if let ShapeStyle::Border(_, size) = &self.style {
-                2. * *size
+                *size
             } else {
                 0.
             }
@@ -143,8 +143,8 @@ impl Primitive for Rectangle {
         let height = self.height;
         let (mut x, mut y) = (0., 0.);
         if let ShapeStyle::Border(_, size) = &self.style {
-            x += size;
-            y += size;
+            x += (size / 2.).ceil();
+            y += (size / 2.).ceil();
         }
         let mut cursor = Coords::new(x, y);
         let mut pb = PathBuilder::new();

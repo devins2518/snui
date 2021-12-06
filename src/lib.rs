@@ -6,6 +6,7 @@ pub mod wayland;
 pub mod widgets;
 
 use context::*;
+pub use tiny_skia::*;
 use scene::RenderNode;
 use widgets::button::{Button, Proxy};
 use widgets::shapes::WidgetExt;

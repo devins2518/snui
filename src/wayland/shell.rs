@@ -77,6 +77,7 @@ impl Surface {
     }
     fn commit(&mut self) {
         self.surface.commit();
+        self.buffer = None;
         self.previous = None;
     }
     fn destroy(&mut self) {
@@ -95,17 +96,6 @@ impl Surface {
     fn set_size(&self, width: u32, height: u32) {
         self.shell.set_size(width, height);
     }
-    // fn add_input(&self, _report: &[Region]) {
-    // if !report.is_empty() {
-    //     for r in report {
-    //         self.region
-    //             .add(r.x as i32, r.y as i32, r.width as i32, r.height as i32);
-    //     }
-    //     self.surface.set_input_region(Some(&self.region));
-    // } else {
-    //     self.surface.set_input_region(Some(&self.region));
-    // }
-    // }
     fn damage(&self, report: &[Region]) {
         self.surface.attach(self.buffer.as_ref(), 0, 0);
         for d in report {

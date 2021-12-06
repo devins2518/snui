@@ -51,7 +51,7 @@ pub trait Controller {
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // Returns an Ok(u32) if the application needs to be synced
-    fn sync(&self) -> Result<u32, ControllerError>;
+    fn sync(&mut self) -> Result<u32, ControllerError>;
 }
 
 impl<'d> From<u8> for Data<'d> {
@@ -187,7 +187,7 @@ impl Controller for DummyController {
         }
         Err(ControllerError::WrongObject)
     }
-    fn sync(&self) -> Result<u32, ControllerError> {
+    fn sync(&mut self) -> Result<u32, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
 }

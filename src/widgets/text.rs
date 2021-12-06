@@ -20,7 +20,7 @@ pub struct Label {
     color: Color,
     settings: LayoutSettings,
     fonts: Vec<FontProperty>,
-    layout: Option<Rc<Vec<GlyphPosition>>>,
+    layout: Option<Rc<[GlyphPosition]>>,
     size: (f32, f32),
 }
 
@@ -52,7 +52,7 @@ impl Label {
     pub fn get_settings(&self) -> &LayoutSettings {
         &self.settings
     }
-    pub fn get_layout(&self) -> Option<&Rc<Vec<GlyphPosition>>> {
+    pub fn get_layout(&self) -> Option<&Rc<[GlyphPosition]>> {
         self.layout.as_ref()
     }
 }
@@ -147,9 +147,10 @@ impl Widget for Label {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, _event: Event) {
         if self.layout.is_none() {
+            ctx.request_draw();
             let layout = ctx.font_cache.layout(self).glyphs().clone();
             self.size = font::get_size(&layout);
-            self.layout = Some(Rc::new(layout));
+            self.layout = Some(layout.into());
         }
     }
 }
@@ -208,10 +209,11 @@ impl Widget for Text {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         if let Some(string) = &self.buffer {
+            ctx.request_draw();
             ctx.font_cache.write(&mut self.layout, &self.label, string);
             let glyphs = self.layout.glyphs().clone();
             self.label.size = font::get_size(&glyphs);
-            self.label.layout = Some(Rc::new(glyphs));
+            self.label.layout = Some(glyphs.into());
             self.buffer = None;
         } else {
             self.label.sync(ctx, event);
