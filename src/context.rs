@@ -190,10 +190,10 @@ impl<'c> DrawContext<'c> {
     }
     pub fn commit(&mut self, region: Region) {
         if let Some(r) = self.pending_damage.last_mut() {
-            if region.eq(r) {
+            if region.intersect(r) {
                 let merge = r.merge(&region);
                 *r = merge;
-            } else if r != &region {
+            } else {
                 self.pending_damage.push(region);
             }
         } else {
@@ -202,7 +202,7 @@ impl<'c> DrawContext<'c> {
     }
     pub fn damage_region(&mut self, bg: &Background, mut region: Region) {
         if let Some(r) = self.pending_damage.last() {
-            if region.ne(r) {
+            if r.intersect(&region) {
                 region = region.substract(*r);
             }
         }

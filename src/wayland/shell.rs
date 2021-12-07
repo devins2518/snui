@@ -622,7 +622,7 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);
         }
-        Ok(())
+        self.widget.set_size(width, height)
     }
 }
 
@@ -723,7 +723,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
 
             // Resizing the surface in case the widget changed size
             if size.0 != width || size.1 != height {
-                let _ = self.core.set_size(width, height);
+                let _ = self.set_size(width, height);
             }
 
             self.ctx.pending_cb = true;
@@ -778,39 +778,6 @@ fn draw_callback<C: Controller + Clone + 'static>(
                 if let Some(application) = application.get::<Application<C>>() {
                     let inner_application = application.get_application(&h).unwrap();
                     inner_application.render(std::mem::take(&mut recent_node));
-                    // let width = a.width();
-                    // let height = a.height();
-                    // if let Ok((buffer, wl_buffer)) =
-                    //     Buffer::new(
-                    //         &mut a.core.mempool,
-                    //         width as i32, height as i32
-                    //     )
-                    // {
-                    //     let mut v = Vec::new();
-                    //     if let Some(render_node) = a.core.ctx.render_node.as_mut() {
-                    //         render_node.merge(
-                    //             std::mem::take(&mut recent_node),
-                    //             &mut DrawContext::new(
-                    //                 buffer.backend,
-                    //                 &mut a.core.ctx.font_cache,
-                    //                 &mut v,
-                    //             ),
-                    //             &Background::Transparent,
-                    //         );
-                    //     } else {
-                    //         recent_node.render(&mut DrawContext::new(
-                    //             buffer.backend,
-                    //             &mut a.core.ctx.font_cache,
-                    //             &mut v,
-                    //         ));
-                    //         a.core.ctx.render_node = Some(std::mem::take(&mut recent_node));
-                    //     }
-                    //     if let Some(surface) = a.surface.as_mut() {
-                    //         surface.attach_buffer(wl_buffer);
-                    //         surface.damage(&v);
-                    //         surface.commit();
-                    //     }
-                    // }
                 }
             }
             _ => {}
@@ -928,7 +895,7 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
                                     if let Err((w, h)) =
-                                        a.widget.set_size(width as f32, height as f32)
+                                        a.set_size(width as f32, height as f32)
                                     {
                                         eprintln!("Minimum size: {} x {}", w, h);
                                     }

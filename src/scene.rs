@@ -442,7 +442,7 @@ impl RenderNode {
                     ctx.width() as u32,
                     ctx.height() as u32,
                     &PathBuilder::from_rect(region.into()),
-                    FillRule::Winding,
+                    FillRule::EvenOdd,
                     false,
                 );
                 for n in steps {
@@ -480,7 +480,7 @@ impl RenderNode {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
-                        ctx.damage_region(bg, a.region());
+                        ctx.damage_region(bg, a.region().merge(&b.region()));
                         b.render(ctx, None);
                         *self = other;
                     }
@@ -527,7 +527,13 @@ impl RenderNode {
                             &bg.merge(Background::from(this_background)),
                         );
                     } else {
-                        self.clear(ctx, bg);
+                        if let RenderNode::Instruction(ob) = &other_border {
+                            if let RenderNode::Instruction(tb) = this_border {
+                                ctx.damage_region(
+                                    bg,
+                                    tb.region().merge(&ob.region()));
+                            }
+                        }
                         *self = RenderNode::Extension {
                             background,
                             node: Box::new((other_child, other_border)),
@@ -716,12 +722,18 @@ impl Region {
             && self.height == other.height
     }
     pub fn crop(&self, other: &Self) -> Region {
+        let x = self.x.max(other.x);
+        let y = self.y.max(other.y);
+        let width = (self.x + self.width).min(other.x + other.width) - x;
+        let height = (self.y + self.height).min(other.y + other.height) - y;
         Region::new(
-            self.x.max(other.x),
-            self.y.max(other.y),
-            self.width.min(other.width),
-            self.height.min(other.height),
+            x, y, width, height
         )
+    }
+    pub fn intersect(&self, other: &Self) -> bool {
+        let merge = self.merge(other);
+        self.width + other.width >= merge.width
+        && self.height + other.height >= merge.height
     }
     pub fn substract(&self, other: Self) -> Self {
         let ox = other.x + other.width;
@@ -729,15 +741,15 @@ impl Region {
         let sx = self.x + self.width;
         let sy = self.y + self.height;
 
-        if other.contains(self.x, self.y) || other.contains(sx, self.y) {
+        if other.contains(self.x, self.y) || other.contains(self.x, sy) {
             let mut new = *self;
             new.x = ox.min(sx);
-            if other.contains(new.x, sx) || other.contains(sx, sy) {
-                new.y = oy.min(sy);
-            }
-
             new.width = sx - new.x;
-            new.height = sy - new.y;
+            if other.contains(new.x, sy) || other.contains(sx, sy) {
+                println!("why");
+                new.y = oy.min(sy);
+                new.height = sy - new.y;
+            }
 
             return new;
         }
@@ -757,7 +769,7 @@ impl Region {
         }
     }
     pub fn contains(&self, x: f32, y: f32) -> bool {
-        self.x < x && x - self.x <= self.width && self.y < y && y - self.y <= self.height
+        self.x < x && x - self.x < self.width && self.y < y && y - self.y < self.height
     }
     pub fn pad(&self, padding: f32) -> Region {
         Self {
