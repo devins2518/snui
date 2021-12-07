@@ -4,6 +4,7 @@ use tiny_skia::*;
 use wayland_client::protocol::wl_compositor::WlCompositor;
 use wayland_client::protocol::wl_output::WlOutput;
 
+use smithay_client_toolkit::shm::AutoMemPool;
 use wayland_client::protocol::wl_region::WlRegion;
 use wayland_client::protocol::wl_seat::{Capability, WlSeat};
 use wayland_client::protocol::wl_shm::WlShm;
@@ -16,7 +17,7 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 };
 
 use crate::context::Backend;
-use smithay_client_toolkit::shm::{Format, MemPool};
+use smithay_client_toolkit::shm::Format;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 
 const FORMAT: Format = Format::Argb8888;
@@ -26,24 +27,21 @@ pub struct Buffer<'b> {
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut MemPool, width: i32, height: i32) -> Result<(Self, WlBuffer), ()> {
+    fn new(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Self, WlBuffer), ()> {
         let stride = width * 4;
         if mempool.resize((stride * height) as usize).is_ok() {
-            let wlbuf = mempool.buffer(0, width, height as i32, stride, FORMAT);
-            if let Some(pixmap) = PixmapMut::from_bytes(mempool.mmap(), width as u32, height as u32)
-            {
-                Ok((
-                    Self {
-                        backend: Backend::Pixmap(pixmap),
-                    },
-                    wlbuf,
-                ))
-            } else {
-                return Err(());
+            if let Ok((buf, wlbuf)) = mempool.buffer(width, height as i32, stride, FORMAT) {
+                if let Some(pixmap) = PixmapMut::from_bytes(buf, width as u32, height as u32) {
+                    return Ok((
+                        Self {
+                            backend: Backend::Pixmap(pixmap),
+                        },
+                        wlbuf,
+                    ));
+                }
             }
-        } else {
-            Err(())
         }
+        Err(())
     }
 }
 

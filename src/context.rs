@@ -55,13 +55,11 @@ pub(crate) mod canvas {
             let w = p.width();
             let h = p.height();
             self.steps.push(
-                Instruction::new(x, y, p.into())
-                	.transform(Transform::from_rotate_at(
-                    	angle,
-                    	x + w / 2.,
-                    	y + h / 2.
-                	)
-            	)
+                Instruction::new(x, y, p.into()).transform(Transform::from_rotate_at(
+                    angle,
+                    x + w / 2.,
+                    y + h / 2.,
+                )),
             )
         }
         pub fn finish(self) -> RenderNode {
@@ -193,7 +191,8 @@ impl<'c> DrawContext<'c> {
     pub fn commit(&mut self, region: Region) {
         if let Some(r) = self.pending_damage.last_mut() {
             if region.eq(r) {
-                *r = region;
+                let merge = r.merge(&region);
+                *r = merge;
             } else if r != &region {
                 self.pending_damage.push(region);
             }
@@ -210,8 +209,7 @@ impl<'c> DrawContext<'c> {
         match bg {
             Background::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
-                    dt
-                    .fill_rect(
+                    dt.fill_rect(
                         region.into(),
                         &Paint {
                             shader: Shader::SolidColor(*color),
@@ -283,6 +281,10 @@ impl<'c> DrawContext<'c> {
                 self.damage_region(overlay.as_ref(), region);
             }
             _ => {}
+        }
+        if let Some(r) = self.pending_damage.last_mut() {
+            let merge = region.merge(r);
+            *r = merge;
         }
     }
     pub fn flush(&mut self) {

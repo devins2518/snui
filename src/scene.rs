@@ -457,10 +457,7 @@ impl RenderNode {
             RenderNode::Instruction(instruction) => {
                 ctx.damage_region(bg, instruction.region());
             }
-            RenderNode::Extension {
-                background,
-                node,
-            } => {
+            RenderNode::Extension { background, node } => {
                 if let RenderNode::None = node.1 {
                     ctx.damage_region(bg, background.region());
                 } else {
@@ -727,32 +724,36 @@ impl Region {
         )
     }
     pub fn substract(&self, other: Self) -> Self {
-
         let ox = other.x + other.width;
         let oy = other.y + other.height;
         let sx = self.x + self.width;
         let sy = self.y + self.height;
 
-        if other.contains(self.x, self.y)
-        	|| other.contains(sx, self.y) {
+        if other.contains(self.x, self.y) || other.contains(sx, self.y) {
             let mut new = *self;
             new.x = ox.min(sx);
-            if other.contains(new.x, sx)
-            || other.contains(sx, sy) {
+            if other.contains(new.x, sx) || other.contains(sx, sy) {
                 new.y = oy.min(sy);
             }
 
             new.width = sx - new.x;
             new.height = sy - new.y;
 
-            return new
+            return new;
         }
-		*self
+        *self
     }
-    pub fn merge(&mut self, other: &Self) {
-        if self.contains(other.x, other.y) {
-            self.width = self.x.max(other.x) + self.width.max(other.width);
-            self.height = self.y.max(other.y) + self.height.max(other.height);
+    pub fn merge(&self, other: &Self) -> Self {
+        let x = self.x.min(other.x);
+        let y = self.y.min(other.y);
+        let fx = (self.x + self.width).max(other.x + other.width);
+        let fy = (self.y + self.height).max(other.y + other.height);
+
+        Region {
+            x,
+            y,
+            width: fx - x,
+            height: fy - y,
         }
     }
     pub fn contains(&self, x: f32, y: f32) -> bool {

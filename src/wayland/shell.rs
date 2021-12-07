@@ -8,7 +8,7 @@ use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, Registra
 use smithay_client_toolkit::seat::keyboard::{
     self, map_keyboard_repeat, ModifiersState, RepeatKind,
 };
-use smithay_client_toolkit::shm::DoubleMemPool;
+use smithay_client_toolkit::shm::AutoMemPool;
 use smithay_client_toolkit::WaylandSource;
 
 use std::ops::{Deref, DerefMut};
@@ -16,6 +16,7 @@ use std::rc::Rc;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_compositor::WlCompositor;
 
+use wayland_client::protocol::wl_callback;
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_pointer::{self, WlPointer};
 use wayland_client::protocol::wl_region::WlRegion;
@@ -37,6 +38,7 @@ pub struct Application<C: Controller + Clone + 'static> {
 }
 
 struct Context {
+    pending_cb: bool,
     render_node: Option<RenderNode>,
     font_cache: FontCache,
 }
@@ -45,7 +47,7 @@ pub struct CoreApplication<C: Controller + Clone> {
     pub controller: C,
     ctx: Context,
     globals: Rc<Globals>,
-    mempool: DoubleMemPool,
+    mempool: AutoMemPool,
     widget: Box<dyn Widget>,
     surface: Option<Surface>,
 }
@@ -201,9 +203,9 @@ impl Globals {
             ))
         }
     }
-    pub fn create_mempool(&self) -> DoubleMemPool {
+    pub fn create_mempool(&self) -> AutoMemPool {
         let attached = Attached::from(self.shm.clone().unwrap());
-        DoubleMemPool::new(attached, |_| {}).unwrap()
+        AutoMemPool::new(attached).unwrap()
     }
 }
 
@@ -363,15 +365,23 @@ impl<C: Controller + Clone + 'static> Application<C> {
                     &Attached::from(seat.seat.clone()),
                     None,
                     RepeatKind::System,
-                    move |ev, _, mut inner| match ev {
+                    move |ev, _, mut applications| match ev {
                         keyboard::Event::Modifiers { modifiers } => {
-                            if let Some(application) = inner.get::<Application<C>>() {
-                                application.inner[index].dispatch(Event::Keyboard(Key {
-                                    utf8: ch.as_ref(),
-                                    value: &[],
-                                    modifiers: Modifiers::from(modifiers),
-                                    pressed: true,
-                                }));
+                            if let Some(applications) = applications.get::<Application<C>>() {
+                                let inner_application = applications.inner.get_mut(index).unwrap();
+                                if let Ok(render_node) =
+                                    inner_application.roundtrip(Event::Keyboard(Key {
+                                        utf8: ch.as_ref(),
+                                        value: &[],
+                                        modifiers: Modifiers::from(modifiers),
+                                        pressed: true,
+                                    }))
+                                {
+                                    draw_callback::<C>(
+                                        &inner_application.surface.as_ref().unwrap().surface,
+                                        render_node,
+                                    );
+                                }
                             }
                         }
                         keyboard::Event::Enter {
@@ -380,8 +390,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
                             rawkeys: _,
                             keysyms: _,
                         } => {
-                            if let Some(application) = inner.get::<Application<C>>() {
-                                index = application.get_index(&surface);
+                            if let Some(applications) = applications.get::<Application<C>>() {
+                                index = applications.get_index(&surface);
                             }
                         }
                         keyboard::Event::Key {
@@ -393,13 +403,21 @@ impl<C: Controller + Clone + 'static> Application<C> {
                             utf8,
                         } => {
                             ch = utf8;
-                            if let Some(application) = inner.get::<Application<C>>() {
-                                application.inner[index].dispatch(Event::Keyboard(Key {
-                                    utf8: ch.as_ref(),
-                                    value: &[rawkey],
-                                    modifiers: Modifiers::default(),
-                                    pressed: state == keyboard::KeyState::Pressed,
-                                }));
+                            if let Some(applications) = applications.get::<Application<C>>() {
+                                let inner_application = applications.inner.get_mut(index).unwrap();
+                                if let Ok(render_node) =
+                                    inner_application.roundtrip(Event::Keyboard(Key {
+                                        utf8: ch.as_ref(),
+                                        value: &[rawkey],
+                                        modifiers: Modifiers::default(),
+                                        pressed: state == keyboard::KeyState::Pressed,
+                                    }))
+                                {
+                                    draw_callback::<C>(
+                                        &inner_application.surface.as_ref().unwrap().surface,
+                                        render_node,
+                                    );
+                                }
                             }
                         }
                         keyboard::Event::Repeat {
@@ -408,13 +426,21 @@ impl<C: Controller + Clone + 'static> Application<C> {
                             keysym,
                             utf8: _,
                         } => {
-                            if let Some(application) = inner.get::<Application<C>>() {
-                                application.inner[index].dispatch(Event::Keyboard(Key {
-                                    utf8: ch.as_ref(),
-                                    value: &[keysym],
-                                    modifiers: Modifiers::default(),
-                                    pressed: true,
-                                }));
+                            if let Some(applications) = applications.get::<Application<C>>() {
+                                let inner_application = applications.inner.get_mut(index).unwrap();
+                                if let Ok(render_node) =
+                                    inner_application.roundtrip(Event::Keyboard(Key {
+                                        utf8: ch.as_ref(),
+                                        value: &[keysym],
+                                        modifiers: Modifiers::default(),
+                                        pressed: true,
+                                    }))
+                                {
+                                    draw_callback::<C>(
+                                        &inner_application.surface.as_ref().unwrap().surface,
+                                        render_node,
+                                    );
+                                }
                             }
                         }
                         _ => {}
@@ -529,7 +555,7 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
         while let Ok(signal) = sync_ctx.sync() {
             self.widget.sync(&mut sync_ctx, Event::Message(signal));
         }
-        sync_ctx.damage()
+        sync_ctx.damage() && !self.ctx.pending_cb
     }
     pub fn destroy(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
@@ -611,6 +637,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             core: CoreApplication {
                 controller,
                 ctx: Context {
+                    pending_cb: false,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -632,6 +659,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             core: CoreApplication {
                 controller,
                 ctx: Context {
+                    pending_cb: false,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -658,6 +686,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             core: CoreApplication {
                 controller,
                 ctx: Context {
+                    pending_cb: false,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -677,7 +706,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         }
         false
     }
-    pub fn dispatch(&mut self, ev: Event) {
+    pub fn roundtrip(&mut self, ev: Event) -> Result<RenderNode, ()> {
         let size = (self.width(), self.height());
 
         // Sending the event to the widget tree
@@ -691,43 +720,102 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             // Getting the new size of the widget
             let width = self.width();
             let height = self.height();
-            let mut v = Vec::new();
 
             // Resizing the surface in case the widget changed size
             if size.0 != width || size.1 != height {
                 let _ = self.core.set_size(width, height);
             }
 
-            if let Some(pool) = self.core.mempool.pool() {
-                if let Some(surface) = &mut self.core.surface {
-                    if let Ok((buffer, wl_buffer)) = Buffer::new(pool, width as i32, height as i32)
-                    {
-                        if let Some(render_node) = self.core.ctx.render_node.as_mut() {
-                            render_node.merge(
-                                recent_node,
-                                &mut DrawContext::new(
-                                    buffer.backend,
-                                    &mut self.core.ctx.font_cache,
-                                    &mut v,
-                                ),
-                                &Background::Transparent,
-                            );
-                        } else {
-                            recent_node.render(&mut DrawContext::new(
-                                buffer.backend,
-                                &mut self.core.ctx.font_cache,
-                                &mut v,
-                            ));
-                            self.core.ctx.render_node = Some(recent_node);
-                        }
-                        surface.attach_buffer(wl_buffer);
-                        surface.damage(&v);
-                        surface.commit();
-                    }
-                }
+            self.ctx.pending_cb = true;
+            return Ok(recent_node);
+        } else {
+            // Calling the application´s closure
+            (self.cb)(&mut self.core, ev);
+        }
+
+        Err(())
+    }
+    fn render(&mut self, mut recent_node: RenderNode) {
+        let width = self.width();
+        let height = self.height();
+        if let Ok((buffer, wl_buffer)) =
+            Buffer::new(&mut self.core.mempool, width as i32, height as i32)
+        {
+            let mut v = Vec::new();
+            if let Some(render_node) = self.core.ctx.render_node.as_mut() {
+                render_node.merge(
+                    std::mem::take(&mut recent_node),
+                    &mut DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v),
+                    &Background::Transparent,
+                );
+            } else {
+                recent_node.render(&mut DrawContext::new(
+                    buffer.backend,
+                    &mut self.core.ctx.font_cache,
+                    &mut v,
+                ));
+                self.core.ctx.render_node = Some(std::mem::take(&mut recent_node));
+            }
+            self.core.ctx.pending_cb = false;
+            if let Some(surface) = self.surface.as_mut() {
+                surface.attach_buffer(wl_buffer);
+                surface.damage(&v);
+                surface.commit();
             }
         }
     }
+}
+
+fn draw_callback<C: Controller + Clone + 'static>(
+    surface: &Main<WlSurface>,
+    mut recent_node: RenderNode,
+) {
+    let h = surface.detach();
+    surface
+        .frame()
+        .quick_assign(move |_, event, mut application| match event {
+            wl_callback::Event::Done { callback_data: _ } => {
+                if let Some(application) = application.get::<Application<C>>() {
+                    let inner_application = application.get_application(&h).unwrap();
+                    inner_application.render(std::mem::take(&mut recent_node));
+                    // let width = a.width();
+                    // let height = a.height();
+                    // if let Ok((buffer, wl_buffer)) =
+                    //     Buffer::new(
+                    //         &mut a.core.mempool,
+                    //         width as i32, height as i32
+                    //     )
+                    // {
+                    //     let mut v = Vec::new();
+                    //     if let Some(render_node) = a.core.ctx.render_node.as_mut() {
+                    //         render_node.merge(
+                    //             std::mem::take(&mut recent_node),
+                    //             &mut DrawContext::new(
+                    //                 buffer.backend,
+                    //                 &mut a.core.ctx.font_cache,
+                    //                 &mut v,
+                    //             ),
+                    //             &Background::Transparent,
+                    //         );
+                    //     } else {
+                    //         recent_node.render(&mut DrawContext::new(
+                    //             buffer.backend,
+                    //             &mut a.core.ctx.font_cache,
+                    //             &mut v,
+                    //         ));
+                    //         a.core.ctx.render_node = Some(std::mem::take(&mut recent_node));
+                    //     }
+                    //     if let Some(surface) = a.surface.as_mut() {
+                    //         surface.attach_buffer(wl_buffer);
+                    //         surface.damage(&v);
+                    //         surface.commit();
+                    //     }
+                    // }
+                }
+            }
+            _ => {}
+        });
+    surface.commit();
 }
 
 impl Modifiers {
@@ -752,7 +840,11 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
             input = Pointer::Leave;
             if let Some(application) = inner.get::<Application<C>>() {
                 if let Some(inner) = application.get_application(&surface) {
-                    inner.dispatch(Event::Pointer(x as f32, y as f32, input));
+                    if let Ok(render_node) =
+                        inner.roundtrip(Event::Pointer(x as f32, y as f32, input))
+                    {
+                        draw_callback::<C>(&inner.surface.as_ref().unwrap().surface, render_node);
+                    }
                 }
             }
         }
@@ -770,7 +862,15 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
         }
         wl_pointer::Event::Frame => {
             if let Some(application) = inner.get::<Application<C>>() {
-                application.inner[index].dispatch(Event::Pointer(x as f32, y as f32, input));
+                let inner_application = application.inner.get_mut(index).unwrap();
+                if let Ok(render_node) =
+                    inner_application.roundtrip(Event::Pointer(x as f32, y as f32, input))
+                {
+                    draw_callback::<C>(
+                        &inner_application.surface.as_ref().unwrap().surface,
+                        render_node,
+                    );
+                }
             }
         }
         wl_pointer::Event::Axis {
@@ -832,7 +932,9 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                                     {
                                         eprintln!("Minimum size: {} x {}", w, h);
                                     }
-                                    a.dispatch(Event::Commit);
+                                    if let Ok(render_node) = a.roundtrip(Event::Commit) {
+                                        a.render(render_node);
+                                    }
                                 }
                             }
                         }
