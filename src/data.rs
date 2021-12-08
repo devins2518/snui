@@ -20,7 +20,7 @@ pub struct DummyController {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Message<'m>(
     // The u32 is a bitmask
-    // Users can create an Enum and alias a bitmask to a value
+    // Users can create an Enum and alias a bitmask to a value or use a constant
     pub u32,
     pub Data<'m>,
 );

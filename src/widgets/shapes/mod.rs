@@ -323,11 +323,11 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 .create_node(x + self.padding[3] + border, y + self.padding[0] + border)
         } else if self.border.is_none() {
             RenderNode::Extension {
-                node: Box::new((
+                node: Box::new(
                     self.child
                         .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
-                    RenderNode::None,
-                )),
+                ),
+                border: Box::new(RenderNode::None),
                 background: {
                     let width = self.inner_width();
                     let height = self.inner_height();
@@ -349,29 +349,9 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 },
             }
         } else if self.background.is_none() {
-            RenderNode::Container(vec![
-                self.child
-                    .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
-                RenderNode::Instruction({
-                    let width = self.inner_width();
-                    let height = self.inner_height();
-                    self.border
-                        .as_mut()
-                        .unwrap()
-                        .set_size(width, height)
-                        .unwrap();
-                    if let RenderNode::Instruction(rect) =
-                        self.border.as_mut().unwrap().create_node(x, y)
-                    {
-                        rect
-                    } else {
-                        unreachable!()
-                    }
-                }),
-            ])
-        } else {
-            RenderNode::Extension {
-                node: Box::new((
+            RenderNode::Container {
+                region: Region::new(x, y, self.width(), self.height()),
+                childs: vec![
                     self.child
                         .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
                     RenderNode::Instruction({
@@ -390,7 +370,30 @@ impl<W: Widget> Widget for WidgetExt<W> {
                             unreachable!()
                         }
                     }),
-                )),
+                ],
+            }
+        } else {
+            RenderNode::Extension {
+                node: Box::new(
+                    self.child
+                        .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
+                ),
+                border: Box::new(RenderNode::Instruction({
+                    let width = self.inner_width();
+                    let height = self.inner_height();
+                    self.border
+                        .as_mut()
+                        .unwrap()
+                        .set_size(width, height)
+                        .unwrap();
+                    if let RenderNode::Instruction(rect) =
+                        self.border.as_mut().unwrap().create_node(x, y)
+                    {
+                        rect
+                    } else {
+                        unreachable!()
+                    }
+                })),
                 background: {
                     let width = self.inner_width();
                     let height = self.inner_height();

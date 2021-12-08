@@ -170,6 +170,9 @@ pub trait Widget: Geometry {
     fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
         context::canvas::Canvas::new(scene::Region::new(x, y, self.width(), self.height()))
     }
+    fn contains(&self, x: f32, y: f32) -> bool {
+        scene::Region::new(0., 0., self.width(), self.height()).contains(x, y)
+    }
 }
 
 pub trait Wrapable: Widget + Sized {

@@ -201,11 +201,10 @@ impl<'c> DrawContext<'c> {
         }
     }
     pub fn damage_region(&mut self, bg: &Background, mut region: Region) {
-        if let Some(r) = self.pending_damage.last() {
-            if r.intersect(&region) {
-                region = region.substract(*r);
-            }
+        if let Some(last) = self.pending_damage.last() {
+            region = region.substract(*last);
         }
+        self.pending_damage.push(region);
         match bg {
             Background::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
@@ -282,10 +281,10 @@ impl<'c> DrawContext<'c> {
             }
             _ => {}
         }
-        if let Some(r) = self.pending_damage.last_mut() {
-            let merge = region.merge(r);
-            *r = merge;
-        }
+        // if let Some(r) = self.pending_damage.last_mut() {
+        //     let merge = region.merge(r);
+        //     *r = merge;
+        // }
     }
     pub fn flush(&mut self) {
         self.pending_damage.clear();

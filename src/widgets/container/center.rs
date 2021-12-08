@@ -1,6 +1,6 @@
 use crate::widgets::*;
 use crate::*;
-use scene::RenderNode;
+use scene::{Region, RenderNode};
 use std::ops::{Deref, DerefMut};
 
 pub struct Centerbox<F: Widget, S: Widget, L: Widget> {
@@ -26,6 +26,29 @@ impl<F: Widget, S: Widget, L: Widget> Centerbox<F, S, L> {
             orientation: Orientation::Vertical,
             childs: (a.into_box(), b.into_box(), c.into_box()),
         }
+    }
+    pub fn align(mut self) -> Self {
+        match &self.orientation {
+            Orientation::Horizontal => {
+                self.childs
+                    .0
+                    .set_anchor(Alignment::Start, Alignment::Center);
+                self.childs
+                    .1
+                    .set_anchor(Alignment::Center, Alignment::Center);
+                self.childs.2.set_anchor(Alignment::End, Alignment::Center);
+            }
+            Orientation::Vertical => {
+                self.childs
+                    .0
+                    .set_anchor(Alignment::Center, Alignment::Start);
+                self.childs
+                    .1
+                    .set_anchor(Alignment::Center, Alignment::Center);
+                self.childs.2.set_anchor(Alignment::Center, Alignment::End);
+            }
+        }
+        self
     }
 }
 
@@ -195,7 +218,10 @@ impl<F: Widget, S: Widget, L: Widget> Widget for Centerbox<F, S, L> {
                 }
             }
         }
-        RenderNode::Container(nodes)
+        RenderNode::Container {
+            region: Region::new(x, y, self.width(), self.height()),
+            childs: nodes,
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         match event {

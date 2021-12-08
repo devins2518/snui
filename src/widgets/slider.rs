@@ -80,7 +80,7 @@ impl Widget for Slider {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         if let Event::Pointer(x, y, pointer) = event {
-            if x > 0. && y > 0. && x < self.width() && y < self.height() {
+            if self.contains(x, y) {
                 match pointer {
                     Pointer::MouseClick {
                         time: _,

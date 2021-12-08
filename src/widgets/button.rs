@@ -106,7 +106,7 @@ impl<W: Widget> Widget for Button<W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         if let Event::Pointer(x, y, pointer) = event {
-            if x > 0. && y > 0. && x < self.width() && y < self.height() {
+            if self.contains(x, y) {
                 if self.focused {
                     (self.cb)(&mut self.proxy, ctx, pointer);
                 } else {

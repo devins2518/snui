@@ -1,6 +1,6 @@
 use crate::widgets::Alignment;
 use crate::*;
-use scene::{Coords, RenderNode};
+use scene::{Coords, Region, RenderNode};
 
 pub struct Child {
     coords: Coords,
@@ -151,8 +151,10 @@ impl Widget for WidgetLayout {
         let orientation = self.orientation;
         let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
-        RenderNode::Container(
-            self.widgets
+        RenderNode::Container {
+            region: Region::new(x, y, sw, sh),
+            childs: self
+                .widgets
                 .iter_mut()
                 .map(|child| {
                     let node;
@@ -183,7 +185,7 @@ impl Widget for WidgetLayout {
                     node
                 })
                 .collect(),
-        )
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         for child in self.widgets.iter_mut() {

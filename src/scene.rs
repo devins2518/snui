@@ -148,7 +148,11 @@ impl Background {
         Background::Color(widgets::u32_to_source(color))
     }
     pub fn image(path: &std::path::Path) -> Background {
-        Background::Image(Coords::new(0., 0.), Image::new(path).unwrap())
+        if let Ok(image) = Image::new(path) {
+            Background::Image(Coords::new(0., 0.), image)
+        } else {
+            Background::Transparent
+        }
     }
     /*
      * The angle is a radiant representing the tild of the gradient clock wise.
@@ -333,6 +337,12 @@ impl Instruction {
         self.transform = self.transform.post_concat(tranform);
         self
     }
+    fn is_opaque(&self) -> bool {
+        if let PrimitiveType::Rectangle(rect) = &self.primitive {
+            return rect.is_opaque();
+        }
+        false
+    }
 }
 
 impl Instruction {
@@ -342,7 +352,6 @@ impl Instruction {
         match &self.primitive {
             PrimitiveType::Image(i) => {
                 i.draw_with_transform_clip(ctx, self.transform, clip);
-                ctx.commit(Region::new(x, y, i.width(), i.height()));
             }
             PrimitiveType::Other {
                 id: _,
@@ -350,17 +359,15 @@ impl Instruction {
                 primitive,
             } => {
                 primitive.draw_with_transform_clip(ctx, self.transform, clip);
-                ctx.commit(Region::new(x, y, primitive.width(), primitive.height()));
             }
             PrimitiveType::Rectangle(r) => {
                 r.draw_with_transform_clip(ctx, self.transform, clip);
-                ctx.commit(Region::new(x, y, r.width(), r.height()));
             }
             PrimitiveType::Label(l) => {
                 ctx.draw_label(l, x, y);
-                ctx.commit(Region::new(x, y, l.width(), l.height()));
             }
         }
+        ctx.commit(self.region());
     }
     fn region(&self) -> Region {
         Region::new(
@@ -404,10 +411,14 @@ pub enum RenderNode {
     Instruction(Instruction),
     Extension {
         background: Instruction,
-        node: Box<(RenderNode, RenderNode)>,
+        border: Box<RenderNode>,
+        node: Box<RenderNode>,
     },
     None,
-    Container(Vec<RenderNode>),
+    Container {
+        region: Region,
+        childs: Vec<RenderNode>,
+    },
     Draw {
         region: Region,
         steps: Vec<Instruction>,
@@ -424,16 +435,19 @@ impl RenderNode {
     pub fn render(&self, ctx: &mut DrawContext) {
         match self {
             Self::Instruction(instruction) => instruction.render(ctx, None),
-            Self::Container(c) => {
-                for n in c {
+            Self::Container { region: _, childs } => {
+                for n in childs {
                     n.render(ctx);
                 }
             }
-            Self::Extension { background, node } => {
+            Self::Extension {
+                background,
+                border,
+                node,
+            } => {
                 background.render(ctx, None);
-                let (child, border) = node.as_ref();
-                child.render(ctx);
                 border.render(ctx);
+                node.render(ctx);
             }
             Self::Draw { region, steps } => {
                 // ClipMask expects the mask to be the size of the buffer
@@ -452,27 +466,31 @@ impl RenderNode {
             _ => {}
         }
     }
-    fn clear(&self, ctx: &mut DrawContext, bg: &Background) {
+    fn clear(&self, ctx: &mut DrawContext, bg: &Background, other: &Region) {
         match self {
             RenderNode::Instruction(instruction) => {
-                ctx.damage_region(bg, instruction.region());
+                ctx.damage_region(bg, instruction.region().merge(other));
             }
-            RenderNode::Extension { background, node } => {
-                if let RenderNode::None = node.1 {
-                    ctx.damage_region(bg, background.region());
+            RenderNode::Extension {
+                background,
+                border,
+                node: _,
+            } => {
+                if let RenderNode::Instruction(rect) = border.as_ref() {
+                    ctx.damage_region(bg, rect.region().merge(other));
                 } else {
-                    node.1.clear(ctx, bg);
+                    ctx.damage_region(bg, background.region().merge(other));
                 }
             }
-            RenderNode::Container(nodes) => {
-                for node in nodes {
-                    node.clear(ctx, bg)
-                }
+            RenderNode::Container { region, childs: _ } => {
+                ctx.damage_region(bg, region.merge(other));
             }
             RenderNode::Draw { region, steps: _ } => {
-                ctx.damage_region(bg, *region);
+                ctx.damage_region(bg, region.merge(other));
             }
-            _ => {}
+            RenderNode::None => {
+                ctx.damage_region(bg, *other);
+            }
         }
     }
     pub fn merge<'r>(&'r mut self, other: Self, ctx: &mut DrawContext, bg: &Background) {
@@ -480,7 +498,7 @@ impl RenderNode {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
-                        ctx.damage_region(bg, a.region().merge(&b.region()));
+                        self.clear(ctx, bg, &b.region());
                         b.render(ctx, None);
                         *self = other;
                     }
@@ -496,63 +514,78 @@ impl RenderNode {
                 *self = other;
                 self.render(ctx);
             }
-            RenderNode::Container(sv) => match other {
-                RenderNode::Container(mut ov) => {
-                    if sv.len() != ov.len() {
-                        self.clear(ctx, bg);
-                        *self = RenderNode::Container(ov);
-                        self.render(ctx);
-                    } else {
-                        for i in 0..ov.len() {
-                            sv[i].merge(mem::take(&mut ov[i]), ctx, bg);
+            RenderNode::Container { region, childs } => {
+                let this_region = *region;
+                let this_childs = childs;
+                match other {
+                    RenderNode::Container { region, mut childs } => {
+                        if this_region.same(&region) && this_childs.len() == childs.len() {
+                            for i in 0..childs.len() {
+                                this_childs[i].merge(mem::take(&mut childs[i]), ctx, bg);
+                            }
+                        } else {
+                            ctx.damage_region(bg, this_region.merge(&region));
+                            *self = RenderNode::Container { childs, region };
+                            self.render(ctx);
                         }
                     }
+                    RenderNode::None => {}
+                    _ => {
+                        self.clear(ctx, bg, &this_region);
+                        *self = other;
+                        self.render(ctx);
+                    }
                 }
-                RenderNode::None => {}
-                _ => {
-                    self.clear(ctx, bg);
-                    *self = other;
-                    self.render(ctx);
-                }
-            },
-            RenderNode::Extension { background, node } => {
+            }
+            RenderNode::Extension {
+                background,
+                border,
+                node,
+            } => {
+                let this_node = node.as_mut();
+                let this_border = border.as_ref();
                 let this_background = background;
-                let (this_child, this_border) = node.as_mut();
-                if let RenderNode::Extension { background, node } = other {
-                    let (other_child, other_border) = *node;
-                    if background.eq(this_background) && other_border.eq(this_border) {
-                        this_child.merge(
-                            other_child,
-                            ctx,
-                            &bg.merge(Background::from(this_background)),
-                        );
+                if let RenderNode::Extension {
+                    background,
+                    border,
+                    node,
+                } = other
+                {
+                    if background.eq(this_background) && border.as_ref().eq(this_border) {
+                        this_node.merge(*node, ctx, &bg.merge(Background::from(this_background)));
                     } else {
-                        if let RenderNode::Instruction(ob) = &other_border {
-                            if let RenderNode::Instruction(tb) = this_border {
-                                ctx.damage_region(
-                                    bg,
-                                    tb.region().merge(&ob.region()));
-                            }
-                        }
+                        this_border.clear(
+                            ctx,
+                            &bg,
+                            &if let RenderNode::Instruction(rect) = border.as_ref() {
+                                rect.region()
+                            } else {
+                                background.region()
+                            },
+                        );
                         *self = RenderNode::Extension {
                             background,
-                            node: Box::new((other_child, other_border)),
+                            border,
+                            node,
                         };
                         self.render(ctx);
                     }
                 } else {
-                    self.clear(ctx, bg);
+                    ctx.damage_region(
+                        &bg.merge(Background::from(&this_background)),
+                        this_background.region(),
+                    );
                     *self = other;
                     self.render(ctx);
                 }
             }
             RenderNode::Draw { region, steps } => {
-                let this_region = region;
+                let this_region = *region;
                 let this_steps = steps;
                 match other {
                     RenderNode::Draw { region, steps } => {
-                        if region.eq(this_region) && this_steps.len() != steps.len() {
-                            self.clear(ctx, bg);
+                        if region.same(&this_region) && this_steps.len() != steps.len() {
+                            self.clear(ctx, bg, &region);
                             *self = RenderNode::Draw { region, steps };
                             self.render(ctx);
                         } else {
@@ -564,7 +597,7 @@ impl RenderNode {
                                 }
                             }
                             if draw {
-                                self.clear(ctx, bg);
+                                self.clear(ctx, bg, &region);
                                 *self = RenderNode::Draw { region, steps };
                                 self.render(ctx);
                             }
@@ -572,97 +605,9 @@ impl RenderNode {
                     }
                     RenderNode::None => {}
                     _ => {
-                        self.clear(ctx, bg);
+                        self.clear(ctx, bg, &this_region);
                         *self = other;
                         self.render(ctx);
-                    }
-                }
-            }
-        }
-    }
-
-    // Renders to the DrawContext where the RenderNode differs
-    pub fn compare<'r>(&'r self, other: &'r Self, ctx: &mut DrawContext, bg: &Background) {
-        match self {
-            RenderNode::Instruction(a) => match other {
-                RenderNode::Instruction(b) => {
-                    if a.ne(b) {
-                        ctx.damage_region(bg, a.region());
-                        b.render(ctx, None);
-                    }
-                }
-                RenderNode::None => {}
-                _ => {
-                    ctx.damage_region(bg, a.region());
-                    other.render(ctx);
-                }
-            },
-            RenderNode::None => {
-                other.render(ctx);
-            }
-            RenderNode::Container(sv) => match other {
-                RenderNode::Container(ov) => {
-                    if sv.len() != ov.len() {
-                        self.clear(ctx, bg);
-                        other.render(ctx);
-                    } else {
-                        for i in 0..ov.len() {
-                            sv[i].compare(&ov[i], ctx, bg);
-                        }
-                    }
-                }
-                RenderNode::None => {}
-                _ => {
-                    self.clear(ctx, bg);
-                    other.render(ctx);
-                }
-            },
-            RenderNode::Extension { background, node } => {
-                let this_background = background;
-                let (this_child, this_border) = node.as_ref();
-                if let RenderNode::Extension { background, node } = other {
-                    let (other_child, other_border) = node.as_ref();
-                    if this_background == background && this_border == other_border {
-                        this_child.compare(
-                            other_child,
-                            ctx,
-                            &bg.merge(Background::from(this_background)),
-                        );
-                    } else {
-                        self.clear(ctx, bg);
-                        other.render(ctx);
-                    }
-                } else {
-                    self.clear(ctx, bg);
-                    other.render(ctx);
-                }
-            }
-            RenderNode::Draw { region, steps } => {
-                let this_region = region;
-                let this_steps = steps;
-                match other {
-                    RenderNode::Draw { region, steps } => {
-                        if this_region == region && this_steps.len() != steps.len() {
-                            self.clear(ctx, bg);
-                            other.render(ctx);
-                        } else {
-                            let mut draw = false;
-                            for i in 0..steps.len() {
-                                if this_steps[i] != steps[i] {
-                                    draw = true;
-                                    break;
-                                }
-                            }
-                            if draw {
-                                self.clear(ctx, bg);
-                                other.render(ctx);
-                            }
-                        }
-                    }
-                    RenderNode::None => {}
-                    _ => {
-                        self.clear(ctx, bg);
-                        other.render(ctx);
                     }
                 }
             }
@@ -726,14 +671,11 @@ impl Region {
         let y = self.y.max(other.y);
         let width = (self.x + self.width).min(other.x + other.width) - x;
         let height = (self.y + self.height).min(other.y + other.height) - y;
-        Region::new(
-            x, y, width, height
-        )
+        Region::new(x, y, width, height)
     }
     pub fn intersect(&self, other: &Self) -> bool {
         let merge = self.merge(other);
-        self.width + other.width >= merge.width
-        && self.height + other.height >= merge.height
+        self.width + other.width >= merge.width && self.height + other.height >= merge.height
     }
     pub fn substract(&self, other: Self) -> Self {
         let ox = other.x + other.width;
@@ -746,7 +688,6 @@ impl Region {
             new.x = ox.min(sx);
             new.width = sx - new.x;
             if other.contains(new.x, sy) || other.contains(sx, sy) {
-                println!("why");
                 new.y = oy.min(sy);
                 new.height = sy - new.y;
             }

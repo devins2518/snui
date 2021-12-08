@@ -19,16 +19,6 @@ impl ShapeStyle {
             _ => Background::Transparent,
         }
     }
-    pub fn source(&self) -> Color {
-        match self {
-            ShapeStyle::Background(background) => match background {
-                Background::Transparent => u32_to_source(0),
-                Background::Color(source) => *source,
-                _ => panic!("Background cannot return a color"),
-            },
-            ShapeStyle::Border(source, _) => *source,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -80,6 +70,16 @@ impl Rectangle {
     }
     pub fn get_radius(&self) -> (f32, f32, f32, f32) {
         self.radius
+    }
+    pub fn is_opaque(&self) -> bool {
+        match &self.style {
+            ShapeStyle::Background(background) => match background {
+                Background::Transparent => false,
+                Background::Color(source) => source.is_opaque(),
+                _ => false,
+            },
+            ShapeStyle::Border(_, _) => false,
+        }
     }
 }
 
