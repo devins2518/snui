@@ -519,7 +519,7 @@ impl RenderNode {
                 let this_childs = childs;
                 match other {
                     RenderNode::Container { region, mut childs } => {
-                        if this_region.same(&region) && this_childs.len() == childs.len() {
+                        if this_region.eq(&region) && this_childs.len() == childs.len() {
                             for i in 0..childs.len() {
                                 this_childs[i].merge(mem::take(&mut childs[i]), ctx, bg);
                             }
@@ -584,7 +584,7 @@ impl RenderNode {
                 let this_steps = steps;
                 match other {
                     RenderNode::Draw { region, steps } => {
-                        if region.same(&this_region) && this_steps.len() != steps.len() {
+                        if region.eq(&this_region) && this_steps.len() != steps.len() {
                             self.clear(ctx, bg, &region);
                             *self = RenderNode::Draw { region, steps };
                             self.render(ctx);
@@ -615,7 +615,7 @@ impl RenderNode {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Region {
     pub x: f32,
     pub y: f32,
@@ -659,12 +659,6 @@ impl Region {
             width: start.x.max(end.x) - x,
             height: start.y.max(end.y) - y,
         }
-    }
-    pub fn same(&self, other: &Self) -> bool {
-        self.x == other.x
-            && self.y == other.y
-            && self.width == other.width
-            && self.height == other.height
     }
     pub fn crop(&self, other: &Self) -> Region {
         let x = self.x.max(other.x);
@@ -719,15 +713,5 @@ impl Region {
             width: self.width + 2. * padding,
             height: self.height + 2. * padding,
         }
-    }
-}
-
-impl PartialEq for Region {
-    fn eq(&self, other: &Self) -> bool {
-        other.x - self.x + other.width <= self.width
-            && other.y - self.y + other.height <= self.height
-    }
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
     }
 }
