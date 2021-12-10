@@ -191,6 +191,7 @@ impl Widget for Slider {
                     Pointer::Leave => self.pressed = false,
                     _ => {}
                 }
+                ctx.request_draw();
             }
         }
     }

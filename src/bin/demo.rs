@@ -89,7 +89,7 @@ fn main() {
     let mut serial =
     	WidgetLayout::horizontal(5)
     		.wrap()
-    		.padding(10.)
+    		.padding(10., 10., 10., 10.)
     		.background(BG1)
     		.radius(5.,5.,5.,5.);
 
@@ -143,11 +143,11 @@ fn main() {
                 	style: FontStyle::Italic
             	}),
             Label::default("snui demo", 18.)
-            	.color(BG1),
+            	.color(u32_to_source(BG1)),
             icons,
         )
         .wrap()
-        .padding(5.);
+		.padding(5., 5., 5., 5.);
 
     titlebar.0.set_anchor(Alignment::Start, Alignment::Center);
     titlebar.1.set_anchor(Alignment::Center, Alignment::Center);
@@ -174,7 +174,7 @@ fn main() {
                 SpreadMode::Pad,
                 0.5
             ))
-            .padding(15.)
+            .padding(15., 15., 15., 15.)
             .border(RED, 3.)
             .radius(5., 5., 5., 5.),
         event_loop.handle(),
