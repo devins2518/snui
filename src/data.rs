@@ -31,6 +31,13 @@ impl<'m> Message<'m> {
     }
 }
 
+// Returns a message with object 0 and Data::Null
+impl<'m> Default for Message<'m> {
+    fn default() -> Self {
+        Message(0, Data::Null)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum ControllerError {
     Block,
@@ -51,7 +58,7 @@ pub trait Controller {
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // Returns an Ok(u32) if the application needs to be synced
-    fn sync(&mut self) -> Result<u32, ControllerError>;
+    fn sync(&mut self) -> Result<Message<'static>, ControllerError>;
 }
 
 impl<'d> From<u8> for Data<'d> {
@@ -187,7 +194,7 @@ impl Controller for DummyController {
         }
         Err(ControllerError::WrongObject)
     }
-    fn sync(&mut self) -> Result<u32, ControllerError> {
+    fn sync(&mut self) -> Result<Message<'static>, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
 }

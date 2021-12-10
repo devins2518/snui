@@ -39,7 +39,7 @@ pub struct WidgetExt<W: Widget> {
 }
 
 impl<W: Widget> WidgetExt<W> {
-    pub fn default(child: W) -> Self {
+    pub fn new(child: W) -> Self {
         WidgetExt {
             child,
             border: None,

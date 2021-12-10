@@ -171,7 +171,7 @@ impl<'c> Controller for SyncContext<'c> {
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
         self.model.send(msg)
     }
-    fn sync(&mut self) -> Result<u32, ControllerError> {
+    fn sync(&mut self) -> Result<Message<'static>, ControllerError> {
         self.model.sync()
     }
 }

@@ -92,7 +92,7 @@ pub enum Event<'d> {
     Commit,
     Prepare,
     // Your message object
-    Message(u32),
+    Message(data::Message<'static>),
     // Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     Pointer(f32, f32, Pointer),
@@ -192,7 +192,7 @@ where
         WidgetBox::new(self)
     }
     fn wrap(self) -> WidgetExt<W> {
-        WidgetExt::default(self)
+        WidgetExt::new(self)
     }
     fn into_button(
         self,
