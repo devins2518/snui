@@ -35,7 +35,7 @@ impl<F: Widget, S: Widget, L: Widget> Centerbox<F, S, L> {
                     .set_anchor(Alignment::Start, Alignment::Center);
                 self.childs
                     .1
-                    .set_anchor(Alignment::Center, AlignCenter);
+                    .set_anchor(Alignment::Center, Alignment::Center);
                 self.childs.2.set_anchor(Alignment::End, Alignment::Center);
             }
             Orientation::Vertical => {
@@ -44,7 +44,7 @@ impl<F: Widget, S: Widget, L: Widget> Centerbox<F, S, L> {
                     .set_anchor(Alignment::Center, Alignment::Start);
                 self.childs
                     .1
-                    .set_anchor(Alignment::Center, AlignCenter);
+                    .set_anchor(Alignment::Center, Alignment::Center);
                 self.childs.2.set_anchor(Alignment::Center, Alignment::End);
             }
         }

@@ -370,7 +370,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
         } else if self.background.is_none() {
             RenderNode::Container {
                 region: Region::new(x, y, self.width(), self.height()),
-                childs: vec![
+                nodes: vec![
                     self.child
                         .create_node(x + self.padding[3] + border, y + self.padding[0] + border),
                     RenderNode::Instruction({
