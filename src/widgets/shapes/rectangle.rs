@@ -23,10 +23,10 @@ impl ShapeStyle {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rectangle {
-    width: f32,
-    height: f32,
-    style: ShapeStyle,
-    radius: (f32, f32, f32, f32),
+    pub(crate) width: f32,
+    pub(crate) height: f32,
+    pub(crate) style: ShapeStyle,
+    pub(crate) radius: (f32, f32, f32, f32),
 }
 
 impl From<Region> for Rectangle {
@@ -101,6 +101,9 @@ impl Geometry for Rectangle {
             }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        if width.is_sign_negative() {
+            return Err(self.width());
+        }
         self.width = self
             .radius
             .0
@@ -116,6 +119,9 @@ impl Geometry for Rectangle {
         return Ok(());
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        if height.is_sign_negative() {
+            return Err(self.height());
+        }
         self.height = self
             .radius
             .0

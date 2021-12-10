@@ -153,7 +153,7 @@ impl Widget for WidgetLayout {
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
             region: Region::new(x, y, sw, sh),
-            childs: self
+            nodes: self
                 .widgets
                 .iter_mut()
                 .map(|child| {
@@ -167,7 +167,11 @@ impl Widget for WidgetLayout {
                                 Alignment::Center => dy = ((sh - wh) / 2.).floor(),
                                 Alignment::End => dy = sh - wh,
                             }
-                            node = child.widget.create_node(x + dx, y + dy);
+                            node = RenderNode::Extension {
+                                background: scene::Instruction::empty(x + dx, y + dy, ww, sh),
+                                border: None,
+                                node: Box::new(child.widget.create_node(x + dx, y + dy))
+                            };
                             child.coords = Coords::new(dx, dy);
                             dx += child.width() + spacing;
                         }
@@ -177,7 +181,11 @@ impl Widget for WidgetLayout {
                                 Alignment::Center => dx = ((sw - ww) / 2.).floor(),
                                 Alignment::End => dx = sw - ww,
                             }
-                            node = child.widget.create_node(x + dx, y + dy);
+                            node = RenderNode::Extension {
+                                background: scene::Instruction::empty(x + dx, y + dy, sw, wh),
+                                border: None,
+                                node: Box::new(child.widget.create_node(x + dx, y + dy))
+                            };
                             child.coords = Coords::new(dx, dy);
                             dy += child.height() + spacing;
                         }

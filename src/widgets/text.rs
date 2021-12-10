@@ -96,18 +96,13 @@ impl Label {
         self.fonts.push(font);
         self
     }
-    pub fn color(mut self, color: u32) -> Self {
-        self.color = u32_to_source(color);
+    pub fn color<C: Into<Color>>(mut self, color: C) -> Self {
+        self.color = color.into();
         self
     }
     pub fn settings(mut self, settings: LayoutSettings) -> Self {
         self.settings = settings;
         self
-    }
-    pub fn size(self, width: f32, height: f32) -> WidgetBox<Self> {
-        let mut w = WidgetBox::new(self);
-        w.set_size(width, height).unwrap();
-        w.constraint(widgets::Constraint::Downward)
     }
     pub fn default(text: &str, font_size: f32) -> Label {
         Label {
@@ -119,6 +114,11 @@ impl Label {
             layout: None,
             size: (0., 0.),
         }
+    }
+    pub fn into_box(self) -> WidgetBox<Self> {
+        let mut w = WidgetBox::new(self);
+        w.set_size(w.max_width(), w.max_height()).unwrap();
+        w.constraint(widgets::Constraint::Downward)
     }
 }
 

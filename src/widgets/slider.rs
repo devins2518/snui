@@ -13,6 +13,21 @@ pub struct Slider {
 }
 
 impl Slider {
+    // The default orientation is horizontal
+    pub fn new(width: u32, height: u32) -> Self {
+        Slider {
+            id: 0,
+            step: 1.,
+            size: width as f32,
+            pressed: false,
+            orientation: Orientation::Horizontal,
+            slider: Rectangle::new(
+                width as f32 / 2.,
+                height as f32,
+                ShapeStyle::Background(scene::Background::Transparent)
+            ),
+        }
+    }
     pub fn vertical(id: u32, width: u32, height: u32, style: ShapeStyle) -> Self {
         Slider {
             id,
@@ -32,6 +47,14 @@ impl Slider {
             orientation: Orientation::Horizontal,
             slider: Rectangle::new(width as f32 / 2., height as f32, style),
         }
+    }
+    pub fn id(mut self, id: u32) -> Self {
+        self.id = id;
+        self
+    }
+    pub fn orientation(mut self, orientation: Orientation) -> Self {
+        self.orientation = orientation;
+        self
     }
 }
 
@@ -131,10 +154,14 @@ impl Widget for Slider {
                         if self.pressed {
                             match &self.orientation {
                                 Orientation::Horizontal => {
-                                    let _ = self.slider.set_width(x.round());
+                                    if let Ok(_) = self.slider.set_width(x.round()) {
+                                        let _ = ctx.send(Message::new(self.id, self.slider.width() / self.size));
+                                    }
                                 }
                                 Orientation::Vertical => {
-                                    let _ = self.slider.set_width(y.round());
+                                    if let Ok(_) = self.slider.set_width(y.round()) {
+                                        let _ = ctx.send(Message::new(self.id, self.slider.height() / self.size));
+                                    }
                                 }
                             }
                             ctx.request_draw();
@@ -143,13 +170,27 @@ impl Widget for Slider {
                     _ => {}
                 }
             } else if self.pressed {
-                self.pressed = false;
-                let ratio = match &self.orientation {
-                    Orientation::Horizontal => self.slider.width() / self.size,
-                    Orientation::Vertical => self.slider.height() / self.size,
-                };
-                ctx.request_draw();
-                let _ = ctx.send(Message::new(self.id, ratio));
+                match pointer {
+                    Pointer::MouseClick { time:_, button, pressed } => if button == MouseButton::Left {
+                        self.pressed = pressed;
+                    }
+                    Pointer::Hover => {
+                        match &self.orientation {
+                            Orientation::Horizontal => {
+                                if let Ok(_) = self.slider.set_width(x.min(self.size)) {
+                                    let _ = ctx.send(Message::new(self.id, self.slider.width() / self.size));
+                                }
+                            }
+                            Orientation::Vertical => {
+                                if let Ok(_) = self.slider.set_height(y.min(self.size)) {
+                                    let _ = ctx.send(Message::new(self.id, self.slider.height() / self.size));
+                                }
+                            }
+                        }
+                    }
+                    Pointer::Leave => self.pressed = false,
+                    _ => {}
+                }
             }
         }
     }

@@ -126,7 +126,11 @@ impl<W: Widget> Widget for WidgetBox<W> {
             Alignment::End => (self.height() - self.child.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
-        self.child.create_node(x + dx, y + dy)
+        RenderNode::Extension {
+            background: scene::Instruction::new(x, y, shapes::Rectangle::empty(self.width(), self.height())),
+            border: None,
+            node: Box::new(self.child.create_node(x + dx, y + dy))
+        }
     }
 }
 

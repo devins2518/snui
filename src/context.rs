@@ -202,7 +202,10 @@ impl<'c> DrawContext<'c> {
     }
     pub fn damage_region(&mut self, bg: &Background, mut region: Region) {
         if let Some(last) = self.pending_damage.last() {
-            region = region.substract(*last);
+            if last.contains(region.x, region.y) {
+                let taken = last.merge(&region).substract(*last);
+                region = taken;
+            }
         }
         self.pending_damage.push(region);
         match bg {
@@ -281,10 +284,6 @@ impl<'c> DrawContext<'c> {
             }
             _ => {}
         }
-        // if let Some(r) = self.pending_damage.last_mut() {
-        //     let merge = region.merge(r);
-        //     *r = merge;
-        // }
     }
     pub fn flush(&mut self) {
         self.pending_damage.clear();
