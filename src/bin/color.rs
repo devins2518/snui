@@ -164,15 +164,12 @@ impl Widget for Listener {
                         match data {
                             Data::Byte(b) => self.text.edit(&b.to_string()),
                             Data::Uint(uint) => {
-                                self.text.edit(&format!("{:#010X}", uint));
+                                self.text.edit(format!("{:#010X}", uint).replace("0x", "#").as_str());
                             }
                             _ => {}
                         }
                     }
                 }
-            }
-            Event::Commit => {
-                self.text.edit(&format!("Welcome"));
             }
             _ => {}
         }
@@ -311,7 +308,8 @@ fn main() {
 fn header() -> impl Widget {
     let mut buttons = WidgetLayout::horizontal(5);
     let text: Text = Label::default("Copy", 15.).into();
-    let icon = Label::default("", 21.).font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
+    let icon = Label::new("", 21.)
+    	.font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
 
     buttons.add(
         icon.wrap()
@@ -329,9 +327,9 @@ fn header() -> impl Widget {
                         eprintln!("color picker missing");
                     }
                 }
-                Pointer::Enter => this.set_background(Background::solid(BG0)),
+                Pointer::Enter => this.set_background(BG0),
                 Pointer::Leave => {
-                    this.set_background(Background::solid(BG2));
+                    this.set_background(BG2);
                 }
                 _ => {}
             }),
@@ -407,7 +405,7 @@ fn core() -> WidgetLayout {
 
     let mut listener = Listener {
         id: Signal::Source as u32,
-        text: Label::default("", 17.).into(),
+        text: Label::default("Welcome", 17.).into(),
     }
     .into_box()
     .anchor(CENTER, START)
@@ -424,7 +422,7 @@ fn core() -> WidgetLayout {
     indicator.add(ColorBlock {
         width: 200.,
         height: 200.,
-        color: Color::from_rgba(0., 0., 0., 0.5).unwrap().to_color_u8()
+        color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap().to_color_u8()
     });
     indicator.justify(CENTER);
 

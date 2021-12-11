@@ -92,7 +92,7 @@ pub enum Event<'d> {
     Commit,
     Prepare,
     // Your message object
-    Message(data::Message<'static>),
+    Message(data::Message<'d>),
     // Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     Pointer(f32, f32, Pointer),
