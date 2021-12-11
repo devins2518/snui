@@ -109,8 +109,12 @@ pub trait Container: Geometry {
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
-    fn set_width(&mut self, width: f32) -> Result<(), f32>;
-    fn set_height(&mut self, height: f32) -> Result<(), f32>;
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        Err(self.width())
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        Err(self.height())
+    }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         let err_width = self.set_width(width);
         let err_height = self.set_height(height);

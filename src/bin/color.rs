@@ -283,7 +283,7 @@ fn main() {
     snui.create_inner_application(
         ColorControl {
             signal: None,
-            color: u32_to_source(0),
+            color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
         },
         editor
             .wrap()

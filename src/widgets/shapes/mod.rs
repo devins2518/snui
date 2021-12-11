@@ -3,7 +3,6 @@ pub mod rectangle;
 use crate::scene::*;
 use crate::*;
 pub use rectangle::Rectangle;
-use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::{Deref, DerefMut};
 
 pub trait Style {
@@ -106,20 +105,9 @@ impl<W: Widget> Geometry for WidgetExt<W> {
 
 impl<W: Widget + Style> WidgetExt<W> {
     pub fn radius(self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
-        let radius = tl.max(tr).max(br).max(bl);
-        let delta = (radius - FRAC_1_SQRT_2 * radius).ceil();
-        let width = self.width() + delta;
-        let height = self.height() + delta;
+        let width = self.width();
+        let height = self.height();
         let ratio = self.child.width() / self.width();
-        let border_width = if let Some(rectangle) = &self.border {
-            if let ShapeStyle::Border(_, border) = rectangle.get_style() {
-                *border
-            } else {
-                0.
-            }
-        } else {
-            0.
-        };
         let background = if let Some(mut rect) = self.background {
             rect.set_size(width, height).unwrap();
             Some(rect.radius(tl, tr, br, bl))
@@ -132,23 +120,16 @@ impl<W: Widget + Style> WidgetExt<W> {
         } else {
             None
         };
-        let padding = [
-            self.padding[0] + delta,
-            self.padding[1] + delta,
-            self.padding[2] + delta,
-            self.padding[3] + delta,
-        ];
-        let shift = border_width + self.padding[0] + delta;
         Self {
             border,
             background,
             child: self.child.radius(
-                tl * ratio - shift,
-                tr * ratio - shift,
-                br * ratio - shift,
-                bl * ratio - shift,
+                tl * ratio,
+                tr * ratio,
+                br * ratio,
+                bl * ratio,
             ),
-            padding,
+            padding: self.padding,
         }
     }
 }

@@ -81,70 +81,7 @@ impl Rectangle {
             ShapeStyle::Border(_, _) => false,
         }
     }
-}
-
-impl Geometry for Rectangle {
-    fn width(&self) -> f32 {
-        self.width
-            + if let ShapeStyle::Border(_, size) = &self.style {
-                *size
-            } else {
-                0.
-            }
-    }
-    fn height(&self) -> f32 {
-        self.height
-            + if let ShapeStyle::Border(_, size) = &self.style {
-                *size
-            } else {
-                0.
-            }
-    }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width.is_sign_negative() {
-            return Err(self.width());
-        }
-        self.width = self
-            .radius
-            .0
-            .max(width.round())
-            .max(self.radius.1)
-            .max(self.radius.2)
-            .max(self.radius.3);
-        if let ShapeStyle::Background(background) = &mut self.style {
-            if let Background::Image(_, img) = background {
-                img.set_width(width)?;
-            }
-        }
-        return Ok(());
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height.is_sign_negative() {
-            return Err(self.height());
-        }
-        self.height = self
-            .radius
-            .0
-            .max(height.round())
-            .max(self.radius.1)
-            .max(self.radius.2)
-            .max(self.radius.3);
-        if let ShapeStyle::Background(background) = &mut self.style {
-            if let Background::Image(_, img) = background {
-                img.set_height(height)?;
-            }
-        }
-        return Ok(());
-    }
-}
-
-impl Primitive for Rectangle {
-    fn draw_with_transform_clip(
-        &self,
-        ctx: &mut DrawContext,
-        transform: tiny_skia::Transform,
-        clip: Option<&tiny_skia::ClipMask>,
-    ) {
+    pub fn path(&self) -> Option<Path> {
         let width = self.width;
         let height = self.height;
         let (mut x, mut y) = (0., 0.);
@@ -240,7 +177,75 @@ impl Primitive for Rectangle {
         // Closing path
         pb.close();
 
-        if let Some(path) = pb.finish() {
+        pb.finish()
+    }
+}
+
+impl Geometry for Rectangle {
+    fn width(&self) -> f32 {
+        self.width
+            + if let ShapeStyle::Border(_, size) = &self.style {
+                *size
+            } else {
+                0.
+            }
+    }
+    fn height(&self) -> f32 {
+        self.height
+            + if let ShapeStyle::Border(_, size) = &self.style {
+                *size
+            } else {
+                0.
+            }
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        if width.is_sign_negative() {
+            return Err(self.width());
+        }
+        self.width = self
+            .radius
+            .0
+            .max(width.round())
+            .max(self.radius.1)
+            .max(self.radius.2)
+            .max(self.radius.3);
+        if let ShapeStyle::Background(background) = &mut self.style {
+            if let Background::Image(_, img) = background {
+                img.set_width(width)?;
+            }
+        }
+        return Ok(());
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        if height.is_sign_negative() {
+            return Err(self.height());
+        }
+        self.height = self
+            .radius
+            .0
+            .max(height.round())
+            .max(self.radius.1)
+            .max(self.radius.2)
+            .max(self.radius.3);
+        if let ShapeStyle::Background(background) = &mut self.style {
+            if let Background::Image(_, img) = background {
+                img.set_height(height)?;
+            }
+        }
+        return Ok(());
+    }
+}
+
+impl Primitive for Rectangle {
+    fn draw_with_transform_clip(
+        &self,
+        ctx: &mut DrawContext,
+        transform: tiny_skia::Transform,
+        clip: Option<&tiny_skia::ClipMask>,
+    ) {
+        if let Some(path) = self.path() {
+            let width = self.width;
+            let (x, y) = (0., 0.);
             if let Backend::Pixmap(dt) = ctx.deref_mut() {
                 match &self.style {
                     ShapeStyle::Background(background) => match background {
