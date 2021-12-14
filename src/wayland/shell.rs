@@ -875,8 +875,8 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
     shell.quick_assign(|shell, event, mut inner| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
-            width,
-            height,
+            width: _,
+            height: _,
         } => {
             shell.ack_configure(serial);
             if let Some(application) = inner.get::<Application<C>>() {
@@ -886,28 +886,17 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
-<<<<<<< HEAD
-                                    if a.ctx.render_node.is_none() {
-                                        if let Ok(render_node) = a.roundtrip(Event::Commit) {
-                                            a.render(render_node);
-                                        }
-                                    } else {
-=======
                                     if a.ctx.render_node.is_some() {
->>>>>>> rectangle
                                         if let Ok(render_node) = a.roundtrip(Event::Commit) {
                                             draw_callback::<C>(
                                                 &a.surface.as_ref().unwrap().surface,
                                                 render_node,
                                             );
                                         }
-<<<<<<< HEAD
-=======
                                     } else {
                                         if let Ok(render_node) = a.roundtrip(Event::Commit) {
                                             a.render(render_node);
                                         }
->>>>>>> rectangle
                                     }
                                 }
                             }
