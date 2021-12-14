@@ -35,13 +35,10 @@ impl Label {
         &self.fonts
     }
     pub fn max_width(&self) -> f32 {
-        self.settings.max_width.unwrap_or_default().max(self.size.0)
+        self.settings.max_width.unwrap_or(self.size.0)
     }
     pub fn max_height(&self) -> f32 {
-        self.settings
-            .max_height
-            .unwrap_or_default()
-            .max(self.size.1)
+        self.settings.max_height.unwrap_or(self.size.1)
     }
     pub fn set_color(&mut self, color: u32) {
         self.color = u32_to_source(color);
@@ -96,8 +93,8 @@ impl Label {
         self.fonts.push(font);
         self
     }
-    pub fn color<C: Into<Color>>(mut self, color: C) -> Self {
-        self.color = color.into();
+    pub fn color(mut self, color: u32) -> Self {
+        self.color = u32_to_source(color);
         self
     }
     pub fn settings(mut self, settings: LayoutSettings) -> Self {
@@ -184,6 +181,7 @@ impl Text {
         if s.ne(self.label.text.as_str()) {
             self.label.layout = None;
         }
+        self.buffer = None;
         self.label.text = s.to_string();
     }
 }

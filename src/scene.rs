@@ -6,7 +6,6 @@ pub use tiny_skia::*;
 use widgets::blend;
 use widgets::shapes::*;
 use widgets::text::*;
-use std::f32::consts::FRAC_1_SQRT_2;
 use widgets::Image;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -122,7 +121,7 @@ impl From<ShapeStyle> for Background {
 
 impl From<u32> for Background {
     fn from(color: u32) -> Self {
-        Background::Color(widgets::u32_to_source(color))
+        Background::Color(u32_to_source(color))
     }
 }
 
@@ -146,7 +145,7 @@ impl From<Image> for Background {
 
 impl Background {
     pub fn solid(color: u32) -> Background {
-        Background::Color(widgets::u32_to_source(color))
+        Background::Color(u32_to_source(color))
     }
     pub fn image(path: &std::path::Path) -> Background {
         if let Ok(image) = Image::new(path) {
@@ -250,6 +249,72 @@ pub enum PrimitiveType {
     },
 }
 
+impl Geometry for PrimitiveType {
+    fn width(&self) -> f32 {
+        match self {
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.width(),
+            Self::Label(l) => l.width(),
+            Self::Rectangle(r) => r.width(),
+            Self::Image(i) => i.width(),
+        }
+    }
+    fn height(&self) -> f32 {
+        match self {
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.height(),
+            Self::Label(l) => l.height(),
+            Self::Rectangle(r) => r.height(),
+            Self::Image(i) => i.height(),
+        }
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        match self {
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.set_height(height),
+            Self::Label(l) => l.set_height(height),
+            Self::Rectangle(r) => r.set_height(height),
+            Self::Image(i) => i.set_height(height),
+        }
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        match self {
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.set_width(width),
+            Self::Label(l) => l.set_width(width),
+            Self::Rectangle(r) => r.set_width(width),
+            Self::Image(i) => i.set_width(width),
+        }
+    }
+}
+
+impl Clone for PrimitiveType {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Image(image) => image.primitive(),
+            Self::Rectangle(rect) => rect.primitive(),
+            Self::Label(label) => label.clone().into(),
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.primitive(),
+        }
+    }
+}
+
 impl PartialEq for PrimitiveType {
     fn eq(&self, other: &Self) -> bool {
         match self {
@@ -286,6 +351,37 @@ impl PartialEq for PrimitiveType {
             }
         }
         false
+    }
+}
+
+impl PrimitiveType {
+    fn merge(&self, other: Self) -> Self {
+        match self {
+            PrimitiveType::Rectangle(rect) => {
+                if let PrimitiveType::Rectangle(other) = &other {
+                    if let ShapeStyle::Background(tb) = &rect.style {
+                        if let ShapeStyle::Background(ob) = &other.style {
+                            let background = tb.merge(ob.clone());
+                            return other.clone().background(background).into();
+                        }
+                        return PrimitiveType::Rectangle(rect.clone());
+                    }
+                }
+            }
+            _ => {}
+        }
+        other
+    }
+    fn instruction(&self, region: Region) -> Instruction {
+        let mut p = self.clone();
+        let _ = p.set_size(region.width, region.height).is_ok();
+        Instruction::new(region.x, region.y, p)
+    }
+}
+
+impl Default for PrimitiveType {
+    fn default() -> Self {
+        Rectangle::empty(0., 0.).into()
     }
 }
 
@@ -344,22 +440,12 @@ impl Instruction {
             transform: Transform::from_translate(x, y),
         }
     }
-    fn path(&self) -> Option<Path> {
+    fn contains(&self, region: &Region) -> bool {
+        let region = region.relative_to(self.transform.tx, self.transform.ty);
         match &self.primitive {
-            PrimitiveType::Rectangle(rect) => {
-                if let Some(path) = rect.path() {
-                    return path.transform(self.transform)
-                }
-            }
-            _ => {}
+            PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
+            _ => true,
         }
-        None
-    }
-    fn is_opaque(&self) -> bool {
-        if let PrimitiveType::Rectangle(rect) = &self.primitive {
-            return rect.is_opaque();
-        }
-        false
     }
 }
 
@@ -391,26 +477,8 @@ impl Instruction {
         Region::new(
             self.transform.tx,
             self.transform.ty,
-            match &self.primitive {
-                PrimitiveType::Image(i) => i.width(),
-                PrimitiveType::Rectangle(r) => r.width(),
-                PrimitiveType::Label(l) => l.width(),
-                PrimitiveType::Other {
-                    id: _,
-                    name: _,
-                    primitive,
-                } => primitive.width(),
-            },
-            match &self.primitive {
-                PrimitiveType::Image(i) => i.height(),
-                PrimitiveType::Rectangle(r) => r.height(),
-                PrimitiveType::Label(l) => l.height(),
-                PrimitiveType::Other {
-                    id: _,
-                    name: _,
-                    primitive,
-                } => primitive.height(),
-            },
+            self.width(),
+            self.height(),
         )
     }
 }
@@ -474,40 +542,40 @@ pub enum RenderNode {
 impl Geometry for RenderNode {
     fn width(&self) -> f32 {
         match self {
-            RenderNode::Container { region, nodes:_ } => {
-                region.width
-            }
-            RenderNode::Draw { region, steps:_ } => {
-                region.width
-            }
+            RenderNode::Container { region, nodes: _ } => region.width,
+            RenderNode::Draw { region, steps: _ } => region.width,
             RenderNode::Instruction(instruction) => instruction.width(),
-            RenderNode::Extension { background, border, node:_ } => {
+            RenderNode::Extension {
+                background,
+                border,
+                node: _,
+            } => {
                 if let Some(border) = border.as_ref() {
                     border.width()
                 } else {
                     background.width()
                 }
             }
-            RenderNode::None => 0.
+            RenderNode::None => 0.,
         }
     }
     fn height(&self) -> f32 {
         match self {
-            RenderNode::Container { region, nodes:_ } => {
-                region.height
-            }
-            RenderNode::Draw { region, steps:_ } => {
-                region.height
-            }
+            RenderNode::Container { region, nodes: _ } => region.height,
+            RenderNode::Draw { region, steps: _ } => region.height,
             RenderNode::Instruction(instruction) => instruction.height(),
-            RenderNode::Extension { background, border, node:_ } => {
+            RenderNode::Extension {
+                background,
+                border,
+                node: _,
+            } => {
                 if let Some(border) = border.as_ref() {
                     border.height()
                 } else {
                     background.height()
                 }
             }
-            RenderNode::None => 0.
+            RenderNode::None => 0.,
         }
     }
 }
@@ -519,29 +587,10 @@ impl Default for RenderNode {
 }
 
 impl RenderNode {
-    fn region(&self) -> Option<Region> {
-        match self {
-            RenderNode::Container { region, nodes:_ } => {
-                Some(*region)
-            }
-            RenderNode::Draw { region, steps:_ } => {
-                Some(*region)
-            }
-            RenderNode::Instruction(instruction) => Some(instruction.region()),
-            RenderNode::Extension { background, border, node:_ } => {
-                if let Some(border) = border.as_ref() {
-                    Some(border.region())
-                } else {
-                    Some(background.region())
-                }
-            }
-            RenderNode::None => None
-        }
-    }
     pub fn render(&self, ctx: &mut DrawContext) {
         match self {
             Self::Instruction(instruction) => instruction.render(ctx, None),
-            Self::Container { region: _, nodes} => {
+            Self::Container { region: _, nodes } => {
                 for n in nodes {
                     n.render(ctx);
                 }
@@ -601,19 +650,30 @@ impl RenderNode {
             }
         }
     }
-    pub fn merge<'r>(&'r mut self, other: Self, ctx: &mut DrawContext, bg: &Background) {
+    pub fn merge<'r>(
+        &'r mut self,
+        other: Self,
+        ctx: &mut DrawContext,
+        shape: &Instruction,
+    ) -> Result<(), Region> {
         match self {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
-                        ctx.damage_region(bg, a.region().merge(&b.region()));
-                        b.render(ctx, None);
-                        *self = other;
+                        let r = b.region();
+                        if shape.contains(&r) {
+                            ctx.damage_region(&Background::from(shape), a.region().merge(&r));
+                            b.render(ctx, None);
+                            *self = other;
+                        } else {
+                            *self = other;
+                            return Err(r);
+                        }
                     }
                 }
                 RenderNode::None => {}
                 _ => {
-                    other.clear(ctx, bg, &a.region());
+                    other.clear(ctx, &Background::from(shape), &a.region());
                     *self = other;
                     self.render(ctx);
                 }
@@ -629,17 +689,19 @@ impl RenderNode {
                     RenderNode::Container { region, mut nodes } => {
                         if this_region.eq(&region) && this_nodes.len() == nodes.len() {
                             for i in 0..nodes.len() {
-                                this_nodes[i].merge(mem::take(&mut nodes[i]), ctx, bg);
+                                this_nodes[i].merge(mem::take(&mut nodes[i]), ctx, shape)?;
                             }
+                        } else if !shape.contains(&region) {
+                            return Err(region);
                         } else {
-                            ctx.damage_region(bg, this_region.merge(&region));
+                            ctx.damage_region(&Background::from(shape), this_region.merge(&region));
                             *self = RenderNode::Container { nodes, region };
                             self.render(ctx);
                         }
                     }
                     RenderNode::None => {}
                     _ => {
-                        other.clear(ctx, bg, &this_region);
+                        other.clear(ctx, &Background::from(shape), &this_region);
                         *self = other;
                         self.render(ctx);
                     }
@@ -651,7 +713,7 @@ impl RenderNode {
                 node,
             } => {
                 let this_node = node.as_mut();
-                let this_border = border.as_ref();
+                let this_border = border;
                 let this_background = background;
                 if let RenderNode::Extension {
                     background,
@@ -659,21 +721,33 @@ impl RenderNode {
                     node,
                 } = other
                 {
-                    if background.eq(this_background) && border.as_ref().eq(&this_border) {
-                        this_node.merge(*node, ctx, &bg.merge(Background::from(this_background)));
+                    if background.eq(this_background) && border.eq(this_border) {
+                        let instruction = Instruction {
+                            transform: background.transform,
+                            primitive: shape.primitive.merge(background.primitive.clone()),
+                        };
+                        if let Err(region) = this_node.merge(*node, ctx, &instruction) {
+                            shape
+                                .primitive
+                                .instruction(background.region().merge(&region))
+                                .render(ctx, None);
+                            self.render(ctx);
+                        };
                     } else {
                         ctx.damage_region(
-                            &bg,
-                            if let Some(this_border) = this_border.as_ref() {
-                                    this_border.region()
-                                } else {
-                                    this_background.region()
-                                }
-                            	.merge(&if let Some(rect) = border.as_ref() {
+                            &Background::from(shape),
+                            if let Some(rect) = this_border.as_ref() {
+                                rect.region()
+                            } else {
+                                this_background.region()
+                            }
+                            .merge(
+                                &if let Some(rect) = border.as_ref() {
                                     rect.region()
                                 } else {
                                     background.region()
-                                })
+                                },
+                            ),
                         );
                         *self = RenderNode::Extension {
                             background,
@@ -685,12 +759,12 @@ impl RenderNode {
                 } else {
                     other.clear(
                         ctx,
-                        &bg.merge(Background::from(&this_background)),
+                        &Background::from(shape),
                         &if let Some(border) = this_border.as_ref() {
-                            	border.region()
-                            } else {
-                                this_background.region()
-                            }
+                            border.region()
+                        } else {
+                            this_background.region()
+                        },
                     );
                     *self = other;
                     self.render(ctx);
@@ -701,10 +775,12 @@ impl RenderNode {
                 let this_steps = steps;
                 match other {
                     RenderNode::Draw { region, steps } => {
-                        if region.eq(&this_region) && this_steps.len() != steps.len() {
-                            self.clear(ctx, bg, &region);
+                        if region.ne(&this_region) && this_steps.len() != steps.len() {
+                            self.clear(ctx, &Background::from(shape), &region);
                             *self = RenderNode::Draw { region, steps };
                             self.render(ctx);
+                        } else if !shape.contains(&region) {
+                            return Err(region);
                         } else {
                             let mut draw = false;
                             for i in 0..steps.len() {
@@ -714,7 +790,7 @@ impl RenderNode {
                                 }
                             }
                             if draw {
-                                self.clear(ctx, bg, &region);
+                                self.clear(ctx, &Background::from(shape), &region);
                                 *self = RenderNode::Draw { region, steps };
                                 self.render(ctx);
                             }
@@ -722,13 +798,14 @@ impl RenderNode {
                     }
                     RenderNode::None => {}
                     _ => {
-                        other.clear(ctx, bg, &this_region);
+                        self.clear(ctx, &Background::from(shape), &this_region);
                         *self = other;
                         self.render(ctx);
                     }
                 }
             }
         }
+        Ok(())
     }
 }
 
@@ -792,14 +869,12 @@ impl Region {
     pub fn substract(&self, other: Self) -> Self {
         let crop = self.crop(&other);
 
-        if crop.x == self.x
-        && crop.y + crop.height == self.y + self.height {
+        if crop.x == self.x && crop.y + crop.height == self.y + self.height {
             let x = crop.x + crop.width;
-            return Self::new(x, self.y, self.x + self.width - x, self.height)
-        } else if crop.y == self.y
-        	&& crop.x + crop.width == self.x + self.width {
+            return Self::new(x, self.y, self.x + self.width - x, self.height);
+        } else if crop.y == self.y && crop.x + crop.width == self.x + self.width {
             let y = crop.y + crop.height;
-            return Self::new(self.x, y, self.width, self.y + self.height - y)
+            return Self::new(self.x, y, self.width, self.y + self.height - y);
         }
         *self
     }
@@ -816,7 +891,10 @@ impl Region {
             height: fy - y,
         }
     }
-    fn fit(&self, other: &Self) -> bool {
+    pub fn relative_to(&self, x: f32, y: f32) -> Self {
+        Region::new(self.x - x, self.y - y, self.width, self.height)
+    }
+    pub fn fit(&self, other: &Self) -> bool {
         other.x - self.x + other.width <= self.width
             && other.y - self.y + other.height <= self.height
     }

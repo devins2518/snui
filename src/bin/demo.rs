@@ -1,5 +1,5 @@
-use snui::font::{FontProperty, FontStyle};
 use snui::data::{Controller, Data};
+use snui::font::{FontProperty, FontStyle};
 use snui::scene::*;
 use snui::wayland::shell::*;
 use snui::widgets::container::*;
@@ -50,19 +50,9 @@ impl Widget for Test {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let mut canvas = self.create_canvas(x, y);
 
-        let b = Rectangle::square(
-            50.,
-            ShapeStyle::solid(BLU),
-        );
-        let r = Rectangle::square(
-            80.,
-            ShapeStyle::solid(RED),
-        );
-        let c = Rectangle::square(
-            50.,
-            ShapeStyle::border(ORG, 3.),
-        )
-        .radius(20., 20., 20., 20.);
+        let b = Rectangle::square(50., ShapeStyle::solid(BLU));
+        let r = Rectangle::square(80., ShapeStyle::solid(RED));
+        let c = Rectangle::square(50., ShapeStyle::border(ORG, 3.)).radius(20., 20., 20., 20.);
 
         canvas.draw(5., 5., b);
         canvas.draw_at_angle(20., 20., r, 25.);
@@ -76,29 +66,20 @@ impl Widget for Test {
 fn main() {
     let (mut snui, mut event_loop) = Application::new(true);
 
-    let slider =
-        slider::Slider::horizontal(
-            Object::Slider as u32,
-            200,
-            5,
-            ShapeStyle::solid(BG1)
-        )
+    let slider = slider::Slider::horizontal(Object::Slider as u32, 200, 5, ShapeStyle::solid(BG1))
         .wrap()
         .radius(3., 3., 3., 3.);
 
-    let mut serial =
-    	WidgetLayout::horizontal(5)
-    		.wrap()
-    		.padding(10., 10., 10., 10.)
-    		.background(BG1)
-    		.radius(5.,5.,5.,5.);
+    let mut serial = WidgetLayout::horizontal(5)
+        .wrap()
+        .padding(10., 10., 10., 10.)
+        .background(BG1)
+        .radius(5., 5., 5., 5.);
 
-	let mut token = 0;
+    let mut token = 0;
 
-    let button =
-    	shapes::Rectangle::square(47., ShapeStyle::solid(YEL))
-    	.into_button(move |square, ctx, pointer| {
-        match pointer {
+    let button = shapes::Rectangle::square(47., ShapeStyle::solid(YEL)).into_button(
+        move |square, ctx, pointer| match pointer {
             Pointer::MouseClick {
                 time: _,
                 button,
@@ -120,41 +101,34 @@ fn main() {
                 }
             }
             _ => {}
-        }
-    });
-
-    serial.add(
-        Label::default("serialize: ", 18.)
+        },
     );
-    serial.add(button);
-	serial.justify(CENTER);
 
+    serial.add(Label::default("serialize: ", 18.));
+    serial.add(button);
+    serial.justify(CENTER);
 
     let mut icons = WidgetLayout::horizontal(5);
     icons.add(shapes::Rectangle::square(20., ShapeStyle::solid(YEL)));
     icons.add(shapes::Rectangle::square(20., ShapeStyle::solid(ORG)));
     icons.add(shapes::Rectangle::square(20., ShapeStyle::solid(RED)));
 
-    let mut titlebar =
-        Centerbox::horizontal(
-            Label::new("shell", 18.)
-            	.font(FontProperty {
-                	name: "sans serif".to_owned(),
-                	style: FontStyle::Italic
-            	}),
-            Label::default("snui demo", 18.)
-            	.color(u32_to_source(BG1)),
-            icons,
-        )
-        .wrap()
-		.padding(5., 5., 5., 5.);
+    let mut titlebar = Centerbox::horizontal(
+        Label::new("shell", 18.).font(FontProperty {
+            name: "sans serif".to_owned(),
+            style: FontStyle::Italic,
+        }),
+        Label::default("snui demo", 18.).color(BG1),
+        icons,
+    )
+    .wrap()
+    .padding(5., 5., 5., 5.);
 
     titlebar.0.set_anchor(Alignment::Start, Alignment::Center);
     titlebar.1.set_anchor(Alignment::Center, Alignment::Center);
     titlebar.2.set_anchor(Alignment::End, Alignment::Center);
-    
 
-    let mut demo = WidgetLayout::vertical(10);
+    let mut demo = LayoutBox::new().orientation(Orientation::Vertical);
     demo.add(titlebar);
     demo.add(slider);
     demo.add(serial);
@@ -163,16 +137,15 @@ fn main() {
 
     snui.create_inner_application(
         data::DummyController::new(),
-        demo
-        	.wrap()
+        demo.wrap()
             .background(Background::linear_gradient(
                 vec![
-                	GradientStop::new(0., widgets::u32_to_source(RED)),
-                	GradientStop::new(0.5, widgets::u32_to_source(GRN)),
-                	GradientStop::new(1., widgets::u32_to_source(BLU)),
+                    GradientStop::new(0., u32_to_source(RED)),
+                    GradientStop::new(0.5, u32_to_source(GRN)),
+                    GradientStop::new(1., u32_to_source(BLU)),
                 ],
                 SpreadMode::Pad,
-                0.5
+                0.5,
             ))
             .padding(15., 15., 15., 15.)
             .border(RED, 3.)

@@ -1,64 +1,79 @@
 use crate::widgets::Alignment;
 use crate::*;
+use crate::widgets::container::Child;
 use scene::{Coords, Region, RenderNode};
 
-pub struct Child {
-    coords: Coords,
-    widget: Box<dyn Widget>,
-}
-
-impl Child {
-    fn new(widget: impl Widget + 'static) -> Self {
-        Child {
-            coords: Coords::new(0., 0.),
-            widget: Box::new(widget),
-        }
-    }
-}
-
-impl Geometry for Child {
-    fn width(&self) -> f32 {
-        self.widget.width()
-    }
-    fn height(&self) -> f32 {
-        self.widget.height()
-    }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width > self.width() {
-            return self.widget.set_width(width);
-        }
-        Ok(())
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height > self.height() {
-            return self.widget.set_height(height);
-        }
-        Ok(())
-    }
-}
-
-pub struct WidgetLayout {
-    spacing: f32,
-    pub widgets: Vec<Child>,
+pub struct LayoutBox {
+    widgets: Vec<Child>,
     alignment: Alignment,
     orientation: Orientation,
 }
 
-impl Geometry for WidgetLayout {
-    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
-        Err(self.width())
+impl Container for LayoutBox {
+    fn len(&self) -> usize {
+        self.widgets.len()
     }
-    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
-        Err(self.height())
+    fn add(&mut self, widget: impl Widget + 'static) {
+        self.widgets.push(Child::new(widget));
+    }
+}
+
+impl Geometry for LayoutBox {
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        let mut local_width = 0.;
+        let size = width / self.widgets.len() as f32;
+        for child in self.widgets.iter_mut() {
+            match self.orientation {
+                Orientation::Horizontal => {
+                    if let Err(w) = child.set_width(size) {
+                        local_width += w;
+                    } else {
+                        local_width += size;
+                    }
+                }
+                Orientation::Vertical => {
+                    if let Err(w) = child.set_width(width) {
+                        local_width = local_width.max(w);
+                    }
+                }
+            }
+        }
+        if local_width  == width {
+            return Ok(());
+        }
+        Err(local_width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        let mut local_height = 0.;
+        let size = height / self.widgets.len() as f32;
+        for child in self.widgets.iter_mut() {
+            match self.orientation {
+                Orientation::Vertical => {
+                    if let Err(h) = child.set_height(size) {
+                        local_height += h;
+                    } else {
+                        local_height += size;
+                    }
+                }
+                Orientation::Horizontal => {
+                    if let Err(w) = child.set_height(height) {
+                        local_height = local_height.max(w);
+                    }
+                }
+            }
+        }
+        if local_height  == height {
+            return Ok(());
+        }
+        Err(local_height)
     }
     fn width(&self) -> f32 {
         let mut width = 0.;
         match self.orientation {
             Orientation::Horizontal => {
                 for w in &self.widgets {
-                    width += w.width() + self.spacing;
+                    width += w.width();
                 }
-                width -= self.spacing.min(width);
             }
             Orientation::Vertical => {
                 for w in &self.widgets {
@@ -73,9 +88,8 @@ impl Geometry for WidgetLayout {
         match self.orientation {
             Orientation::Vertical => {
                 for w in &self.widgets {
-                    height += w.height() + self.spacing;
+                    height += w.height();
                 }
-                height -= self.spacing.min(height);
             }
             Orientation::Horizontal => {
                 for w in &self.widgets {
@@ -87,67 +101,10 @@ impl Geometry for WidgetLayout {
     }
 }
 
-impl Container for WidgetLayout {
-    fn len(&self) -> usize {
-        self.widgets.len()
-    }
-    fn add(&mut self, widget: impl Widget + 'static) {
-        self.widgets.push(Child::new(widget));
-    }
-}
-
-impl WidgetLayout {
-    pub fn new(orientation: Orientation) -> Self {
-        WidgetLayout {
-            spacing: 0.,
-            orientation,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
-        }
-    }
-    pub fn horizontal(spacing: u32) -> Self {
-        WidgetLayout {
-            spacing: spacing as f32,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
-            orientation: Orientation::Horizontal,
-        }
-    }
-    pub fn vertical(spacing: u32) -> Self {
-        WidgetLayout {
-            spacing: spacing as f32,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
-            orientation: Orientation::Vertical,
-        }
-    }
-    pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
-        WidgetLayout {
-            spacing: spacing as f32,
-            orientation,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
-        }
-    }
-    pub fn orientation(&self) -> Orientation {
-        self.orientation
-    }
-    pub fn set_spacing(&mut self, spacing: u32) {
-        self.spacing = spacing as f32;
-    }
-    pub fn justify(&mut self, alignment: Alignment) {
-        self.alignment = alignment;
-    }
-    pub fn clear(&mut self) {
-        self.widgets = Vec::new();
-    }
-}
-
-impl Widget for WidgetLayout {
+impl Widget for LayoutBox {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
-        let spacing = self.spacing;
         let orientation = self.orientation;
         let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
@@ -170,10 +127,10 @@ impl Widget for WidgetLayout {
                             node = RenderNode::Extension {
                                 background: scene::Instruction::empty(x + dx, y + dy, ww, sh),
                                 border: None,
-                                node: Box::new(child.widget.create_node(x + dx, y + dy))
+                                node: Box::new(child.widget.create_node(x + dx, y + dy)),
                             };
                             child.coords = Coords::new(dx, dy);
-                            dx += child.width() + spacing;
+                            dx += child.width();
                         }
                         Orientation::Vertical => {
                             match alignment {
@@ -184,10 +141,10 @@ impl Widget for WidgetLayout {
                             node = RenderNode::Extension {
                                 background: scene::Instruction::empty(x + dx, y + dy, sw, wh),
                                 border: None,
-                                node: Box::new(child.widget.create_node(x + dx, y + dy))
+                                node: Box::new(child.widget.create_node(x + dx, y + dy)),
                             };
                             child.coords = Coords::new(dx, dy);
-                            dy += child.height() + spacing;
+                            dy += child.height();
                         }
                     }
                     node
@@ -205,5 +162,29 @@ impl Widget for WidgetLayout {
                 child.widget.sync(ctx, event)
             }
         }
+    }
+}
+
+impl LayoutBox {
+    pub fn new() -> Self {
+        Self {
+            widgets: Vec::new(),
+            alignment: Alignment::Center,
+            orientation: Orientation::Horizontal,
+        }
+    }
+    pub fn orientation(mut self, orientation: Orientation) -> Self {
+        self.orientation = orientation;
+        self
+    }
+    pub fn justify(&mut self, alignment: Alignment) {
+        self.alignment = alignment;
+        let _ = match self.orientation {
+            Orientation::Horizontal => self.set_height(self.height()),
+            Orientation::Vertical => self.set_width(self.width()),
+        };
+    }
+    pub fn clear(&mut self) {
+        self.widgets.clear();
     }
 }

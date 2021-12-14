@@ -110,6 +110,12 @@ impl Geometry for Image {
 }
 
 impl Primitive for Image {
+    fn primitive(&self) -> scene::PrimitiveType {
+        self.clone().into()
+    }
+    fn contains(&self, region: &scene::Region) -> bool {
+        scene::Region::new(0., 0., self.width(), self.height()).fit(region)
+    }
     fn draw_with_transform_clip(
         &self,
         ctx: &mut DrawContext,
@@ -123,7 +129,7 @@ impl Primitive for Image {
                 0,
                 PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap(),
                 &crate::context::PIX_PAINT,
-                transform.post_scale(sx, sy),
+                transform.pre_scale(sx, sy),
                 clip,
             );
         }

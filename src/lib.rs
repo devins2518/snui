@@ -14,6 +14,11 @@ use widgets::WidgetBox;
 
 pub const FG: u32 = 0xff_C8_BA_A4;
 
+pub fn u32_to_source(color: u32) -> Color {
+    let color = color.to_be_bytes();
+    Color::from_rgba8(color[3], color[2], color[1], color[0])
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Orientation {
     Vertical,
@@ -109,10 +114,10 @@ pub trait Container: Geometry {
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
         Err(self.width())
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
         Err(self.height())
     }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
@@ -163,6 +168,11 @@ pub trait Primitive: Geometry + std::fmt::Debug {
         transform: tiny_skia::Transform,
         clip: Option<&tiny_skia::ClipMask>,
     );
+    // Tell if the region can fit inside the Primitive
+    // The coordinates will be relative to the Primitive
+    fn contains(&self, region: &scene::Region) -> bool;
+    // Basically Clone
+    fn primitive(&self) -> scene::PrimitiveType;
 }
 
 pub trait Widget: Geometry {

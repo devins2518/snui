@@ -3,6 +3,7 @@ pub mod rectangle;
 use crate::scene::*;
 use crate::*;
 pub use rectangle::Rectangle;
+use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::{Deref, DerefMut};
 
 pub trait Style {
@@ -39,10 +40,12 @@ pub struct WidgetExt<W: Widget> {
 
 impl<W: Widget> WidgetExt<W> {
     pub fn new(child: W) -> Self {
+        let width = child.width();
+        let height = child.height();
         WidgetExt {
             child,
-            border: None,
-            background: None,
+            border: Some(Rectangle::empty(width, height)),
+            background: Some(Rectangle::empty(width, height)),
             padding: [0.; 4],
         }
     }
@@ -53,9 +56,44 @@ impl<W: Widget> WidgetExt<W> {
         self.child.height() + self.padding[0] + self.padding[2]
     }
     // The padding will be rounded automatically
-    pub fn padding(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
+    pub fn force_padding(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
         self.padding = [top.round(), right.round(), bottom.round(), left.round()];
         self
+    }
+    // The padding will be rounded automatically
+    pub fn padding(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
+        let min = self.minimum_padding();
+        self.padding = [
+            top.round().max(min),
+            right.round().max(min),
+            bottom.round().max(min),
+            left.round().max(min),
+        ];
+        self
+    }
+    pub fn set_padding(&mut self, top: f32, right: f32, bottom: f32, left: f32) {
+        let min = self.minimum_padding();
+        self.padding = [
+            top.round().max(min),
+            right.round().max(min),
+            bottom.round().max(min),
+            left.round().max(min),
+        ];
+    }
+    fn minimum_padding(&self) -> f32 {
+        let rect = if self.background.is_some() {
+            self.background.as_ref()
+        } else if self.border.is_some() {
+            self.border.as_ref()
+        } else {
+            None
+        };
+        if let Some(rect) = rect {
+            let (tl, tr, br, bl) = rect.get_radius();
+            let radius = tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
+            return radius.floor();
+        }
+        0.
     }
     pub fn unwrap(self) -> W {
         self.child
@@ -87,16 +125,16 @@ impl<W: Widget> Geometry for WidgetExt<W> {
     }
     fn width(&self) -> f32 {
         if let Some(rectangle) = &self.border {
-            if let ShapeStyle::Border(_, border) = rectangle.get_style() {
-                return self.inner_width() + 2. * *border;
+            if let ShapeStyle::Border(_, size) = &rectangle.style {
+                return self.inner_width() + size;
             }
         }
         self.inner_width()
     }
     fn height(&self) -> f32 {
         if let Some(rectangle) = &self.border {
-            if let ShapeStyle::Border(_, border) = rectangle.get_style() {
-                return self.inner_height() + 2. * *border;
+            if let ShapeStyle::Border(_, size) = &rectangle.style {
+                return self.inner_height() + size;
             }
         }
         self.inner_height()
@@ -104,33 +142,13 @@ impl<W: Widget> Geometry for WidgetExt<W> {
 }
 
 impl<W: Widget + Style> WidgetExt<W> {
-    pub fn radius(self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
-        let width = self.width();
-        let height = self.height();
-        let ratio = self.child.width() / self.width();
-        let background = if let Some(mut rect) = self.background {
-            rect.set_size(width, height).unwrap();
-            Some(rect.radius(tl, tr, br, bl))
-        } else {
-            None
-        };
-        let border = if let Some(mut rect) = self.border {
-            rect.set_size(width, height).unwrap();
-            Some(rect.radius(tl, tr, br, bl))
-        } else {
-            None
-        };
-        Self {
-            border,
-            background,
-            child: self.child.radius(
-                tl * ratio,
-                tr * ratio,
-                br * ratio,
-                bl * ratio,
-            ),
-            padding: self.padding,
-        }
+    pub fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        self.child.set_radius(tl, tr, br, bl);
+        Style::set_radius(self, tl, tr, br, bl);
+    }
+    pub fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
+        self.child.set_radius(tl, tr, br, bl);
+        Style::radius(self, tl, tr, br, bl)
     }
 }
 
@@ -142,10 +160,16 @@ impl<W: Widget> Style for WidgetExt<W> {
         if let Some(rect) = self.border.as_mut() {
             rect.set_radius(tl, tr, br, bl);
         }
+        self.set_padding(
+            self.padding[0],
+            self.padding[1],
+            self.padding[2],
+            self.padding[3],
+        );
     }
     fn radius(self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
-        let width = self.width();
-        let height = self.height();
+        let width = self.inner_width();
+        let height = self.inner_height();
         let background = if let Some(mut rect) = self.background {
             rect.set_size(width, height).unwrap();
             Some(rect.radius(tl, tr, br, bl))
@@ -164,6 +188,12 @@ impl<W: Widget> Style for WidgetExt<W> {
             child: self.child,
             padding: self.padding,
         }
+        .padding(
+            self.padding[0],
+            self.padding[1],
+            self.padding[2],
+            self.padding[3],
+        )
     }
     fn set_background<B: Into<Background>>(&mut self, background: B) {
         if let Some(rect) = self.background.as_mut() {
@@ -177,8 +207,8 @@ impl<W: Widget> Style for WidgetExt<W> {
         }
     }
     fn background<B: Into<Background>>(self, background: B) -> Self {
-        let width = self.width();
-        let height = self.height();
+        let width = self.inner_width();
+        let height = self.inner_height();
         let bg = if let Some(mut rect) = self.background {
             rect.set_size(width, height).unwrap();
             rect.background(background.into())
@@ -207,8 +237,8 @@ impl<W: Widget> Style for WidgetExt<W> {
             rect.set_border(color, width);
         } else {
             let border = Rectangle::new(
-                self.width(),
-                self.height(),
+                self.inner_width(),
+                self.inner_height(),
                 ShapeStyle::border(color, width),
             );
             if let Some(background) = &self.background {
@@ -276,11 +306,7 @@ impl<W: Widget> Style for WidgetExt<W> {
         if let Some(rect) = self.border.as_mut() {
             rect.set_border_color(color)
         } else {
-            let border  = Rectangle::new(
-                self.width(),
-                self.height(),
-                ShapeStyle::border(color, 0.),
-            );
+            let border = Rectangle::new(self.width(), self.height(), ShapeStyle::border(color, 0.));
             if let Some(background) = &self.background {
                 let (tl, tr, br, bl) = background.get_radius();
                 self.border = Some(border.radius(tl, tr, br, bl));

@@ -612,17 +612,11 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     fn height(&self) -> f32 {
         self.widget.height()
     }
-    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
-        Err(self.width())
-    }
-    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
-        Err(self.height())
-    }
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);
         }
-        self.widget.set_size(width, height)
+        Ok(())
     }
 }
 
@@ -707,7 +701,8 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         false
     }
     pub fn roundtrip(&mut self, ev: Event) -> Result<RenderNode, ()> {
-        let size = (self.width(), self.height());
+        let width = self.width();
+        let height = self.height();
 
         // Sending the event to the widget tree
         if self.sync(ev) || ev == Event::Commit {
@@ -717,16 +712,13 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             // Creating the render node
             let recent_node = self.core.widget.create_node(0., 0.);
 
-            // Getting the new size of the widget
-            let width = self.width();
-            let height = self.height();
-
             // Resizing the surface in case the widget changed size
-            if size.0 != width || size.1 != height {
-                let _ = self.set_size(width, height);
+            if width != self.width() || height != self.height() {
+                let _ = self.set_size(recent_node.width(), recent_node.height());
             }
 
             self.ctx.pending_cb = true;
+
             return Ok(recent_node);
         } else {
             // Calling the application´s closure
@@ -735,18 +727,18 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
 
         Err(())
     }
-    fn render(&mut self, mut recent_node: RenderNode) {
-        let width = self.width();
-        let height = self.height();
+    fn render(&mut self, recent_node: RenderNode) {
+        let width = recent_node.width();
+        let height = recent_node.height();
         if let Ok((buffer, wl_buffer)) =
             Buffer::new(&mut self.core.mempool, width as i32, height as i32)
         {
             let mut v = Vec::new();
             if let Some(render_node) = self.core.ctx.render_node.as_mut() {
-                render_node.merge(
-                    std::mem::take(&mut recent_node),
+                let _ = render_node.merge(
+                    recent_node,
                     &mut DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v),
-                    &Background::Transparent,
+                    &Instruction::empty(0., 0., width, height),
                 );
             } else {
                 recent_node.render(&mut DrawContext::new(
@@ -754,7 +746,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     &mut self.core.ctx.font_cache,
                     &mut v,
                 ));
-                self.core.ctx.render_node = Some(std::mem::take(&mut recent_node));
+                self.core.ctx.render_node = Some(recent_node);
             }
             self.core.ctx.pending_cb = false;
             if let Some(surface) = self.surface.as_mut() {
@@ -894,17 +886,28 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
+<<<<<<< HEAD
                                     if a.ctx.render_node.is_none() {
                                         if let Ok(render_node) = a.roundtrip(Event::Commit) {
                                             a.render(render_node);
                                         }
                                     } else {
+=======
+                                    if a.ctx.render_node.is_some() {
+>>>>>>> rectangle
                                         if let Ok(render_node) = a.roundtrip(Event::Commit) {
                                             draw_callback::<C>(
                                                 &a.surface.as_ref().unwrap().surface,
                                                 render_node,
                                             );
                                         }
+<<<<<<< HEAD
+=======
+                                    } else {
+                                        if let Ok(render_node) = a.roundtrip(Event::Commit) {
+                                            a.render(render_node);
+                                        }
+>>>>>>> rectangle
                                     }
                                 }
                             }

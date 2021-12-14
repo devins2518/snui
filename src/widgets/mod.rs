@@ -9,7 +9,7 @@ use crate::scene::Coords;
 pub use crate::widgets::image::Image;
 use crate::*;
 pub use button::Button;
-pub use container::layout::WidgetLayout;
+pub use container::*;
 pub use shapes::Style;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
@@ -17,11 +17,6 @@ use tiny_skia::*;
 pub const START: Alignment = Alignment::Start;
 pub const CENTER: Alignment = Alignment::Center;
 pub const END: Alignment = Alignment::End;
-
-pub fn u32_to_source(color: u32) -> Color {
-    let color = color.to_be_bytes();
-    Color::from_rgba8(color[3], color[2], color[1], color[0])
-}
 
 pub fn blend(pix_a: &Color, pix_b: &Color, t: f32) -> Color {
     let (r_a, g_a, b_a) = (pix_a.red(), pix_a.green(), pix_a.blue());
@@ -126,10 +121,15 @@ impl<W: Widget> Widget for WidgetBox<W> {
             Alignment::End => (self.height() - self.child.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
+        let new = self.child.create_node(x + dx, y + dy);
         RenderNode::Extension {
-            background: scene::Instruction::new(x, y, shapes::Rectangle::empty(self.width(), self.height())),
+            background: scene::Instruction::new(
+                x,
+                y,
+                shapes::Rectangle::empty(self.width(), self.height()),
+            ),
             border: None,
-            node: Box::new(self.child.create_node(x + dx, y + dy))
+            node: Box::new(new),
         }
     }
 }
@@ -143,6 +143,11 @@ impl<W: Widget> WidgetBox<W> {
             anchor: (Alignment::Center, Alignment::Center),
             constraint: Constraint::Fixed,
         }
+    }
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        let _ = self.set_size(width, height);
+        self.size = (width, height);
+        self
     }
     pub fn coords(&self) -> Coords {
         self.coords

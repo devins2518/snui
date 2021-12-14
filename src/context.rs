@@ -282,7 +282,23 @@ impl<'c> DrawContext<'c> {
                 self.damage_region(base.as_ref(), region);
                 self.damage_region(overlay.as_ref(), region);
             }
-            _ => {}
+            Background::Transparent => match &mut self.backend {
+                Backend::Pixmap(dt) => {
+                    dt.fill_rect(
+                        region.into(),
+                        &Paint {
+                            shader: Shader::SolidColor(Color::TRANSPARENT),
+                            blend_mode: BlendMode::Clear,
+                            anti_alias: false,
+                            force_hq_pipeline: false,
+                        },
+                        Transform::identity(),
+                        None,
+                    )
+                    .unwrap();
+                }
+                _ => {}
+            },
         }
     }
     pub fn flush(&mut self) {

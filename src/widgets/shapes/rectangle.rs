@@ -237,6 +237,17 @@ impl Geometry for Rectangle {
 }
 
 impl Primitive for Rectangle {
+    fn primitive(&self) -> scene::PrimitiveType {
+        self.clone().into()
+    }
+    fn contains(&self, region: &scene::Region) -> bool {
+        let (x, y) = (0., 0.);
+        let (tl, tr, br, bl) = self.radius;
+        let radius = tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
+        scene::Region::new(x, y, self.width, self.height)
+            .pad(-radius.floor())
+            .fit(region)
+    }
     fn draw_with_transform_clip(
         &self,
         ctx: &mut DrawContext,

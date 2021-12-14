@@ -1,5 +1,5 @@
 use snui::context::*;
-use snui::data::{Controller, Data, Message, ControllerError};
+use snui::data::{Controller, ControllerError, Data, Message};
 use snui::scene::*;
 use snui::wayland::shell::*;
 use snui::widgets::{shapes::*, text::*, *};
@@ -119,8 +119,7 @@ impl Widget for Cross {
                 pressed,
             } = p
             {
-                if self.contains(x, y)
-                {
+                if self.contains(x, y) {
                     if button == MouseButton::Left && pressed {
                         let _ = ctx.send(Message::new(Signal::Null as u32, Data::Null));
                     }
@@ -164,7 +163,8 @@ impl Widget for Listener {
                         match data {
                             Data::Byte(b) => self.text.edit(&b.to_string()),
                             Data::Uint(uint) => {
-                                self.text.edit(format!("{:#010X}", uint).replace("0x", "#").as_str());
+                                self.text
+                                    .edit(format!("{:#010X}", uint).replace("0x", "#").as_str());
                             }
                             _ => {}
                         }
@@ -274,10 +274,7 @@ fn main() {
     let mut editor = WidgetLayout::vertical(5);
 
     editor.add(header());
-    editor.add(
-        core()
-        .wrap()
-        .padding(20., 20., 20., 20.));
+    editor.add(core().wrap().padding(20., 20., 20., 20.));
     editor.justify(CENTER);
 
     snui.create_inner_application(
@@ -289,8 +286,8 @@ fn main() {
             .wrap()
             .background(BG0)
             .padding(15., 15., 15., 15.)
-            .radius(5., 5., 5., 5.)
-            .border(BG2, 1.),
+            .border(BG2, 3.)
+            .radius(5., 5., 5., 5.),
         event_loop.handle(),
         |core, _| {
             if let Some(signal) = core.controller.signal {
@@ -308,8 +305,7 @@ fn main() {
 fn header() -> impl Widget {
     let mut buttons = WidgetLayout::horizontal(5);
     let text: Text = Label::default("Copy", 15.).into();
-    let icon = Label::new("", 21.)
-    	.font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
+    let icon = Label::new("", 21.).font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
 
     buttons.add(
         icon.wrap()
@@ -353,7 +349,6 @@ fn header() -> impl Widget {
                         {
                             this.edit("Copied");
                             this.set_background(Background::solid(BG1));
-                            println!("#{:X}", source);
                         }
                     } else if button == MouseButton::Left {
                         this.edit("Copy");
@@ -367,12 +362,7 @@ fn header() -> impl Widget {
                 _ => {}
             }),
     );
-    let header = container::Centerbox::horizontal(
-        buttons,
-        Label::default("app_name", 15.),
-        Cross {}
-    ).align();
-    header
+    container::Centerbox::horizontal(buttons, Label::default("app_name", 15.), Cross {}).align()
 }
 
 fn sliders() -> WidgetLayout {
@@ -387,7 +377,7 @@ fn sliders() -> WidgetLayout {
             _ => Signal::Null,
         };
         let slider =
-            widgets::slider::Slider::horizontal(id as u32, 200, 6, ShapeStyle::solid(color))
+            widgets::slider::Slider::horizontal(id as u32, 200, 8, ShapeStyle::solid(color))
                 .wrap()
                 .background(BG2)
                 .radius(3., 3., 3., 3.);
@@ -416,13 +406,11 @@ fn core() -> WidgetLayout {
 
     let mut indicator = WidgetLayout::vertical(0);
 
-    indicator.add(
-        listener.wrap().padding(10., 10., 10., 10.)
-    );
+    indicator.add(listener.wrap().padding(10., 10., 10., 10.));
     indicator.add(ColorBlock {
         width: 200.,
         height: 200.,
-        color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap().to_color_u8()
+        color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap().to_color_u8(),
     });
     indicator.justify(CENTER);
 

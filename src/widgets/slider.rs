@@ -24,7 +24,7 @@ impl Slider {
             slider: Rectangle::new(
                 width as f32 / 2.,
                 height as f32,
-                ShapeStyle::Background(scene::Background::Transparent)
+                ShapeStyle::Background(scene::Background::Transparent),
             ),
         }
     }
@@ -156,12 +156,18 @@ impl Widget for Slider {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
-                                            let _ = ctx.send(Message::new(self.id, self.slider.width() / self.size));
+                                            let _ = ctx.send(Message::new(
+                                                self.id,
+                                                self.slider.width() / self.size,
+                                            ));
                                         }
                                     }
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
-                                            let _ = ctx.send(Message::new(self.id, self.slider.height() / self.size));
+                                            let _ = ctx.send(Message::new(
+                                                self.id,
+                                                self.slider.height() / self.size,
+                                            ));
                                         }
                                     }
                                 }
@@ -172,25 +178,36 @@ impl Widget for Slider {
                     }
                 } else if self.pressed {
                     match pointer {
-                        Pointer::MouseClick { time:_, button, pressed } => if button == MouseButton::Left {
-                            self.pressed = pressed;
-                        }
-                        Pointer::Hover => {
-                            match &self.orientation {
-                                Orientation::Horizontal => {
-                                    if let Ok(_) = self.slider.set_width(x.min(self.size)) {
-                                        let _ = ctx.send(Message::new(self.id, self.slider.width() / self.size));
-                                        ctx.request_draw();
-                                    }
-                                }
-                                Orientation::Vertical => {
-                                    if let Ok(_) = self.slider.set_height(y.min(self.size)) {
-                                        let _ = ctx.send(Message::new(self.id, self.slider.height() / self.size));
-                                        ctx.request_draw();
-                                    }
-                                }
+                        Pointer::MouseClick {
+                            time: _,
+                            button,
+                            pressed,
+                        } => {
+                            if button == MouseButton::Left {
+                                self.pressed = pressed;
+                                ctx.request_draw();
                             }
                         }
+                        Pointer::Hover => match &self.orientation {
+                            Orientation::Horizontal => {
+                                if let Ok(_) = self.slider.set_width(x.min(self.size)) {
+                                    let _ = ctx.send(Message::new(
+                                        self.id,
+                                        self.slider.width() / self.size,
+                                    ));
+                                    ctx.request_draw();
+                                }
+                            }
+                            Orientation::Vertical => {
+                                if let Ok(_) = self.slider.set_height(y.min(self.size)) {
+                                    let _ = ctx.send(Message::new(
+                                        self.id,
+                                        self.slider.height() / self.size,
+                                    ));
+                                    ctx.request_draw();
+                                }
+                            }
+                        },
                         Pointer::Leave => self.pressed = false,
                         _ => {}
                     }
@@ -201,34 +218,30 @@ impl Widget for Slider {
                 if obj == self.id {
                     if let Ok(data) = ctx.get(msg) {
                         match data {
-                            Data::Float(ratio) => {
-                                match &self.orientation {
-                                    Orientation::Horizontal => {
-                                        if self.slider.set_width(ratio * self.size).is_ok() {
-                                            ctx.request_draw();
-                                        }
-                                    }
-                                    Orientation::Vertical => {
-                                        if self.slider.set_height(ratio * self.size).is_ok() {
-                                            ctx.request_draw();
-                                        }
+                            Data::Float(ratio) => match &self.orientation {
+                                Orientation::Horizontal => {
+                                    if self.slider.set_width(ratio * self.size).is_ok() {
+                                        ctx.request_draw();
                                     }
                                 }
-                            }
-                            Data::Double(ratio) => {
-                                match &self.orientation {
-                                    Orientation::Horizontal => {
-                                        if self.slider.set_width(ratio as f32 * self.size).is_ok() {
-                                            ctx.request_draw();
-                                        }
-                                    }
-                                    Orientation::Vertical => {
-                                        if self.slider.set_height(ratio as f32 * self.size).is_ok() {
-                                            ctx.request_draw();
-                                        }
+                                Orientation::Vertical => {
+                                    if self.slider.set_height(ratio * self.size).is_ok() {
+                                        ctx.request_draw();
                                     }
                                 }
-                            }
+                            },
+                            Data::Double(ratio) => match &self.orientation {
+                                Orientation::Horizontal => {
+                                    if self.slider.set_width(ratio as f32 * self.size).is_ok() {
+                                        ctx.request_draw();
+                                    }
+                                }
+                                Orientation::Vertical => {
+                                    if self.slider.set_height(ratio as f32 * self.size).is_ok() {
+                                        ctx.request_draw();
+                                    }
+                                }
+                            },
                             _ => {}
                         }
                     }
