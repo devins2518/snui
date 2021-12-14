@@ -660,9 +660,6 @@ impl RenderNode {
                 } = other
                 {
                     if background.eq(this_background) && border.as_ref().eq(&this_border) {
-                        // if let Some(path) = background.path() {
-                        //     ctx.add_clip(&path);
-                        // }
                         this_node.merge(*node, ctx, &bg.merge(Background::from(this_background)));
                     } else {
                         ctx.damage_region(
