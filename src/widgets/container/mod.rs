@@ -42,3 +42,5 @@ impl Geometry for Child {
         Ok(())
     }
 }
+
+// Write macro similar to vec!

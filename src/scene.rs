@@ -154,9 +154,7 @@ impl Background {
             Background::Transparent
         }
     }
-    /*
-     * The angle is a radiant representing the tild of the gradient clock wise.
-     */
+    // The angle is a radiant representing the tild of the gradient clock wise.
     pub fn linear_gradient(stops: Vec<GradientStop>, mode: SpreadMode, angle: f32) -> Background {
         let stops: Rc<[GradientStop]> = stops.into();
         Background::LinearGradient {
@@ -734,8 +732,7 @@ impl RenderNode {
                             self.render(ctx);
                         };
                     } else {
-                        ctx.damage_region(
-                            &Background::from(shape),
+                        let merge =
                             if let Some(rect) = this_border.as_ref() {
                                 rect.region()
                             } else {
@@ -747,7 +744,13 @@ impl RenderNode {
                                 } else {
                                     background.region()
                                 },
-                            ),
+                            );
+                        if !shape.contains(&merge) {
+                            return Err(merge);
+                        }
+                        ctx.damage_region(
+                            &Background::from(shape),
+                            merge
                         );
                         *self = RenderNode::Extension {
                             background,
