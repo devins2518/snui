@@ -1,11 +1,9 @@
-use crate::widgets::Alignment;
 use crate::*;
 use crate::widgets::container::Child;
 use scene::{Coords, Region, RenderNode};
 
 pub struct LayoutBox {
     widgets: Vec<Child>,
-    alignment: Alignment,
     orientation: Orientation,
 }
 
@@ -105,8 +103,6 @@ impl Widget for LayoutBox {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
-        let orientation = self.orientation;
-        let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
             region: Region::new(x, y, sw, sh),
@@ -115,35 +111,26 @@ impl Widget for LayoutBox {
                 .iter_mut()
                 .map(|child| {
                     let node;
-                    let ww = child.width();
-                    let wh = child.height();
-                    match orientation {
+                    child.coords = Coords::new(dx, dy);
+                    match self.orientation {
                         Orientation::Horizontal => {
-                            match alignment {
-                                Alignment::Start => dy = 0.,
-                                Alignment::Center => dy = ((sh - wh) / 2.).floor(),
-                                Alignment::End => dy = sh - wh,
-                            }
+                            let _ = child.set_height(sh);
+                            let ww = child.width();
                             node = RenderNode::Extension {
                                 background: scene::Instruction::empty(x + dx, y + dy, ww, sh),
                                 border: None,
                                 node: Box::new(child.widget.create_node(x + dx, y + dy)),
                             };
-                            child.coords = Coords::new(dx, dy);
                             dx += child.width();
                         }
                         Orientation::Vertical => {
-                            match alignment {
-                                Alignment::Start => dx = 0.,
-                                Alignment::Center => dx = ((sw - ww) / 2.).floor(),
-                                Alignment::End => dx = sw - ww,
-                            }
+                            let _ = child.set_width(sw);
+                            let wh = child.height();
                             node = RenderNode::Extension {
                                 background: scene::Instruction::empty(x + dx, y + dy, sw, wh),
                                 border: None,
                                 node: Box::new(child.widget.create_node(x + dx, y + dy)),
                             };
-                            child.coords = Coords::new(dx, dy);
                             dy += child.height();
                         }
                     }
@@ -169,20 +156,12 @@ impl LayoutBox {
     pub fn new() -> Self {
         Self {
             widgets: Vec::new(),
-            alignment: Alignment::Center,
             orientation: Orientation::Horizontal,
         }
     }
     pub fn orientation(mut self, orientation: Orientation) -> Self {
         self.orientation = orientation;
         self
-    }
-    pub fn justify(&mut self, alignment: Alignment) {
-        self.alignment = alignment;
-        let _ = match self.orientation {
-            Orientation::Horizontal => self.set_height(self.height()),
-            Orientation::Vertical => self.set_width(self.width()),
-        };
     }
     pub fn clear(&mut self) {
         self.widgets.clear();

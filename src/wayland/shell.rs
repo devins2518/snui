@@ -715,6 +715,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             // Resizing the surface in case the widget changed size
             if width != self.width() || height != self.height() {
                 let _ = self.set_size(recent_node.width(), recent_node.height());
+                self.ctx.render_node = None;
             }
 
             self.ctx.pending_cb = true;
@@ -734,18 +735,22 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             Buffer::new(&mut self.core.mempool, width as i32, height as i32)
         {
             let mut v = Vec::new();
+            let mut ctx =
+                DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v);
             if let Some(render_node) = self.core.ctx.render_node.as_mut() {
-                let _ = render_node.merge(
+                if let Err(region) = render_node.merge(
                     recent_node,
-                    &mut DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v),
+                    &mut ctx,
                     &Instruction::empty(0., 0., width, height),
-                );
+                ) {
+                    ctx.damage_region(&Background::Transparent, region);
+                }
             } else {
-                recent_node.render(&mut DrawContext::new(
-                    buffer.backend,
-                    &mut self.core.ctx.font_cache,
-                    &mut v,
-                ));
+                ctx.damage_region(
+                    &Background::Transparent,
+                    Region::new(0., 0., width, height)
+                );
+                recent_node.render(&mut ctx);
                 self.core.ctx.render_node = Some(recent_node);
             }
             self.core.ctx.pending_cb = false;
@@ -886,7 +891,7 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
-                                    if a.ctx.render_node.is_some() {
+                                    if a.ctx.pending_cb {
                                         if let Ok(render_node) = a.roundtrip(Event::Commit) {
                                             draw_callback::<C>(
                                                 &a.surface.as_ref().unwrap().surface,

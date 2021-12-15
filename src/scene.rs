@@ -175,7 +175,7 @@ impl Background {
             _ => Background::Transparent,
         }
     }
-    fn merge(&self, other: Self) -> Self {
+    pub fn merge(&self, other: Self) -> Self {
         match self {
             Background::Color(acolor) => match other {
                 Background::Color(bcolor) => {
@@ -301,14 +301,14 @@ impl Geometry for PrimitiveType {
 impl Clone for PrimitiveType {
     fn clone(&self) -> Self {
         match self {
-            Self::Image(image) => image.primitive(),
-            Self::Rectangle(rect) => rect.primitive(),
+            Self::Image(image) => image.into_primitive(),
+            Self::Rectangle(rect) => rect.into_primitive(),
             Self::Label(label) => label.clone().into(),
             Self::Other {
                 name: _,
                 id: _,
                 primitive,
-            } => primitive.primitive(),
+            } => primitive.into_primitive(),
         }
     }
 }
@@ -352,23 +352,54 @@ impl PartialEq for PrimitiveType {
     }
 }
 
+impl Primitive for PrimitiveType {
+    fn get_background(&self) -> Background {
+        match self {
+            Self::Image(image) => image.get_background(),
+            Self::Rectangle(rectangle) => rectangle.get_background(),
+            Self::Label(_) => Background::Transparent,
+            Self::Other { name:_, id:_, primitive } => primitive.get_background()
+        }
+    }
+    fn apply_background(&self, background: Background) -> Self {
+        match self {
+            Self::Image(image) => image.apply_background(background),
+            Self::Rectangle(rectangle) => rectangle.apply_background(background),
+            Self::Label(_) => Rectangle::empty(self.width(), self.height()).background(background).into(),
+            Self::Other { name:_, id:_, primitive } => primitive.apply_background(background)
+        }
+    }
+    fn contains(&self, region: &Region) -> bool {
+        // let region = region.relative_to(self.transform.tx, self.transform.ty);
+        match &self {
+            PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
+            _ => true,
+        }
+    }
+    fn draw_with_transform_clip(
+        &self,
+        ctx: &mut DrawContext,
+        transform: tiny_skia::Transform,
+        clip: Option<&tiny_skia::ClipMask>,
+    ) {
+        match self {
+            Self::Image(image) => image.draw_with_transform_clip(ctx, transform, clip),
+            Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
+            Self::Label(l) => ctx.draw_label(l, transform.tx, transform.ty),
+            Self::Other { name:_, id:_, primitive } => primitive.draw_with_transform_clip(ctx, transform, clip)
+        }
+    }
+    // Basically Clone
+    fn into_primitive(&self) -> scene::PrimitiveType {
+        self.clone()
+    }
+}
+
 impl PrimitiveType {
     fn merge(&self, other: Self) -> Self {
-        match self {
-            PrimitiveType::Rectangle(rect) => {
-                if let PrimitiveType::Rectangle(other) = &other {
-                    if let ShapeStyle::Background(tb) = &rect.style {
-                        if let ShapeStyle::Background(ob) = &other.style {
-                            let background = tb.merge(ob.clone());
-                            return other.clone().background(background).into();
-                        }
-                        return PrimitiveType::Rectangle(rect.clone());
-                    }
-                }
-            }
-            _ => {}
-        }
-        other
+        let background =
+        	self.get_background().merge(other.get_background());
+       	other.apply_background(background)
     }
     fn instruction(&self, region: Region) -> Instruction {
         let mut p = self.clone();

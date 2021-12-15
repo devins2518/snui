@@ -168,11 +168,13 @@ pub trait Primitive: Geometry + std::fmt::Debug {
         transform: tiny_skia::Transform,
         clip: Option<&tiny_skia::ClipMask>,
     );
+    fn get_background(&self) -> scene::Background;
+    fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType;
     // Tell if the region can fit inside the Primitive
     // The coordinates will be relative to the Primitive
     fn contains(&self, region: &scene::Region) -> bool;
     // Basically Clone
-    fn primitive(&self) -> scene::PrimitiveType;
+    fn into_primitive(&self) -> scene::PrimitiveType;
 }
 
 pub trait Widget: Geometry {

@@ -3,6 +3,7 @@ use image::io::Reader as ImageReader;
 use std::ops::DerefMut;
 use tiny_skia::*;
 
+use widgets::shapes::*;
 use scene::Instruction;
 use std::path::Path;
 use std::sync::Arc;
@@ -110,7 +111,23 @@ impl Geometry for Image {
 }
 
 impl Primitive for Image {
-    fn primitive(&self) -> scene::PrimitiveType {
+    fn get_background(&self) -> scene::Background {
+        scene::Background::Image(
+            scene::Coords::new(0., 0.),
+            self.clone()
+        )
+    }
+    fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
+        widgets::shapes::Rectangle::empty(
+            self.width(),
+            self.height(),
+        )
+        .background(
+            background
+        )
+        .into()
+    }
+    fn into_primitive(&self) -> scene::PrimitiveType {
         self.clone().into()
     }
     fn contains(&self, region: &scene::Region) -> bool {

@@ -237,7 +237,18 @@ impl Geometry for Rectangle {
 }
 
 impl Primitive for Rectangle {
-    fn primitive(&self) -> scene::PrimitiveType {
+    fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
+        Rectangle::empty(
+            self.width(),
+            self.height(),
+        )
+        .background(background)
+        .into()
+    }
+    fn get_background(&self) -> scene::Background {
+        self.style.background()
+    }
+    fn into_primitive(&self) -> scene::PrimitiveType {
         self.clone().into()
     }
     fn contains(&self, region: &scene::Region) -> bool {

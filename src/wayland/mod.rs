@@ -22,22 +22,6 @@ use wayland_client::protocol::wl_buffer::WlBuffer;
 
 const FORMAT: Format = Format::Argb8888;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Callback {
-    Commit,
-    Frame,
-    None,
-}
-
-impl Callback {
-    pub fn is_none(&self) -> bool {
-        if let Callback::None = self {
-            return true;
-        }
-        false
-    }
-}
-
 pub struct Buffer<'b> {
     pub backend: Backend<'b>,
 }

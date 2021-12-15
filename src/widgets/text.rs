@@ -128,12 +128,10 @@ impl Geometry for Label {
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         self.settings.max_width = Some(width);
-        self.layout = None;
         Err(self.size.0)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.settings.max_height = Some(height);
-        self.layout = None;
         Err(self.size.1)
     }
 }
@@ -229,5 +227,106 @@ impl Deref for Text {
 impl DerefMut for Text {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.label
+    }
+}
+
+use crate::data::{Message, Data, Controller};
+
+// Updates text on messages with a matching id or on Commit.
+// The retreived Data will replace all occurences of `{}` in the format.
+pub struct Listener {
+    id: u32,
+    format: Option<String>,
+    text: Text,
+}
+
+impl Geometry for Listener {
+    fn width(&self) -> f32 {
+        self.text.width()
+    }
+    fn height(&self) -> f32 {
+        self.text.height()
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.text.set_width(width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.text.set_height(height)
+    }
+}
+
+impl Widget for Listener {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        self.text.create_node(x, y)
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+        match event {
+            Event::Message(msg) => {
+                let Message(obj, data) = msg;
+                if obj == self.id{
+                    ctx.request_draw();
+                    if let Some(format) = self.format.as_ref() {
+                        self.text.edit(format.replace("{}", &data.to_string()).as_str());
+                    } else {
+                        self.text.edit(format!("{}", data.to_string()).as_str());
+                    }
+                }
+            }
+            Event::Commit => {
+                if let Ok(data) = ctx.request(self.id) {
+                    if let Some(format) = self.format.as_ref() {
+                        self.text.edit(format.replace("{}", &data.to_string()).as_str());
+                    } else {
+                        self.text.edit(format!("{}", data.to_string()).as_str());
+                    }
+                }
+            }
+            _ => {}
+        }
+        self.text.sync(ctx, event);
+    }
+}
+
+impl From<Text> for Listener {
+    fn from(text: Text) -> Self {
+        Self {
+            id: 0,
+            text,
+            format: None
+        }
+    }
+}
+
+impl From<Label> for Listener {
+    fn from(label: Label) -> Self {
+        Self {
+            id: 0,
+            text: label.into(),
+            format: None
+        }
+    }
+}
+
+impl Listener {
+    pub fn id(mut self, id: u32) -> Self {
+        self.id = id;
+        self
+    }
+    pub fn format(mut self, format: &str) -> Self {
+        self.format = Some(format.to_string());
+        self
+    }
+}
+
+impl Deref for Listener {
+    type Target = Text;
+    fn deref(&self) -> &Self::Target {
+        &self.text
+    }
+}
+
+impl DerefMut for Listener {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.text
     }
 }

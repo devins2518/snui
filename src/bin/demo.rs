@@ -66,7 +66,9 @@ impl Widget for Test {
 fn main() {
     let (mut snui, mut event_loop) = Application::new(true);
 
-    let slider = slider::Slider::horizontal(Object::Slider as u32, 200, 5, ShapeStyle::solid(BG1))
+    let slider = slider::Slider::new(200, 5)
+    	.id(Object::Slider as u32)
+    	.background(BG1)
         .wrap()
         .radius(3., 3., 3., 3.);
 
@@ -133,7 +135,6 @@ fn main() {
     demo.add(slider);
     demo.add(serial);
     demo.add(Test {});
-    demo.justify(Alignment::Center);
 
     snui.create_inner_application(
         data::DummyController::new(),

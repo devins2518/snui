@@ -13,39 +13,36 @@ pub struct Slider {
 }
 
 impl Slider {
-    // The default orientation is horizontal
     pub fn new(width: u32, height: u32) -> Self {
+        let orientation =
+        	if height > width {
+            	Orientation::Vertical
+        	} else {
+            	Orientation::Horizontal
+        	};
         Slider {
             id: 0,
             step: 1.,
-            size: width as f32,
+            size: match &orientation {
+                Orientation::Horizontal => width as f32,
+                Orientation::Vertical => height as f32,
+            },
             pressed: false,
-            orientation: Orientation::Horizontal,
-            slider: Rectangle::new(
-                width as f32 / 2.,
-                height as f32,
-                ShapeStyle::Background(scene::Background::Transparent),
-            ),
-        }
-    }
-    pub fn vertical(id: u32, width: u32, height: u32, style: ShapeStyle) -> Self {
-        Slider {
-            id,
-            step: 1.,
-            size: height as f32,
-            pressed: false,
-            orientation: Orientation::Vertical,
-            slider: Rectangle::new(width as f32, height as f32 / 2., style),
-        }
-    }
-    pub fn horizontal(id: u32, width: u32, height: u32, style: ShapeStyle) -> Self {
-        Slider {
-            id,
-            step: 1.,
-            size: width as f32,
-            pressed: false,
-            orientation: Orientation::Horizontal,
-            slider: Rectangle::new(width as f32 / 2., height as f32, style),
+            slider: match &orientation {
+                Orientation::Horizontal => {
+                    Rectangle::new(
+                    width as f32 / 2.,
+                    height as f32,
+                    ShapeStyle::Background(scene::Background::Transparent))
+                }
+                Orientation::Vertical => {
+                    Rectangle::new(
+                        width as f32,
+                        height as f32 / 2.,
+                        ShapeStyle::Background(scene::Background::Transparent))
+                }
+            },
+            orientation,
         }
     }
     pub fn id(mut self, id: u32) -> Self {

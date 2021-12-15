@@ -92,17 +92,29 @@ impl<W: Widget> WidgetExt<W> {
 
 impl<W: Widget> Geometry for WidgetExt<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.background.set_width(width)?;
-        self.border.set_width(width)?;
+        let border = 
+            if let ShapeStyle::Border(_, size) = self.border.get_style() {
+                *size
+            } else {
+                0.
+            };
+        self.background.set_width(width - border)?;
+        self.border.set_width(width - border)?;
         self.child
-            .set_width(width - self.padding[1] - self.padding[3])?;
+            .set_width(width - self.padding[1] - self.padding[3] - border)?;
         Ok(())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.background.set_height(height)?;
-        self.border.set_height(height)?;
+        let border = 
+            if let ShapeStyle::Border(_, size) = self.border.get_style() {
+                *size
+            } else {
+                0.
+            };
+        self.background.set_height(height - border)?;
+        self.border.set_height(height - border)?;
         self.child
-            .set_height(height - self.padding[0] - self.padding[2])?;
+            .set_height(height - self.padding[0] - self.padding[2] - border)?;
         Ok(())
     }
     fn width(&self) -> f32 {

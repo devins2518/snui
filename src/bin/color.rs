@@ -343,8 +343,8 @@ fn header() -> impl Widget {
                     button,
                 } => {
                     if button == MouseButton::Left && pressed {
-                        if let Data::Uint(source) = ctx
-                            .get(Message::new(Signal::Source as u32, Data::Null))
+                        if let Data::Uint(_) = ctx
+                        	.request(Signal::Source as u32)
                             .unwrap()
                         {
                             this.edit("Copied");
@@ -377,7 +377,9 @@ fn sliders() -> WidgetLayout {
             _ => Signal::Null,
         };
         let slider =
-            widgets::slider::Slider::horizontal(id as u32, 200, 8, ShapeStyle::solid(color))
+            widgets::slider::Slider::new(200, 8)
+            	.id(id as u32)
+            	.background(color)
                 .wrap()
                 .background(BG2)
                 .radius(3., 3., 3., 3.);

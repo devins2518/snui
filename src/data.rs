@@ -8,7 +8,7 @@ pub enum Data<'d> {
     Double(f64),
     Boolean(bool),
     String(&'d str),
-    Any(&'d dyn std::any::Any),
+    Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
 // Meant for testing purposes and default
@@ -40,6 +40,7 @@ impl<'m> Default for Message<'m> {
 
 #[derive(Clone, Copy, Debug)]
 pub enum ControllerError {
+    Wait,
     Block,
     WrongObject,
     NonBlocking,
@@ -60,7 +61,7 @@ pub trait Controller {
     }
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
-    // Returns an Ok(u32) if the application needs to be synced
+    // Returns an Ok(Message) if the application needs to be synced
     fn sync(&mut self) -> Result<Message<'static>, ControllerError>;
 }
 
@@ -106,8 +107,8 @@ impl<'d> From<f64> for Data<'d> {
     }
 }
 
-impl<'d> From<&'d dyn std::any::Any> for Data<'d> {
-    fn from(any: &'d dyn std::any::Any) -> Self {
+impl<'d> From<&'d (dyn std::any::Any + Sync + Send)> for Data<'d> {
+    fn from(any: &'d (dyn std::any::Any + Sync + Send)) -> Self {
         Data::Any(any)
     }
 }
@@ -154,6 +155,22 @@ impl<'d> PartialEq for Data<'d> {
             _ => {}
         }
         false
+    }
+}
+
+impl<'d> ToString for Data<'d> {
+    fn to_string(&self) -> String {
+        match self {
+            Data::Boolean(b) => b.to_string(),
+            Data::Uint(u) => u.to_string(),
+            Data::Int(i) => i.to_string(),
+            Data::String(s) => s.to_string(),
+            Data::Byte(b) => b.to_string(),
+            Data::Double(d) => d.to_string(),
+            Data::Float(f) => f.to_string(),
+            Data::Null => String::new(),
+            Data::Any(_) => panic!("Any cannot be formatted into a string.")
+        }
     }
 }
 

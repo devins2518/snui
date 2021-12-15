@@ -57,10 +57,10 @@ impl Container for WidgetLayout {
 }
 
 impl WidgetLayout {
-    pub fn from(mut widgets: Vec<impl Widget + 'static>) -> WidgetLayout {
+    pub fn new(spacing: u32) -> Self {
         WidgetLayout {
-            spacing: 0.,
-            widgets: widgets.drain(0..).map(|w| Child::new(w)).collect(),
+            spacing: spacing as f32,
+            widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,
         }
