@@ -53,6 +53,28 @@ impl Slider {
         self.orientation = orientation;
         self
     }
+    fn filter(&mut self, data: Data) -> Result<(), f32> {
+        match data {
+            Data::Float(ratio) => match &self.orientation {
+                Orientation::Horizontal => {
+                    return self.slider.set_width(ratio * self.size);
+                }
+                Orientation::Vertical => {
+                    return self.slider.set_height(ratio * self.size);
+                }
+            },
+            Data::Double(ratio) => match &self.orientation {
+                Orientation::Horizontal => {
+                    return self.slider.set_width(ratio as f32 * self.size);
+                }
+                Orientation::Vertical => {
+                    return self.slider.set_height(ratio as f32 * self.size);
+                }
+            },
+            _ => {}
+        }
+        Err(0.)
+    }
 }
 
 impl Geometry for Slider {
@@ -123,9 +145,9 @@ impl Widget for Slider {
                                     Orientation::Horizontal => self.slider.width() / self.size,
                                     Orientation::Vertical => self.slider.height() / self.size,
                                 };
-                                ctx.request_draw();
                                 let _ = ctx.send(Message::new(self.id, ratio));
                             }
+                            ctx.request_draw();
                         }
                         Pointer::Scroll {
                             orientation: _,
@@ -214,33 +236,16 @@ impl Widget for Slider {
                 let Message(obj, _) = msg;
                 if obj == self.id {
                     if let Ok(data) = ctx.get(msg) {
-                        match data {
-                            Data::Float(ratio) => match &self.orientation {
-                                Orientation::Horizontal => {
-                                    if self.slider.set_width(ratio * self.size).is_ok() {
-                                        ctx.request_draw();
-                                    }
-                                }
-                                Orientation::Vertical => {
-                                    if self.slider.set_height(ratio * self.size).is_ok() {
-                                        ctx.request_draw();
-                                    }
-                                }
-                            },
-                            Data::Double(ratio) => match &self.orientation {
-                                Orientation::Horizontal => {
-                                    if self.slider.set_width(ratio as f32 * self.size).is_ok() {
-                                        ctx.request_draw();
-                                    }
-                                }
-                                Orientation::Vertical => {
-                                    if self.slider.set_height(ratio as f32 * self.size).is_ok() {
-                                        ctx.request_draw();
-                                    }
-                                }
-                            },
-                            _ => {}
+                        if self.filter(data).is_ok() {
+                            ctx.request_draw();
                         }
+                    }
+                }
+            }
+            Event::Commit => {
+                if let Ok(data) = ctx.request(self.id) {
+                    if self.filter(data).is_ok() {
+                        ctx.request_draw();
                     }
                 }
             }

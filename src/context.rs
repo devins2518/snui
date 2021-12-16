@@ -310,7 +310,7 @@ impl<'c> DrawContext<'c> {
                 if let Some(glyph_cache) = self
                     .font_cache
                     .fonts
-                    .get_mut(&label.fonts()[gp.key.font_index as usize])
+                    .get_mut(&label.fonts()[gp.font_index])
                 {
                     if let Some(pixmap) = glyph_cache.render_glyph(gp, label.get_color()) {
                         if let Some(pixmap) = PixmapRef::from_bytes(

@@ -12,7 +12,17 @@ use widgets::button::{Button, Proxy};
 use widgets::shapes::WidgetExt;
 use widgets::WidgetBox;
 
-pub const FG: u32 = 0xff_C8_BA_A4;
+pub mod style {
+    pub const FG0: u32 = 0xff_C8_BA_A4;
+    pub const BG0: u32 = 0xff_25_22_21;
+    pub const BG1: u32 = 0xa0_30_2c_2b;
+    pub const BG2: u32 = 0xff_30_2c_2b;
+    pub const YEL: u32 = 0xff_d9_b2_7c;
+    pub const GRN: u32 = 0xff_95_a8_82;
+    pub const BLU: u32 = 0xff_72_87_97;
+    pub const ORG: u32 = 0xff_d0_8b_65;
+    pub const RED: u32 = 0xff_c6_5f_5f;
+}
 
 pub fn u32_to_source(color: u32) -> Color {
     let color = color.to_be_bytes();

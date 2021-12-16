@@ -1,5 +1,5 @@
 pub use crate::font::FontProperty;
-use crate::*;
+use crate::{*, style::FG0};
 pub use fontdue::{
     layout,
     layout::{
@@ -11,7 +11,6 @@ use scene::Instruction;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use tiny_skia::*;
-use widgets::u32_to_source;
 
 #[derive(Clone)]
 pub struct Label {
@@ -73,6 +72,7 @@ impl std::fmt::Debug for Label {
             .field("font_size", &self.font_size)
             .field("color", &self.color)
             .field("fonts", &self.fonts)
+            .field("dimension", &self.size)
             .finish()
     }
 }
@@ -84,7 +84,7 @@ impl Label {
             font_size,
             fonts: Vec::new(),
             settings: LayoutSettings::default(),
-            color: u32_to_source(FG),
+            color: u32_to_source(FG0),
             layout: None,
             size: (0., 0.),
         }
@@ -107,14 +107,14 @@ impl Label {
             font_size,
             settings: LayoutSettings::default(),
             fonts: vec![FontProperty::new("sans serif")],
-            color: u32_to_source(FG),
+            color: u32_to_source(FG0),
             layout: None,
             size: (0., 0.),
         }
     }
     pub fn into_box(self) -> WidgetBox<Self> {
         let mut w = WidgetBox::new(self);
-        w.set_size(w.max_width(), w.max_height()).unwrap();
+        let _ = w.set_size(w.max_width(), w.max_height());
         w.constraint(widgets::Constraint::Downward)
     }
 }
@@ -230,7 +230,7 @@ impl DerefMut for Text {
     }
 }
 
-use crate::data::{Message, Data, Controller};
+use crate::data::{Message, Controller};
 
 // Updates text on messages with a matching id or on Commit.
 // The retreived Data will replace all occurences of `{}` in the format.

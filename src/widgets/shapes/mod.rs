@@ -144,8 +144,9 @@ impl<W: Widget + Style> WidgetExt<W> {
 
 impl<W: Widget> Style for WidgetExt<W> {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.background.set_radius(tl, tr, br, bl);
-        self.border.set_radius(tl, tr, br, bl);
+        let delta= tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
+        self.background.set_radius(tl + delta, tr + delta, br + delta, bl + delta);
+        self.border.set_radius(tl + delta, tr + delta, br + delta, bl + delta);
         self.set_padding(
             self.padding[0],
             self.padding[1],
@@ -156,13 +157,14 @@ impl<W: Widget> Style for WidgetExt<W> {
     fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
         let width = self.inner_width();
         let height = self.inner_height();
+        let delta= tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
         let background = {
             self.background.set_size(width, height).unwrap();
-            self.background.radius(tl, tr, br, bl)
+            self.background.radius(tl + delta, tr + delta, br + delta, bl + delta)
         };
         let border = {
             self.border.set_size(width, height).unwrap();
-            self.border.radius(tl, tr, br, bl)
+            self.border.radius(tl + delta, tr + delta, br + delta, bl + delta)
         };
         Self {
             border,

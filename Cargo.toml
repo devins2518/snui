@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fontdue = "0.5.2"
+fontdue = "0.6.2"
 tiny-skia = "0.6.1"
 fontconfig = "0.2.1"
 wayland-client = "0.28.5"

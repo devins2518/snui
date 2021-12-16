@@ -3,16 +3,7 @@ use snui::data::{Controller, ControllerError, Data, Message};
 use snui::scene::*;
 use snui::wayland::shell::*;
 use snui::widgets::{shapes::*, text::*, *};
-use snui::*;
-
-const BG0: u32 = 0xff_25_22_21;
-const BG1: u32 = 0xa0_30_2c_2b;
-const BG2: u32 = 0xff_30_2c_2b;
-const YEL: u32 = 0xff_d9_b2_7c;
-const GRN: u32 = 0xff_95_a8_82;
-const BLU: u32 = 0xff_72_87_97;
-const ORG: u32 = 0xff_d0_8b_65;
-const RED: u32 = 0xff_c6_5f_5f;
+use snui::{*, style::*};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Signal {
@@ -22,6 +13,54 @@ enum Signal {
     Green = 1 << 3,
     Blue = 1 << 4,
     Alpha = 1 << 5,
+}
+
+struct Listener {
+    id: u32,
+    text: Text,
+}
+
+impl Geometry for Listener {
+    fn width(&self) -> f32 {
+        self.text.width()
+    }
+    fn height(&self) -> f32 {
+        self.text.height()
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.text.set_width(width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.text.set_height(height)
+    }
+}
+
+impl Widget for Listener {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        self.text.create_node(x, y)
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+        match event {
+            Event::Message(msg) => {
+                let Message(obj, _) = msg;
+                if obj == Signal::Source as u32 {
+                    ctx.request_draw();
+                    if let Ok(data) = ctx.get(Message::new(self.id, Data::Null)) {
+                        match data {
+                            Data::Byte(b) => self.text.edit(&b.to_string()),
+                            Data::Uint(uint) => {
+                                self.text
+                                    .edit(format!("{:#010X}", uint).replace("0x", "#").as_str());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        self.text.sync(ctx, event);
+    }
 }
 
 impl<'d> From<Signal> for Data<'d> {
@@ -126,54 +165,6 @@ impl Widget for Cross {
                 }
             }
         }
-    }
-}
-
-struct Listener {
-    id: u32,
-    text: Text,
-}
-
-impl Geometry for Listener {
-    fn width(&self) -> f32 {
-        self.text.width()
-    }
-    fn height(&self) -> f32 {
-        self.text.height()
-    }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.text.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.text.set_height(height)
-    }
-}
-
-impl Widget for Listener {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.text.create_node(x, y)
-    }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
-        match event {
-            Event::Message(msg) => {
-                let Message(obj, _) = msg;
-                if obj == Signal::Source as u32 {
-                    ctx.request_draw();
-                    if let Ok(data) = ctx.get(Message::new(self.id, Data::Null)) {
-                        match data {
-                            Data::Byte(b) => self.text.edit(&b.to_string()),
-                            Data::Uint(uint) => {
-                                self.text
-                                    .edit(format!("{:#010X}", uint).replace("0x", "#").as_str());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-        self.text.sync(ctx, event);
     }
 }
 
@@ -286,7 +277,7 @@ fn main() {
             .wrap()
             .background(BG0)
             .padding(15., 15., 15., 15.)
-            .border(BG2, 3.)
+            .border(BG2, 1.)
             .radius(5., 5., 5., 5.),
         event_loop.handle(),
         |core, _| {
@@ -303,15 +294,21 @@ fn main() {
 }
 
 fn header() -> impl Widget {
-    let mut buttons = WidgetLayout::horizontal(5);
+    let mut buttons =
+    	WidgetLayout::new(5);
     let text: Text = Label::default("Copy", 15.).into();
-    let icon = Label::new("", 21.).font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
+    let icon = Label::new("", 21.)
+    	.color(YEL)
+    	.font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
 
     buttons.add(
-        icon.wrap()
+        icon
+        	.into_box()
+        	.constraint(Constraint::Downward)
+        	.size(25., 25.)
+        	.wrap()
             .background(BG2)
             .radius(3., 3., 3., 3.)
-            .padding(8., 8., 8., 8.)
             .border(BG2, 1.)
             .into_button(|this, _, p| match p {
                 Pointer::MouseClick {
@@ -331,8 +328,11 @@ fn header() -> impl Widget {
             }),
     );
     buttons.add(
-        text.wrap()
-            .padding(8., 8., 8., 8.)
+        text
+        	.into_box()
+        	.constraint(Constraint::Downward)
+        	.size(40., 25.)
+        	.wrap()
             .background(BG2)
             .radius(3., 3., 3., 3.)
             .border(BG2, 2.)
@@ -362,7 +362,11 @@ fn header() -> impl Widget {
                 _ => {}
             }),
     );
-    container::Centerbox::horizontal(buttons, Label::default("app_name", 15.), Cross {}).align()
+    let mut header =
+    	container::Centerbox::horizontal(buttons, Label::default("app_name", 15.), Cross {}).align();
+
+    let _ = header.set_width(300.);
+    header
 }
 
 fn sliders() -> WidgetLayout {
@@ -382,7 +386,7 @@ fn sliders() -> WidgetLayout {
             	.background(color)
                 .wrap()
                 .background(BG2)
-                .radius(3., 3., 3., 3.);
+                .radius(2.5, 2.5, 2.5, 2.5);
 
         layout.add(slider);
     }
@@ -395,13 +399,14 @@ fn sliders() -> WidgetLayout {
 fn core() -> WidgetLayout {
     let mut layout = WidgetLayout::vertical(15);
 
-    let mut listener = Listener {
-        id: Signal::Source as u32,
-        text: Label::default("Welcome", 17.).into(),
-    }
-    .into_box()
-    .anchor(CENTER, START)
-    .constraint(Constraint::Downward);
+	let mut listener =
+		Listener {
+    		id: Signal::Source as u32,
+            text: Label::default("Welcome", 17.).into()
+		}
+        .into_box()
+        .anchor(CENTER, START)
+        .constraint(Constraint::Downward);
 
     let _ = listener.set_height(18.);
     let _ = listener.set_width(200.);

@@ -73,14 +73,14 @@ impl<W: Widget> Geometry for WidgetBox<W> {
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width.is_sign_positive() {
+        if width > 0. {
             self.size.0 = width;
             return Ok(());
         }
         Err(self.size.0)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height.is_sign_positive() {
+        if height > 0. {
             self.size.1 = height;
             return Ok(());
         }
