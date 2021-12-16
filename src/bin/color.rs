@@ -7,7 +7,7 @@ use snui::{style::*, *};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Signal {
-    Null = 0,
+    Close = 0,
     Source = 1 << 1,
     Red = 1 << 2,
     Green = 1 << 3,
@@ -160,7 +160,7 @@ impl Widget for Cross {
             {
                 if self.contains(x, y) {
                     if button == MouseButton::Left && pressed {
-                        let _ = ctx.send(Message::new(Signal::Null as u32, Data::Null));
+                        let _ = ctx.send(Message::new(Signal::Close as u32, Data::Null));
                     }
                 }
             }
@@ -199,8 +199,8 @@ impl Controller for ColorControl {
     }
     fn send<'m>(&'m mut self, msg: data::Message) -> Result<Data<'m>, ControllerError> {
         let Message(obj, value) = msg;
-        if obj == Signal::Null as u32 {
-            self.signal = Some(Signal::Null);
+        if obj == Signal::Close as u32 {
+            self.signal = Some(Signal::Close);
             return Ok(Data::Null);
         }
         match value {
@@ -250,7 +250,7 @@ impl Controller for ColorControl {
     }
     fn sync(&mut self) -> Result<Message<'static>, ControllerError> {
         if let Some(signal) = self.signal {
-            if signal != Signal::Null {
+            if signal != Signal::Close {
                 self.signal = None;
                 return Ok(Message::new(Signal::Source as u32, signal as u32));
             }
@@ -262,27 +262,27 @@ impl Controller for ColorControl {
 fn main() {
     let (mut snui, mut event_loop) = Application::new(true);
 
-    let mut editor = WidgetLayout::vertical(5);
+    let mut color = WidgetLayout::vertical(5);
 
-    editor.add(header());
-    editor.add(core().wrap().padding(20., 20., 20., 20.));
-    editor.justify(CENTER);
+    color.add(header());
+    color.add(core().wrap().even_padding(20.));
+    color.justify(CENTER);
 
     snui.create_inner_application(
         ColorControl {
             signal: None,
             color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
         },
-        editor
+        color
             .wrap()
             .background(BG0)
-            .padding(15., 15., 15., 15.)
+            .even_padding(15.)
             .border(BG2, 1.)
             .even_radius(5.),
         event_loop.handle(),
         |core, _| {
             if let Some(signal) = core.controller.signal {
-                if signal == Signal::Null {
+                if signal == Signal::Close {
                     core.destroy();
                     std::process::exit(0);
                 }
@@ -372,7 +372,7 @@ fn sliders() -> WidgetLayout {
             BLU => Signal::Blue,
             GRN => Signal::Green,
             BG0 => Signal::Alpha,
-            _ => Signal::Null,
+            _ => Signal::Close,
         };
         let slider = widgets::slider::Slider::new(200, 8)
             .id(id as u32)
@@ -394,14 +394,13 @@ fn core() -> WidgetLayout {
 
     let mut listener = Listener {
         id: Signal::Source as u32,
-        text: Label::default("Welcome", 17.).into(),
+        text: "Welcome".into(),
     }
     .into_box()
     .anchor(CENTER, START)
     .constraint(Constraint::Downward);
 
-    let _ = listener.set_height(18.);
-    let _ = listener.set_width(200.);
+    let _ = listener.set_size(200., 18.);
 
     let mut indicator = WidgetLayout::vertical(0);
 

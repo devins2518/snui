@@ -115,22 +115,12 @@ impl Widget for LayoutBox {
                     match self.orientation {
                         Orientation::Horizontal => {
                             let _ = child.set_height(sh);
-                            let ww = child.width();
-                            node = RenderNode::Extension {
-                                background: scene::Instruction::empty(x + dx, y + dy, ww, sh),
-                                border: None,
-                                node: Box::new(child.widget.create_node(x + dx, y + dy)),
-                            };
+                            node = child.widget.create_node(x + dx, y + dy);
                             dx += child.width().round();
                         }
                         Orientation::Vertical => {
                             let _ = child.set_width(sw);
-                            let wh = child.height();
-                            node = RenderNode::Extension {
-                                background: scene::Instruction::empty(x + dx, y + dy, sw, wh),
-                                border: None,
-                                node: Box::new(child.widget.create_node(x + dx, y + dy)),
-                            };
+                            node = child.widget.create_node(x + dx, y + dy);
                             dy += child.height().round();
                         }
                     }

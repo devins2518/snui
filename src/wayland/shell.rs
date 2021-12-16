@@ -761,6 +761,13 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             }
         }
     }
+    pub fn update(&mut self, ev: Event) {
+        if let Ok(render_node) =
+            self.roundtrip(ev)
+        {
+            draw_callback::<C>(&self.surface.as_ref().unwrap().surface, render_node);
+        }
+    }
 }
 
 fn draw_callback<C: Controller + Clone + 'static>(
@@ -803,12 +810,8 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
         wl_pointer::Event::Leave { serial: _, surface } => {
             input = Pointer::Leave;
             if let Some(application) = inner.get::<Application<C>>() {
-                if let Some(inner) = application.get_application(&surface) {
-                    if let Ok(render_node) =
-                        inner.roundtrip(Event::Pointer(x as f32, y as f32, input))
-                    {
-                        draw_callback::<C>(&inner.surface.as_ref().unwrap().surface, render_node);
-                    }
+                if let Some(inner_application) = application.get_application(&surface) {
+                    inner_application.update(Event::Pointer(x as f32, y as f32, input));
                 }
             }
         }
@@ -827,14 +830,7 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
         wl_pointer::Event::Frame => {
             if let Some(application) = inner.get::<Application<C>>() {
                 let inner_application = application.inner.get_mut(index).unwrap();
-                if let Ok(render_node) =
-                    inner_application.roundtrip(Event::Pointer(x as f32, y as f32, input))
-                {
-                    draw_callback::<C>(
-                        &inner_application.surface.as_ref().unwrap().surface,
-                        render_node,
-                    );
-                }
+                inner_application.update(Event::Pointer(x as f32, y as f32, input));
             }
         }
         wl_pointer::Event::Axis {

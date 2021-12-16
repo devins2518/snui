@@ -77,6 +77,12 @@ impl std::fmt::Debug for Label {
     }
 }
 
+impl From<&str> for Label {
+    fn from(text: &str) -> Self {
+        Label::default(text, 20.)
+    }
+}
+
 impl Label {
     pub fn new(text: &str, font_size: f32) -> Label {
         Label {
@@ -166,6 +172,13 @@ impl From<Label> for Text {
     }
 }
 
+impl From<&str> for Text {
+    fn from(text: &str) -> Self {
+        let label: Label = text.into();
+        label.into()
+    }
+}
+
 impl Text {
     pub fn write(&mut self, s: &str) {
         self.label.text.push_str(s);
@@ -236,6 +249,7 @@ use crate::data::{Controller, Message};
 // The retreived Data will replace all occurences of `{}` in the format.
 pub struct Listener {
     id: u32,
+    poll: bool,
     format: Option<String>,
     text: Text,
 }
@@ -260,30 +274,41 @@ impl Widget for Listener {
         self.text.create_node(x, y)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
-        match event {
-            Event::Message(msg) => {
-                let Message(obj, data) = msg;
-                if obj == self.id {
-                    ctx.request_draw();
-                    if let Some(format) = self.format.as_ref() {
-                        self.text
-                            .edit(format.replace("{}", &data.to_string()).as_str());
-                    } else {
-                        self.text.edit(format!("{}", data.to_string()).as_str());
-                    }
+        if self.poll {
+            if let Ok(data) = ctx.request(self.id) {
+                if let Some(format) = self.format.as_ref() {
+                    self.text
+                        .edit(format.replace("{}", &data.to_string()).as_str());
+                } else {
+                    self.text.edit(format!("{}", data.to_string()).as_str());
                 }
             }
-            Event::Commit => {
-                if let Ok(data) = ctx.request(self.id) {
-                    if let Some(format) = self.format.as_ref() {
-                        self.text
-                            .edit(format.replace("{}", &data.to_string()).as_str());
-                    } else {
-                        self.text.edit(format!("{}", data.to_string()).as_str());
+        } else {
+            match event {
+                Event::Message(msg) => {
+                    let Message(obj, data) = msg;
+                    if obj == self.id {
+                        ctx.request_draw();
+                        if let Some(format) = self.format.as_ref() {
+                            self.text
+                                .edit(format.replace("{}", &data.to_string()).as_str());
+                        } else {
+                            self.text.edit(format!("{}", data.to_string()).as_str());
+                        }
                     }
                 }
+                Event::Commit => {
+                    if let Ok(data) = ctx.request(self.id) {
+                        if let Some(format) = self.format.as_ref() {
+                            self.text
+                                .edit(format.replace("{}", &data.to_string()).as_str());
+                        } else {
+                            self.text.edit(format!("{}", data.to_string()).as_str());
+                        }
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
         self.text.sync(ctx, event);
     }
@@ -294,6 +319,7 @@ impl From<Text> for Listener {
         Self {
             id: 0,
             text,
+            poll: false,
             format: None,
         }
     }
@@ -304,6 +330,7 @@ impl From<Label> for Listener {
         Self {
             id: 0,
             text: label.into(),
+            poll: false,
             format: None,
         }
     }

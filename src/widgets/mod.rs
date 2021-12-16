@@ -18,18 +18,18 @@ pub const START: Alignment = Alignment::Start;
 pub const CENTER: Alignment = Alignment::Center;
 pub const END: Alignment = Alignment::End;
 
-pub fn blend(pix_a: &Color, pix_b: &Color, t: f32) -> Color {
+pub fn blend(pix_a: &Color, pix_b: &Color) -> Color {
     let (r_a, g_a, b_a) = (pix_a.red(), pix_a.green(), pix_a.blue());
-    let (r_b, g_b, b_b) = (pix_b.red(), pix_b.green(), pix_b.blue());
-    let red = blend_f32(r_a, r_b, t);
-    let green = blend_f32(g_a, g_b, t);
-    let blue = blend_f32(b_a, b_b, t);
+    let (r_b, g_b, b_b, a_b) = (pix_b.red(), pix_b.green(), pix_b.blue(), pix_b.alpha());
+    let red = blend_f32(r_a, r_b, a_b);
+    let green = blend_f32(g_a, g_b, a_b);
+    let blue = blend_f32(b_a, b_b, a_b);
 
-    Color::from_rgba(red, green, blue, t).unwrap()
+    Color::from_rgba(red, green, blue, 1.).unwrap()
 }
 
-fn blend_f32(a: f32, b: f32, r: f32) -> f32 {
-    a + ((b - a) * r)
+fn blend_f32(background: f32, foreground: f32, alpha_fg: f32) -> f32 {
+    foreground * alpha_fg + background * (1. - alpha_fg)
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -4,6 +4,7 @@ use std::mem;
 use std::rc::Rc;
 pub use tiny_skia::*;
 use widgets::blend;
+
 use widgets::shapes::*;
 use widgets::text::*;
 use widgets::Image;
@@ -177,12 +178,12 @@ impl Background {
     }
     pub fn merge(&self, other: Self) -> Self {
         match self {
-            Background::Color(_) => match other {
+            Background::Color(acolor) => match other {
                 Background::Color(bcolor) => {
                     if bcolor.is_opaque() {
                         return other;
                     }
-                    Background::Composite(Box::new(self.clone()), Box::new(other))
+                    Background::Color(blend(acolor, &bcolor))
                 }
                 Background::Image(_, _) => {
                     match other {
