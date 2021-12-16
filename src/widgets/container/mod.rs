@@ -3,9 +3,9 @@ pub mod layout_box;
 pub mod widget_layout;
 
 use crate::*;
-use scene::Coords;
 pub use center_box::Centerbox;
 pub use layout_box::LayoutBox;
+use scene::Coords;
 pub use widget_layout::WidgetLayout;
 
 pub struct Child {
@@ -39,7 +39,8 @@ impl Geometry for Child {
 
 impl Widget for Child {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.widget.create_node(x + self.coords.x, y + self.coords.y)
+        self.widget
+            .create_node(x + self.coords.x, y + self.coords.y)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         if let Event::Pointer(mut x, mut y, p) = event {
@@ -51,10 +52,7 @@ impl Widget for Child {
         }
     }
     fn contains(&self, x: f32, y: f32) -> bool {
-        self.widget.contains(
-            x + self.coords.x,
-            y + self.coords.y,
-        )
+        self.widget.contains(x + self.coords.x, y + self.coords.y)
     }
 }
 

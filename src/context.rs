@@ -223,7 +223,8 @@ impl<'c> DrawContext<'c> {
                         },
                         Transform::identity(),
                         None,
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
                 _ => {}
             },
@@ -309,10 +310,8 @@ impl<'c> DrawContext<'c> {
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
         if let Some(layout) = label.get_layout() {
             for gp in layout.as_ref() {
-                if let Some(glyph_cache) = self
-                    .font_cache
-                    .fonts
-                    .get_mut(&label.fonts()[gp.font_index])
+                if let Some(glyph_cache) =
+                    self.font_cache.fonts.get_mut(&label.fonts()[gp.font_index])
                 {
                     if let Some(pixmap) = glyph_cache.render_glyph(gp, label.get_color()) {
                         if let Some(pixmap) = PixmapRef::from_bytes(

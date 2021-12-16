@@ -105,12 +105,11 @@ impl<W: Widget> WidgetExt<W> {
 
 impl<W: Widget> Geometry for WidgetExt<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        let border = 
-            if let ShapeStyle::Border(_, size) = self.border.get_style() {
-                *size
-            } else {
-                0.
-            };
+        let border = if let ShapeStyle::Border(_, size) = self.border.get_style() {
+            *size
+        } else {
+            0.
+        };
         self.background.set_width(width - border)?;
         self.border.set_width(width - border)?;
         self.child
@@ -118,12 +117,11 @@ impl<W: Widget> Geometry for WidgetExt<W> {
         Ok(())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let border = 
-            if let ShapeStyle::Border(_, size) = self.border.get_style() {
-                *size
-            } else {
-                0.
-            };
+        let border = if let ShapeStyle::Border(_, size) = self.border.get_style() {
+            *size
+        } else {
+            0.
+        };
         self.background.set_height(height - border)?;
         self.border.set_height(height - border)?;
         self.child
@@ -165,8 +163,10 @@ impl<W: Widget> Style for WidgetExt<W> {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         let max = tl.max(tr).max(br).max(bl);
         let delta = max - (max * FRAC_1_SQRT_2);
-        self.background.set_radius(tl + delta, tr + delta, br + delta, bl + delta);
-        self.border.set_radius(tl + delta, tr + delta, br + delta, bl + delta);
+        self.background
+            .set_radius(tl + delta, tr + delta, br + delta, bl + delta);
+        self.border
+            .set_radius(tl + delta, tr + delta, br + delta, bl + delta);
         self.set_padding(
             self.padding[0],
             self.padding[1],
@@ -181,11 +181,13 @@ impl<W: Widget> Style for WidgetExt<W> {
         let delta = max - (max * FRAC_1_SQRT_2);
         let background = {
             self.background.set_size(width, height).unwrap();
-            self.background.radius(tl + delta, tr + delta, br + delta, bl + delta)
+            self.background
+                .radius(tl + delta, tr + delta, br + delta, bl + delta)
         };
         let border = {
             self.border.set_size(width, height).unwrap();
-            self.border.radius(tl + delta, tr + delta, br + delta, bl + delta)
+            self.border
+                .radius(tl + delta, tr + delta, br + delta, bl + delta)
         };
         Self {
             border,
@@ -264,12 +266,11 @@ impl<W: Widget> Style for WidgetExt<W> {
 
 impl<W: Widget> Widget for WidgetExt<W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let border = 
-            if let ShapeStyle::Border(_, size) = self.border.get_style() {
-                (*size / 2.).round()
-            } else {
-                0.
-            };
+        let border = if let ShapeStyle::Border(_, size) = self.border.get_style() {
+            (*size / 2.).round()
+        } else {
+            0.
+        };
         RenderNode::Extension {
             node: Box::new(
                 self.child
@@ -278,12 +279,8 @@ impl<W: Widget> Widget for WidgetExt<W> {
             border: Some({
                 let width = self.inner_width();
                 let height = self.inner_height();
-                self.border
-                    .set_size(width, height)
-                    .unwrap();
-                if let RenderNode::Instruction(rect) =
-                    self.border.create_node(x, y)
-                {
+                self.border.set_size(width, height).unwrap();
+                if let RenderNode::Instruction(rect) = self.border.create_node(x, y) {
                     rect
                 } else {
                     unreachable!()
@@ -292,12 +289,9 @@ impl<W: Widget> Widget for WidgetExt<W> {
             background: {
                 let width = self.inner_width();
                 let height = self.inner_height();
-                self.background
-                    .set_size(width, height)
-                    .unwrap();
-                if let RenderNode::Instruction(rect) = self
-                    .background
-                    .create_node(x + border, y + border)
+                self.background.set_size(width, height).unwrap();
+                if let RenderNode::Instruction(rect) =
+                    self.background.create_node(x + border, y + border)
                 {
                     rect
                 } else {
@@ -308,12 +302,11 @@ impl<W: Widget> Widget for WidgetExt<W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         if let Event::Pointer(mut x, mut y, p) = event {
-            let border = 
-                if let ShapeStyle::Border(_, size) = self.border.get_style() {
-                    *size
-                } else {
-                    0.
-                };
+            let border = if let ShapeStyle::Border(_, size) = self.border.get_style() {
+                *size
+            } else {
+                0.
+            };
             x -= border + self.padding[3];
             y -= border + self.padding[0];
             self.child.sync(ctx, Event::Pointer(x, y, p))

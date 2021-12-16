@@ -735,8 +735,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             Buffer::new(&mut self.core.mempool, width as i32, height as i32)
         {
             let mut v = Vec::new();
-            let mut ctx =
-                DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v);
+            let mut ctx = DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v);
             if let Some(render_node) = self.core.ctx.render_node.as_mut() {
                 if let Err(region) = render_node.merge(
                     recent_node,
@@ -749,7 +748,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 ctx.damage_region(
                     &Background::Transparent,
                     Region::new(0., 0., width, height),
-                    false
+                    false,
                 );
                 recent_node.render(&mut ctx);
                 self.core.ctx.render_node = Some(recent_node);

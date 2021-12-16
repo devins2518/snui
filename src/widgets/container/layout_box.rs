@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::container::Child;
+use crate::*;
 use scene::{Coords, Region, RenderNode};
 
 pub struct LayoutBox {
@@ -36,7 +36,7 @@ impl Geometry for LayoutBox {
                 }
             }
         }
-        if local_width  == width {
+        if local_width == width {
             return Ok(());
         }
         Err(local_width)
@@ -60,7 +60,7 @@ impl Geometry for LayoutBox {
                 }
             }
         }
-        if local_height  == height {
+        if local_height == height {
             return Ok(());
         }
         Err(local_height)

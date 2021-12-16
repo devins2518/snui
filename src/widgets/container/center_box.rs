@@ -41,7 +41,7 @@ impl Geometry for Centerbox {
                 }
             }
         }
-        if local_width  == width {
+        if local_width == width {
             return Ok(());
         }
         Err(local_width)
@@ -65,7 +65,7 @@ impl Geometry for Centerbox {
                 }
             }
         }
-        if local_height  == height {
+        if local_height == height {
             return Ok(());
         }
         Err(local_height)
@@ -149,20 +149,24 @@ impl Centerbox {
     ) -> Self {
         Self {
             widgets: [
-            	Child::new(first).into_box().anchor(START,CENTER),
-            	Child::new(second).into_box().anchor(CENTER,CENTER),
-            	Child::new(third).into_box().anchor(END,CENTER),
-        	],
+                Child::new(first).into_box().anchor(START, CENTER),
+                Child::new(second).into_box().anchor(CENTER, CENTER),
+                Child::new(third).into_box().anchor(END, CENTER),
+            ],
             orientation: Orientation::Horizontal,
         }
     }
     pub fn new() -> Self {
         Self {
             widgets: [
-            	Child::new(Spacer::default()).into_box().anchor(START, CENTER),
-            	Child::new(Spacer::default()).into_box().anchor(CENTER, CENTER),
-            	Child::new(Spacer::default()).into_box().anchor(END,CENTER),
-        	],
+                Child::new(Spacer::default())
+                    .into_box()
+                    .anchor(START, CENTER),
+                Child::new(Spacer::default())
+                    .into_box()
+                    .anchor(CENTER, CENTER),
+                Child::new(Spacer::default()).into_box().anchor(END, CENTER),
+            ],
             orientation: Orientation::Horizontal,
         }
     }

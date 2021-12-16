@@ -67,8 +67,8 @@ fn main() {
     let (mut snui, mut event_loop) = Application::new(true);
 
     let slider = slider::Slider::new(200, 5)
-    	.id(Object::Slider as u32)
-    	.background(BG1)
+        .id(Object::Slider as u32)
+        .background(BG1)
         .wrap()
         .radius(3., 3., 3., 3.);
 

@@ -358,15 +358,25 @@ impl Primitive for PrimitiveType {
             Self::Image(image) => image.get_background(),
             Self::Rectangle(rectangle) => rectangle.get_background(),
             Self::Label(_) => Background::Transparent,
-            Self::Other { name:_, id:_, primitive } => primitive.get_background()
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.get_background(),
         }
     }
     fn apply_background(&self, background: Background) -> Self {
         match self {
             Self::Image(image) => image.apply_background(background),
             Self::Rectangle(rectangle) => rectangle.apply_background(background),
-            Self::Label(_) => Rectangle::empty(self.width(), self.height()).background(background).into(),
-            Self::Other { name:_, id:_, primitive } => primitive.apply_background(background)
+            Self::Label(_) => Rectangle::empty(self.width(), self.height())
+                .background(background)
+                .into(),
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.apply_background(background),
         }
     }
     fn contains(&self, region: &Region) -> bool {
@@ -386,7 +396,11 @@ impl Primitive for PrimitiveType {
             Self::Image(image) => image.draw_with_transform_clip(ctx, transform, clip),
             Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
             Self::Label(l) => ctx.draw_label(l, transform.tx, transform.ty),
-            Self::Other { name:_, id:_, primitive } => primitive.draw_with_transform_clip(ctx, transform, clip)
+            Self::Other {
+                name: _,
+                id: _,
+                primitive,
+            } => primitive.draw_with_transform_clip(ctx, transform, clip),
         }
     }
     // Basically Clone
@@ -398,9 +412,8 @@ impl Primitive for PrimitiveType {
 impl PrimitiveType {
     fn merge(&self, other: Self) -> Self {
         let background = other.get_background();
-        let background =
-        	self.get_background().merge(background);
-       	other.apply_background(background)
+        let background = self.get_background().merge(background);
+        other.apply_background(background)
     }
     fn instruction(&self, region: Region) -> Instruction {
         let mut p = self.clone();
@@ -692,7 +705,11 @@ impl RenderNode {
                     if b.ne(a) {
                         let r = b.region();
                         if shape.contains(&r) {
-                            ctx.damage_region(&Background::from(shape), a.region().merge(&r), false);
+                            ctx.damage_region(
+                                &Background::from(shape),
+                                a.region().merge(&r),
+                                false,
+                            );
                             b.render(ctx, None);
                             *self = other;
                         } else {
@@ -727,7 +744,11 @@ impl RenderNode {
                                 this_nodes[i].merge(mem::take(&mut nodes[i]), ctx, shape)?;
                             }
                         } else {
-                            ctx.damage_region(&Background::from(shape), this_region.merge(&region), false);
+                            ctx.damage_region(
+                                &Background::from(shape),
+                                this_region.merge(&region),
+                                false,
+                            );
                             *self = RenderNode::Container { nodes, region };
                             self.render(ctx);
                         }
@@ -768,19 +789,16 @@ impl RenderNode {
                             self.render(ctx);
                         };
                     } else {
-                        let merge =
-                            if let Some(rect) = this_border.as_ref() {
-                                rect.region()
-                            } else {
-                                this_background.region()
-                            }
-                            .merge(
-                                &if let Some(rect) = border.as_ref() {
-                                    rect.region()
-                                } else {
-                                    background.region()
-                                },
-                            );
+                        let merge = if let Some(rect) = this_border.as_ref() {
+                            rect.region()
+                        } else {
+                            this_background.region()
+                        }
+                        .merge(&if let Some(rect) = border.as_ref() {
+                            rect.region()
+                        } else {
+                            background.region()
+                        });
                         if !shape.contains(&merge) {
                             *self = RenderNode::Extension {
                                 background,
@@ -789,11 +807,7 @@ impl RenderNode {
                             };
                             return Err(merge);
                         }
-                        ctx.damage_region(
-                            &Background::from(shape),
-                            merge,
-                            false
-                        );
+                        ctx.damage_region(&Background::from(shape), merge, false);
                         *self = RenderNode::Extension {
                             background,
                             border,

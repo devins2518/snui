@@ -169,7 +169,7 @@ impl<'d> ToString for Data<'d> {
             Data::Double(d) => d.to_string(),
             Data::Float(f) => f.to_string(),
             Data::Null => String::new(),
-            Data::Any(_) => panic!("Any cannot be formatted into a string.")
+            Data::Any(_) => panic!("Any cannot be formatted into a string."),
         }
     }
 }

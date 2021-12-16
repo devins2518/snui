@@ -1,5 +1,5 @@
 pub use crate::font::FontProperty;
-use crate::{*, style::FG0};
+use crate::{style::FG0, *};
 pub use fontdue::{
     layout,
     layout::{
@@ -230,7 +230,7 @@ impl DerefMut for Text {
     }
 }
 
-use crate::data::{Message, Controller};
+use crate::data::{Controller, Message};
 
 // Updates text on messages with a matching id or on Commit.
 // The retreived Data will replace all occurences of `{}` in the format.
@@ -263,10 +263,11 @@ impl Widget for Listener {
         match event {
             Event::Message(msg) => {
                 let Message(obj, data) = msg;
-                if obj == self.id{
+                if obj == self.id {
                     ctx.request_draw();
                     if let Some(format) = self.format.as_ref() {
-                        self.text.edit(format.replace("{}", &data.to_string()).as_str());
+                        self.text
+                            .edit(format.replace("{}", &data.to_string()).as_str());
                     } else {
                         self.text.edit(format!("{}", data.to_string()).as_str());
                     }
@@ -275,7 +276,8 @@ impl Widget for Listener {
             Event::Commit => {
                 if let Ok(data) = ctx.request(self.id) {
                     if let Some(format) = self.format.as_ref() {
-                        self.text.edit(format.replace("{}", &data.to_string()).as_str());
+                        self.text
+                            .edit(format.replace("{}", &data.to_string()).as_str());
                     } else {
                         self.text.edit(format!("{}", data.to_string()).as_str());
                     }
@@ -292,7 +294,7 @@ impl From<Text> for Listener {
         Self {
             id: 0,
             text,
-            format: None
+            format: None,
         }
     }
 }
@@ -302,7 +304,7 @@ impl From<Label> for Listener {
         Self {
             id: 0,
             text: label.into(),
-            format: None
+            format: None,
         }
     }
 }

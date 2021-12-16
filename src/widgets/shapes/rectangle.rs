@@ -238,9 +238,7 @@ impl Geometry for Rectangle {
 
 impl Primitive for Rectangle {
     fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
-        self.clone()
-        .background(background)
-        .into()
+        self.clone().background(background).into()
     }
     fn get_background(&self) -> scene::Background {
         self.style.background()
@@ -253,9 +251,9 @@ impl Primitive for Rectangle {
         let max = tl.max(tr).max(br).max(bl);
         let radius = max - (max * FRAC_1_SQRT_2);
         region.x >= radius
-        && region.y >= radius
-        && region.width <= self.width - radius
-        && region.height <= self.height - radius
+            && region.y >= radius
+            && region.width <= self.width - radius
+            && region.height <= self.height - radius
     }
     fn draw_with_transform_clip(
         &self,

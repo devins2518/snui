@@ -14,12 +14,11 @@ pub struct Slider {
 
 impl Slider {
     pub fn new(width: u32, height: u32) -> Self {
-        let orientation =
-        	if height > width {
-            	Orientation::Vertical
-        	} else {
-            	Orientation::Horizontal
-        	};
+        let orientation = if height > width {
+            Orientation::Vertical
+        } else {
+            Orientation::Horizontal
+        };
         Slider {
             id: 0,
             step: 1.,
@@ -29,18 +28,16 @@ impl Slider {
             },
             pressed: false,
             slider: match &orientation {
-                Orientation::Horizontal => {
-                    Rectangle::new(
+                Orientation::Horizontal => Rectangle::new(
                     width as f32 / 2.,
                     height as f32,
-                    ShapeStyle::Background(scene::Background::Transparent))
-                }
-                Orientation::Vertical => {
-                    Rectangle::new(
-                        width as f32,
-                        height as f32 / 2.,
-                        ShapeStyle::Background(scene::Background::Transparent))
-                }
+                    ShapeStyle::Background(scene::Background::Transparent),
+                ),
+                Orientation::Vertical => Rectangle::new(
+                    width as f32,
+                    height as f32 / 2.,
+                    ShapeStyle::Background(scene::Background::Transparent),
+                ),
             },
             orientation,
         }

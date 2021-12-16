@@ -3,7 +3,7 @@ use snui::data::{Controller, ControllerError, Data, Message};
 use snui::scene::*;
 use snui::wayland::shell::*;
 use snui::widgets::{shapes::*, text::*, *};
-use snui::{*, style::*};
+use snui::{style::*, *};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Signal {
@@ -294,18 +294,16 @@ fn main() {
 }
 
 fn header() -> impl Widget {
-    let mut buttons =
-    	WidgetLayout::new(5);
+    let mut buttons = WidgetLayout::new(5);
     let text: Text = Label::default("Copy", 15.).into();
     let icon = Label::new("", 21.)
-    	.color(YEL)
-    	.font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
+        .color(YEL)
+        .font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
     buttons.add(
-        icon
-        	.into_box()
-        	.constraint(Constraint::Downward)
-        	.size(25., 25.)
-        	.wrap()
+        icon.into_box()
+            .constraint(Constraint::Downward)
+            .size(25., 25.)
+            .wrap()
             .background(BG2)
             .even_radius(3.)
             .border(BG2, 2.)
@@ -328,11 +326,10 @@ fn header() -> impl Widget {
     );
 
     buttons.add(
-        text
-        	.into_box()
-        	.constraint(Constraint::Downward)
-        	.size(40., 25.)
-        	.wrap()
+        text.into_box()
+            .constraint(Constraint::Downward)
+            .size(40., 25.)
+            .wrap()
             .background(BG2)
             .even_radius(3.)
             .border(BG2, 2.)
@@ -343,10 +340,7 @@ fn header() -> impl Widget {
                     button,
                 } => {
                     if button == MouseButton::Left && pressed {
-                        if let Data::Uint(_) = ctx
-                        	.request(Signal::Source as u32)
-                            .unwrap()
-                        {
+                        if let Data::Uint(_) = ctx.request(Signal::Source as u32).unwrap() {
                             this.edit("Copied");
                             this.set_background(Background::solid(BG1));
                         }
@@ -363,12 +357,7 @@ fn header() -> impl Widget {
             }),
     );
 
-    let mut header =
-    	Centerbox::from(
-        	buttons,
-        	Label::default("app_name", 15.),
-        	Cross {}
-    	);
+    let mut header = Centerbox::from(buttons, Label::default("app_name", 15.), Cross {});
 
     let _ = header.set_width(300.);
     header
@@ -385,13 +374,12 @@ fn sliders() -> WidgetLayout {
             BG0 => Signal::Alpha,
             _ => Signal::Null,
         };
-        let slider =
-            widgets::slider::Slider::new(200, 8)
-            	.id(id as u32)
-            	.background(color)
-                .wrap()
-                .background(BG2)
-                .even_radius(3.);
+        let slider = widgets::slider::Slider::new(200, 8)
+            .id(id as u32)
+            .background(color)
+            .wrap()
+            .background(BG2)
+            .even_radius(3.);
 
         layout.add(slider);
     }
@@ -404,14 +392,13 @@ fn sliders() -> WidgetLayout {
 fn core() -> WidgetLayout {
     let mut layout = WidgetLayout::vertical(15);
 
-	let mut listener =
-		Listener {
-    		id: Signal::Source as u32,
-            text: Label::default("Welcome", 17.).into()
-		}
-        .into_box()
-        .anchor(CENTER, START)
-        .constraint(Constraint::Downward);
+    let mut listener = Listener {
+        id: Signal::Source as u32,
+        text: Label::default("Welcome", 17.).into(),
+    }
+    .into_box()
+    .anchor(CENTER, START)
+    .constraint(Constraint::Downward);
 
     let _ = listener.set_height(18.);
     let _ = listener.set_width(200.);

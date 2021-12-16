@@ -76,7 +76,7 @@ impl Default for Spacer {
     fn default() -> Self {
         Self {
             width: 0.,
-            height: 0.
+            height: 0.,
         }
     }
 }
@@ -136,7 +136,8 @@ impl<W: Widget> Widget for WidgetBox<W> {
         {
             eprintln!(
                 "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
-                x, y,
+                x,
+                y,
                 self.width(),
                 self.height()
             );
