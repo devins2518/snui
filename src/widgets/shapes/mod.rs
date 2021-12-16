@@ -6,13 +6,19 @@ pub use rectangle::Rectangle;
 use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::{Deref, DerefMut};
 
-pub trait Style {
+pub trait Style: Sized {
     fn radius(self, tl: f32, tr: f32, br: f32, bl: f32) -> Self;
+    fn even_radius(self, radius: f32) -> Self {
+        self.radius(radius, radius, radius, radius)
+    }
     fn background<B: Into<Background>>(self, background: B) -> Self;
     fn border_width(self, width: f32) -> Self;
     fn border_color(self, color: u32) -> Self;
     fn border(self, color: u32, width: f32) -> Self;
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32);
+    fn set_even_radius(&mut self, radius: f32) {
+        self.set_radius(radius, radius, radius, radius);
+    }
     fn set_background<B: Into<Background>>(&mut self, background: B);
     fn set_border_width(&mut self, width: f32);
     fn set_border_color(&mut self, color: u32);
@@ -60,6 +66,9 @@ impl<W: Widget> WidgetExt<W> {
         self.padding = [top.round(), right.round(), bottom.round(), left.round()];
         self
     }
+    pub fn even_padding(self, padding: f32) -> Self {
+        self.padding(padding, padding, padding, padding)
+    }
     // The padding will be rounded automatically
     pub fn padding(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
         let min = self.minimum_padding();
@@ -70,6 +79,9 @@ impl<W: Widget> WidgetExt<W> {
             left.round().max(min),
         ];
         self
+    }
+    pub fn set_even_padding(&mut self, padding: f32) {
+        self.set_padding(padding, padding, padding, padding);
     }
     pub fn set_padding(&mut self, top: f32, right: f32, bottom: f32, left: f32) {
         let min = self.minimum_padding();
@@ -82,8 +94,9 @@ impl<W: Widget> WidgetExt<W> {
     }
     fn minimum_padding(&self) -> f32 {
         let (tl, tr, br, bl) = self.background.radius;
-        let radius = tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
-        return radius.floor();
+        let max = tl.max(tr).max(br).max(bl);
+        let radius = max - (max * FRAC_1_SQRT_2);
+        return radius.ceil();
     }
     pub fn unwrap(self) -> W {
         self.child
@@ -140,11 +153,18 @@ impl<W: Widget + Style> WidgetExt<W> {
         self.child.set_radius(tl, tr, br, bl);
         Style::radius(self, tl, tr, br, bl)
     }
+    pub fn even_radius(self, radius: f32) -> Self {
+        WidgetExt::radius(self, radius, radius, radius, radius)
+    }
+    pub fn set_even_radius(&mut self, radius: f32) {
+        WidgetExt::set_radius(self, radius, radius, radius, radius);
+    }
 }
 
 impl<W: Widget> Style for WidgetExt<W> {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        let delta= tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
+        let max = tl.max(tr).max(br).max(bl);
+        let delta = max - (max * FRAC_1_SQRT_2);
         self.background.set_radius(tl + delta, tr + delta, br + delta, bl + delta);
         self.border.set_radius(tl + delta, tr + delta, br + delta, bl + delta);
         self.set_padding(
@@ -157,7 +177,8 @@ impl<W: Widget> Style for WidgetExt<W> {
     fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
         let width = self.inner_width();
         let height = self.inner_height();
-        let delta= tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
+        let max = tl.max(tr).max(br).max(bl);
+        let delta = max - (max * FRAC_1_SQRT_2);
         let background = {
             self.background.set_size(width, height).unwrap();
             self.background.radius(tl + delta, tr + delta, br + delta, bl + delta)
@@ -245,7 +266,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let border = 
             if let ShapeStyle::Border(_, size) = self.border.get_style() {
-                (*size / 2.).ceil()
+                (*size / 2.).round()
             } else {
                 0.
             };

@@ -19,7 +19,7 @@ impl Container for LayoutBox {
 impl Geometry for LayoutBox {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let mut local_width = 0.;
-        let size = width / self.widgets.len() as f32;
+        let size = (width / self.widgets.len() as f32).ceil();
         for child in self.widgets.iter_mut() {
             match self.orientation {
                 Orientation::Horizontal => {
@@ -43,7 +43,7 @@ impl Geometry for LayoutBox {
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let mut local_height = 0.;
-        let size = height / self.widgets.len() as f32;
+        let size = (height / self.widgets.len() as f32).ceil();
         for child in self.widgets.iter_mut() {
             match self.orientation {
                 Orientation::Vertical => {
@@ -121,7 +121,7 @@ impl Widget for LayoutBox {
                                 border: None,
                                 node: Box::new(child.widget.create_node(x + dx, y + dy)),
                             };
-                            dx += child.width();
+                            dx += child.width().round();
                         }
                         Orientation::Vertical => {
                             let _ = child.set_width(sw);
@@ -131,7 +131,7 @@ impl Widget for LayoutBox {
                                 border: None,
                                 node: Box::new(child.widget.create_node(x + dx, y + dy)),
                             };
-                            dy += child.height();
+                            dy += child.height().round();
                         }
                     }
                     node
@@ -141,13 +141,7 @@ impl Widget for LayoutBox {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
         for child in self.widgets.iter_mut() {
-            if let Event::Pointer(mut x, mut y, p) = event {
-                x -= child.coords.x;
-                y -= child.coords.y;
-                child.widget.sync(ctx, Event::Pointer(x, y, p));
-            } else {
-                child.widget.sync(ctx, event)
-            }
+            child.sync(ctx, event);
         }
     }
 }

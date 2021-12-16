@@ -49,6 +49,38 @@ pub enum Constraint {
     Downward,
 }
 
+// Simple dump widget with a fixed size.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Spacer {
+    pub width: f32,
+    pub height: f32,
+}
+
+impl Geometry for Spacer {
+    fn height(&self) -> f32 {
+        self.height
+    }
+    fn width(&self) -> f32 {
+        self.width
+    }
+}
+
+impl Widget for Spacer {
+    fn create_node(&mut self, _x: f32, _y: f32) -> RenderNode {
+        RenderNode::None
+    }
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) {}
+}
+
+impl Default for Spacer {
+    fn default() -> Self {
+        Self {
+            width: 0.,
+            height: 0.
+        }
+    }
+}
+
 pub struct WidgetBox<W: Widget> {
     child: W,
     coords: Coords,
@@ -103,7 +135,8 @@ impl<W: Widget> Widget for WidgetBox<W> {
             && (self.child.width() > self.size.0 || self.child.height() > self.size.1)
         {
             eprintln!(
-                "WidgetBox exceeded bounds: {} x {}",
+                "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
+                x, y,
                 self.width(),
                 self.height()
             );
@@ -121,7 +154,6 @@ impl<W: Widget> Widget for WidgetBox<W> {
             Alignment::End => (self.height() - self.child.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
-        let new = self.child.create_node(x + dx, y + dy);
         RenderNode::Extension {
             background: scene::Instruction::new(
                 x,
@@ -129,7 +161,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
                 shapes::Rectangle::empty(self.width(), self.height()),
             ),
             border: None,
-            node: Box::new(new),
+            node: Box::new(self.child.create_node(x + dx, y + dy)),
         }
     }
 }
@@ -141,7 +173,7 @@ impl<W: Widget> WidgetBox<W> {
             child,
             coords: Coords::new(0., 0.),
             anchor: (Alignment::Center, Alignment::Center),
-            constraint: Constraint::Fixed,
+            constraint: Constraint::Downward,
         }
     }
     pub fn size(mut self, width: f32, height: f32) -> Self {

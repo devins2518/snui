@@ -177,12 +177,12 @@ impl Background {
     }
     pub fn merge(&self, other: Self) -> Self {
         match self {
-            Background::Color(acolor) => match other {
+            Background::Color(_) => match other {
                 Background::Color(bcolor) => {
                     if bcolor.is_opaque() {
                         return other;
                     }
-                    Background::Color(blend(acolor, &bcolor, 1.))
+                    Background::Composite(Box::new(self.clone()), Box::new(other))
                 }
                 Background::Image(_, _) => {
                     match other {
@@ -397,8 +397,9 @@ impl Primitive for PrimitiveType {
 
 impl PrimitiveType {
     fn merge(&self, other: Self) -> Self {
+        let background = other.get_background();
         let background =
-        	self.get_background().merge(other.get_background());
+        	self.get_background().merge(background);
        	other.apply_background(background)
     }
     fn instruction(&self, region: Region) -> Instruction {
@@ -655,7 +656,7 @@ impl RenderNode {
     fn clear(&self, ctx: &mut DrawContext, bg: &Background, other: &Region) {
         match self {
             RenderNode::Instruction(instruction) => {
-                ctx.damage_region(bg, instruction.region().merge(other));
+                ctx.damage_region(bg, instruction.region().merge(other), false);
             }
             RenderNode::Extension {
                 background,
@@ -663,19 +664,19 @@ impl RenderNode {
                 node: _,
             } => {
                 if let Some(rect) = border.as_ref() {
-                    ctx.damage_region(bg, rect.region().merge(other));
+                    ctx.damage_region(bg, rect.region().merge(other), false);
                 } else {
-                    ctx.damage_region(bg, background.region().merge(other));
+                    ctx.damage_region(bg, background.region().merge(other), false);
                 }
             }
             RenderNode::Container { region, nodes: _ } => {
-                ctx.damage_region(bg, region.merge(other));
+                ctx.damage_region(bg, region.merge(other), false);
             }
             RenderNode::Draw { region, steps: _ } => {
-                ctx.damage_region(bg, region.merge(other));
+                ctx.damage_region(bg, region.merge(other), false);
             }
             RenderNode::None => {
-                ctx.damage_region(bg, *other);
+                ctx.damage_region(bg, *other, false);
             }
         }
     }
@@ -691,7 +692,7 @@ impl RenderNode {
                     if b.ne(a) {
                         let r = b.region();
                         if shape.contains(&r) {
-                            ctx.damage_region(&Background::from(shape), a.region().merge(&r));
+                            ctx.damage_region(&Background::from(shape), a.region().merge(&r), false);
                             b.render(ctx, None);
                             *self = other;
                         } else {
@@ -716,14 +717,17 @@ impl RenderNode {
                 let this_nodes = nodes;
                 match other {
                     RenderNode::Container { region, mut nodes } => {
-                        if this_region.eq(&region) && this_nodes.len() == nodes.len() {
+                        // println!("Container: {:?}", region);
+                        // println!("Shape: {:?}", shape.region());
+                        if !shape.contains(&region) {
+                            *self = RenderNode::Container { nodes, region };
+                            return Err(region);
+                        } else if this_region.eq(&region) && this_nodes.len() == nodes.len() {
                             for i in 0..nodes.len() {
                                 this_nodes[i].merge(mem::take(&mut nodes[i]), ctx, shape)?;
                             }
-                        } else if !shape.contains(&region) {
-                            return Err(region);
                         } else {
-                            ctx.damage_region(&Background::from(shape), this_region.merge(&region));
+                            ctx.damage_region(&Background::from(shape), this_region.merge(&region), false);
                             *self = RenderNode::Container { nodes, region };
                             self.render(ctx);
                         }
@@ -751,6 +755,7 @@ impl RenderNode {
                 } = other
                 {
                     if background.eq(this_background) && border.eq(this_border) {
+                        // println!("{:#?}", this_background.primitive);
                         let instruction = Instruction {
                             transform: background.transform,
                             primitive: shape.primitive.merge(background.primitive.clone()),
@@ -777,11 +782,17 @@ impl RenderNode {
                                 },
                             );
                         if !shape.contains(&merge) {
+                            *self = RenderNode::Extension {
+                                background,
+                                border,
+                                node,
+                            };
                             return Err(merge);
                         }
                         ctx.damage_region(
                             &Background::from(shape),
-                            merge
+                            merge,
+                            false
                         );
                         *self = RenderNode::Extension {
                             background,
@@ -814,6 +825,7 @@ impl RenderNode {
                             *self = RenderNode::Draw { region, steps };
                             self.render(ctx);
                         } else if !shape.contains(&region) {
+                            *self = RenderNode::Draw { region, steps };
                             return Err(region);
                         } else {
                             let mut draw = false;

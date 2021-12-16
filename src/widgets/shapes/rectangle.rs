@@ -211,7 +211,7 @@ impl Geometry for Rectangle {
             .max(self.radius.3);
         if let ShapeStyle::Background(background) = &mut self.style {
             if let Background::Image(_, img) = background {
-                img.set_width(width)?;
+                img.set_width(self.width)?;
             }
         }
         return Ok(());
@@ -229,7 +229,7 @@ impl Geometry for Rectangle {
             .max(self.radius.3);
         if let ShapeStyle::Background(background) = &mut self.style {
             if let Background::Image(_, img) = background {
-                img.set_height(height)?;
+                img.set_height(self.height)?;
             }
         }
         return Ok(());
@@ -238,10 +238,7 @@ impl Geometry for Rectangle {
 
 impl Primitive for Rectangle {
     fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
-        Rectangle::empty(
-            self.width(),
-            self.height(),
-        )
+        self.clone()
         .background(background)
         .into()
     }
@@ -252,12 +249,13 @@ impl Primitive for Rectangle {
         self.clone().into()
     }
     fn contains(&self, region: &scene::Region) -> bool {
-        let (x, y) = (0., 0.);
         let (tl, tr, br, bl) = self.radius;
-        let radius = tl.max(tr).max(br).max(bl) * FRAC_1_SQRT_2;
-        scene::Region::new(x, y, self.width, self.height)
-            .pad(-radius.floor())
-            .fit(region)
+        let max = tl.max(tr).max(br).max(bl);
+        let radius = max - (max * FRAC_1_SQRT_2);
+        region.x >= radius
+        && region.y >= radius
+        && region.width <= self.width - radius
+        && region.height <= self.height - radius
     }
     fn draw_with_transform_clip(
         &self,

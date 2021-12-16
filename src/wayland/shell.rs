@@ -743,12 +743,13 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
                 ) {
-                    ctx.damage_region(&Background::Transparent, region);
+                    ctx.damage_region(&Background::Transparent, region, false);
                 }
             } else {
                 ctx.damage_region(
                     &Background::Transparent,
-                    Region::new(0., 0., width, height)
+                    Region::new(0., 0., width, height),
+                    false
                 );
                 recent_node.render(&mut ctx);
                 self.core.ctx.render_node = Some(recent_node);

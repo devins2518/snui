@@ -97,7 +97,7 @@ impl Widget for ColorBlock {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         Rectangle::empty(self.width, self.height)
             .background(self.color)
-            .radius(5., 5., 5., 5.)
+            .even_radius(5.)
             .create_node(x, y)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
@@ -138,7 +138,7 @@ impl Widget for Cross {
 
         let b = Rectangle::empty(self.width(), self.height())
             .background(BG1)
-            .radius(3., 3., 3., 3.);
+            .even_radius(3.);
 
         let r = Rectangle::empty(w, h).background(RED);
 
@@ -278,7 +278,7 @@ fn main() {
             .background(BG0)
             .padding(15., 15., 15., 15.)
             .border(BG2, 1.)
-            .radius(5., 5., 5., 5.),
+            .even_radius(5.),
         event_loop.handle(),
         |core, _| {
             if let Some(signal) = core.controller.signal {
@@ -300,7 +300,6 @@ fn header() -> impl Widget {
     let icon = Label::new("", 21.)
     	.color(YEL)
     	.font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
-
     buttons.add(
         icon
         	.into_box()
@@ -308,8 +307,8 @@ fn header() -> impl Widget {
         	.size(25., 25.)
         	.wrap()
             .background(BG2)
-            .radius(3., 3., 3., 3.)
-            .border(BG2, 1.)
+            .even_radius(3.)
+            .border(BG2, 2.)
             .into_button(|this, _, p| match p {
                 Pointer::MouseClick {
                     time: _,
@@ -327,6 +326,7 @@ fn header() -> impl Widget {
                 _ => {}
             }),
     );
+
     buttons.add(
         text
         	.into_box()
@@ -334,7 +334,7 @@ fn header() -> impl Widget {
         	.size(40., 25.)
         	.wrap()
             .background(BG2)
-            .radius(3., 3., 3., 3.)
+            .even_radius(3.)
             .border(BG2, 2.)
             .into_button(|this, ctx, p| match p {
                 Pointer::MouseClick {
@@ -362,8 +362,13 @@ fn header() -> impl Widget {
                 _ => {}
             }),
     );
+
     let mut header =
-    	container::Centerbox::horizontal(buttons, Label::default("app_name", 15.), Cross {}).align();
+    	Centerbox::from(
+        	buttons,
+        	Label::default("app_name", 15.),
+        	Cross {}
+    	);
 
     let _ = header.set_width(300.);
     header
@@ -386,7 +391,7 @@ fn sliders() -> WidgetLayout {
             	.background(color)
                 .wrap()
                 .background(BG2)
-                .radius(2.5, 2.5, 2.5, 2.5);
+                .even_radius(3.);
 
         layout.add(slider);
     }

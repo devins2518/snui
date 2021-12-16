@@ -200,11 +200,13 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
-    pub fn damage_region(&mut self, bg: &Background, mut region: Region) {
-        if let Some(last) = self.pending_damage.last() {
-            if last.contains(region.x, region.y) {
-                let taken = last.merge(&region).substract(*last);
-                region = taken;
+    pub fn damage_region(&mut self, bg: &Background, mut region: Region, composite: bool) {
+        if !composite {
+            if let Some(last) = self.pending_damage.last() {
+                if last.contains(region.x, region.y) {
+                    let taken = last.merge(&region).substract(*last);
+                    region = taken;
+                }
             }
         }
         self.pending_damage.push(region);
@@ -221,7 +223,7 @@ impl<'c> DrawContext<'c> {
                         },
                         Transform::identity(),
                         None,
-                    );
+                    ).unwrap();
                 }
                 _ => {}
             },
@@ -279,8 +281,8 @@ impl<'c> DrawContext<'c> {
                 }
             }
             Background::Composite(base, overlay) => {
-                self.damage_region(base.as_ref(), region);
-                self.damage_region(overlay.as_ref(), region);
+                self.damage_region(base.as_ref(), region, true);
+                self.damage_region(overlay.as_ref(), region, true);
             }
             Background::Transparent => match &mut self.backend {
                 Backend::Pixmap(dt) => {
