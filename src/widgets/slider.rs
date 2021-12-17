@@ -117,7 +117,7 @@ impl Widget for Slider {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.slider.create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         match event {
             Event::Pointer(x, y, pointer) => {
                 if self.contains(x, y) {
@@ -137,14 +137,13 @@ impl Widget for Slider {
                                         let _ = self.slider.set_height(y.round());
                                     }
                                 }
-                            } else {
-                                let ratio = match &self.orientation {
-                                    Orientation::Horizontal => self.slider.width() / self.size,
-                                    Orientation::Vertical => self.slider.height() / self.size,
-                                };
-                                let _ = ctx.send(Message::new(self.id, ratio));
                             }
-                            ctx.request_draw();
+                            let ratio = match &self.orientation {
+                                Orientation::Horizontal => self.slider.width() / self.size,
+                                Orientation::Vertical => self.slider.height() / self.size,
+                            };
+                            let _ = ctx.send(Message::new(self.id, ratio));
+                            return Damage::Some;
                         }
                         Pointer::Scroll {
                             orientation: _,
@@ -164,8 +163,8 @@ impl Widget for Slider {
                                     self.slider.height() / self.size
                                 }
                             };
-                            ctx.request_draw();
                             let _ = ctx.send(Message::new(self.id, ratio));
+                            return Damage::Some;
                         }
                         Pointer::Hover => {
                             if self.pressed {
@@ -187,7 +186,7 @@ impl Widget for Slider {
                                         }
                                     }
                                 }
-                                ctx.request_draw();
+                                return Damage::Some;
                             }
                         }
                         _ => {}
@@ -201,7 +200,7 @@ impl Widget for Slider {
                         } => {
                             if button == MouseButton::Left {
                                 self.pressed = pressed;
-                                ctx.request_draw();
+                                return Damage::Some;
                             }
                         }
                         Pointer::Hover => match &self.orientation {
@@ -211,7 +210,7 @@ impl Widget for Slider {
                                         self.id,
                                         self.slider.width() / self.size,
                                     ));
-                                    ctx.request_draw();
+                                    return Damage::Some;
                                 }
                             }
                             Orientation::Vertical => {
@@ -220,7 +219,7 @@ impl Widget for Slider {
                                         self.id,
                                         self.slider.height() / self.size,
                                     ));
-                                    ctx.request_draw();
+                                    return Damage::Some;
                                 }
                             }
                         },
@@ -234,7 +233,7 @@ impl Widget for Slider {
                 if obj == self.id {
                     if let Ok(data) = ctx.get(msg) {
                         if self.filter(data).is_ok() {
-                            ctx.request_draw();
+                            return Damage::Some;
                         }
                     }
                 }
@@ -242,12 +241,13 @@ impl Widget for Slider {
             Event::Commit => {
                 if let Ok(data) = ctx.request(self.id) {
                     if self.filter(data).is_ok() {
-                        ctx.request_draw();
+                        return Damage::Some;
                     }
                 }
             }
             _ => {}
         }
+        Damage::None
     }
 }
 

@@ -39,7 +39,7 @@ impl Widget for Listener {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.text.create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         match event {
             Event::Message(msg) => {
                 let Message(obj, _) = msg;
@@ -59,7 +59,7 @@ impl Widget for Listener {
             }
             _ => {}
         }
-        self.text.sync(ctx, event);
+        self.text.sync(ctx, event)
     }
 }
 
@@ -100,16 +100,17 @@ impl Widget for ColorBlock {
             .even_radius(5.)
             .create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if let Event::Message(_) = event {
-            ctx.request_draw();
             let color = ctx
                 .get(Message::new(Signal::Source as u32, Data::Null))
                 .unwrap();
             if let Data::Uint(color) = color {
                 self.color = u32_to_source(color).to_color_u8();
             }
+            return Damage::Some;
         }
+        Damage::None
     }
 }
 
@@ -150,7 +151,7 @@ impl Widget for Cross {
 
         canvas.finish()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if let Pointer::MouseClick {
                 time: _,
@@ -165,6 +166,7 @@ impl Widget for Cross {
                 }
             }
         }
+        Damage::None
     }
 }
 
@@ -400,7 +402,7 @@ fn core() -> WidgetLayout {
     .anchor(CENTER, START)
     .constraint(Constraint::Downward);
 
-    let _ = listener.set_size(200., 18.);
+    let _ = listener.set_size(200., 22.);
 
     let mut indicator = WidgetLayout::vertical(0);
 

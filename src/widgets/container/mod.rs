@@ -10,15 +10,35 @@ pub use widget_layout::WidgetLayout;
 
 pub struct Child {
     coords: Coords,
+    damage: Damage,
+    queue_draw: bool,
     widget: Box<dyn Widget>,
 }
 
 impl Child {
     fn new(widget: impl Widget + 'static) -> Self {
         Child {
+            queue_draw: false,
+            damage: Damage::None,
             coords: Coords::new(0., 0.),
             widget: Box::new(widget),
         }
+    }
+    fn create_node_ext(&mut self, x: f32, y: f32, width: f32, height: f32) -> RenderNode {
+        let node = self.create_node(x, y);
+        if !node.is_none() {
+            return RenderNode::Extension {
+                background: scene::Instruction::empty(
+                    x + self.coords.x,
+                    y + self.coords.y,
+                    width,
+                    height,
+                ),
+                border: None,
+                node: Box::new(node),
+            };
+        }
+        node
     }
 }
 
@@ -39,17 +59,26 @@ impl Geometry for Child {
 
 impl Widget for Child {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.widget
-            .create_node(x + self.coords.x, y + self.coords.y)
-    }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
-        if let Event::Pointer(mut x, mut y, p) = event {
-            x -= self.coords.x;
-            y -= self.coords.y;
-            self.widget.sync(ctx, Event::Pointer(x, y, p))
-        } else {
-            self.widget.sync(ctx, event)
+        if self.queue_draw || self.damage.is_some() {
+            self.damage = Damage::None;
+            return self
+                .widget
+                .create_node(x + self.coords.x, y + self.coords.y);
         }
+        RenderNode::None
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+        self.damage.order(match event {
+            Event::Pointer(mut x, mut y, p) => {
+                x -= self.coords.x;
+                y -= self.coords.y;
+                self.widget.sync(ctx, Event::Pointer(x, y, p))
+            }
+            Event::Commit => self.widget.sync(ctx, event),
+            _ => self.widget.sync(ctx, event),
+        });
+        self.queue_draw = self.damage.is_some() || event == Event::Commit;
+        self.damage
     }
     fn contains(&self, x: f32, y: f32) -> bool {
         self.widget.contains(x + self.coords.x, y + self.coords.y)

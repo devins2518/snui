@@ -134,10 +134,12 @@ impl Widget for Centerbox {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+        let mut damage = Damage::None;
         for wbox in self.widgets.iter_mut() {
-            wbox.sync(ctx, event)
+            damage.order(wbox.sync(ctx, event));
         }
+        damage
     }
 }
 

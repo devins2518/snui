@@ -146,7 +146,7 @@ impl<'c> SyncContext<'c> {
     pub fn request_draw(&mut self) {
         self.draw = true;
     }
-    pub fn damage(self) -> bool {
+    pub fn damage(&self) -> bool {
         self.draw
     }
     pub fn new(model: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {

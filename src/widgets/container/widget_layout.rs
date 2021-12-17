@@ -132,12 +132,8 @@ impl Widget for WidgetLayout {
                                 Alignment::Center => dy = ((sh - wh) / 2.).floor(),
                                 Alignment::End => dy = sh - wh,
                             }
-                            node = RenderNode::Extension {
-                                background: scene::Instruction::empty(x + dx, y + dy, ww, sh),
-                                border: None,
-                                node: Box::new(child.widget.create_node(x + dx, y + dy)),
-                            };
                             child.coords = Coords::new(dx, dy);
+                            node = child.create_node_ext(x, y, ww, sh);
                             dx += child.width() + spacing;
                         }
                         Orientation::Vertical => {
@@ -146,12 +142,8 @@ impl Widget for WidgetLayout {
                                 Alignment::Center => dx = ((sw - ww) / 2.).floor(),
                                 Alignment::End => dx = sw - ww,
                             }
-                            node = RenderNode::Extension {
-                                background: scene::Instruction::empty(x + dx, y + dy, sw, wh),
-                                border: None,
-                                node: Box::new(child.widget.create_node(x + dx, y + dy)),
-                            };
                             child.coords = Coords::new(dx, dy);
+                            node = child.create_node_ext(x, y, sw, wh);
                             dy += child.height() + spacing;
                         }
                     }
@@ -160,15 +152,11 @@ impl Widget for WidgetLayout {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+        let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
-            if let Event::Pointer(mut x, mut y, p) = event {
-                x -= child.coords.x;
-                y -= child.coords.y;
-                child.widget.sync(ctx, Event::Pointer(x, y, p));
-            } else {
-                child.widget.sync(ctx, event)
-            }
+            damage.order(child.sync(ctx, event));
         }
+        damage
     }
 }

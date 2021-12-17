@@ -551,11 +551,11 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
     fn sync(&mut self, ev: Event) -> bool {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
-        self.widget.sync(&mut sync_ctx, ev);
+        let mut damage = self.widget.sync(&mut sync_ctx, ev);
         while let Ok(signal) = sync_ctx.sync() {
-            self.widget.sync(&mut sync_ctx, Event::Message(signal));
+            damage.order(self.widget.sync(&mut sync_ctx, Event::Message(signal)));
         }
-        sync_ctx.damage() && !self.ctx.pending_cb
+        damage.is_some() && !self.ctx.pending_cb
     }
     pub fn destroy(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
@@ -737,7 +737,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             let mut v = Vec::new();
             let mut ctx = DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v);
             if let Some(render_node) = self.core.ctx.render_node.as_mut() {
-                if let Err(region) = render_node.merge(
+                if let Err(region) = render_node.draw_merge(
                     recent_node,
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
@@ -762,9 +762,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         }
     }
     pub fn update(&mut self, ev: Event) {
-        if let Ok(render_node) =
-            self.roundtrip(ev)
-        {
+        if let Ok(render_node) = self.roundtrip(ev) {
             draw_callback::<C>(&self.surface.as_ref().unwrap().surface, render_node);
         }
     }
@@ -896,6 +894,7 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                                         }
                                     } else {
                                         if let Ok(render_node) = a.roundtrip(Event::Commit) {
+                                            // println!("{:#?}", render_node);
                                             a.render(render_node);
                                         }
                                     }

@@ -3,7 +3,8 @@ use std::ops::{Deref, DerefMut};
 
 pub struct Proxy<W: Widget> {
     child: W,
-    damage: bool,
+    damage: Damage,
+    queue_draw: bool,
 }
 
 impl<W: Widget> Deref for Proxy<W> {
@@ -15,7 +16,7 @@ impl<W: Widget> Deref for Proxy<W> {
 
 impl<W: Widget> DerefMut for Proxy<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.damage = true;
+        self.damage.order(Damage::Some);
         &mut self.child
     }
 }
@@ -42,21 +43,24 @@ impl<W: Widget> Proxy<W> {
     pub fn new(child: W) -> Self {
         Proxy {
             child,
-            damage: false,
+            queue_draw: true,
+            damage: Damage::Some,
         }
     }
 }
 
 impl<W: Widget> Widget for Proxy<W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.child.create_node(x, y)
-    }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
-        self.child.sync(ctx, event);
-        if self.damage {
-            ctx.request_draw();
-            self.damage = false;
+        if self.queue_draw || self.damage.is_some() {
+            self.damage = Damage::None;
+            return self.child.create_node(x, y);
         }
+        RenderNode::None
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+        self.damage.order(self.child.sync(ctx, event));
+        self.queue_draw = self.damage.is_some() || event == Event::Commit;
+        self.damage
     }
 }
 
@@ -72,10 +76,7 @@ impl<W: Widget> Button<W> {
         cb: impl for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer) + 'static,
     ) -> Self {
         Self {
-            proxy: Proxy {
-                child,
-                damage: false,
-            },
+            proxy: Proxy::new(child),
             focused: false,
             cb: Box::new(cb),
         }
@@ -104,7 +105,7 @@ impl<W: Widget> Widget for Button<W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.proxy.create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if let Event::Pointer(x, y, pointer) = event {
             if self.contains(x, y) {
                 if self.focused {
@@ -118,7 +119,7 @@ impl<W: Widget> Widget for Button<W> {
                 (self.cb)(&mut self.proxy, ctx, Pointer::Leave);
             }
         }
-        self.proxy.sync(ctx, event);
+        self.proxy.sync(ctx, event)
     }
 }
 

@@ -115,12 +115,12 @@ impl Widget for LayoutBox {
                     match self.orientation {
                         Orientation::Horizontal => {
                             let _ = child.set_height(sh);
-                            node = child.widget.create_node(x + dx, y + dy);
+                            node = child.create_node(x, y);
                             dx += child.width().round();
                         }
                         Orientation::Vertical => {
                             let _ = child.set_width(sw);
-                            node = child.widget.create_node(x + dx, y + dy);
+                            node = child.create_node(x, y);
                             dy += child.height().round();
                         }
                     }
@@ -129,10 +129,12 @@ impl Widget for LayoutBox {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+        let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
-            child.sync(ctx, event);
+            damage.order(child.sync(ctx, event));
         }
+        damage
     }
 }
 

@@ -165,10 +165,8 @@ impl<W: Widget + Style> WidgetExt<W> {
 
 impl<W: Widget> Style for WidgetExt<W> {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.background
-            .set_radius(tl, tr, br, bl);
-        self.border
-            .set_radius(tl, tr, br, bl);
+        self.background.set_radius(tl, tr, br, bl);
+        self.border.set_radius(tl, tr, br, bl);
         self.set_padding(
             self.padding[0],
             self.padding[1],
@@ -181,13 +179,11 @@ impl<W: Widget> Style for WidgetExt<W> {
         let height = self.inner_height();
         let background = {
             self.background.set_size(width, height).unwrap();
-            self.background
-                .radius(tl, tr, br, bl)
+            self.background.radius(tl, tr, br, bl)
         };
         let border = {
             self.border.set_size(width, height).unwrap();
-            self.border
-                .radius(tl, tr, br, bl)
+            self.border.radius(tl, tr, br, bl)
         };
         Self {
             border,
@@ -300,7 +296,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
             },
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if let Event::Pointer(mut x, mut y, p) = event {
             let border = if let ShapeStyle::Border(_, size) = self.border.get_style() {
                 *size
@@ -311,7 +307,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
             y -= border + self.padding[0];
             self.child.sync(ctx, Event::Pointer(x, y, p))
         } else {
-            self.child.sync(ctx, event);
+            self.child.sync(ctx, event)
         }
     }
 }

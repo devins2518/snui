@@ -146,12 +146,14 @@ impl Widget for Label {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, _event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, _event: Event) -> Damage {
         if self.layout.is_none() {
-            ctx.request_draw();
             let layout = ctx.font_cache.layout(self).glyphs().clone();
             self.size = font::get_size(&layout);
             self.layout = Some(layout.into());
+            Damage::Some
+        } else {
+            Damage::None
         }
     }
 }
@@ -216,16 +218,16 @@ impl Widget for Text {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.label.create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if let Some(string) = &self.buffer {
-            ctx.request_draw();
             ctx.font_cache.write(&mut self.layout, &self.label, string);
             let glyphs = self.layout.glyphs().clone();
             self.label.size = font::get_size(&glyphs);
             self.label.layout = Some(glyphs.into());
             self.buffer = None;
+            Damage::Some
         } else {
-            self.label.sync(ctx, event);
+            self.label.sync(ctx, event)
         }
     }
 }
@@ -273,7 +275,7 @@ impl Widget for Listener {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.text.create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if self.poll {
             if let Ok(data) = ctx.request(self.id) {
                 if let Some(format) = self.format.as_ref() {
@@ -288,7 +290,6 @@ impl Widget for Listener {
                 Event::Message(msg) => {
                     let Message(obj, data) = msg;
                     if obj == self.id {
-                        ctx.request_draw();
                         if let Some(format) = self.format.as_ref() {
                             self.text
                                 .edit(format.replace("{}", &data.to_string()).as_str());
@@ -310,7 +311,7 @@ impl Widget for Listener {
                 _ => {}
             }
         }
-        self.text.sync(ctx, event);
+        self.text.sync(ctx, event)
     }
 }
 
@@ -337,6 +338,14 @@ impl From<Label> for Listener {
 }
 
 impl Listener {
+    pub fn new<T: Into<Text>>(text: T) -> Self {
+        Self {
+            id: 0,
+            text: text.into(),
+            poll: false,
+            format: None,
+        }
+    }
     pub fn id(mut self, id: u32) -> Self {
         self.id = id;
         self

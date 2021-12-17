@@ -30,6 +30,51 @@ pub fn u32_to_source(color: u32) -> Color {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Damage {
+    None,
+    Some,
+    Frame(usize),
+}
+
+impl Damage {
+    pub fn is_none(&self) -> bool {
+        match self {
+            Damage::None => true,
+            _ => false,
+        }
+    }
+    pub fn is_some(&self) -> bool {
+        !self.is_none()
+    }
+    pub fn order(&mut self, other: Self) {
+        match self {
+            Self::None => *self = other,
+            Self::Some => match other {
+                Self::Frame(f) => {
+                    if f > 0 {
+                        *self = other;
+                    }
+                }
+                _ => {}
+            },
+            Self::Frame(f) => match other {
+                Self::Frame(n) => {
+                    if n > *f {
+                        *self = other;
+                    }
+                }
+                Self::Some => {
+                    if *f < 1 {
+                        *self = other;
+                    }
+                }
+                _ => {}
+            },
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Orientation {
     Vertical,
     Horizontal,
@@ -192,7 +237,7 @@ pub trait Widget: Geometry {
     // they're creating their render node.
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
     // Interface to communicate with the application and retained mode draw operation
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event);
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage;
     fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
         context::canvas::Canvas::new(scene::Region::new(x, y, self.width(), self.height()))
     }

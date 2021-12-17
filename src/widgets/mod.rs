@@ -69,7 +69,9 @@ impl Widget for Spacer {
     fn create_node(&mut self, _x: f32, _y: f32) -> RenderNode {
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) {}
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) -> Damage {
+        Damage::None
+    }
 }
 
 impl Default for Spacer {
@@ -121,13 +123,13 @@ impl<W: Widget> Geometry for WidgetBox<W> {
 }
 
 impl<W: Widget> Widget for WidgetBox<W> {
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if let Event::Pointer(mut x, mut y, pointer) = event {
             x -= self.coords.x;
             y -= self.coords.y;
-            self.child.sync(ctx, Event::Pointer(x, y, pointer));
+            self.child.sync(ctx, Event::Pointer(x, y, pointer))
         } else {
-            self.child.sync(ctx, event);
+            self.child.sync(ctx, event)
         }
     }
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
@@ -155,6 +157,10 @@ impl<W: Widget> Widget for WidgetBox<W> {
             Alignment::End => (self.height() - self.child.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
+        let node = self.child.create_node(x + dx, y + dy);
+        if node.is_none() {
+            return node;
+        }
         RenderNode::Extension {
             background: scene::Instruction::new(
                 x,
@@ -162,7 +168,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
                 shapes::Rectangle::empty(self.width(), self.height()),
             ),
             border: None,
-            node: Box::new(self.child.create_node(x + dx, y + dy)),
+            node: Box::new(node),
         }
     }
 }

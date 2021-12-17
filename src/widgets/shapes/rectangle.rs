@@ -448,5 +448,7 @@ impl Widget for Rectangle {
         }
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) {}
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) -> Damage {
+        Damage::None
+    }
 }
