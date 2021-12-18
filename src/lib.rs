@@ -149,7 +149,7 @@ impl MouseButton {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Event<'d> {
-    Commit,
+    Frame,
     Prepare,
     // Your message object
     Message(data::Message<'d>),
@@ -247,7 +247,7 @@ pub trait Widget: Geometry {
 }
 
 pub trait Wrapable: Widget + Sized {
-    fn wrap(self) -> WidgetExt<Self>;
+    fn ext(self) -> WidgetExt<Self>;
     fn into_box(self) -> WidgetBox<Self>;
     fn into_button(
         self,
@@ -262,7 +262,7 @@ where
     fn into_box(self) -> WidgetBox<Self> {
         WidgetBox::new(self)
     }
-    fn wrap(self) -> WidgetExt<W> {
+    fn ext(self) -> WidgetExt<W> {
         WidgetExt::new(self)
     }
     fn into_button(

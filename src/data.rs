@@ -41,7 +41,7 @@ impl<'m> Default for Message<'m> {
 #[derive(Clone, Copy, Debug)]
 pub enum ControllerError {
     Wait,
-    Block,
+    Blocking,
     WrongObject,
     NonBlocking,
     WrongSerial,

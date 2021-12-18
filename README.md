@@ -5,3 +5,7 @@
 ## Supported backends
 - [ ] xdg-shell
 - [x] layershell
+
+## Documentation
+
+Coming soon.

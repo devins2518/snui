@@ -247,7 +247,7 @@ impl DerefMut for Text {
 
 use crate::data::{Controller, Message};
 
-// Updates text on messages with a matching id or on Commit.
+// Updates text on messages with a matching id or on Frame.
 // The retreived Data will replace all occurences of `{}` in the format.
 pub struct Listener {
     id: u32,
@@ -298,7 +298,7 @@ impl Widget for Listener {
                         }
                     }
                 }
-                Event::Commit => {
+                Event::Frame => {
                     if let Ok(data) = ctx.request(self.id) {
                         if let Some(format) = self.format.as_ref() {
                             self.text

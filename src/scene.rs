@@ -864,7 +864,7 @@ impl RenderNode {
                     RenderNode::None => {}
                     _ => {
                         other.clear(ctx, &Background::from(shape), Some(&this_region));
-                        *self = other;
+                        self.merge(other);
                         self.render(ctx);
                     }
                 }
@@ -929,7 +929,7 @@ impl RenderNode {
                                 this_background.region()
                             }),
                         );
-                        *self = other;
+                        self.merge(other);
                         self.render(ctx);
                     }
                 }
@@ -960,7 +960,7 @@ impl RenderNode {
                     RenderNode::None => {}
                     _ => {
                         self.clear(ctx, &Background::from(shape), Some(&this_region));
-                        *self = other;
+                        self.merge(other);
                         self.render(ctx);
                     }
                 }

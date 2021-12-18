@@ -59,7 +59,7 @@ impl<W: Widget> Widget for Proxy<W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         self.damage.order(self.child.sync(ctx, event));
-        self.queue_draw = self.damage.is_some() || event == Event::Commit;
+        self.queue_draw = self.damage.is_some() || event == Event::Frame;
         self.damage
     }
 }

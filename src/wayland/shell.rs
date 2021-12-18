@@ -615,6 +615,7 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);
+            surface.surface.commit();
         }
         Ok(())
     }
@@ -649,7 +650,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
-        InnerApplication {
+        let mut default = InnerApplication {
             core: CoreApplication {
                 controller,
                 ctx: Context {
@@ -657,17 +658,16 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
-                surface: globals.as_ref().create_shell_surface_from::<C>(
-                    &widget,
-                    ShellConfig::default_layer_shell(),
-                    None,
-                ),
+                surface: None,
                 widget: Box::new(widget),
                 mempool: globals.as_ref().create_mempool(),
                 globals,
             },
             cb: Box::new(cb),
-        }
+        };
+        default.sync(Event::Prepare);
+        default.replace_surface();
+        default
     }
     fn new(
         controller: C,
@@ -676,7 +676,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
-        InnerApplication {
+        let mut new = InnerApplication {
             core: CoreApplication {
                 controller,
                 ctx: Context {
@@ -684,15 +684,16 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
-                surface: globals
-                    .as_ref()
-                    .create_shell_surface_from::<C>(&widget, config, None),
+                surface: None,
                 widget: Box::new(widget),
                 mempool: globals.as_ref().create_mempool(),
                 globals,
             },
             cb: Box::new(cb),
-        }
+        };
+        new.sync(Event::Prepare);
+        new.replace_surface_by(config);
+        new
     }
     fn eq(&self, wl_surface: &WlSurface) -> bool {
         if let Some(surface) = &self.surface {
@@ -705,7 +706,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         let height = self.height();
 
         // Sending the event to the widget tree
-        if self.sync(ev) || ev == Event::Commit {
+        if self.sync(ev) || ev == Event::Frame {
             // Calling the application´s closure
             (self.cb)(&mut self.core, ev);
 
@@ -713,9 +714,11 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             let render_node = self.core.widget.create_node(0., 0.);
 
             // Resizing the surface in case the widget changed size
-            if width != self.width() || height != self.height() {
-                let _ = self.set_size(render_node.width(), render_node.height());
+            if ev == Event::Frame {
                 self.ctx.render_node = None;
+            } else if width != self.width() || height != self.height() {
+                let _ = self.set_size(render_node.width(), render_node.height());
+                return Err(())
             }
 
             self.ctx.pending_cb = true;
@@ -886,14 +889,14 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
                                     if a.ctx.pending_cb {
-                                        if let Ok(render_node) = a.roundtrip(Event::Commit) {
+                                        if let Ok(render_node) = a.roundtrip(Event::Frame) {
                                             draw_callback::<C>(
                                                 &a.surface.as_ref().unwrap().surface,
                                                 render_node,
                                             );
                                         }
                                     } else {
-                                        if let Ok(render_node) = a.roundtrip(Event::Commit) {
+                                        if let Ok(render_node) = a.roundtrip(Event::Frame) {
                                             // println!("{:#?}", render_node);
                                             a.render(render_node);
                                         }

@@ -74,10 +74,10 @@ impl Widget for Child {
                 y -= self.coords.y;
                 self.widget.sync(ctx, Event::Pointer(x, y, p))
             }
-            Event::Commit => self.widget.sync(ctx, event),
+            Event::Frame => self.widget.sync(ctx, event),
             _ => self.widget.sync(ctx, event),
         });
-        self.queue_draw = self.damage.is_some() || event == Event::Commit;
+        self.queue_draw = self.damage.is_some() || event == Event::Frame;
         self.damage
     }
     fn contains(&self, x: f32, y: f32) -> bool {

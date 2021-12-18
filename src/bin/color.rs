@@ -267,7 +267,7 @@ fn main() {
     let mut color = WidgetLayout::vertical(5);
 
     color.add(header());
-    color.add(core().wrap().even_padding(20.));
+    color.add(core().ext().even_padding(20.));
     color.justify(CENTER);
 
     snui.create_inner_application(
@@ -276,7 +276,7 @@ fn main() {
             color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
         },
         color
-            .wrap()
+            .ext()
             .background(BG0)
             .even_padding(15.)
             .border(BG2, 1.)
@@ -305,9 +305,10 @@ fn header() -> impl Widget {
         icon.into_box()
             .constraint(Constraint::Downward)
             .size(25., 25.)
-            .wrap()
+            .ext()
             .background(BG2)
             .even_radius(3.)
+            .even_padding(5.)
             .border(BG2, 2.)
             .into_button(|this, _, p| match p {
                 Pointer::MouseClick {
@@ -331,9 +332,10 @@ fn header() -> impl Widget {
         text.into_box()
             .constraint(Constraint::Downward)
             .size(40., 25.)
-            .wrap()
+            .ext()
             .background(BG2)
             .even_radius(3.)
+            .even_padding(5.)
             .border(BG2, 2.)
             .into_button(|this, ctx, p| match p {
                 Pointer::MouseClick {
@@ -379,7 +381,7 @@ fn sliders() -> WidgetLayout {
         let slider = widgets::slider::Slider::new(200, 8)
             .id(id as u32)
             .background(color)
-            .wrap()
+            .ext()
             .background(BG2)
             .even_radius(3.);
 
@@ -406,7 +408,7 @@ fn core() -> WidgetLayout {
 
     let mut indicator = WidgetLayout::vertical(0);
 
-    indicator.add(listener.wrap().padding(10., 10., 10., 10.));
+    indicator.add(listener.ext().padding(10., 10., 10., 10.));
     indicator.add(ColorBlock {
         width: 200.,
         height: 200.,

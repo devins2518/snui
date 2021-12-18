@@ -238,7 +238,7 @@ impl Widget for Slider {
                     }
                 }
             }
-            Event::Commit => {
+            Event::Frame => {
                 if let Ok(data) = ctx.request(self.id) {
                     if self.filter(data).is_ok() {
                         return Damage::Some;
