@@ -648,6 +648,12 @@ impl RenderNode {
             _ => false,
         }
     }
+    pub fn as_option(self) -> Option<Self> {
+        match self {
+            Self::None => None,
+            _ => Some(self),
+        }
+    }
     pub fn render(&self, ctx: &mut DrawContext) {
         match self {
             Self::Instruction(instruction) => instruction.render(ctx, None),
@@ -751,9 +757,7 @@ impl RenderNode {
                                     node.merge(mem::take(&mut nodes[i]));
                                     node
                                 } else {
-                                    let mut node = RenderNode::None;
-                                    node.merge(mem::take(&mut nodes[i]));
-                                    node
+                                    mem::take(&mut nodes[i])
                                 }
                             })
                             .collect();
@@ -839,7 +843,9 @@ impl RenderNode {
                 match other {
                     RenderNode::Container { region, mut nodes } => {
                         if !shape.contains(&region) {
-                            *self = RenderNode::Container { nodes, region };
+                            self.merge(RenderNode::Container {
+                                region, nodes
+                            });
                             return Err(region);
                         } else {
                             for i in 0..nodes.len() {
@@ -883,7 +889,7 @@ impl RenderNode {
                             if let Err(region) = this_node.draw_merge(*node, ctx, &instruction) {
                                 shape
                                     .primitive
-                                    .instruction(background.region().merge(&region))
+                                    .instruction(region)
                                     .render(ctx, None);
                                 self.render(ctx);
                             };
@@ -900,17 +906,12 @@ impl RenderNode {
                                     background.region()
                                 },
                             );
-                            if !shape.contains(&merge) {
-                                *self = RenderNode::Extension {
-                                    background,
-                                    border,
-                                    node,
-                                };
-                                return Err(merge);
-                            }
                             this_node.merge(*node);
                             *this_border = border;
                             *this_background = background;
+                            if !shape.contains(&merge) {
+                                return Err(merge);
+                            }
                             ctx.damage_region(&Background::from(shape), merge, false);
                             self.render(ctx);
                         }
@@ -936,11 +937,7 @@ impl RenderNode {
                 let this_steps = steps;
                 match other {
                     RenderNode::Draw { region, steps } => {
-                        if region.ne(&this_region) && this_steps.len() != steps.len() {
-                            self.clear(ctx, &Background::from(shape), Some(&region));
-                            *self = RenderNode::Draw { region, steps };
-                            self.render(ctx);
-                        } else if !shape.contains(&region) {
+                        if !shape.contains(&region) {
                             *self = RenderNode::Draw { region, steps };
                             return Err(region);
                         } else {

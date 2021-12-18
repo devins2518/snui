@@ -249,7 +249,7 @@ impl Primitive for Rectangle {
     fn contains(&self, region: &scene::Region) -> bool {
         let (tl, tr, br, bl) = self.radius;
         let max = tl.max(tr).max(br).max(bl);
-        let radius = max - (max * FRAC_1_SQRT_2);
+        let radius = (max - (max * FRAC_1_SQRT_2)).floor();
         region.x >= radius
             && region.y >= radius
             && region.width <= self.width - radius

@@ -710,17 +710,17 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             (self.cb)(&mut self.core, ev);
 
             // Creating the render node
-            let recent_node = self.core.widget.create_node(0., 0.);
+            let render_node = self.core.widget.create_node(0., 0.);
 
             // Resizing the surface in case the widget changed size
             if width != self.width() || height != self.height() {
-                let _ = self.set_size(recent_node.width(), recent_node.height());
+                let _ = self.set_size(render_node.width(), render_node.height());
                 self.ctx.render_node = None;
             }
 
             self.ctx.pending_cb = true;
 
-            return Ok(recent_node);
+            return Ok(render_node);
         } else {
             // Calling the application´s closure
             (self.cb)(&mut self.core, ev);
