@@ -83,8 +83,88 @@ impl Default for Spacer {
     }
 }
 
+pub struct Padding<W: Widget> {
+    pub padding: (f32, f32, f32, f32),
+    pub widget: W,
+}
+
+impl<W: Widget> Geometry for Padding<W> {
+    fn width(&self) -> f32 {
+        let (_, right, _, left) = self.padding;
+        self.widget.width() + right + left
+    }
+    fn height(&self) -> f32 {
+        let (top, _, bottom, _) = self.padding;
+        self.widget.height() + top + bottom
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        let (_, right, _, left) = self.padding;
+        self.widget
+            .set_width(width - right - left)?;
+        Ok(())
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        let (top, _, bottom, _) = self.padding;
+        self.widget
+            .set_height(height - top - bottom)?;
+        Ok(())
+    }
+}
+
+impl<W: Widget> Widget for Padding<W> {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        let (top, _, _, left) = self.padding;
+        self.widget.create_node(x + left, y + top)
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+        let (top, _, _, left) = self.padding;
+        if let Event::Pointer(mut x, mut y, p) = event {
+            x -= left;
+            y -= top;
+            self.widget.sync(ctx, Event::Pointer(x, y, p))
+        } else {
+            self.widget.sync(ctx, event)
+        }
+    }
+}
+
+impl<W: Widget> Padding<W> {
+    pub fn new(widget: W) -> Self {
+        Self {
+            widget,
+            padding: (0., 0., 0., 0.)
+        }
+    }
+    pub fn set_padding(&mut self, top: f32, right: f32, bottom: f32, left: f32) {
+        self.padding = (top, right, bottom, left);
+    }
+    pub fn padding(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
+        self.set_padding(top, right, bottom, left);
+        self
+    }
+    pub fn even_padding(self, padding: f32) -> Self {
+        self.padding(padding, padding, padding, padding)
+    }
+    pub fn set_even_padding(&mut self, padding: f32) {
+        self.set_padding(padding, padding, padding, padding);
+    }
+}
+
+impl<W: Widget> Deref for Padding<W> {
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.widget
+    }
+}
+
+impl<W: Widget> DerefMut for Padding<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.widget
+    }
+}
+
 pub struct WidgetBox<W: Widget> {
-    child: W,
+    widget: W,
     coords: Coords,
     size: (f32, f32),
     constraint: Constraint,
@@ -95,15 +175,15 @@ impl<W: Widget> Geometry for WidgetBox<W> {
     fn width(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.size.0,
-            Constraint::Upward => self.child.width().min(self.size.0),
-            Constraint::Downward => self.child.width().max(self.size.0),
+            Constraint::Upward => self.widget.width().min(self.size.0),
+            Constraint::Downward => self.widget.width().max(self.size.0),
         }
     }
     fn height(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.size.1,
-            Constraint::Upward => self.child.height().min(self.size.1),
-            Constraint::Downward => self.child.height().max(self.size.1),
+            Constraint::Upward => self.widget.height().min(self.size.1),
+            Constraint::Downward => self.widget.height().max(self.size.1),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
@@ -127,14 +207,14 @@ impl<W: Widget> Widget for WidgetBox<W> {
         if let Event::Pointer(mut x, mut y, pointer) = event {
             x -= self.coords.x;
             y -= self.coords.y;
-            self.child.sync(ctx, Event::Pointer(x, y, pointer))
+            self.widget.sync(ctx, Event::Pointer(x, y, pointer))
         } else {
-            self.child.sync(ctx, event)
+            self.widget.sync(ctx, event)
         }
     }
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if (self.constraint == Constraint::Fixed || self.constraint == Constraint::Upward)
-            && (self.child.width() > self.size.0 || self.child.height() > self.size.1)
+            && (self.widget.width() > self.size.0 || self.widget.height() > self.size.1)
         {
             eprintln!(
                 "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
@@ -148,16 +228,16 @@ impl<W: Widget> Widget for WidgetBox<W> {
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
             Alignment::Start => 0.,
-            Alignment::Center => ((self.width() - self.child.width()) / 2.).floor(),
-            Alignment::End => (self.width() - self.child.width()).floor(),
+            Alignment::Center => ((self.width() - self.widget.width()) / 2.).floor(),
+            Alignment::End => (self.width() - self.widget.width()).floor(),
         };
         let dy = match vertical {
             Alignment::Start => 0.,
-            Alignment::Center => ((self.height() - self.child.height()) / 2.).floor(),
-            Alignment::End => (self.height() - self.child.height()).floor(),
+            Alignment::Center => ((self.height() - self.widget.height()) / 2.).floor(),
+            Alignment::End => (self.height() - self.widget.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
-        let node = self.child.create_node(x + dx, y + dy);
+        let node = self.widget.create_node(x + dx, y + dy);
         if node.is_none() {
             return node;
         }
@@ -174,10 +254,10 @@ impl<W: Widget> Widget for WidgetBox<W> {
 }
 
 impl<W: Widget> WidgetBox<W> {
-    pub fn new(child: W) -> Self {
+    pub fn new(widget: W) -> Self {
         Self {
-            size: (child.width(), child.height()),
-            child,
+            size: (widget.width(), widget.height()),
+            widget,
             coords: Coords::new(0., 0.),
             anchor: (Alignment::Center, Alignment::Center),
             constraint: Constraint::Downward,
@@ -210,12 +290,12 @@ impl<W: Widget> WidgetBox<W> {
 impl<W: Widget> Deref for WidgetBox<W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
-        &self.child
+        &self.widget
     }
 }
 
 impl<W: Widget> DerefMut for WidgetBox<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.child
+        &mut self.widget
     }
 }

@@ -302,13 +302,12 @@ fn header() -> impl Widget {
         .color(YEL)
         .font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
     buttons.add(
-        icon.into_box()
+        icon.clamp()
             .constraint(Constraint::Downward)
             .size(25., 25.)
             .ext()
             .background(BG2)
             .even_radius(3.)
-            .even_padding(5.)
             .border(BG2, 2.)
             .into_button(|this, _, p| match p {
                 Pointer::MouseClick {
@@ -329,13 +328,13 @@ fn header() -> impl Widget {
     );
 
     buttons.add(
-        text.into_box()
+        text.clamp()
             .constraint(Constraint::Downward)
             .size(40., 25.)
             .ext()
             .background(BG2)
             .even_radius(3.)
-            .even_padding(5.)
+            .even_padding(2.)
             .border(BG2, 2.)
             .into_button(|this, ctx, p| match p {
                 Pointer::MouseClick {
@@ -400,7 +399,7 @@ fn core() -> WidgetLayout {
         id: Signal::Source as u32,
         text: "Welcome".into(),
     }
-    .into_box()
+    .clamp()
     .anchor(CENTER, START)
     .constraint(Constraint::Downward);
 

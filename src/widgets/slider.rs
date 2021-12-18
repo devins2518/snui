@@ -6,7 +6,6 @@ use widgets::shapes::{ShapeStyle, Style};
 pub struct Slider {
     id: u32,
     size: f32,
-    step: f32,
     pressed: bool,
     slider: Rectangle,
     orientation: Orientation,
@@ -21,7 +20,6 @@ impl Slider {
         };
         Slider {
             id: 0,
-            step: 1.,
             size: match &orientation {
                 Orientation::Horizontal => width as f32,
                 Orientation::Vertical => height as f32,

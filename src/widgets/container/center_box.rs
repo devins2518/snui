@@ -12,9 +12,9 @@ impl Container for Centerbox {
         self.widgets.len()
     }
     fn add(&mut self, widget: impl Widget + 'static) {
-        for child in self.widgets.iter_mut() {
-            if child.width() == 0. && child.height() == 0. {
-                child.widget = Box::new(widget);
+        for wbox in self.widgets.iter_mut() {
+            if wbox.width() == 0. && wbox.height() == 0. {
+                wbox.widget.widget = Box::new(widget);
                 break;
             }
         }
@@ -116,7 +116,7 @@ impl Widget for Centerbox {
                 .iter_mut()
                 .map(|wbox| {
                     let node;
-                    wbox.child.coords = Coords::new(dx, dy);
+                    wbox.widget.coords = Coords::new(dx, dy);
                     match self.orientation {
                         Orientation::Horizontal => {
                             let _ = wbox.set_height(sh);
@@ -151,9 +151,9 @@ impl Centerbox {
     ) -> Self {
         Self {
             widgets: [
-                Child::new(first).into_box().anchor(START, CENTER),
-                Child::new(second).into_box().anchor(CENTER, CENTER),
-                Child::new(third).into_box().anchor(END, CENTER),
+                Child::new(first).clamp().anchor(START, CENTER),
+                Child::new(second).clamp().anchor(CENTER, CENTER),
+                Child::new(third).clamp().anchor(END, CENTER),
             ],
             orientation: Orientation::Horizontal,
         }
@@ -162,12 +162,12 @@ impl Centerbox {
         Self {
             widgets: [
                 Child::new(Spacer::default())
-                    .into_box()
+                    .clamp()
                     .anchor(START, CENTER),
                 Child::new(Spacer::default())
-                    .into_box()
+                    .clamp()
                     .anchor(CENTER, CENTER),
-                Child::new(Spacer::default()).into_box().anchor(END, CENTER),
+                Child::new(Spacer::default()).clamp().anchor(END, CENTER),
             ],
             orientation: Orientation::Horizontal,
         }

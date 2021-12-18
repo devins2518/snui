@@ -10,9 +10,10 @@ use scene::RenderNode;
 pub use tiny_skia::*;
 use widgets::button::{Button, Proxy};
 use widgets::shapes::WidgetExt;
-use widgets::WidgetBox;
+use widgets::{WidgetBox, Padding};
 
 pub mod style {
+    use crate::scene::Background;
     pub const FG0: u32 = 0xff_C8_BA_A4;
     pub const BG0: u32 = 0xff_25_22_21;
     pub const BG1: u32 = 0xa0_30_2c_2b;
@@ -22,6 +23,7 @@ pub mod style {
     pub const BLU: u32 = 0xff_72_87_97;
     pub const ORG: u32 = 0xff_d0_8b_65;
     pub const RED: u32 = 0xff_c6_5f_5f;
+    pub const TRANSPARENT: Background = Background::Transparent;
 }
 
 pub fn u32_to_source(color: u32) -> Color {
@@ -248,7 +250,8 @@ pub trait Widget: Geometry {
 
 pub trait Wrapable: Widget + Sized {
     fn ext(self) -> WidgetExt<Self>;
-    fn into_box(self) -> WidgetBox<Self>;
+    fn clamp(self) -> WidgetBox<Self>;
+    fn pad(self, padding: f32) -> Padding<Self>;
     fn into_button(
         self,
         cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
@@ -259,7 +262,11 @@ impl<W> Wrapable for W
 where
     W: Widget,
 {
-    fn into_box(self) -> WidgetBox<Self> {
+    fn pad(self, padding: f32) -> Padding<Self> {
+        Padding::new(self)
+        .even_padding(padding)
+    }
+    fn clamp(self) -> WidgetBox<Self> {
         WidgetBox::new(self)
     }
     fn ext(self) -> WidgetExt<W> {
