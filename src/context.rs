@@ -208,8 +208,8 @@ impl<'c> DrawContext<'c> {
                     region = taken;
                 }
             }
+            self.pending_damage.push(region);
         }
-        self.pending_damage.push(region);
         match bg {
             Background::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
@@ -272,13 +272,13 @@ impl<'c> DrawContext<'c> {
                         false,
                     );
                     dt.draw_pixmap(
-                        coords.x as i32,
-                        coords.y as i32,
+                        0,
+                        0,
                         source,
                         &PIX_PAINT,
-                        Transform::from_scale(sx, sy),
-                        Some(&clip),
-                    );
+                        Transform::from_scale(sx, sy).post_translate(coords.x, coords.y),
+                        Some(&clip)
+                    ).unwrap();
                 }
             }
             Background::Composite(base, overlay) => {

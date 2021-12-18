@@ -192,14 +192,6 @@ impl Background {
                     Background::Color(blend(acolor, &bcolor))
                 }
                 Background::Image(_, _) => {
-                    match other {
-                        Background::Color(color) => {
-                            if color.is_opaque() {
-                                return other;
-                            }
-                        }
-                        _ => {}
-                    }
                     Background::Composite(Box::new(self.clone()), Box::new(other))
                 }
                 Background::Transparent => self.clone(),
@@ -233,8 +225,8 @@ impl Background {
                 Background::Transparent => return self.clone(),
                 _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
             },
-            Background::Composite(_, overlay) => Background::Composite(
-                Box::new(self.clone()),
+            Background::Composite(base, overlay) => Background::Composite(
+                base.clone(),
                 Box::new(overlay.as_ref().merge(other)),
             ),
             Background::Transparent => other,

@@ -311,10 +311,10 @@ impl Primitive for Rectangle {
                         } => {
                             if let Some(grad) = LinearGradient::new(
                                 Point::from_xy(x, y),
-                                Point::from_xy(x + width, y + width * angle.tan()),
+                                Point::from_xy(x + width, y + self.height * angle.tan()),
                                 stops.as_ref().to_vec(),
                                 *mode,
-                                transform,
+                                Transform::identity(),
                             ) {
                                 dt.fill_path(
                                     &path,
@@ -368,20 +368,20 @@ impl Style for Rectangle {
         self
     }
     fn set_background<B: Into<Background>>(&mut self, background: B) {
-        self.style = ShapeStyle::Background(background.into());
-    }
-    fn background<B: Into<Background>>(mut self, background: B) -> Self {
         let mut background = background.into();
+        if let Background::Image(_, img) = &mut background {
+            img.set_size(self.width(), self.height()).unwrap();
+        }
         match &mut background {
             Background::Image(_, image) => {
                 image.set_size(self.width(), self.height()).unwrap();
             }
             _ => {}
         }
-        if let Background::Image(_, img) = &mut background {
-            img.set_size(self.width(), self.height()).unwrap();
-        }
         self.style = ShapeStyle::Background(background);
+    }
+    fn background<B: Into<Background>>(mut self, background: B) -> Self {
+        self.set_background(background);
         self
     }
     fn set_border(&mut self, color: u32, width: f32) {
@@ -441,7 +441,7 @@ impl Widget for Rectangle {
                     start.x = x;
                     start.y = y;
                     end.x = x + self.width;
-                    end.y = y + self.width * angle.tan();
+                    end.y = y + self.height * angle.tan();
                 }
                 _ => {}
             }

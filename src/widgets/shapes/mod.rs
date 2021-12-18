@@ -180,6 +180,27 @@ impl<W: Widget> Widget for WidgetExt<W> {
             x + self.padding.3 + border_size,
             y + self.padding.0 + border_size,
         );
+        let width = self.inner_width();
+        let height = self.inner_height();
+        match &mut self.background {
+            Background::Image(coords, _) => {
+                coords.x = x + border_size;
+                coords.y = y + border_size;
+            }
+            Background::LinearGradient {
+                start,
+                end,
+                angle,
+                stops: _,
+                mode: _,
+            } => {
+                start.x = x + border_size;
+                start.y = y + border_size;
+                end.x = start.x + width;
+                end.y = start.y + height * angle.tan();
+            }
+            _ => {}
+        }
         RenderNode::Extension {
             node: Box::new(node),
             border: {
@@ -187,7 +208,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                     Some(Instruction::new(
                         x,
                         y,
-                        Rectangle::empty(self.inner_width(), self.inner_height())
+                        Rectangle::empty(width, height)
                             .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
                             .border(border_color, border_size),
                     ))
@@ -198,9 +219,9 @@ impl<W: Widget> Widget for WidgetExt<W> {
             background: Instruction::new(
                 x + border_size,
                 y + border_size,
-                Rectangle::empty(self.inner_width(), self.inner_height())
+                Rectangle::empty(width, height)
+                    .background(self.background.clone())
                     .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
-                    .background(self.background.clone()),
             ),
         }
     }

@@ -40,7 +40,7 @@ impl Image {
             image,
             width,
             height,
-            scale: Scale::Fill,
+            scale: Scale::Fit,
             size: (width, height),
         })
     }
@@ -59,7 +59,7 @@ impl Image {
             width,
             height,
             size,
-            scale: Scale::Fill,
+            scale: Scale::Fit,
         })
     }
     pub fn fit(mut self, scale: Scale) -> Self {
