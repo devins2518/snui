@@ -848,15 +848,17 @@ impl RenderNode {
                             });
                             return Err(region);
                         } else {
-                            for i in 0..nodes.len() {
-                                if let Some(node) = this_nodes.get_mut(i) {
-                                    node.draw_merge(mem::take(&mut nodes[i]), ctx, shape)?;
-                                } else {
-                                    let mut new = RenderNode::None;
-                                    new.draw_merge(mem::take(&mut nodes[i]), ctx, shape)?;
-                                    this_nodes.push(new);
-                                }
-                            }
+                            *this_nodes = (0..nodes.len())
+                                .map(|i| {
+                                    if let Some(node) = this_nodes.get_mut(i) {
+                                        let mut node = mem::take(node);
+                                        let _ = node.draw_merge(mem::take(&mut nodes[i]), ctx, shape);
+                                        node
+                                    } else {
+                                        mem::take(&mut nodes[i])
+                                    }
+                                })
+                                .collect();
                         }
                     }
                     RenderNode::None => {}
