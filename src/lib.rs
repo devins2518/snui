@@ -241,18 +241,21 @@ pub trait Widget: Geometry {
     }
 }
 
-pub trait Nested: Widget + Sized {
+pub trait WidgetUtil: Widget + Sized {
     fn ext(self) -> WidgetExt<Self>;
     fn clamp(self) -> WidgetBox<Self>;
     fn pad(self, padding: f32) -> Padding<Self>;
     fn child(self) -> Child;
-    fn into_button(
+    fn with_width(self, width: f32) -> Self;
+    fn with_height(self, height: f32) -> Self;
+    fn with_size(self, width: f32, height: f32) -> Self;
+    fn button(
         self,
         cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
     ) -> Button<Self>;
 }
 
-impl<W> Nested for W
+impl<W> WidgetUtil for W
 where
     W: Widget + 'static,
 {
@@ -268,7 +271,19 @@ where
     fn child(self) -> Child {
         Child::new(self)
     }
-    fn into_button(
+    fn with_width(mut self, width: f32) -> Self {
+        let _ = self.set_width(width);
+        self
+    }
+    fn with_height(mut self, height: f32) -> Self {
+        let _ = self.set_height(height);
+        self
+    }
+    fn with_size(mut self, width: f32, height: f32) -> Self {
+        let _ = self.set_size(width, height);
+        self
+    }
+    fn button(
         self,
         cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
     ) -> Button<Self> {

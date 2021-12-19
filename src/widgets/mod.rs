@@ -74,6 +74,21 @@ impl Widget for Spacer {
     }
 }
 
+impl Spacer {
+    pub fn width<W: Into<f32>>(width: W) -> Self {
+        Self {
+            width: width.into(),
+            height: 0.
+        }
+    }
+    pub fn height<H: Into<f32>>(height: H) -> Self {
+        Self {
+            height: height.into(),
+            width: 0.
+        }
+    }
+}
+
 impl Default for Spacer {
     fn default() -> Self {
         Self {
@@ -187,6 +202,16 @@ impl<W: Widget> Geometry for WidgetBox<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width > 0. {
             self.size.0 = width;
+            match &self.constraint {
+                Constraint::Fixed | Constraint::Upward => {
+                    if width < self.widget.width() {
+                        if let Err(width) = self.widget.set_width(width) {
+                            self.size.0 = width;
+                        }
+                    }
+                }
+                _ => {}
+            }
             return Ok(());
         }
         Err(self.size.0)
@@ -194,6 +219,16 @@ impl<W: Widget> Geometry for WidgetBox<W> {
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height > 0. {
             self.size.1 = height;
+            match &self.constraint {
+                Constraint::Fixed | Constraint::Upward => {
+                    if height < self.widget.height() {
+                        if let Err(height) = self.widget.set_height(height) {
+                            self.size.1 = height;
+                        }
+                    }
+                }
+                _ => {}
+            }
             return Ok(());
         }
         Err(self.size.1)
@@ -235,19 +270,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
             Alignment::End => (self.height() - self.widget.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
-        let node = self.widget.create_node(x + dx, y + dy);
-        if node.is_none() {
-            return node;
-        }
-        RenderNode::Extension {
-            background: scene::Instruction::new(
-                x,
-                y,
-                shapes::Rectangle::empty(self.width(), self.height()),
-            ),
-            border: None,
-            node: Box::new(node),
-        }
+        self.widget.create_node(x + dx, y + dy)
     }
 }
 
@@ -282,6 +305,48 @@ impl<W: Widget> WidgetBox<W> {
     }
     pub fn set_anchor(&mut self, x: Alignment, y: Alignment) {
         self.anchor = (x, y);
+    }
+}
+
+impl WidgetBox<Child> {
+    pub fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        if (self.constraint == Constraint::Fixed || self.constraint == Constraint::Upward)
+            && (self.widget.width() > self.size.0 || self.widget.height() > self.size.1)
+        {
+            eprintln!(
+                "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
+                x,
+                y,
+                self.width(),
+                self.height()
+            );
+            return RenderNode::None;
+        }
+        let (horizontal, vertical) = &self.anchor;
+        let dx = match horizontal {
+            Alignment::Start => 0.,
+            Alignment::Center => ((self.width() - self.widget.width()) / 2.).floor(),
+            Alignment::End => (self.width() - self.widget.width()).floor(),
+        };
+        let dy = match vertical {
+            Alignment::Start => 0.,
+            Alignment::Center => ((self.height() - self.widget.height()) / 2.).floor(),
+            Alignment::End => (self.height() - self.widget.height()).floor(),
+        };
+        self.coords = Coords::new(dx, dy);
+        let node = self.widget.create_node(x + dx, y + dy);
+        if node.is_none() {
+            return node;
+        }
+        RenderNode::Extension {
+            background: scene::Instruction::new(
+                x,
+                y,
+                shapes::Rectangle::empty(self.width(), self.height()),
+            ),
+            border: None,
+            node: Box::new(node),
+        }
     }
 }
 

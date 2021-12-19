@@ -264,7 +264,8 @@ impl Controller for ColorControl {
 fn main() {
     let (mut snui, mut event_loop) = Application::new(true);
 
-    let mut color = WidgetLayout::vertical(5);
+    let mut color =
+    	WidgetLayout::new(5.).orientation(Orientation::Vertical);
 
     color.add(header());
     color.add(core().ext().even_padding(20.));
@@ -296,7 +297,7 @@ fn main() {
 }
 
 fn header() -> impl Widget {
-    let mut buttons = WidgetLayout::new(5);
+    let mut buttons = WidgetLayout::new(5.);
     let text: Text = Label::default("Copy", 15.).into();
     let icon = Label::new("", 21.)
         .color(YEL)
@@ -309,7 +310,7 @@ fn header() -> impl Widget {
             .background(BG2)
             .even_radius(3.)
             .border(BG2, 2.)
-            .into_button(|this, _, p| match p {
+            .button(|this, _, p| match p {
                 Pointer::MouseClick {
                     time: _,
                     pressed,
@@ -336,7 +337,7 @@ fn header() -> impl Widget {
             .even_radius(3.)
             .even_padding(2.)
             .border(BG2, 2.)
-            .into_button(|this, ctx, p| match p {
+            .button(|this, ctx, p| match p {
                 Pointer::MouseClick {
                     time: _,
                     pressed,
@@ -360,7 +361,11 @@ fn header() -> impl Widget {
             }),
     );
 
-    let mut header = CenterBox::from(buttons, Label::default("app_name", 15.), Cross {});
+    let mut header = CenterBox::from(
+        buttons,
+        Label::default("app_name", 15.),
+        Cross {})
+        .with_width(300.);
 
     let _ = header.set_width(300.);
     header
@@ -383,24 +388,25 @@ fn sliders() -> WidgetLayout {
             .even_radius(3.)
             .child()
 	}).collect::<WidgetLayout>()
-	.spacing(10)
+	.spacing(10.)
 	.orientation(Orientation::Vertical)
 }
 
 fn core() -> WidgetLayout {
-    let mut layout = WidgetLayout::vertical(15);
+    let mut layout =
+    	WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
-    let mut listener = Listener {
+    let listener = Listener {
         id: Signal::Source as u32,
         text: "Welcome".into(),
     }
     .clamp()
+    .with_size(200., 22.)
     .anchor(CENTER, START)
     .constraint(Constraint::Downward);
 
-    let _ = listener.set_size(200., 22.);
-
-    let mut indicator = WidgetLayout::vertical(0);
+    let mut indicator =
+    	WidgetLayout::new(0.).orientation(Orientation::Vertical);
 
     indicator.add(listener.ext().padding(10., 10., 10., 10.));
     indicator.add(ColorBlock {

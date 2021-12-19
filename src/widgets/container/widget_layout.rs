@@ -12,7 +12,7 @@ pub struct WidgetLayout {
 
 impl FromIterator<Child> for WidgetLayout {
     fn from_iter<T: IntoIterator<Item = Child>>(iter: T) -> Self {
-        let mut layout = WidgetLayout::new(0);
+        let mut layout = WidgetLayout::new(0.);
         for c in iter {
             layout.widgets.push(c);
         }
@@ -67,48 +67,24 @@ impl Container for WidgetLayout {
 }
 
 impl WidgetLayout {
-    pub fn new(spacing: u32) -> Self {
+    pub fn new<S: Into<f32>>(spacing: S) -> Self {
         WidgetLayout {
-            spacing: spacing as f32,
+            spacing: spacing.into(),
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,
-        }
-    }
-    pub fn horizontal(spacing: u32) -> Self {
-        WidgetLayout {
-            spacing: spacing as f32,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
-            orientation: Orientation::Horizontal,
-        }
-    }
-    pub fn vertical(spacing: u32) -> Self {
-        WidgetLayout {
-            spacing: spacing as f32,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
-            orientation: Orientation::Vertical,
-        }
-    }
-    pub fn new_with_spacing(orientation: Orientation, spacing: u32) -> Self {
-        WidgetLayout {
-            spacing: spacing as f32,
-            orientation,
-            widgets: Vec::new(),
-            alignment: Alignment::Start,
         }
     }
     pub fn orientation(mut self, orientation: Orientation) -> Self {
         self.orientation = orientation;
         self
     }
-    pub fn spacing(mut self, spacing: u32) -> Self {
-        self.spacing = spacing as f32;
+    pub fn spacing<S: Into<f32>>(mut self, spacing: S) -> Self {
+        self.spacing = spacing.into();
         self
     }
-    pub fn set_spacing(&mut self, spacing: u32) {
-        self.spacing = spacing as f32;
+    pub fn set_spacing<S: Into<f32>>(&mut self, spacing: f32) {
+        self.spacing = spacing.into();
     }
     pub fn justify(&mut self, alignment: Alignment) {
         self.alignment = alignment;
