@@ -1,10 +1,20 @@
-use crate::widgets::container::Child;
 use crate::*;
 use scene::{Coords, Region, RenderNode};
+use crate::widgets::container::{Child, Container};
 
 pub struct LayoutBox {
     widgets: Vec<Child>,
     orientation: Orientation,
+}
+
+impl FromIterator<Child> for LayoutBox {
+    fn from_iter<T: IntoIterator<Item = Child>>(iter: T) -> Self {
+        let mut layoutbox = LayoutBox::new();
+        for c in iter {
+            layoutbox.widgets.push(c);
+        }
+        layoutbox
+    }
 }
 
 impl Container for LayoutBox {

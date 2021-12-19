@@ -718,7 +718,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 self.ctx.render_node = None;
             } else if width != self.width() || height != self.height() {
                 let _ = self.set_size(render_node.width(), render_node.height());
-                return Err(())
+                return Err(());
             }
 
             self.ctx.pending_cb = true;

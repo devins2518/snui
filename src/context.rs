@@ -277,8 +277,9 @@ impl<'c> DrawContext<'c> {
                         source,
                         &PIX_PAINT,
                         Transform::from_scale(sx, sy).post_translate(coords.x, coords.y),
-                        Some(&clip)
-                    ).unwrap();
+                        Some(&clip),
+                    )
+                    .unwrap();
                 }
             }
             Background::Composite(base, overlay) => {

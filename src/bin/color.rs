@@ -360,36 +360,31 @@ fn header() -> impl Widget {
             }),
     );
 
-    let mut header = Centerbox::from(buttons, Label::default("app_name", 15.), Cross {});
+    let mut header = CenterBox::from(buttons, Label::default("app_name", 15.), Cross {});
 
     let _ = header.set_width(300.);
     header
 }
 
 fn sliders() -> WidgetLayout {
-    let mut layout = WidgetLayout::vertical(10);
-
-    for color in [RED, GRN, BLU, BG0] {
-        let id = match color {
+	[RED, GRN, BLU, BG0].iter().map(|color| {
+        let id = match *color {
             RED => Signal::Red,
             BLU => Signal::Blue,
             GRN => Signal::Green,
             BG0 => Signal::Alpha,
             _ => Signal::Close,
         };
-        let slider = widgets::slider::Slider::new(200, 8)
+        widgets::slider::Slider::new(200, 8)
             .id(id as u32)
-            .background(color)
+            .background(*color)
             .ext()
             .background(BG2)
-            .even_radius(3.);
-
-        layout.add(slider);
-    }
-
-    layout.justify(CENTER);
-
-    layout
+            .even_radius(3.)
+            .child()
+	}).collect::<WidgetLayout>()
+	.spacing(10)
+	.orientation(Orientation::Vertical)
 }
 
 fn core() -> WidgetLayout {

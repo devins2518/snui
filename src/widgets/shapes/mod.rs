@@ -2,10 +2,10 @@ pub mod rectangle;
 
 use crate::scene::*;
 use crate::*;
-use widgets::Padding;
 pub use rectangle::Rectangle;
 use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::{Deref, DerefMut};
+use widgets::Padding;
 
 pub trait Style: Sized {
     fn radius(self, tl: f32, tr: f32, br: f32, bl: f32) -> Self;
@@ -85,13 +85,11 @@ fn minimum_padding(tl: f32, tr: f32, br: f32, bl: f32) -> f32 {
 impl<W: Widget> Geometry for WidgetExt<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let border = self.border.0;
-        self.widget
-            .set_width(width - border)
+        self.widget.set_width(width - border)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let border = self.border.0;
-        self.widget
-            .set_height(height - border)?;
+        self.widget.set_height(height - border)?;
         Ok(())
     }
     fn width(&self) -> f32 {
@@ -171,10 +169,7 @@ impl<W: Widget> Style for WidgetExt<W> {
 impl<W: Widget> Widget for WidgetExt<W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let (border_size, border_color) = self.border;
-        let node = self.widget.create_node(
-            x + border_size,
-            y + border_size,
-        );
+        let node = self.widget.create_node(x + border_size, y + border_size);
         let width = self.inner_width();
         let height = self.inner_height();
         match &mut self.background {
@@ -216,7 +211,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 y + border_size,
                 Rectangle::empty(width, height)
                     .background(self.background.clone())
-                    .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
+                    .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3),
             ),
         }
     }

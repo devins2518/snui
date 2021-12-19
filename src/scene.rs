@@ -225,10 +225,9 @@ impl Background {
                 Background::Transparent => return self.clone(),
                 _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
             },
-            Background::Composite(base, overlay) => Background::Composite(
-                base.clone(),
-                Box::new(overlay.as_ref().merge(other)),
-            ),
+            Background::Composite(base, overlay) => {
+                Background::Composite(base.clone(), Box::new(overlay.as_ref().merge(other)))
+            }
             Background::Transparent => other,
         }
     }
@@ -835,16 +834,15 @@ impl RenderNode {
                 match other {
                     RenderNode::Container { region, mut nodes } => {
                         if !shape.contains(&region) {
-                            self.merge(RenderNode::Container {
-                                region, nodes
-                            });
+                            self.merge(RenderNode::Container { region, nodes });
                             return Err(region);
                         } else {
                             *this_nodes = (0..nodes.len())
                                 .map(|i| {
                                     if let Some(node) = this_nodes.get_mut(i) {
                                         let mut node = mem::take(node);
-                                        let _ = node.draw_merge(mem::take(&mut nodes[i]), ctx, shape);
+                                        let _ =
+                                            node.draw_merge(mem::take(&mut nodes[i]), ctx, shape);
                                         node
                                     } else {
                                         mem::take(&mut nodes[i])
@@ -881,10 +879,7 @@ impl RenderNode {
                                 primitive: shape.primitive.merge(background.primitive.clone()),
                             };
                             if let Err(region) = this_node.draw_merge(*node, ctx, &instruction) {
-                                shape
-                                    .primitive
-                                    .instruction(region)
-                                    .render(ctx, None);
+                                shape.primitive.instruction(region).render(ctx, None);
                                 self.render(ctx);
                             };
                         } else {

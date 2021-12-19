@@ -1,13 +1,30 @@
 use crate::widgets::*;
 use crate::*;
 use scene::Region;
+use crate::widgets::container::{Child, Container};
 
-pub struct Centerbox {
+pub struct CenterBox {
     orientation: Orientation,
     widgets: [WidgetBox<Child>; 3],
 }
 
-impl Container for Centerbox {
+impl FromIterator<Child> for CenterBox {
+    fn from_iter<T: IntoIterator<Item = Child>>(iter: T) -> Self {
+        let mut centerbox = CenterBox::new();
+        let mut i = 0;
+        for c in iter {
+            if i < 3 {
+                centerbox.widgets[i] = c.clamp();
+            } else {
+                break;
+            }
+            i+=1;
+        }
+        centerbox
+    }
+}
+
+impl Container for CenterBox {
     fn len(&self) -> usize {
         self.widgets.len()
     }
@@ -21,7 +38,7 @@ impl Container for Centerbox {
     }
 }
 
-impl Geometry for Centerbox {
+impl Geometry for CenterBox {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let mut local_width = 0.;
         let size = (width / self.widgets.len() as f32).ceil();
@@ -104,7 +121,7 @@ impl Geometry for Centerbox {
     }
 }
 
-impl Widget for Centerbox {
+impl Widget for CenterBox {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -143,7 +160,7 @@ impl Widget for Centerbox {
     }
 }
 
-impl Centerbox {
+impl CenterBox {
     pub fn from(
         first: impl Widget + 'static,
         second: impl Widget + 'static,
@@ -161,12 +178,8 @@ impl Centerbox {
     pub fn new() -> Self {
         Self {
             widgets: [
-                Child::new(Spacer::default())
-                    .clamp()
-                    .anchor(START, CENTER),
-                Child::new(Spacer::default())
-                    .clamp()
-                    .anchor(CENTER, CENTER),
+                Child::new(Spacer::default()).clamp().anchor(START, CENTER),
+                Child::new(Spacer::default()).clamp().anchor(CENTER, CENTER),
                 Child::new(Spacer::default()).clamp().anchor(END, CENTER),
             ],
             orientation: Orientation::Horizontal,

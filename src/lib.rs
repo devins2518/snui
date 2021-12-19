@@ -8,9 +8,10 @@ pub mod widgets;
 use context::*;
 use scene::RenderNode;
 pub use tiny_skia::*;
+use widgets::container::Child;
 use widgets::button::{Button, Proxy};
 use widgets::shapes::WidgetExt;
-use widgets::{WidgetBox, Padding};
+use widgets::{Padding, WidgetBox};
 
 pub mod style {
     use crate::scene::Background;
@@ -160,14 +161,6 @@ pub enum Event<'d> {
     Pointer(f32, f32, Pointer),
 }
 
-pub trait Container: Geometry {
-    fn len(&self) -> usize;
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-    fn add(&mut self, widget: impl Widget + 'static);
-}
-
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
@@ -248,29 +241,32 @@ pub trait Widget: Geometry {
     }
 }
 
-pub trait Wrapable: Widget + Sized {
+pub trait Nested: Widget + Sized {
     fn ext(self) -> WidgetExt<Self>;
     fn clamp(self) -> WidgetBox<Self>;
     fn pad(self, padding: f32) -> Padding<Self>;
+    fn child(self) -> Child;
     fn into_button(
         self,
         cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
     ) -> Button<Self>;
 }
 
-impl<W> Wrapable for W
+impl<W> Nested for W
 where
-    W: Widget,
+    W: Widget + 'static,
 {
     fn pad(self, padding: f32) -> Padding<Self> {
-        Padding::new(self)
-        .even_padding(padding)
+        Padding::new(self).even_padding(padding)
     }
     fn clamp(self) -> WidgetBox<Self> {
         WidgetBox::new(self)
     }
     fn ext(self) -> WidgetExt<W> {
         WidgetExt::new(self)
+    }
+    fn child(self) -> Child {
+        Child::new(self)
     }
     fn into_button(
         self,

@@ -3,10 +3,18 @@ pub mod layout_box;
 pub mod widget_layout;
 
 use crate::*;
-pub use center_box::Centerbox;
+pub use center_box::CenterBox;
 pub use layout_box::LayoutBox;
 use scene::Coords;
 pub use widget_layout::WidgetLayout;
+
+pub trait Container: Geometry + FromIterator<Child> {
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    fn add(&mut self, widget: impl Widget + 'static);
+}
 
 pub struct Child {
     coords: Coords,
@@ -16,7 +24,7 @@ pub struct Child {
 }
 
 impl Child {
-    fn new(widget: impl Widget + 'static) -> Self {
+    pub(crate) fn new(widget: impl Widget + 'static) -> Self {
         Child {
             queue_draw: false,
             damage: Damage::None,
@@ -54,6 +62,17 @@ impl Geometry for Child {
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.widget.set_height(height)
+    }
+}
+
+impl From<Box<dyn Widget>> for Child {
+    fn from(widget: Box<dyn Widget>) -> Self {
+        Child {
+            queue_draw: false,
+            damage: Damage::None,
+            coords: Coords::new(0., 0.),
+            widget
+        }
     }
 }
 

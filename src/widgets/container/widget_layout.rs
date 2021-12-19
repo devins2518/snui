@@ -1,6 +1,6 @@
-use crate::widgets::container::Child;
 use crate::widgets::Alignment;
 use crate::*;
+use crate::widgets::container::{Child, Container};
 use scene::{Coords, Region, RenderNode};
 
 pub struct WidgetLayout {
@@ -8,6 +8,16 @@ pub struct WidgetLayout {
     widgets: Vec<Child>,
     alignment: Alignment,
     orientation: Orientation,
+}
+
+impl FromIterator<Child> for WidgetLayout {
+    fn from_iter<T: IntoIterator<Item = Child>>(iter: T) -> Self {
+        let mut layout = WidgetLayout::new(0);
+        for c in iter {
+            layout.widgets.push(c);
+        }
+        layout
+    }
 }
 
 impl Geometry for WidgetLayout {
