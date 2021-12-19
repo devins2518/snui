@@ -468,7 +468,7 @@ impl Instruction {
     pub fn new<P: Into<PrimitiveType>>(x: f32, y: f32, primitive: P) -> Instruction {
         Instruction {
             primitive: primitive.into(),
-            transform: Transform::from_translate(x, y),
+            transform: Transform::from_translate(x.round(), y.round()),
         }
     }
     pub fn transform(mut self, tranform: Transform) -> Instruction {
@@ -621,6 +621,12 @@ impl Geometry for RenderNode {
     }
 }
 
+impl From<Instruction> for RenderNode {
+    fn from(instruction: Instruction) -> Self {
+        RenderNode::Instruction(instruction)
+    }
+}
+
 impl Default for RenderNode {
     fn default() -> Self {
         RenderNode::None
@@ -645,12 +651,28 @@ impl RenderNode {
             _ => Some(self),
         }
     }
-    pub fn render(&self, ctx: &mut DrawContext) {
+    pub fn snapshot(&self, ctx: &mut DrawContext) -> Option<Image> {
+        if self.is_none() {
+            return None;
+        }
+        let mut v = Vec::new();
+        let width = self.width() as u32;
+        let height = self.height() as u32;
+        let mut pixmap = Pixmap::new(width, height)?;
+        let mut new_ctx = DrawContext {
+            backend: Backend::Pixmap(pixmap.as_mut()),
+            font_cache: ctx.font_cache,
+            pending_damage: &mut v
+        };
+        self.render(&mut new_ctx, None);
+        Some(Image::from_raw(pixmap.take(), width, height))
+    }
+    pub fn render(&self, ctx: &mut DrawContext, clip: Option<&ClipMask>) {
         match self {
-            Self::Instruction(instruction) => instruction.render(ctx, None),
+            Self::Instruction(instruction) => instruction.render(ctx, clip),
             Self::Container { region: _, nodes } => {
                 for n in nodes {
-                    n.render(ctx);
+                    n.render(ctx, clip);
                 }
             }
             Self::Extension {
@@ -658,11 +680,11 @@ impl RenderNode {
                 border,
                 node,
             } => {
-                background.render(ctx, None);
                 if let Some(border) = border.as_ref() {
-                    border.render(ctx, None);
+                    border.render(ctx, clip);
                 }
-                node.render(ctx);
+                background.render(ctx, clip);
+                node.render(ctx, clip);
             }
             Self::Draw { region, steps } => {
                 // ClipMask expects the mask to be the size of the buffer
@@ -796,6 +818,7 @@ impl RenderNode {
         other: Self,
         ctx: &mut DrawContext,
         shape: &Instruction,
+        clip: Option<&ClipMask>
     ) -> Result<(), Region> {
         match self {
             RenderNode::Instruction(a) => match other {
@@ -820,13 +843,13 @@ impl RenderNode {
                 _ => {
                     other.clear(ctx, &Background::from(shape), Some(&a.region()));
                     *self = other;
-                    self.render(ctx);
+                    self.render(ctx, None);
                 }
             },
             RenderNode::None => {
                 *self = other;
                 self.clear(ctx, &Background::from(shape), None);
-                self.render(ctx);
+                self.render(ctx, clip);
             }
             RenderNode::Container { region, nodes } => {
                 let this_region = region;
@@ -842,7 +865,7 @@ impl RenderNode {
                                     if let Some(node) = this_nodes.get_mut(i) {
                                         let mut node = mem::take(node);
                                         let _ =
-                                            node.draw_merge(mem::take(&mut nodes[i]), ctx, shape);
+                                            node.draw_merge(mem::take(&mut nodes[i]), ctx, shape, clip);
                                         node
                                     } else {
                                         mem::take(&mut nodes[i])
@@ -855,7 +878,7 @@ impl RenderNode {
                     _ => {
                         other.clear(ctx, &Background::from(shape), Some(&this_region));
                         self.merge(other);
-                        self.render(ctx);
+                        self.render(ctx, clip);
                     }
                 }
             }
@@ -878,9 +901,9 @@ impl RenderNode {
                                 transform: background.transform,
                                 primitive: shape.primitive.merge(background.primitive.clone()),
                             };
-                            if let Err(region) = this_node.draw_merge(*node, ctx, &instruction) {
+                            if let Err(region) = this_node.draw_merge(*node, ctx, &instruction, clip) {
                                 shape.primitive.instruction(region).render(ctx, None);
-                                self.render(ctx);
+                                self.render(ctx, clip);
                             };
                         } else {
                             let merge = if let Some(rect) = this_border.as_ref() {
@@ -902,7 +925,7 @@ impl RenderNode {
                                 return Err(merge);
                             }
                             ctx.damage_region(&Background::from(shape), merge, false);
-                            self.render(ctx);
+                            self.render(ctx, clip);
                         }
                     }
                     RenderNode::None => {}
@@ -917,7 +940,7 @@ impl RenderNode {
                             }),
                         );
                         self.merge(other);
-                        self.render(ctx);
+                        self.render(ctx, clip);
                     }
                 }
             }
@@ -940,7 +963,7 @@ impl RenderNode {
                             if draw {
                                 self.clear(ctx, &Background::from(shape), Some(&region));
                                 *self = RenderNode::Draw { region, steps };
-                                self.render(ctx);
+                                self.render(ctx, clip);
                             }
                         }
                     }
@@ -948,7 +971,7 @@ impl RenderNode {
                     _ => {
                         self.clear(ctx, &Background::from(shape), Some(&this_region));
                         self.merge(other);
-                        self.render(ctx);
+                        self.render(ctx, clip);
                     }
                 }
             }

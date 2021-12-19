@@ -103,12 +103,7 @@ impl<W: Widget> Geometry for WidgetExt<W> {
 impl<W: Widget + Style> WidgetExt<W> {
     pub fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         self.widget.set_radius(tl, tr, br, bl);
-        let delta = minimum_padding(tl, tr, br, bl);
-        self.widget.padding.0 = self.widget.padding.0.max(delta);
-        self.widget.padding.1 = self.widget.padding.1.max(delta);
-        self.widget.padding.2 = self.widget.padding.2.max(delta);
-        self.widget.padding.3 = self.widget.padding.3.max(delta);
-        self.radius = (tl + delta, tr + delta, br + delta, bl + delta);
+        self.radius = (tl, tr, br, bl);
     }
     pub fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
         self.widget.set_radius(tl, tr, br, bl);
@@ -125,11 +120,6 @@ impl<W: Widget + Style> WidgetExt<W> {
 
 impl<W: Widget> Style for WidgetExt<W> {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        let delta = minimum_padding(tl, tr, br, bl);
-        self.widget.padding.0 = self.widget.padding.0.max(delta);
-        self.widget.padding.1 = self.widget.padding.1.max(delta);
-        self.widget.padding.2 = self.widget.padding.2.max(delta);
-        self.widget.padding.3 = self.widget.padding.3.max(delta);
         self.radius = (tl, tr, br, bl);
     }
     fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
@@ -172,6 +162,12 @@ impl<W: Widget> Widget for WidgetExt<W> {
         let node = self.widget.create_node(x + border_size, y + border_size);
         let width = self.inner_width();
         let height = self.inner_height();
+        let delta = minimum_padding(
+            self.radius.0,
+            self.radius.1,
+            self.radius.2,
+            self.radius.3
+        );
         match &mut self.background {
             Background::Image(coords, _) => {
                 coords.x = x + border_size;
@@ -198,7 +194,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                     Some(Instruction::new(
                         x,
                         y,
-                        Rectangle::empty(width, height)
+                        Rectangle::empty(self.width(), self.height())
                             .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
                             .border(border_color, border_size),
                     ))
@@ -207,9 +203,9 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 }
             },
             background: Instruction::new(
-                x + border_size,
-                y + border_size,
-                Rectangle::empty(width, height)
+                x + border_size - delta,
+                y + border_size - delta,
+                Rectangle::empty(width + 2. * delta, height + 2. * delta)
                     .background(self.background.clone())
                     .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3),
             ),

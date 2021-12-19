@@ -39,6 +39,7 @@ pub struct Application<C: Controller + Clone + 'static> {
 
 struct Context {
     pending_cb: bool,
+    request_frame: bool,
     render_node: Option<RenderNode>,
     font_cache: FontCache,
 }
@@ -555,6 +556,7 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
         while let Ok(signal) = sync_ctx.sync() {
             damage.order(self.widget.sync(&mut sync_ctx, Event::Message(signal)));
         }
+        self.ctx.request_frame = damage == Damage::Frame;
         damage.is_some() && !self.ctx.pending_cb
     }
     pub fn destroy(&mut self) {
@@ -633,6 +635,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 controller,
                 ctx: Context {
                     pending_cb: false,
+                    request_frame: false,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -655,6 +658,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 controller,
                 ctx: Context {
                     pending_cb: false,
+                    request_frame: false,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -681,6 +685,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 controller,
                 ctx: Context {
                     pending_cb: false,
+                    request_frame: false,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -744,6 +749,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     recent_node,
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
+                    None
                 ) {
                     ctx.damage_region(&Background::Transparent, region, false);
                 }
@@ -753,22 +759,44 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     Region::new(0., 0., width, height),
                     false,
                 );
-                recent_node.render(&mut ctx);
+                recent_node.render(&mut ctx, None);
                 self.core.ctx.render_node = Some(recent_node);
             }
             self.core.ctx.pending_cb = false;
-            if let Some(surface) = self.surface.as_mut() {
+            if let Some(surface) = self.core.surface.as_mut() {
                 surface.attach_buffer(wl_buffer);
                 surface.damage(&v);
                 surface.commit();
+                if self.core.ctx.request_frame {
+                    self.core.ctx.request_frame = false;
+                    frame_callback::<C>(&surface.surface);
+                }
             }
         }
     }
-    pub fn update(&mut self, ev: Event) {
+    pub fn callback(&mut self, ev: Event) {
         if let Ok(render_node) = self.roundtrip(ev) {
             draw_callback::<C>(&self.surface.as_ref().unwrap().surface, render_node);
         }
     }
+}
+
+fn frame_callback<C: Controller + Clone + 'static>(
+    surface: &Main<WlSurface>,
+) {
+    let h = surface.detach();
+    surface
+        .frame()
+        .quick_assign(move |_, event, mut application| match event {
+            wl_callback::Event::Done { callback_data: _ } => {
+                if let Some(application) = application.get::<Application<C>>() {
+                    let inner_application = application.get_application(&h).unwrap();
+                    inner_application.callback(Event::Callback);
+                }
+            }
+            _ => {}
+        });
+    surface.commit();
 }
 
 fn draw_callback<C: Controller + Clone + 'static>(
@@ -812,7 +840,7 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
             input = Pointer::Leave;
             if let Some(application) = inner.get::<Application<C>>() {
                 if let Some(inner_application) = application.get_application(&surface) {
-                    inner_application.update(Event::Pointer(x as f32, y as f32, input));
+                    inner_application.callback(Event::Pointer(x as f32, y as f32, input));
                 }
             }
         }
@@ -831,7 +859,7 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
         wl_pointer::Event::Frame => {
             if let Some(application) = inner.get::<Application<C>>() {
                 let inner_application = application.inner.get_mut(index).unwrap();
-                inner_application.update(Event::Pointer(x as f32, y as f32, input));
+                inner_application.callback(Event::Pointer(x as f32, y as f32, input));
             }
         }
         wl_pointer::Event::Axis {

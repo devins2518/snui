@@ -30,6 +30,16 @@ impl PartialEq for Image {
 }
 
 impl Image {
+    pub fn from_raw(buf: Vec<u8>, width: u32, height: u32) -> Self {
+        let image: Arc<[u8]> = buf.into();
+        Image {
+            image,
+            width,
+            height,
+            scale: Scale::Fit,
+            size: (width, height),
+        }
+    }
     pub fn new(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let dyn_image = ImageReader::open(path)?.decode()?.to_bgra8();
 

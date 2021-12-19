@@ -89,7 +89,7 @@ impl Geometry for LayoutBox {
                 }
             }
         }
-        width
+        width.ceil()
     }
     fn height(&self) -> f32 {
         let mut height = 0.;
@@ -105,7 +105,7 @@ impl Geometry for LayoutBox {
                 }
             }
         }
-        height
+        height.ceil()
     }
 }
 

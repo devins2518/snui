@@ -44,7 +44,6 @@ impl Widget for Listener {
             Event::Message(msg) => {
                 let Message(obj, _) = msg;
                 if obj == Signal::Source as u32 {
-                    ctx.request_draw();
                     if let Ok(data) = ctx.get(Message::new(self.id, Data::Null)) {
                         match data {
                             Data::Byte(b) => self.text.edit(&b.to_string()),

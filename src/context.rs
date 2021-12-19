@@ -11,6 +11,7 @@ pub(crate) mod canvas {
     use crate::widgets::shapes::*;
     use crate::*;
 
+	// Helper to draw using the retained mode API
     pub struct Canvas {
         coords: Coords,
         region: Region,
@@ -85,21 +86,21 @@ pub const TEXT: PixmapPaint = PixmapPaint {
     quality: FilterQuality::Bilinear,
 };
 
+// Available rendering Backends
 pub enum Backend<'b> {
     Pixmap(PixmapMut<'b>),
     Dummy,
 }
 
 pub struct SyncContext<'c> {
-    draw: bool,
-    model: &'c mut dyn Controller,
+    controller: &'c mut dyn Controller,
     pub font_cache: &'c mut FontCache,
 }
 
 pub struct DrawContext<'c> {
-    backend: Backend<'c>,
-    font_cache: &'c mut FontCache,
-    pending_damage: &'c mut Vec<Region>,
+    pub(crate) backend: Backend<'c>,
+    pub(crate) font_cache: &'c mut FontCache,
+    pub(crate) pending_damage: &'c mut Vec<Region>,
 }
 
 impl<'b> Geometry for Backend<'b> {
@@ -143,16 +144,9 @@ impl<'c> DerefMut for Backend<'c> {
 }
 
 impl<'c> SyncContext<'c> {
-    pub fn request_draw(&mut self) {
-        self.draw = true;
-    }
-    pub fn damage(&self) -> bool {
-        self.draw
-    }
-    pub fn new(model: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {
+    pub fn new(controller: &'c mut impl Controller, font_cache: &'c mut FontCache) -> Self {
         Self {
-            draw: false,
-            model,
+            controller,
             font_cache,
         }
     }
@@ -160,19 +154,19 @@ impl<'c> SyncContext<'c> {
 
 impl<'c> Controller for SyncContext<'c> {
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError> {
-        self.model.deserialize(token)
+        self.controller.deserialize(token)
     }
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError> {
-        self.model.get(msg)
+        self.controller.get(msg)
     }
     fn serialize(&mut self, msg: Message) -> Result<u32, ControllerError> {
-        self.model.serialize(msg)
+        self.controller.serialize(msg)
     }
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
-        self.model.send(msg)
+        self.controller.send(msg)
     }
     fn sync(&mut self) -> Result<Message<'static>, ControllerError> {
-        self.model.sync()
+        self.controller.sync()
     }
 }
 

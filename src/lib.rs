@@ -34,9 +34,12 @@ pub fn u32_to_source(color: u32) -> Color {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Damage {
+    // Nothing needs to be damaged
     None,
+    // Something needs to be damaged
     Some,
-    Frame(usize),
+    // Damage then request a new frame
+    Frame,
 }
 
 impl Damage {
@@ -53,26 +56,10 @@ impl Damage {
         match self {
             Self::None => *self = other,
             Self::Some => match other {
-                Self::Frame(f) => {
-                    if f > 0 {
-                        *self = other;
-                    }
-                }
+                Self::Frame => *self = other,
                 _ => {}
             },
-            Self::Frame(f) => match other {
-                Self::Frame(n) => {
-                    if n > *f {
-                        *self = other;
-                    }
-                }
-                Self::Some => {
-                    if *f < 1 {
-                        *self = other;
-                    }
-                }
-                _ => {}
-            },
+            Self::Frame => {}
         }
     }
 }
@@ -148,12 +135,20 @@ impl MouseButton {
             _ => MouseButton::Extra(button),
         }
     }
+    pub fn is_left(&self) -> bool {
+        match self {
+            MouseButton::Left => true,
+            _ => false
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Event<'d> {
     Frame,
     Prepare,
+    // Sent on a frame callback request
+    Callback,
     // Your message object
     Message(data::Message<'d>),
     // Waiting for Wayland-rs 0.3.0 to implement it

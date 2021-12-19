@@ -45,7 +45,7 @@ impl Geometry for WidgetLayout {
                 for w in &self.widgets {
                     height += w.height() + self.spacing;
                 }
-                height -= self.spacing.min(height);
+                // height -= self.spacing.min(height);
             }
             Orientation::Horizontal => {
                 for w in &self.widgets {
