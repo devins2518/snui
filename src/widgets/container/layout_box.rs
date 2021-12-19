@@ -142,7 +142,7 @@ impl Widget for LayoutBox {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
-            damage.order(child.sync(ctx, event));
+            damage = damage.max(child.sync(ctx, event));
         }
         damage
     }

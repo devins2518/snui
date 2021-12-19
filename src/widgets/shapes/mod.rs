@@ -29,7 +29,7 @@ pub trait Style: Sized {
 #[derive(Clone, PartialEq, Debug)]
 pub enum ShapeStyle {
     Background(Background),
-    Border(Color, f32),
+    Bmax(Color, f32),
 }
 
 impl From<u32> for ShapeStyle {

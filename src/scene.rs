@@ -115,7 +115,7 @@ impl From<ShapeStyle> for Background {
     fn from(style: ShapeStyle) -> Self {
         match style {
             ShapeStyle::Background(bg) => bg,
-            ShapeStyle::Border(_, _) => Background::Transparent,
+            ShapeStyle::Bmax(_, _) => Background::Transparent,
         }
     }
 }
@@ -571,7 +571,7 @@ pub enum RenderNode {
     None,
     Container {
         region: Region,
-        // All nodes need to be in an Extension in order to provide all the information neccessary to accurately damage
+        // All nodes need to be in an Extension in max to provide all the information neccessary to accurately damage
         nodes: Vec<RenderNode>,
     },
     Draw {

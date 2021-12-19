@@ -39,7 +39,7 @@ pub enum Damage {
     // Something needs to be damaged
     Some,
     // Damage then request a new frame
-    Frame,
+    Frame(u64),
 }
 
 impl Damage {
@@ -52,15 +52,35 @@ impl Damage {
     pub fn is_some(&self) -> bool {
         !self.is_none()
     }
-    pub fn order(&mut self, other: Self) {
-        match self {
-            Self::None => *self = other,
-            Self::Some => match other {
-                Self::Frame => *self = other,
-                _ => {}
+}
+
+use std::cmp::Ordering;
+
+impl PartialOrd for Damage {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(match self {
+            Self::None => match other {
+                Self::None => Ordering::Equal,
+                _ => Ordering::Less,
             },
-            Self::Frame => {}
-        }
+            Self::Some => match other {
+                Self::None => Ordering::Greater,
+                Self::Some => Ordering::Equal,
+                _ => Ordering::Less,
+            },
+            Self::Frame(s) => match other {
+                Self::Frame(o) => s.cmp(o),
+                _ => Ordering::Greater,
+            },
+        })
+    }
+}
+
+impl Eq for Damage {}
+
+impl Ord for Damage {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 

@@ -154,7 +154,7 @@ impl Widget for CenterBox {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         let mut damage = Damage::None;
         for wbox in self.widgets.iter_mut() {
-            damage.order(wbox.sync(ctx, event));
+            damage = damage.max(wbox.sync(ctx, event));
         }
         damage
     }

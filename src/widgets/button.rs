@@ -16,7 +16,7 @@ impl<W: Widget> Deref for Proxy<W> {
 
 impl<W: Widget> DerefMut for Proxy<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.damage.order(Damage::Some);
+        self.damage = self.damage.max(Damage::Some);
         &mut self.child
     }
 }
@@ -58,7 +58,7 @@ impl<W: Widget> Widget for Proxy<W> {
         RenderNode::None
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
-        self.damage.order(self.child.sync(ctx, event));
+        self.damage = self.damage.max(self.child.sync(ctx, event));
         self.queue_draw = self.damage.is_some() || event == Event::Frame;
         self.damage
     }
