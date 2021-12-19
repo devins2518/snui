@@ -1,6 +1,6 @@
+use crate::widgets::container::{Child, Container};
 use crate::widgets::Alignment;
 use crate::*;
-use crate::widgets::container::{Child, Container};
 use scene::{Coords, Region, RenderNode};
 
 pub struct WidgetLayout {
@@ -45,7 +45,7 @@ impl Geometry for WidgetLayout {
                 for w in &self.widgets {
                     height += w.height() + self.spacing;
                 }
-                // height -= self.spacing.min(height);
+                height -= self.spacing.min(height);
             }
             Orientation::Horizontal => {
                 for w in &self.widgets {

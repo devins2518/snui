@@ -93,17 +93,22 @@ impl<W: Widget> Geometry for WidgetExt<W> {
         Ok(())
     }
     fn width(&self) -> f32 {
-        self.inner_width() + self.border.0
+        self.inner_width() + 2. * self.border.0
     }
     fn height(&self) -> f32 {
-        self.inner_height() + self.border.0
+        self.inner_height() + 2. * self.border.0
     }
 }
 
 impl<W: Widget + Style> WidgetExt<W> {
     pub fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         self.widget.set_radius(tl, tr, br, bl);
-        self.radius = (tl, tr, br, bl);
+        let delta = minimum_padding(tl, tr, br, bl);
+        self.widget.padding.0 = self.widget.padding.0.max(delta);
+        self.widget.padding.1 = self.widget.padding.1.max(delta);
+        self.widget.padding.2 = self.widget.padding.2.max(delta);
+        self.widget.padding.3 = self.widget.padding.3.max(delta);
+        self.radius = (tl + delta, tr + delta, br + delta, bl + delta);
     }
     pub fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
         self.widget.set_radius(tl, tr, br, bl);
@@ -120,6 +125,11 @@ impl<W: Widget + Style> WidgetExt<W> {
 
 impl<W: Widget> Style for WidgetExt<W> {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        let delta = minimum_padding(tl, tr, br, bl);
+        self.widget.padding.0 = self.widget.padding.0.max(delta);
+        self.widget.padding.1 = self.widget.padding.1.max(delta);
+        self.widget.padding.2 = self.widget.padding.2.max(delta);
+        self.widget.padding.3 = self.widget.padding.3.max(delta);
         self.radius = (tl, tr, br, bl);
     }
     fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
@@ -162,12 +172,6 @@ impl<W: Widget> Widget for WidgetExt<W> {
         let node = self.widget.create_node(x + border_size, y + border_size);
         let width = self.inner_width();
         let height = self.inner_height();
-        let delta = minimum_padding(
-            self.radius.0,
-            self.radius.1,
-            self.radius.2,
-            self.radius.3
-        );
         match &mut self.background {
             Background::Image(coords, _) => {
                 coords.x = x + border_size;
@@ -194,7 +198,7 @@ impl<W: Widget> Widget for WidgetExt<W> {
                     Some(Instruction::new(
                         x,
                         y,
-                        Rectangle::empty(self.width(), self.height())
+                        Rectangle::empty(width, height)
                             .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
                             .border(border_color, border_size),
                     ))
@@ -203,11 +207,16 @@ impl<W: Widget> Widget for WidgetExt<W> {
                 }
             },
             background: Instruction::new(
-                x + border_size - delta,
-                y + border_size - delta,
-                Rectangle::empty(width + 2. * delta, height + 2. * delta)
+                x + border_size,
+                y + border_size,
+                Rectangle::empty(width, height)
                     .background(self.background.clone())
-                    .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3),
+                    .radius(
+                        minimum_radius(self.radius.0, border_size),
+                        minimum_radius(self.radius.1, border_size),
+                        minimum_radius(self.radius.2, border_size),
+                        minimum_radius(self.radius.3, border_size),
+                    ),
             ),
         }
     }
@@ -221,6 +230,13 @@ impl<W: Widget> Widget for WidgetExt<W> {
             self.widget.sync(ctx, event)
         }
     }
+}
+
+fn minimum_radius(radius: f32, border: f32) -> f32 {
+    if border > radius {
+        return 0.;
+    }
+    radius - (border / 2.)
 }
 
 impl<W: Widget> Deref for WidgetExt<W> {

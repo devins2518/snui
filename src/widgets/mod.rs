@@ -49,6 +49,24 @@ pub enum Constraint {
     Downward,
 }
 
+impl Geometry for () {
+    fn height(&self) -> f32 {
+        0.
+    }
+    fn width(&self) -> f32 {
+        0.
+    }
+}
+
+impl Widget for () {
+    fn create_node(&mut self, _x: f32, _y: f32) -> RenderNode {
+        RenderNode::None
+    }
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) -> Damage {
+        Damage::None
+    }
+}
+
 // Simple dump widget with a fixed size.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Spacer {
@@ -78,13 +96,13 @@ impl Spacer {
     pub fn width<W: Into<f32>>(width: W) -> Self {
         Self {
             width: width.into(),
-            height: 0.
+            height: 0.,
         }
     }
     pub fn height<H: Into<f32>>(height: H) -> Self {
         Self {
             height: height.into(),
-            width: 0.
+            width: 0.,
         }
     }
 }

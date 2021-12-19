@@ -1,7 +1,7 @@
+use crate::widgets::container::{Child, Container};
 use crate::widgets::*;
 use crate::*;
 use scene::Region;
-use crate::widgets::container::{Child, Container};
 
 pub struct CenterBox {
     orientation: Orientation,
@@ -18,7 +18,7 @@ impl FromIterator<Child> for CenterBox {
             } else {
                 break;
             }
-            i+=1;
+            i += 1;
         }
         centerbox
     }

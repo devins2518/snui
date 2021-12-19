@@ -749,7 +749,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     recent_node,
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
-                    None
+                    None,
                 ) {
                     ctx.damage_region(&Background::Transparent, region, false);
                 }
@@ -781,9 +781,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
     }
 }
 
-fn frame_callback<C: Controller + Clone + 'static>(
-    surface: &Main<WlSurface>,
-) {
+fn frame_callback<C: Controller + Clone + 'static>(surface: &Main<WlSurface>) {
     let h = surface.detach();
     surface
         .frame()

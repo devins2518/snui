@@ -662,7 +662,7 @@ impl RenderNode {
         let mut new_ctx = DrawContext {
             backend: Backend::Pixmap(pixmap.as_mut()),
             font_cache: ctx.font_cache,
-            pending_damage: &mut v
+            pending_damage: &mut v,
         };
         self.render(&mut new_ctx, None);
         Some(Image::from_raw(pixmap.take(), width, height))
@@ -818,7 +818,7 @@ impl RenderNode {
         other: Self,
         ctx: &mut DrawContext,
         shape: &Instruction,
-        clip: Option<&ClipMask>
+        clip: Option<&ClipMask>,
     ) -> Result<(), Region> {
         match self {
             RenderNode::Instruction(a) => match other {
@@ -864,8 +864,12 @@ impl RenderNode {
                                 .map(|i| {
                                     if let Some(node) = this_nodes.get_mut(i) {
                                         let mut node = mem::take(node);
-                                        let _ =
-                                            node.draw_merge(mem::take(&mut nodes[i]), ctx, shape, clip);
+                                        let _ = node.draw_merge(
+                                            mem::take(&mut nodes[i]),
+                                            ctx,
+                                            shape,
+                                            clip,
+                                        );
                                         node
                                     } else {
                                         mem::take(&mut nodes[i])
@@ -901,7 +905,9 @@ impl RenderNode {
                                 transform: background.transform,
                                 primitive: shape.primitive.merge(background.primitive.clone()),
                             };
-                            if let Err(region) = this_node.draw_merge(*node, ctx, &instruction, clip) {
+                            if let Err(region) =
+                                this_node.draw_merge(*node, ctx, &instruction, clip)
+                            {
                                 shape.primitive.instruction(region).render(ctx, None);
                                 self.render(ctx, clip);
                             };

@@ -263,11 +263,10 @@ impl Controller for ColorControl {
 fn main() {
     let (mut snui, mut event_loop) = Application::new(true);
 
-    let mut color =
-    	WidgetLayout::new(5.).orientation(Orientation::Vertical);
+    let mut color = WidgetLayout::new(5.).orientation(Orientation::Vertical);
 
     color.add(header());
-    color.add(core().ext().even_padding(20.));
+    color.add(core().pad(20.));
     color.justify(CENTER);
 
     snui.create_inner_application(
@@ -279,7 +278,7 @@ fn main() {
             .ext()
             .background(BG0)
             .even_padding(15.)
-            .border(BG2, 1.)
+            .border(BG2, 2.)
             .even_radius(5.),
         event_loop.handle(),
         |core, _| {
@@ -360,40 +359,39 @@ fn header() -> impl Widget {
             }),
     );
 
-    let mut header = CenterBox::from(
-        buttons,
-        Label::default("app_name", 15.),
-        Cross {})
-        .with_width(300.);
+    let mut header =
+        CenterBox::from(buttons, Label::default("app_name", 15.), Cross {}).with_width(330.);
 
     let _ = header.set_width(300.);
     header
 }
 
 fn sliders() -> WidgetLayout {
-	[RED, GRN, BLU, BG0].iter().map(|color| {
-        let id = match *color {
-            RED => Signal::Red,
-            BLU => Signal::Blue,
-            GRN => Signal::Green,
-            BG0 => Signal::Alpha,
-            _ => Signal::Close,
-        };
-        widgets::slider::Slider::new(200, 8)
-            .id(id as u32)
-            .background(*color)
-            .ext()
-            .background(BG2)
-            .even_radius(3.)
-            .child()
-	}).collect::<WidgetLayout>()
-	.spacing(10.)
-	.orientation(Orientation::Vertical)
+    [RED, GRN, BLU, BG0]
+        .iter()
+        .map(|color| {
+            let id = match *color {
+                RED => Signal::Red,
+                BLU => Signal::Blue,
+                GRN => Signal::Green,
+                BG0 => Signal::Alpha,
+                _ => Signal::Close,
+            };
+            widgets::slider::Slider::new(200, 8)
+                .id(id as u32)
+                .background(*color)
+                .ext()
+                .background(BG2)
+                .even_radius(3.)
+                .child()
+        })
+        .collect::<WidgetLayout>()
+        .spacing(10.)
+        .orientation(Orientation::Vertical)
 }
 
 fn core() -> WidgetLayout {
-    let mut layout =
-    	WidgetLayout::new(15.).orientation(Orientation::Vertical);
+    let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
     let listener = Listener {
         id: Signal::Source as u32,
@@ -404,8 +402,7 @@ fn core() -> WidgetLayout {
     .anchor(CENTER, START)
     .constraint(Constraint::Downward);
 
-    let mut indicator =
-    	WidgetLayout::new(0.).orientation(Orientation::Vertical);
+    let mut indicator = WidgetLayout::new(0.).orientation(Orientation::Vertical);
 
     indicator.add(listener.ext().padding(10., 10., 10., 10.));
     indicator.add(ColorBlock {

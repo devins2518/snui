@@ -82,12 +82,14 @@ impl Rectangle {
         }
     }
     pub fn path(&self) -> Option<Path> {
-        let width = self.width;
-        let height = self.height;
+        let mut width = self.width;
+        let mut height = self.height;
         let (mut x, mut y) = (0., 0.);
         if let ShapeStyle::Border(_, size) = &self.style {
             x += (size / 2.).ceil();
             y += (size / 2.).ceil();
+            width += size;
+            height += size;
         }
         let mut cursor = Coords::new(x, y);
         let mut pb = PathBuilder::new();
@@ -185,7 +187,7 @@ impl Geometry for Rectangle {
     fn width(&self) -> f32 {
         self.width
             + if let ShapeStyle::Border(_, size) = &self.style {
-                *size
+                2. * *size
             } else {
                 0.
             }
@@ -193,7 +195,7 @@ impl Geometry for Rectangle {
     fn height(&self) -> f32 {
         self.height
             + if let ShapeStyle::Border(_, size) = &self.style {
-                *size
+                2. * *size
             } else {
                 0.
             }
@@ -335,7 +337,7 @@ impl Primitive for Rectangle {
                     ShapeStyle::Border(color, border) => {
                         let stroke = Stroke {
                             width: *border,
-                            line_cap: LineCap::Round,
+                            line_cap: LineCap::Square,
                             line_join: LineJoin::Miter,
                             miter_limit: 4.,
                             dash: None,

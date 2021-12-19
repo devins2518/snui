@@ -8,8 +8,8 @@ pub mod widgets;
 use context::*;
 use scene::RenderNode;
 pub use tiny_skia::*;
-use widgets::container::Child;
 use widgets::button::{Button, Proxy};
+use widgets::container::Child;
 use widgets::shapes::WidgetExt;
 use widgets::{Padding, WidgetBox};
 
@@ -138,13 +138,14 @@ impl MouseButton {
     pub fn is_left(&self) -> bool {
         match self {
             MouseButton::Left => true,
-            _ => false
+            _ => false,
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Event<'d> {
+    // Send when a Full redraw is neccessary
     Frame,
     Prepare,
     // Sent on a frame callback request

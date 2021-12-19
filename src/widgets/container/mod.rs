@@ -71,7 +71,7 @@ impl From<Box<dyn Widget>> for Child {
             queue_draw: false,
             damage: Damage::None,
             coords: Coords::new(0., 0.),
-            widget
+            widget,
         }
     }
 }

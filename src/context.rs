@@ -11,7 +11,7 @@ pub(crate) mod canvas {
     use crate::widgets::shapes::*;
     use crate::*;
 
-	// Helper to draw using the retained mode API
+    // Helper to draw using the retained mode API
     pub struct Canvas {
         coords: Coords,
         region: Region,

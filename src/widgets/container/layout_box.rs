@@ -1,6 +1,6 @@
+use crate::widgets::container::{Child, Container};
 use crate::*;
 use scene::{Coords, Region, RenderNode};
-use crate::widgets::container::{Child, Container};
 
 pub struct LayoutBox {
     widgets: Vec<Child>,
