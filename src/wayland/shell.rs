@@ -39,7 +39,7 @@ pub struct Application<C: Controller + Clone + 'static> {
 
 struct Context {
     pending_cb: bool,
-    request_frame: Option<u64>,
+    time: Option<u32>,
     render_node: Option<RenderNode>,
     font_cache: FontCache,
 }
@@ -556,8 +556,10 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
         while let Ok(signal) = sync_ctx.sync() {
             damage = damage.max(self.widget.sync(&mut sync_ctx, Event::Message(signal)));
         }
-        if let Damage::Frame(delay) = damage {
-            self.ctx.request_frame = Some(delay);
+        if damage == Damage::Frame {
+            if self.ctx.time.is_none() {
+                self.ctx.time = Some(0);
+            }
         }
         damage.is_some() && !self.ctx.pending_cb
     }
@@ -637,7 +639,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 controller,
                 ctx: Context {
                     pending_cb: false,
-                    request_frame: None,
+                    time: None,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -660,7 +662,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 controller,
                 ctx: Context {
                     pending_cb: false,
-                    request_frame: None,
+                    time: None,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -687,7 +689,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 controller,
                 ctx: Context {
                     pending_cb: false,
-                    request_frame: None,
+                    time: None,
                     font_cache: FontCache::new(),
                     render_node: None,
                 },
@@ -738,7 +740,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
 
         Err(())
     }
-    fn render(&mut self, recent_node: RenderNode) {
+    fn render(&mut self, time: u32, recent_node: RenderNode) {
         let width = recent_node.width();
         let height = recent_node.height();
         if let Ok((buffer, wl_buffer)) =
@@ -769,15 +771,15 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 surface.attach_buffer(wl_buffer);
                 surface.damage(&v);
                 surface.commit();
-                if let Some(delay) = self.core.ctx.request_frame {
-                    let timer = Instant::now();
-                    frame_callback::<C>(timer, surface.surface.clone(), delay);
+                if let Some(_) = self.core.ctx.time {
+                    self.core.ctx.time = Some(time);
+                    frame_callback::<C>(time, surface.surface.clone());
                 }
             }
         }
     }
     pub fn callback(&mut self, ev: Event) {
-        if self.ctx.request_frame.is_none() || ev == Event::Callback {
+        if self.ctx.time.is_none() || ev.is_cb() {
             if let Ok(render_node) = self.roundtrip(ev) {
                 draw_callback::<C>(&self.surface.as_ref().unwrap().surface, render_node);
             }
@@ -787,25 +789,17 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
     }
 }
 
-use std::time::{Duration, Instant};
-fn frame_callback<C: Controller + Clone + 'static>(
-    timer: Instant,
-    surface: Main<WlSurface>,
-    delay: u64,
-) {
+fn frame_callback<C: Controller + Clone + 'static>(time: u32, surface: Main<WlSurface>) {
     let handle = surface.detach();
     surface
         .frame()
         .quick_assign(move |_, event, mut application| match event {
-            wl_callback::Event::Done { callback_data: _ } => {
+            wl_callback::Event::Done { callback_data } => {
+                let timeout = (callback_data - time).min(100);
                 if let Some(application) = application.get::<Application<C>>() {
                     let inner_application = application.get_application(&surface).unwrap();
-                    if timer.elapsed() > Duration::from_micros(delay) {
-                        inner_application.core.ctx.request_frame = None;
-                        inner_application.callback(Event::Callback);
-                    } else {
-                        frame_callback::<C>(timer, surface.clone(), delay);
-                    }
+                    inner_application.ctx.time = None;
+                    inner_application.callback(Event::Callback(timeout));
                 }
             }
             _ => {}
@@ -821,10 +815,10 @@ fn draw_callback<C: Controller + Clone + 'static>(
     surface
         .frame()
         .quick_assign(move |_, event, mut application| match event {
-            wl_callback::Event::Done { callback_data: _ } => {
+            wl_callback::Event::Done { callback_data } => {
                 if let Some(application) = application.get::<Application<C>>() {
                     let inner_application = application.get_application(&h).unwrap();
-                    inner_application.render(std::mem::take(&mut recent_node));
+                    inner_application.render(callback_data, std::mem::take(&mut recent_node));
                 }
             }
             _ => {}
@@ -939,8 +933,7 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                                         }
                                     } else {
                                         if let Ok(render_node) = a.roundtrip(Event::Frame) {
-                                            // println!("{:#?}", render_node);
-                                            a.render(render_node);
+                                            a.render(0, render_node);
                                         }
                                     }
                                 }

@@ -56,9 +56,9 @@ pub trait Controller {
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
     // These interface are from the pov of the widgets
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError>;
-    fn request<'m>(&'m self, obj: u32) -> Result<Data<'m>, ControllerError> {
-        self.get(Message::new(obj, Data::Null))
-    }
+    // fn request<'m>(&'m self, obj: u32) -> Result<Data<'m>, ControllerError> {
+    //     self.send(Message::new(obj, Data::Null))
+    // }
     // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
     // Returns an Ok(Message) if the application needs to be synced

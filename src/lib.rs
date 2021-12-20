@@ -39,7 +39,7 @@ pub enum Damage {
     // Something needs to be damaged
     Some,
     // Damage then request a new frame
-    Frame(u64),
+    Frame,
 }
 
 impl Damage {
@@ -68,8 +68,8 @@ impl PartialOrd for Damage {
                 Self::Some => Ordering::Equal,
                 _ => Ordering::Less,
             },
-            Self::Frame(s) => match other {
-                Self::Frame(o) => s.cmp(o),
+            Self::Frame => match other {
+                Self::Frame => Ordering::Equal,
                 _ => Ordering::Greater,
             },
         })
@@ -168,13 +168,22 @@ pub enum Event<'d> {
     // Send when a Full redraw is neccessary
     Frame,
     Prepare,
-    // Sent on a frame callback request
-    Callback,
+    // Sent on a frame callback request with the frame rate in ms
+    Callback(u32),
     // Your message object
     Message(data::Message<'d>),
     // Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     Pointer(f32, f32, Pointer),
+}
+
+impl<'d> Event<'d> {
+    pub fn is_cb(&self) -> bool {
+        match self {
+            Self::Callback(_) => true,
+            _ => false,
+        }
+    }
 }
 
 pub trait Geometry {

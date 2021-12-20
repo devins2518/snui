@@ -237,7 +237,7 @@ impl Widget for Slider {
                 }
             }
             Event::Frame => {
-                if let Ok(data) = ctx.request(self.id) {
+                if let Ok(data) = ctx.get(Message::new(self.id, Data::Null)) {
                     if self.filter(data).is_ok() {
                         return Damage::Some;
                     }

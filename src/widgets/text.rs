@@ -277,7 +277,7 @@ impl Widget for Listener {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if self.poll {
-            if let Ok(data) = ctx.request(self.id) {
+            if let Ok(data) = ctx.get(Message::new(self.id, data::Data::Null)) {
                 if let Some(format) = self.format.as_ref() {
                     self.text
                         .edit(format.replace("{}", &data.to_string()).as_str());
@@ -299,7 +299,7 @@ impl Widget for Listener {
                     }
                 }
                 Event::Frame => {
-                    if let Ok(data) = ctx.request(self.id) {
+                    if let Ok(data) = ctx.get(Message::new(self.id, data::Data::Null)) {
                         if let Some(format) = self.format.as_ref() {
                             self.text
                                 .edit(format.replace("{}", &data.to_string()).as_str());
