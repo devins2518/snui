@@ -11,7 +11,7 @@ impl ShapeStyle {
         ShapeStyle::Background(Background::Color(u32_to_source(color)))
     }
     pub fn border(color: u32, size: f32) -> Self {
-        ShapeStyle::Bmax(u32_to_source(color), size)
+        ShapeStyle::Border(u32_to_source(color), size)
     }
     pub fn background(&self) -> Background {
         match self {
@@ -78,14 +78,14 @@ impl Rectangle {
                 Background::Color(source) => source.is_opaque(),
                 _ => false,
             },
-            ShapeStyle::Bmax(_, _) => false,
+            ShapeStyle::Border(_, _) => false,
         }
     }
     pub fn path(&self) -> Option<Path> {
         let mut width = self.width;
         let mut height = self.height;
         let (mut x, mut y) = (0., 0.);
-        if let ShapeStyle::Bmax(_, size) = &self.style {
+        if let ShapeStyle::Border(_, size) = &self.style {
             x += (size / 2.).ceil();
             y += (size / 2.).ceil();
             width += size;
@@ -186,7 +186,7 @@ impl Rectangle {
 impl Geometry for Rectangle {
     fn width(&self) -> f32 {
         self.width
-            + if let ShapeStyle::Bmax(_, size) = &self.style {
+            + if let ShapeStyle::Border(_, size) = &self.style {
                 2. * *size
             } else {
                 0.
@@ -194,7 +194,7 @@ impl Geometry for Rectangle {
     }
     fn height(&self) -> f32 {
         self.height
-            + if let ShapeStyle::Bmax(_, size) = &self.style {
+            + if let ShapeStyle::Border(_, size) = &self.style {
                 2. * *size
             } else {
                 0.
@@ -334,7 +334,7 @@ impl Primitive for Rectangle {
                         }
                         _ => {}
                     },
-                    ShapeStyle::Bmax(color, border) => {
+                    ShapeStyle::Border(color, border) => {
                         let stroke = Stroke {
                             width: *border,
                             line_cap: LineCap::Square,
@@ -394,14 +394,14 @@ impl Style for Rectangle {
         self
     }
     fn set_border_color(&mut self, color: u32) {
-        if let ShapeStyle::Bmax(_, width) = self.style {
+        if let ShapeStyle::Border(_, width) = self.style {
             self.style = ShapeStyle::border(color, width);
         } else {
             self.style = ShapeStyle::border(color, 0.);
         }
     }
     fn border_color(mut self, color: u32) -> Self {
-        if let ShapeStyle::Bmax(_, width) = self.style {
+        if let ShapeStyle::Border(_, width) = self.style {
             self.style = ShapeStyle::border(color, width);
         } else {
             self.style = ShapeStyle::border(color, 0.);
@@ -409,15 +409,15 @@ impl Style for Rectangle {
         self
     }
     fn set_border_width(&mut self, width: f32) {
-        if let ShapeStyle::Bmax(color, _) = self.style {
-            self.style = ShapeStyle::Bmax(color, width);
+        if let ShapeStyle::Border(color, _) = self.style {
+            self.style = ShapeStyle::Border(color, width);
         } else {
             self.style = ShapeStyle::border(0, width);
         }
     }
     fn border_width(mut self, width: f32) -> Self {
-        if let ShapeStyle::Bmax(color, _) = self.style {
-            self.style = ShapeStyle::Bmax(color, width);
+        if let ShapeStyle::Border(color, _) = self.style {
+            self.style = ShapeStyle::Border(color, width);
         } else {
             self.style = ShapeStyle::border(0, width);
         }

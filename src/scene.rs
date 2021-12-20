@@ -115,7 +115,7 @@ impl From<ShapeStyle> for Background {
     fn from(style: ShapeStyle) -> Self {
         match style {
             ShapeStyle::Background(bg) => bg,
-            ShapeStyle::Bmax(_, _) => Background::Transparent,
+            ShapeStyle::Border(_, _) => Background::Transparent,
         }
     }
 }

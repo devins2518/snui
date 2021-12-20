@@ -719,16 +719,19 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             // Calling the application´s closure
             (self.cb)(&mut self.core, ev);
 
-            // Creating the render node
-            let render_node = self.core.widget.create_node(0., 0.);
+            let current_width = self.width();
+            let current_height = self.height();
 
             // Resizing the surface in case the widget changed size
             if ev == Event::Frame {
                 self.ctx.render_node = None;
-            } else if width != self.width() || height != self.height() {
-                let _ = self.set_size(render_node.width(), render_node.height());
+            } else if width != current_width || height != current_height {
+                let _ = self.set_size(current_width, current_height);
                 return Err(());
             }
+
+            // Creating the render node
+            let render_node = self.core.widget.create_node(0., 0.);
 
             self.ctx.pending_cb = true;
 

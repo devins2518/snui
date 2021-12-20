@@ -104,10 +104,3 @@ impl Widget for Child {
         self.widget.contains(x + self.coords.x, y + self.coords.y)
     }
 }
-
-// Write macro similar to vec!
-// #[macro_export]
-// macro_rules! add {
-//     () => ()
-//     ( $() )
-// }

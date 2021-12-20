@@ -161,6 +161,18 @@ impl MouseButton {
             _ => false,
         }
     }
+    pub fn is_right(&self) -> bool {
+        match self {
+            MouseButton::Right => true,
+            _ => false,
+        }
+    }
+    pub fn is_extra(self, button: u32) -> bool {
+        match self {
+            MouseButton::Extra(uint) => uint == button,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -168,7 +180,7 @@ pub enum Event<'d> {
     // Send when a Full redraw is neccessary
     Frame,
     Prepare,
-    // Sent on a frame callback request with the frame rate in ms
+    // Sent on a frame callback with the frame time in ms
     Callback(u32),
     // Your message object
     Message(data::Message<'d>),

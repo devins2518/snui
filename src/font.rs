@@ -13,11 +13,6 @@ use std::fs::read;
 use std::path::Path;
 use tiny_skia::*;
 
-pub fn font_from_path(path: &Path) -> Font {
-    let font = read(path).unwrap();
-    Font::from_bytes(font, fontdue::FontSettings::default()).unwrap()
-}
-
 pub fn create_layout(max_width: Option<f32>, max_height: Option<f32>) -> (LayoutSettings, Layout) {
     let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
     let setting = LayoutSettings {

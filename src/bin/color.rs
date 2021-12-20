@@ -342,7 +342,10 @@ fn header() -> impl Widget {
                     button,
                 } => {
                     if button == MouseButton::Left && pressed {
-                        if let Data::Uint(_) = ctx.request(Signal::Source as u32).unwrap() {
+                        if let Data::Uint(_) = ctx
+                            .get(Message::new(Signal::Source as u32, Data::Null))
+                            .unwrap()
+                        {
                             this.edit("Copied");
                             this.set_background(Background::solid(BG1));
                         }
