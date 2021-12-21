@@ -970,14 +970,7 @@ impl RenderNode {
                             *self = RenderNode::Draw { region, steps };
                             return Err(region);
                         } else {
-                            let mut draw = false;
-                            for i in 0..steps.len() {
-                                if this_steps[i] != steps[i] {
-                                    draw = true;
-                                    break;
-                                }
-                            }
-                            if draw {
+                            if steps.eq(this_steps) {
                                 self.clear(ctx, &Background::from(shape), Some(&region));
                                 *self = RenderNode::Draw { region, steps };
                                 self.render(ctx, clip);
