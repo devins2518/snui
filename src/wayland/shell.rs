@@ -6,7 +6,7 @@ use crate::wayland::*;
 use crate::*;
 use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 use smithay_client_toolkit::seat::keyboard::{
-    self, map_keyboard_repeat, ModifiersState, RepeatKind,
+    ModifiersState,
 };
 use smithay_client_toolkit::shm::AutoMemPool;
 use smithay_client_toolkit::WaylandSource;
@@ -225,10 +225,12 @@ impl Output {
 impl<C: Controller + Clone + 'static> Application<C> {
     pub fn new(pointer: bool) -> (Self, EventLoop<'static, Self>) {
         let display = Display::connect_to_env().unwrap();
-        let mut event_queue = display.create_event_queue();
+        let event_queue = display.create_event_queue();
         let attached_display = (*display).clone().attach(event_queue.token());
 
-        let mut globals = Globals::new();
+		let display_handle = display.clone();
+
+        let globals = Globals::new();
 
         let global_manager = GlobalManager::new_with_cb(
             &attached_display,
@@ -236,31 +238,36 @@ impl<C: Controller + Clone + 'static> Application<C> {
                 [
                     ZwlrLayerShellV1,
                     1,
-                    |shell: Main<ZwlrLayerShellV1>, mut globals: DispatchData| {
-                        if let Some(globals) = globals.get::<Globals>() {
-                            globals.shell = Some(shell);
+                    |shell: Main<ZwlrLayerShellV1>, mut application: DispatchData| {
+                        if let Some(application) = application.get::<Application<C>>() {
+                            Rc::get_mut(&mut application.globals).unwrap().shell = Some(shell);
                         }
                     }
                 ],
-                [WlShm, 1, |shm: Main<WlShm>, mut globals: DispatchData| {
-                    if let Some(globals) = globals.get::<Globals>() {
-                        globals.shm = Some(shm);
+                [WlShm, 1, |shm: Main<WlShm>, mut application: DispatchData| {
+                    shm.quick_assign(|_, _, _| {});
+                    if let Some(application) = application.get::<Application<C>>() {
+                        Rc::get_mut(&mut application.globals).unwrap().shm = Some(shm);
                     }
                 }],
                 [
                     WlCompositor,
                     4,
-                    |compositor: Main<WlCompositor>, mut globals: DispatchData| {
-                        if let Some(globals) = globals.get::<Globals>() {
-                            globals.compositor = Some(compositor);
+                    |compositor: Main<WlCompositor>, mut application: DispatchData| {
+                        if let Some(application) = application.get::<Application<C>>() {
+                            Rc::get_mut(&mut application.globals).unwrap().compositor = Some(compositor);
                         }
                     }
                 ],
-                [WlSeat, 7, |seat: Main<WlSeat>, _: DispatchData| {
-                    seat.quick_assign(move |seat, event, mut globals| match event {
+                [WlSeat, 7, move |seat: Main<WlSeat>, _: DispatchData| {
+                    seat.quick_assign(move |seat, event, mut application| match event {
                         wl_seat::Event::Capabilities { capabilities } => {
-                            if let Some(globals) = globals.get::<Globals>() {
-                                globals.seats.push(Seat { capabilities, seat });
+                            if let Some(application) = application.get::<Application<C>>() {
+                                if pointer && capabilities & Capability::Pointer == Capability::Pointer {
+                                    let pointer = seat.get_pointer();
+                                    assign_pointer::<C>(&pointer);
+                                }
+                                Rc::get_mut(&mut application.globals).unwrap().seats.push(Seat { capabilities, seat });
                             }
                         }
                         _ => {}
@@ -269,8 +276,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
                 [
                     WlOutput,
                     3,
-                    |output: Main<WlOutput>, _globals: DispatchData| {
-                        output.quick_assign(move |wl_output, event, mut globals| match event {
+                    |output: Main<WlOutput>, _application: DispatchData| {
+                        output.quick_assign(move |wl_output, event, mut application| match event {
                             wl_output::Event::Geometry {
                                 x: _,
                                 y: _,
@@ -281,19 +288,19 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 model: _,
                                 transform: _,
                             } => {
-                                if let Some(globals) = globals.get::<Globals>() {
-                                    if let Some(output) = globals.outputs.last_mut() {
+                                if let Some(application) = application.get::<Application<C>>() {
+                                    if let Some(output) = Rc::get_mut(&mut application.globals).unwrap().outputs.last_mut() {
                                         if wl_output == output.output {
                                             output.name = make;
                                         } else {
                                             let mut output = Output::new(wl_output);
                                             output.name = make;
-                                            globals.outputs.push(output);
+                                            Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                         }
                                     } else {
                                         let mut output = Output::new(wl_output);
                                         output.name = make;
-                                        globals.outputs.push(output);
+                                        Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                     }
                                 }
                             }
@@ -303,8 +310,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 height,
                                 refresh: _,
                             } => {
-                                if let Some(globals) = globals.get::<Globals>() {
-                                    if let Some(output) = globals.outputs.last_mut() {
+                                if let Some(application) = application.get::<Application<C>>() {
+                                    if let Some(output) = Rc::get_mut(&mut application.globals).unwrap().outputs.last_mut() {
                                         if wl_output == output.output {
                                             output.width = width;
                                             output.height = height;
@@ -312,33 +319,34 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                             let mut output = Output::new(wl_output);
                                             output.width = width;
                                             output.height = height;
-                                            globals.outputs.push(output);
+                                            Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                         }
                                     } else {
                                         let mut output = Output::new(wl_output);
                                         output.width = width;
                                         output.height = height;
-                                        globals.outputs.push(output);
+                                        Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                     }
                                 }
                             }
                             wl_output::Event::Scale { factor } => {
-                                if let Some(globals) = globals.get::<Globals>() {
-                                    if let Some(output) = globals.outputs.last_mut() {
+                                if let Some(application) = application.get::<Application<C>>() {
+                                    if let Some(output) = Rc::get_mut(&mut application.globals).unwrap().outputs.last_mut() {
                                         if wl_output == output.output {
                                             output.scale = factor;
                                         } else {
                                             let mut output = Output::new(wl_output);
                                             output.scale = factor;
-                                            globals.outputs.push(output);
+                                            Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                         }
                                     } else {
                                         let mut output = Output::new(wl_output);
                                         output.scale = factor;
-                                        globals.outputs.push(output);
+                                        Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                     }
                                 }
                             }
+                            wl_output::Event::Done => {}
                             _ => {}
                         });
                     }
@@ -346,116 +354,12 @@ impl<C: Controller + Clone + 'static> Application<C> {
             ),
         );
 
-        for _ in 0..2 {
-            event_queue
-                .sync_roundtrip(&mut globals, |_, _, _| {})
-                .unwrap();
-        }
-
         let event_loop = EventLoop::try_new().expect("Failed to initialize the event loop!");
         let token = WaylandSource::new(event_queue)
             .quick_insert(event_loop.handle())
             .unwrap();
 
-        for seat in &globals.seats {
-            let mut index = 0;
-            let mut ch = None;
-            if false && (seat.capabilities & Capability::Keyboard == Capability::Keyboard) {
-                let _ = map_keyboard_repeat(
-                    event_loop.handle(),
-                    &Attached::from(seat.seat.clone()),
-                    None,
-                    RepeatKind::System,
-                    move |ev, _, mut applications| match ev {
-                        keyboard::Event::Modifiers { modifiers } => {
-                            if let Some(applications) = applications.get::<Application<C>>() {
-                                let inner_application = applications.inner.get_mut(index).unwrap();
-                                if let Ok(render_node) =
-                                    inner_application.roundtrip(Event::Keyboard(Key {
-                                        utf8: ch.as_ref(),
-                                        value: &[],
-                                        modifiers: Modifiers::from(modifiers),
-                                        pressed: true,
-                                    }))
-                                {
-                                    draw_callback::<C>(
-                                        &inner_application.surface.as_ref().unwrap().surface,
-                                        render_node,
-                                    );
-                                }
-                            }
-                        }
-                        keyboard::Event::Enter {
-                            serial: _,
-                            surface,
-                            rawkeys: _,
-                            keysyms: _,
-                        } => {
-                            if let Some(applications) = applications.get::<Application<C>>() {
-                                index = applications.get_index(&surface);
-                            }
-                        }
-                        keyboard::Event::Key {
-                            serial: _,
-                            time: _,
-                            rawkey,
-                            keysym: _,
-                            state,
-                            utf8,
-                        } => {
-                            ch = utf8;
-                            if let Some(applications) = applications.get::<Application<C>>() {
-                                let inner_application = applications.inner.get_mut(index).unwrap();
-                                if let Ok(render_node) =
-                                    inner_application.roundtrip(Event::Keyboard(Key {
-                                        utf8: ch.as_ref(),
-                                        value: &[rawkey],
-                                        modifiers: Modifiers::default(),
-                                        pressed: state == keyboard::KeyState::Pressed,
-                                    }))
-                                {
-                                    draw_callback::<C>(
-                                        &inner_application.surface.as_ref().unwrap().surface,
-                                        render_node,
-                                    );
-                                }
-                            }
-                        }
-                        keyboard::Event::Repeat {
-                            time: _,
-                            rawkey: _,
-                            keysym,
-                            utf8: _,
-                        } => {
-                            if let Some(applications) = applications.get::<Application<C>>() {
-                                let inner_application = applications.inner.get_mut(index).unwrap();
-                                if let Ok(render_node) =
-                                    inner_application.roundtrip(Event::Keyboard(Key {
-                                        utf8: ch.as_ref(),
-                                        value: &[keysym],
-                                        modifiers: Modifiers::default(),
-                                        pressed: true,
-                                    }))
-                                {
-                                    draw_callback::<C>(
-                                        &inner_application.surface.as_ref().unwrap().surface,
-                                        render_node,
-                                    );
-                                }
-                            }
-                        }
-                        _ => {}
-                    },
-                )
-                .unwrap();
-            }
-            if pointer && seat.capabilities & Capability::Pointer == Capability::Pointer {
-                let pointer = seat.seat.get_pointer();
-                assign_pointer::<C>(&pointer);
-            }
-        }
-
-        (
+        let (mut application, mut event_loop)= (
             Application {
                 display,
                 globals: Rc::new(globals),
@@ -464,7 +368,14 @@ impl<C: Controller + Clone + 'static> Application<C> {
                 token,
             },
             event_loop,
-        )
+        );
+
+		for _ in 0..2 {
+            display_handle.flush().unwrap();
+            event_loop.dispatch(None, &mut application).unwrap();
+		}
+
+        (application, event_loop)
     }
     pub fn get_outputs(&self) -> Vec<Output> {
         self.globals.outputs.clone()
@@ -798,7 +709,7 @@ fn frame_callback<C: Controller + Clone + 'static>(time: u32, surface: Main<WlSu
         .frame()
         .quick_assign(move |_, event, mut application| match event {
             wl_callback::Event::Done { callback_data } => {
-                let timeout = (callback_data - time).min(100);
+                let timeout = (callback_data - time).min(50);
                 if let Some(application) = application.get::<Application<C>>() {
                     let inner_application = application.get_application(&surface).unwrap();
                     inner_application.ctx.time = None;

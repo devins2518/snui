@@ -240,7 +240,9 @@ impl Geometry for Rectangle {
 
 impl Primitive for Rectangle {
     fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
-        self.clone().background(background).into()
+        let mut rect = self.clone();
+        rect.style = ShapeStyle::Background(background);
+        rect.into()
     }
     fn get_background(&self) -> scene::Background {
         self.style.background()

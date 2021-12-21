@@ -126,7 +126,7 @@ impl Primitive for Image {
     }
     fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
         widgets::shapes::Rectangle::empty(self.width(), self.height())
-            .background(background)
+            .background(self.get_background().merge(background))
             .into()
     }
     fn into_primitive(&self) -> scene::PrimitiveType {

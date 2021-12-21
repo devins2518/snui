@@ -291,7 +291,7 @@ impl Geometry for PrimitiveType {
             } => primitive.set_height(height),
             Self::Label(l) => l.set_height(height),
             Self::Rectangle(r) => r.set_height(height),
-            Self::Image(i) => i.set_height(height),
+            Self::Image(i) => Err(i.height()),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
@@ -303,7 +303,7 @@ impl Geometry for PrimitiveType {
             } => primitive.set_width(width),
             Self::Label(l) => l.set_width(width),
             Self::Rectangle(r) => r.set_width(width),
-            Self::Image(i) => i.set_width(width),
+            Self::Image(i) => Err(i.width()),
         }
     }
 }
@@ -390,7 +390,6 @@ impl Primitive for PrimitiveType {
         }
     }
     fn contains(&self, region: &Region) -> bool {
-        // let region = region.relative_to(self.transform.tx, self.transform.ty);
         match &self {
             PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
             _ => true,
@@ -427,7 +426,7 @@ impl PrimitiveType {
     }
     fn instruction(&self, region: Region) -> Instruction {
         let mut p = self.clone();
-        let _ = p.set_size(region.width, region.height).is_ok();
+        let _ = p.set_size(region.width, region.height);
         Instruction::new(region.x, region.y, p)
     }
 }
