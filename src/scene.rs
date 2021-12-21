@@ -53,7 +53,7 @@ pub enum Background {
         mode: SpreadMode,
         stops: Rc<[GradientStop]>,
     },
-    Composite(Box<Background>, Box<Background>),
+    Composite(Vec<Background>),
     Color(Color),
 }
 
@@ -100,10 +100,11 @@ impl PartialEq for Background {
                         && sm == mode;
                 }
             }
-            Self::Composite(sb, so) => {
-                if let Self::Composite(ob, oo) = other {
-                    return sb as *const Box<Background> == ob as *const Box<Background>
-                        && so as *const Box<Background> == oo as *const Box<Background>;
+            Self::Composite(sl) => {
+                if let Self::Composite(ol) = other {
+                    return sl.eq(ol);
+                    // return sb as *const Box<Background> == ob as *const Box<Background>
+                    //     && so as *const Box<Background> == oo as *const Box<Background>;
                 }
             }
         }
@@ -192,10 +193,10 @@ impl Background {
                     Background::Color(blend(acolor, &bcolor))
                 }
                 Background::Image(_, _) => {
-                    Background::Composite(Box::new(self.clone()), Box::new(other))
+                    Background::Composite(vec![self.clone(), other])
                 }
                 Background::Transparent => self.clone(),
-                _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
+                _ => Background::Composite(vec![self.clone(), other]),
             },
             Background::LinearGradient {
                 start: _,
@@ -208,25 +209,36 @@ impl Background {
                     if color.is_opaque() {
                         return other;
                     } else {
-                        Background::Composite(Box::new(self.clone()), Box::new(other))
+                        Background::Composite(vec![self.clone(), other])
                     }
                 }
                 Background::Transparent => return self.clone(),
-                _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
+                _ => Background::Composite(vec![self.clone(), other]),
             },
             Background::Image(_, _) => match other {
                 Background::Color(color) => {
                     if color.is_opaque() {
                         return other;
                     } else {
-                        Background::Composite(Box::new(self.clone()), Box::new(other))
+                        Background::Composite(vec![self.clone(), other])
                     }
                 }
                 Background::Transparent => return self.clone(),
-                _ => Background::Composite(Box::new(self.clone()), Box::new(other)),
+                _ => Background::Composite(vec![self.clone(), other]),
             },
-            Background::Composite(base, overlay) => {
-                Background::Composite(base.clone(), Box::new(overlay.as_ref().merge(other)))
+            Background::Composite(sl) => {
+                let mut layers = sl.clone();
+                if let Some(last) = layers.pop() {
+                    let background = last.merge(other);
+                    match background {
+                        Background::Composite(mut ol) => {
+                            layers.append(&mut ol);
+                            return Background::Composite(layers)
+                        }
+                        _ => layers.push(background)
+                    }
+                }
+                Background::Composite(layers)
             }
             Background::Transparent => other,
         }

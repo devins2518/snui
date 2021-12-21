@@ -276,9 +276,10 @@ impl<'c> DrawContext<'c> {
                     .unwrap();
                 }
             }
-            Background::Composite(base, overlay) => {
-                self.damage_region(base.as_ref(), region, true);
-                self.damage_region(overlay.as_ref(), region, true);
+            Background::Composite(layers) => {
+                for layer in layers {
+                    self.damage_region(layer, region, true);
+                }
             }
             Background::Transparent => match &mut self.backend {
                 Backend::Pixmap(dt) => {
