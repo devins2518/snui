@@ -103,8 +103,6 @@ impl PartialEq for Background {
             Self::Composite(sl) => {
                 if let Self::Composite(ol) = other {
                     return sl.eq(ol);
-                    // return sb as *const Box<Background> == ob as *const Box<Background>
-                    //     && so as *const Box<Background> == oo as *const Box<Background>;
                 }
             }
         }
@@ -145,16 +143,35 @@ impl From<Image> for Background {
     }
 }
 
+impl From<Instruction> for Background {
+    fn from(instruction: Instruction) -> Self {
+        match instruction.primitive {
+            PrimitiveType::Rectangle(r) => r.get_style().background(),
+            PrimitiveType::Image(image) => {
+                let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
+                Background::Image(coords, image.clone())
+            }
+            _ => Background::Transparent,
+        }
+    }
+}
+
+impl From<&Instruction> for Background {
+    fn from(instruction: &Instruction) -> Self {
+        match &instruction.primitive {
+            PrimitiveType::Rectangle(r) => r.get_style().background(),
+            PrimitiveType::Image(image) => {
+                let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
+                Background::Image(coords, image.clone())
+            }
+            _ => Background::Transparent,
+        }
+    }
+}
+
 impl Background {
     pub fn solid(color: u32) -> Background {
         Background::Color(u32_to_source(color))
-    }
-    pub fn image(path: &std::path::Path) -> Background {
-        if let Ok(image) = Image::new(path) {
-            Background::Image(Coords::new(0., 0.), image)
-        } else {
-            Background::Transparent
-        }
     }
     // The angle is a radiant representing the tild of the gradient clock wise.
     pub fn linear_gradient(stops: Vec<GradientStop>, mode: SpreadMode, angle: f32) -> Background {
@@ -165,16 +182,6 @@ impl Background {
             end: Coords::new(0., 0.),
             mode,
             stops,
-        }
-    }
-    fn from(instruction: &Instruction) -> Self {
-        match &instruction.primitive {
-            PrimitiveType::Rectangle(r) => r.get_style().background(),
-            PrimitiveType::Image(image) => {
-                let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
-                Background::Image(coords, image.clone())
-            }
-            _ => Background::Transparent,
         }
     }
     pub fn is_transparent(&self) -> bool {
@@ -196,6 +203,10 @@ impl Background {
                     Background::Composite(vec![self.clone(), other])
                 }
                 Background::Transparent => self.clone(),
+                Background::Composite(mut layers) => {
+                    layers.insert(0, self.clone());
+                    Background::Composite(layers)
+                }
                 _ => Background::Composite(vec![self.clone(), other]),
             },
             Background::LinearGradient {
@@ -213,6 +224,10 @@ impl Background {
                     }
                 }
                 Background::Transparent => return self.clone(),
+                Background::Composite(mut layers) => {
+                    layers.insert(0, self.clone());
+                    Background::Composite(layers)
+                }
                 _ => Background::Composite(vec![self.clone(), other]),
             },
             Background::Image(_, _) => match other {
@@ -224,6 +239,10 @@ impl Background {
                     }
                 }
                 Background::Transparent => return self.clone(),
+                Background::Composite(mut layers) => {
+                    layers.insert(0, self.clone());
+                    Background::Composite(layers)
+                }
                 _ => Background::Composite(vec![self.clone(), other]),
             },
             Background::Composite(sl) => {

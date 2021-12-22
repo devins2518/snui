@@ -6,9 +6,8 @@ use tiny_skia::*;
 use scene::Instruction;
 use std::path::Path;
 use std::sync::Arc;
-use widgets::shapes::*;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Scale {
     Fill,
     Fit,
@@ -126,8 +125,7 @@ impl Primitive for Image {
     }
     fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
         widgets::shapes::Rectangle::empty(self.width(), self.height())
-            .background(self.get_background().merge(background))
-            .into()
+            .apply_background(background)
     }
     fn into_primitive(&self) -> scene::PrimitiveType {
         self.clone().into()
@@ -169,6 +167,7 @@ impl std::fmt::Debug for Image {
         f.debug_struct("Image")
             .field("width", &self.width)
             .field("height", &self.height)
+            .field("scale", &self.scale)
             .field("size", &self.image.len())
             .finish()
     }

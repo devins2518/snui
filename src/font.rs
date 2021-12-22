@@ -13,22 +13,6 @@ use std::fs::read;
 use std::path::Path;
 use tiny_skia::*;
 
-pub fn create_layout(max_width: Option<f32>, max_height: Option<f32>) -> (LayoutSettings, Layout) {
-    let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
-    let setting = LayoutSettings {
-        x: 0.,
-        y: 0.,
-        max_width,
-        max_height,
-        horizontal_align: layout::HorizontalAlign::Left,
-        vertical_align: layout::VerticalAlign::Middle,
-        wrap_style: layout::WrapStyle::Word,
-        wrap_hard_breaks: true,
-    };
-    layout.reset(&setting);
-    (setting, layout)
-}
-
 pub fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
     let mut width = 0;
     let mut height = 0;
@@ -163,17 +147,19 @@ impl GlyphCache {
         }
     }
     pub fn load(path: &Path) -> FontResult<Self> {
-        if let Ok(bytes) = read(path) {
-            if let Ok(font) = Font::from_bytes(bytes, fontdue::FontSettings::default()) {
-                Ok(Self {
-                    font,
-                    glyphs: HashMap::new(),
-                })
-            } else {
-                FontResult::Err("Isn't a font")
+        match read(path) {
+            Ok(bytes) => {
+                match Font::from_bytes(bytes, fontdue::FontSettings::default()) {
+                    Ok(font) => {
+                        Ok(Self {
+                            font,
+                            glyphs: HashMap::new(),
+                        })
+                    }
+                    Err(_) => FontResult::Err("Isn't a font")
+                }
             }
-        } else {
-            FontResult::Err("Invalid path")
+            Err(_) => FontResult::Err("Invalid path")
         }
     }
     pub fn render_glyph(&mut self, glyph: &GlyphPosition, source: Color) -> Option<Vec<u32>> {
