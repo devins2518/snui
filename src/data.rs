@@ -11,10 +11,66 @@ pub enum Data<'d> {
     Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
+pub enum StaticData {
+    Null,
+    Int(i32),
+    Byte(u8),
+    Uint(u32),
+    Float(f32),
+    Double(f64),
+    Boolean(bool),
+    String(String),
+    Any(Box<(dyn std::any::Any + Sync + Send + 'static)>),
+}
+
+impl From<Data<'_>> for StaticData {
+    fn from(data: Data) -> Self {
+        match data {
+            Data::Boolean(s) => StaticData::Boolean(s),
+            Data::Uint(s) => StaticData::Uint(s),
+            Data::Int(s) => StaticData::Int(s),
+            Data::String(s) => StaticData::String(s.to_string()),
+            Data::Byte(s) => StaticData::Byte(s),
+            Data::Double(s) => StaticData::Double(s),
+            Data::Float(s) => StaticData::Float(s),
+            _ => panic!("Any cannot be made static")
+        }
+    }
+}
+
+impl StaticData {
+    pub fn as_ref(&self) -> Data<'_> {
+        match self {
+            StaticData::Boolean(s) => Data::Boolean(*s),
+            StaticData::Uint(s) => Data::Uint(*s),
+            StaticData::Int(s) => Data::Int(*s),
+            StaticData::String(s) => Data::String(s.as_str()),
+            StaticData::Byte(s) => Data::Byte(*s),
+            StaticData::Double(s) => Data::Double(*s),
+            StaticData::Float(s) => Data::Float(*s),
+            _ => panic!("Any cannot be made static")
+        }
+    }
+}
+
 // Meant for testing purposes and default
 #[derive(Clone, Copy, Debug)]
 pub struct DummyController {
     serial: Option<u32>,
+}
+
+pub struct StaticMessage (
+    pub u32,
+    pub StaticData
+);
+
+impl From<Message<'_>> for StaticMessage {
+    fn from(msg: Message<'_>) -> Self {
+        StaticMessage (
+            msg.0,
+            StaticData::from(msg.1)
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -55,12 +111,12 @@ pub trait Controller {
     // Ends the serialization
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
     // These interface are from the pov of the widgets
-    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError>;
-    // fn request<'m>(&'m self, obj: u32) -> Result<Data<'m>, ControllerError> {
+    fn get<'c>(&'c self, msg: Message) -> Result<Data<'c>, ControllerError>;
+    // fn request<'c>(&'c self, obj: u32) -> Result<Data<'c>, ControllerError> {
     //     self.send(Message::new(obj, Data::Null))
     // }
     // The Message must be a u32 serial.
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError>;
+    fn send<'c>(&'c mut self, msg: Message) -> Result<Data<'c>, ControllerError>;
     // Returns an Ok(Message) if the application needs to be synced
     fn sync(&mut self) -> Result<Message<'static>, ControllerError>;
 }
@@ -207,12 +263,12 @@ impl Controller for DummyController {
         }
         Ok(())
     }
-    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError> {
+    fn get<'c>(&'c self, msg: Message) -> Result<Data<'c>, ControllerError> {
         println!("<- {:?}", msg);
         println!("-> Null");
         Err(ControllerError::WrongObject)
     }
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
+    fn send<'c>(&'c mut self, msg: Message) -> Result<Data<'c>, ControllerError> {
         if let Some(serial) = &self.serial {
             println!("<- {} : {:?}", serial, msg);
         } else {

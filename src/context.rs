@@ -94,7 +94,7 @@ pub enum Backend<'b> {
 
 pub struct SyncContext<'c> {
     controller: &'c mut dyn Controller,
-    pub font_cache: &'c mut FontCache,
+    pub(crate) font_cache: &'c mut FontCache,
 }
 
 pub struct DrawContext<'c> {
@@ -115,12 +115,6 @@ impl<'b> Geometry for Backend<'b> {
             Backend::Dummy => 0.,
             Backend::Pixmap(dt) => dt.height() as f32,
         }
-    }
-    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
-        Err(self.width())
-    }
-    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
-        Err(self.height())
     }
 }
 
