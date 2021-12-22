@@ -2,7 +2,6 @@
 
 The `controller` is the heart of your application. It decides when the widget tree should be updated and information served to the UI.
 
-The interface is loosely inspired by Rust's [message passing]().
 
 ## Quick overview
 

@@ -6,11 +6,11 @@ For the most part widgets are separated in two kinds, layout widgets which often
 
 snui at a high level 
 
-1. **sync** : An event from the display or a message is passed down the widget tree through the `sync` method. Widgets are given **mutable** access to the [SyncContext]() which implements the `Controller` trait and wraps your real controller. Many [sync]() can occur before the widget is asked to create its `RenderNode`.
+1. **sync** : An event from the display or a message is passed down the widget tree through the `sync` method. Widgets are given **mutable** access to the [SyncContext](../src/context.rs) which implements the `Controller` trait and wraps your real controller. Many [sync](../src/data.rs) can occur before the widget is asked to create its `RenderNode`.
 
 2. **create_node**: Once the state of widgets has been updated, they create their their `RenderNode`. This is the part where layouting is done. The method additionally gives as parameters the `x` and `y` coordinates of the widget. Child's widget `create_node` need to be called from their **real position**.
 
-3. **merge**: After the `RenderNode` is created, it is merged with the previous one to create the new _scene graph_. During this merge, conflicting instructions are replaced and rendered on the [DrawContext](). This step is mostly done behind the [scenes]().
+3. **merge**: After the `RenderNode` is created, it is merged with the previous one to create the new _scene graph_. During this merge, conflicting instructions are replaced and rendered on the [DrawContext](../src/context.rs). This step is mostly done behind the [scenes](../src/scene.rs).
 
 ## `WidgetUtil` trait
 

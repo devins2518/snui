@@ -1,6 +1,6 @@
-# `Primtive` trait
+# `Primitive` trait
 
-Primitives are the building blocks of the GUI. The only primitives implemented in snui are [Rectangle]() and [Image](). The adjacent type to `Primitive` is `PrimitiveType`, an enum with all the commonly used primitives and `Other` for unique ones.
+Primitives are the building blocks of the GUI. The only primitives implemented in snui are [Rectangle](../src/widgets/shapes/rectangle.rs) and [Image](../src/widgets/image.rs). The adjacent type to `Primitive` is `PrimitiveType`, an enum with all the commonly used primitives and `Other` for unique ones.
 
 In snui, instead of having a renderer that draws all imaginable shapes, users can implement `Primitive` on a type and have it draw itself on the given rendering backend.
 
@@ -46,7 +46,7 @@ pub enum PrimitiveType {
 }
 ```
 
-Brief return on `PrimtiveType`. We discussed about `Rectangle` and `Image` previously but not about [Label](). Label doesn't implement `Primitive`. It is drawn directly by the [DrawContext]().
+Brief return on `PrimtiveType`. We discussed about `Rectangle` and `Image` previously but not about [Label](../src/widgets/text.rs). Label doesn't implement `Primitive`. It is drawn directly by the [DrawContext](../src/context.rs).
 
 If you wish to create your own, it is recommended to use this method from `Instruction`.
 

@@ -410,18 +410,18 @@ impl Style for Rectangle {
         }
         self
     }
-    fn set_border_width(&mut self, width: f32) {
+    fn set_border_size(&mut self, size: f32) {
         if let ShapeStyle::Border(color, _) = self.style {
-            self.style = ShapeStyle::Border(color, width);
+            self.style = ShapeStyle::Border(color, size);
         } else {
-            self.style = ShapeStyle::border(0, width);
+            self.style = ShapeStyle::border(0, size);
         }
     }
-    fn border_width(mut self, width: f32) -> Self {
+    fn border_size(mut self, size: f32) -> Self {
         if let ShapeStyle::Border(color, _) = self.style {
-            self.style = ShapeStyle::Border(color, width);
+            self.style = ShapeStyle::Border(color, size);
         } else {
-            self.style = ShapeStyle::border(0, width);
+            self.style = ShapeStyle::border(0, size);
         }
         self
     }

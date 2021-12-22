@@ -262,23 +262,23 @@ impl Style for Slider {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         self.slider.set_radius(tl, tr, br, bl);
     }
-    fn set_border_width(&mut self, width: f32) {
-        self.slider.set_border_width(width);
+    fn set_border_size(&mut self, size: f32) {
+        self.slider.set_border_size(size);
     }
     fn background<B: Into<scene::Background>>(mut self, background: B) -> Self {
         self.set_background(background);
         self
     }
-    fn border(mut self, color: u32, width: f32) -> Self {
-        self.set_border(color, width);
+    fn border(mut self, color: u32, size: f32) -> Self {
+        self.set_border(color, size);
         self
     }
     fn border_color(mut self, color: u32) -> Self {
         self.set_border_color(color);
         self
     }
-    fn border_width(mut self, width: f32) -> Self {
-        self.set_border_width(width);
+    fn border_size(mut self, size: f32) -> Self {
+        self.set_border_size(size);
         self
     }
     fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
