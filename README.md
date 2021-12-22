@@ -9,7 +9,7 @@
 
 ## Documentation
 
-See [doc/]().
+See [doc/](doc/INTRODUCTION.md).
 
 ## Examples
 

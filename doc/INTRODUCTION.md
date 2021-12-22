@@ -16,8 +16,8 @@ Provide a simple and accessible way to write small GUI applications in Rust. Ide
 
 ## Key traits
 
-- **Primitive** : Rendered UI components.
+- [**Primitive**](PRIMITIVE.md) : Rendered UI components.
 
-- **Controller** : The heart of your application.
+- [**Controller**](CONTROLLER.md) : The heart of your application.
 
-- **Widget** : How the user interface is represented.
+- [**Widget**](WIDGET.md) : How the user interface is represented.
