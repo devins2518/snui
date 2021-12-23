@@ -249,9 +249,7 @@ fn main() {
         EaserCtl::default(),
         ui()
     	.ext()
-    	.background(
-        	Image::new(std::path::Path::new("/home/snakedye/Pictures/zamn.jpg")).unwrap()
-    	)
+    	.background(style::BG0)
     	.even_radius(5.)
     	.border(style::BG2, 5.),
         event_loop.handle(),
