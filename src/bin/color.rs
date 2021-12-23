@@ -15,6 +15,8 @@ enum Signal {
     Alpha = 1 << 5,
 }
 
+// There's already a Listener of this type in snui
+// I just wrote this one before the other and it's just slightly more convenient for formatting.
 struct Listener {
     id: u32,
     text: Text,
@@ -113,6 +115,7 @@ impl Widget for ColorBlock {
     }
 }
 
+// This is essentially the close button
 struct Cross {}
 
 impl Geometry for Cross {
@@ -177,10 +180,10 @@ struct ColorControl {
 
 impl Controller for ColorControl {
     fn serialize(&mut self, _msg: Message) -> Result<u32, ControllerError> {
-        Err(data::ControllerError::NonBlocking)
+        Err(data::ControllerError::WrongObject)
     }
     fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
-        Err(data::ControllerError::NonBlocking)
+        Err(data::ControllerError::WrongObject)
     }
     fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError> {
         let Message(obj, _) = msg;
@@ -266,7 +269,7 @@ fn main() {
     let mut color = WidgetLayout::new(5.).orientation(Orientation::Vertical);
 
     color.add(header());
-    color.add(core().pad(20.));
+    color.add(body().pad(20.));
     color.justify(CENTER);
 
     snui.create_inner_application(
@@ -292,6 +295,30 @@ fn main() {
     );
 
     snui.run(&mut event_loop);
+}
+
+fn sliders() -> WidgetLayout {
+    [RED, GRN, BLU, BG0]
+        .iter()
+        .map(|color| {
+            let id = match *color {
+                RED => Signal::Red,
+                BLU => Signal::Blue,
+                GRN => Signal::Green,
+                BG0 => Signal::Alpha,
+                _ => Signal::Close,
+            };
+            widgets::slider::Slider::new(200, 8)
+                .id(id as u32)
+                .background(*color)
+                .ext()
+                .background(BG2)
+                .even_radius(3.)
+                .child()
+        })
+        .collect::<WidgetLayout>()
+        .spacing(10.)
+        .orientation(Orientation::Vertical)
 }
 
 fn header() -> impl Widget {
@@ -362,38 +389,13 @@ fn header() -> impl Widget {
             }),
     );
 
-    let mut header =
+    let header =
         CenterBox::from(buttons, Label::default("app_name", 15.), Cross {}).with_width(330.);
 
-    let _ = header.set_width(300.);
     header
 }
 
-fn sliders() -> WidgetLayout {
-    [RED, GRN, BLU, BG0]
-        .iter()
-        .map(|color| {
-            let id = match *color {
-                RED => Signal::Red,
-                BLU => Signal::Blue,
-                GRN => Signal::Green,
-                BG0 => Signal::Alpha,
-                _ => Signal::Close,
-            };
-            widgets::slider::Slider::new(200, 8)
-                .id(id as u32)
-                .background(*color)
-                .ext()
-                .background(BG2)
-                .even_radius(3.)
-                .child()
-        })
-        .collect::<WidgetLayout>()
-        .spacing(10.)
-        .orientation(Orientation::Vertical)
-}
-
-fn core() -> WidgetLayout {
+fn body() -> WidgetLayout {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
     let listener = Listener {

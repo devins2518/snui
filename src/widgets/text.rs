@@ -290,11 +290,22 @@ impl Widget for Listener {
                 Event::Message(msg) => {
                     let Message(obj, data) = msg;
                     if obj == self.id {
-                        if let Some(format) = self.format.as_ref() {
-                            self.text
-                                .edit(format.replace("{}", &data.to_string()).as_str());
+                        if let data::Data::Null = data {
+                            if let Ok(data) = ctx.get(Message::new(self.id, data::Data::Null)) {
+                                if let Some(format) = self.format.as_ref() {
+                                    self.text
+                                        .edit(format.replace("{}", &data.to_string()).as_str());
+                                } else {
+                                    self.text.edit(format!("{}", data.to_string()).as_str());
+                                }
+                            }
                         } else {
-                            self.text.edit(format!("{}", data.to_string()).as_str());
+                            if let Some(format) = self.format.as_ref() {
+                                self.text
+                                    .edit(format.replace("{}", &data.to_string()).as_str());
+                            } else {
+                                self.text.edit(format!("{}", data.to_string()).as_str());
+                            }
                         }
                     }
                 }

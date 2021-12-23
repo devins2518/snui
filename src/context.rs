@@ -251,23 +251,23 @@ impl<'c> DrawContext<'c> {
                 let (sx, sy) = image.scale();
                 let source = image.pixmap();
                 if let Backend::Pixmap(dt) = &mut self.backend {
-                    let mut clip = ClipMask::new();
-                    clip.set_path(
-                        dt.width(),
-                        dt.height(),
-                        &PathBuilder::from_rect((&crop).into()),
-                        FillRule::Winding,
-                        false,
+                    dt.fill_rect(
+                        crop.into(),
+                        &Paint {
+                            shader: Pattern::new(
+                                source,
+                                SpreadMode::Pad,
+                                FilterQuality::Bilinear,
+                                1.0,
+                                Transform::from_scale(sx, sy).post_translate(coords.x, coords.y),
+                            ),
+                            anti_alias: false,
+                            force_hq_pipeline: true,
+                            blend_mode: BlendMode::SourceOver
+                        },
+                        Transform::identity(),
+                        None
                     );
-                    dt.draw_pixmap(
-                        0,
-                        0,
-                        source,
-                        &PIX_PAINT,
-                        Transform::from_scale(sx, sy).post_translate(coords.x, coords.y),
-                        Some(&clip),
-                    )
-                    .unwrap();
                 }
             }
             Background::Composite(layers) => {

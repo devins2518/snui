@@ -208,6 +208,12 @@ impl Globals {
         let attached = Attached::from(self.shm.clone().unwrap());
         AutoMemPool::new(attached).unwrap()
     }
+    pub fn get_outputs(&self) -> Vec<Output> {
+        self.outputs.clone()
+    }
+    pub fn get_seats(&self) -> &[Seat] {
+        &self.seats
+    }
 }
 
 impl Output {
@@ -377,12 +383,6 @@ impl<C: Controller + Clone + 'static> Application<C> {
 
         (application, event_loop)
     }
-    pub fn get_outputs(&self) -> Vec<Output> {
-        self.globals.outputs.clone()
-    }
-    pub fn get_seats(&self) -> &[Seat] {
-        &self.globals.as_ref().seats
-    }
     fn get_index(&self, surface: &WlSurface) -> usize {
         for i in 0..self.inner.len() {
             if self.inner[i].eq(surface) {
@@ -412,8 +412,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let i = InnerApplication::empty(controller, widget, self.globals.clone(), cb);
-        self.inner.push(i);
+        let inner_application = InnerApplication::empty(controller, widget, self.globals.clone(), cb);
+        self.inner.push(inner_application);
         handle.update(&self.token).unwrap();
     }
     pub fn create_inner_application_from<Data: 'static>(
@@ -424,8 +424,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let i = InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
-        self.inner.push(i);
+        let inner_application = InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
+        self.inner.push(inner_application);
         handle.update(&self.token).unwrap();
     }
     pub fn create_inner_application<Data: 'static>(
@@ -435,8 +435,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) {
-        let i = InnerApplication::default(controller, widget, self.globals.clone(), cb);
-        self.inner.push(i);
+        let inner_application = InnerApplication::default(controller, widget, self.globals.clone(), cb);
+        self.inner.push(inner_application);
         handle.update(&self.token).unwrap();
     }
     pub fn run(mut self, event_loop: &mut EventLoop<'static, Self>) {
@@ -704,21 +704,21 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
 }
 
 fn frame_callback<C: Controller + Clone + 'static>(time: u32, surface: Main<WlSurface>) {
-    let handle = surface.detach();
+    let h = surface.detach();
     surface
         .frame()
         .quick_assign(move |_, event, mut application| match event {
             wl_callback::Event::Done { callback_data } => {
                 let timeout = (callback_data - time).min(50);
                 if let Some(application) = application.get::<Application<C>>() {
-                    let inner_application = application.get_application(&surface).unwrap();
+                    let inner_application = application.get_application(&h).unwrap();
                     inner_application.ctx.time = None;
                     inner_application.callback(Event::Callback(timeout));
                 }
             }
             _ => {}
         });
-    handle.commit();
+    surface.commit();
 }
 
 fn draw_callback<C: Controller + Clone + 'static>(
@@ -740,7 +740,7 @@ fn draw_callback<C: Controller + Clone + 'static>(
     surface.commit();
 }
 
-impl Modifiers {
+impl From<ModifiersState> for Modifiers {
     fn from(modifer_state: ModifiersState) -> Modifiers {
         Modifiers {
             ctrl: modifer_state.ctrl,
@@ -827,27 +827,28 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
     shell.quick_assign(|shell, event, mut inner| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
-            width: _,
-            height: _,
+            width,
+            height,
         } => {
             shell.ack_configure(serial);
             if let Some(application) = inner.get::<Application<C>>() {
-                for a in &mut application.inner {
-                    if let Some(app_surface) = a.surface.as_mut() {
+                for inner_application in &mut application.inner {
+                    if let Some(app_surface) = inner_application.surface.as_mut() {
                         match &app_surface.shell {
                             Shell::LayerShell { config: _, surface } => {
                                 if shell.eq(surface) {
                                     app_surface.destroy_previous();
-                                    if a.ctx.pending_cb {
-                                        if let Ok(render_node) = a.roundtrip(Event::Frame) {
+                                    let _ = inner_application.widget.set_size(width as f32, height as f32);
+                                    if inner_application.ctx.pending_cb {
+                                        if let Ok(render_node) = inner_application.roundtrip(Event::Frame) {
                                             draw_callback::<C>(
-                                                &a.surface.as_ref().unwrap().surface,
+                                                &inner_application.surface.as_ref().unwrap().surface,
                                                 render_node,
                                             );
                                         }
                                     } else {
-                                        if let Ok(render_node) = a.roundtrip(Event::Frame) {
-                                            a.render(0, render_node);
+                                        if let Ok(render_node) = inner_application.roundtrip(Event::Frame) {
+                                            inner_application.render(0, render_node);
                                         }
                                     }
                                 }

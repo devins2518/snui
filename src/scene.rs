@@ -1091,6 +1091,9 @@ impl Region {
             height: fy - y,
         }
     }
+    pub fn translate(&self, x: f32, y: f32) -> Self {
+        Region::new(self.x + x, self.y + y, self.width, self.height)
+    }
     pub fn relative_to(&self, x: f32, y: f32) -> Self {
         Region::new(self.x - x, self.y - y, self.width, self.height)
     }
