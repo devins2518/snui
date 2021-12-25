@@ -17,12 +17,16 @@ use widgets::{Padding, WidgetBox};
 pub mod style {
     use crate::scene::Background;
     pub const FG0: u32 = 0xff_C8_BA_A4;
+    pub const FG1: u32 = 0xff_cd_c0_ad;
+    pub const FG2: u32 = 0xff_be_ae_94;
     pub const BG0: u32 = 0xff_25_22_21;
     pub const BG1: u32 = 0xa0_30_2c_2b;
     pub const BG2: u32 = 0xff_30_2c_2b;
     pub const YEL: u32 = 0xff_d9_b2_7c;
     pub const GRN: u32 = 0xff_95_a8_82;
     pub const BLU: u32 = 0xff_72_87_97;
+    pub const PRP: u32 = 0xff_99_83_96;
+    pub const BEI: u32 = 0xff_ab_93_82;
     pub const ORG: u32 = 0xff_d0_8b_65;
     pub const RED: u32 = 0xff_c6_5f_5f;
     pub const TRANSPARENT: Background = Background::Transparent;
@@ -287,10 +291,10 @@ pub trait WidgetUtil: Widget + Sized {
     fn with_width(self, width: f32) -> Self;
     fn with_height(self, height: f32) -> Self;
     fn with_size(self, width: f32, height: f32) -> Self;
-    fn button(
+    fn button<F: for <'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer)>(
         self,
-        cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
-    ) -> Button<Self>;
+        cb: F
+    ) -> Button<Self, F>;
 }
 
 impl<W> WidgetUtil for W
@@ -321,10 +325,13 @@ where
         let _ = self.set_size(width, height);
         self
     }
-    fn button(
+    fn button<F>(
         self,
-        cb: impl for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer) + 'static,
-    ) -> Button<Self> {
+        cb: F
+    ) -> Button<Self, F>
+    where
+        F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+    {
         Button::new(self, cb)
     }
 }

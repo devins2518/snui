@@ -36,6 +36,9 @@ impl Container for CenterBox {
             }
         }
     }
+    fn remove(&mut self, index: usize) -> Child {
+        std::mem::replace(&mut self.widgets[index], Child::new(()).clamp()).widget
+    }
 }
 
 impl Geometry for CenterBox {

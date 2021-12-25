@@ -1,16 +1,20 @@
 pub mod shell;
 
 use tiny_skia::*;
-use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_output::WlOutput;
 
+pub use smithay_client_toolkit;
 use smithay_client_toolkit::shm::AutoMemPool;
-use wayland_client::protocol::wl_region::WlRegion;
-use wayland_client::protocol::wl_seat::{Capability, WlSeat};
-use wayland_client::protocol::wl_shm::WlShm;
-use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::Main;
-use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
+pub use smithay_client_toolkit::reexports::client::{
+    Main,
+	protocol::wl_region::WlRegion,
+	protocol::wl_seat::{Capability, WlSeat},
+	protocol::wl_shm::WlShm,
+	protocol::wl_surface::WlSurface,
+    protocol::wl_buffer::WlBuffer,
+	protocol::wl_compositor::WlCompositor,
+	protocol::wl_output::WlOutput,
+};
+pub use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
     zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::KeyboardInteractivity,
     zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
@@ -18,9 +22,12 @@ use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
 
 use crate::context::Backend;
 use smithay_client_toolkit::shm::Format;
-use wayland_client::protocol::wl_buffer::WlBuffer;
 
 const FORMAT: Format = Format::Argb8888;
+
+pub enum DisplayEvent {
+    Output
+}
 
 pub struct Buffer<'b> {
     pub backend: Backend<'b>,
@@ -138,9 +145,9 @@ pub struct Seat {
 }
 
 pub struct Globals {
-    outputs: Vec<Output>,
-    seats: Vec<Seat>,
-    shm: Option<Main<WlShm>>,
-    compositor: Option<Main<WlCompositor>>,
-    shell: Option<Main<ZwlrLayerShellV1>>,
+    pub outputs: Vec<Output>,
+    pub seats: Vec<Seat>,
+    pub shm: Option<Main<WlShm>>,
+    pub compositor: Option<Main<WlCompositor>>,
+    pub shell: Option<Main<ZwlrLayerShellV1>>,
 }

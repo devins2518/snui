@@ -13,7 +13,11 @@ pub trait Container: Geometry + FromIterator<Child> {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    fn remove(&mut self, index: usize) -> Child;
     fn add(&mut self, widget: impl Widget + 'static);
+    fn pop(&mut self) -> Child {
+        self.remove(self.len() - 1)
+    }
 }
 
 pub struct Child {

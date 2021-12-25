@@ -195,9 +195,10 @@ impl<W: Widget> DerefMut for Padding<W> {
 }
 
 pub struct WidgetBox<W: Widget> {
-    widget: W,
+    pub(crate) widget: W,
     coords: Coords,
-    size: (f32, f32),
+    width: Option<f32>,
+    height: Option<f32>,
     constraint: Constraint,
     anchor: (Alignment, Alignment),
 }
@@ -205,26 +206,26 @@ pub struct WidgetBox<W: Widget> {
 impl<W: Widget> Geometry for WidgetBox<W> {
     fn width(&self) -> f32 {
         match &self.constraint {
-            Constraint::Fixed => self.size.0,
-            Constraint::Upward => self.widget.width().min(self.size.0),
-            Constraint::Downward => self.widget.width().max(self.size.0),
+            Constraint::Fixed => self.width.unwrap_or(self.widget.width()),
+            Constraint::Upward => self.widget.width().min(self.width.unwrap_or(0.)),
+            Constraint::Downward => self.widget.width().max(self.width.unwrap_or(0.)),
         }
     }
     fn height(&self) -> f32 {
         match &self.constraint {
-            Constraint::Fixed => self.size.1,
-            Constraint::Upward => self.widget.height().min(self.size.1),
-            Constraint::Downward => self.widget.height().max(self.size.1),
+            Constraint::Fixed => self.height.unwrap_or(self.widget.height()),
+            Constraint::Upward => self.widget.height().min(self.height.unwrap_or(0.)),
+            Constraint::Downward => self.widget.height().max(self.height.unwrap_or(0.)),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width > 0. {
-            self.size.0 = width;
+            self.width = Some(width);
             match &self.constraint {
                 Constraint::Fixed | Constraint::Upward => {
                     if width < self.widget.width() {
                         if let Err(width) = self.widget.set_width(width) {
-                            self.size.0 = width;
+                            self.width = Some(width);
                         }
                     }
                 }
@@ -232,16 +233,16 @@ impl<W: Widget> Geometry for WidgetBox<W> {
             }
             return Ok(());
         }
-        Err(self.size.0)
+        Err(self.width())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height > 0. {
-            self.size.1 = height;
+            self.height = Some(height);
             match &self.constraint {
                 Constraint::Fixed | Constraint::Upward => {
                     if height < self.widget.height() {
                         if let Err(height) = self.widget.set_height(height) {
-                            self.size.1 = height;
+                            self.height = Some(height);
                         }
                     }
                 }
@@ -249,7 +250,7 @@ impl<W: Widget> Geometry for WidgetBox<W> {
             }
             return Ok(());
         }
-        Err(self.size.1)
+        Err(self.height())
     }
 }
 
@@ -265,7 +266,7 @@ impl<W: Widget> Widget for WidgetBox<W> {
     }
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if (self.constraint == Constraint::Fixed || self.constraint == Constraint::Upward)
-            && (self.widget.width() > self.size.0 || self.widget.height() > self.size.1)
+            && (self.widget.width() > self.width() || self.widget.height() > self.height())
         {
             eprintln!(
                 "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
@@ -295,17 +296,13 @@ impl<W: Widget> Widget for WidgetBox<W> {
 impl<W: Widget> WidgetBox<W> {
     pub fn new(widget: W) -> Self {
         Self {
-            size: (widget.width(), widget.height()),
             widget,
+            width: None,
+            height: None,
             coords: Coords::new(0., 0.),
             anchor: (Alignment::Center, Alignment::Center),
             constraint: Constraint::Downward,
         }
-    }
-    pub fn size(mut self, width: f32, height: f32) -> Self {
-        let _ = self.set_size(width, height);
-        self.size = (width, height);
-        self
     }
     pub fn coords(&self) -> Coords {
         self.coords
@@ -329,7 +326,7 @@ impl<W: Widget> WidgetBox<W> {
 impl WidgetBox<Child> {
     pub fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if (self.constraint == Constraint::Fixed || self.constraint == Constraint::Upward)
-            && (self.widget.width() > self.size.0 || self.widget.height() > self.size.1)
+            && (self.widget.width() > self.width() || self.widget.height() > self.height())
         {
             eprintln!(
                 "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",

@@ -64,26 +64,38 @@ impl<W: Widget> Widget for Proxy<W> {
     }
 }
 
-pub struct Button<W: Widget> {
+pub struct Button<W, F>
+where
+    W: Widget,
+    F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+{
     focused: bool,
     proxy: Proxy<W>,
-    cb: Box<dyn for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer) + 'static>,
+    cb: F
 }
 
-impl<W: Widget> Button<W> {
+impl<W, F> Button<W, F>
+where
+    W: Widget,
+    F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+{
     pub fn new(
         child: W,
-        cb: impl for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer) + 'static,
+        cb: F
     ) -> Self {
         Self {
             proxy: Proxy::new(child),
             focused: false,
-            cb: Box::new(cb),
+            cb,
         }
     }
 }
 
-impl<W: Widget> Geometry for Button<W> {
+impl<W, F> Geometry for Button<W, F>
+where
+    W: Widget,
+    F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+{
     fn width(&self) -> f32 {
         self.proxy.width()
     }
@@ -101,7 +113,11 @@ impl<W: Widget> Geometry for Button<W> {
     }
 }
 
-impl<W: Widget> Widget for Button<W> {
+impl<W, F> Widget for Button<W, F>
+where
+    W: Widget,
+    F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+{
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.proxy.create_node(x, y)
     }
@@ -123,14 +139,22 @@ impl<W: Widget> Widget for Button<W> {
     }
 }
 
-impl<W: Widget> Deref for Button<W> {
+impl<W, F> Deref for Button<W, F>
+where
+    W: Widget,
+    F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+{
     type Target = Proxy<W>;
     fn deref(&self) -> &Self::Target {
         &self.proxy
     }
 }
 
-impl<W: Widget> DerefMut for Button<W> {
+impl<W, F> DerefMut for Button<W, F>
+where
+    W: Widget,
+    F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.proxy
     }

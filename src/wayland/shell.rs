@@ -13,25 +13,28 @@ use smithay_client_toolkit::WaylandSource;
 
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use wayland_client::protocol::wl_buffer::WlBuffer;
-use wayland_client::protocol::wl_compositor::WlCompositor;
 
-use wayland_client::protocol::wl_callback;
-use wayland_client::protocol::wl_output::{self, WlOutput};
-use wayland_client::protocol::wl_pointer::{self, WlPointer};
-use wayland_client::protocol::wl_region::WlRegion;
-use wayland_client::protocol::wl_seat::{self, Capability, WlSeat};
-use wayland_client::protocol::wl_shm::WlShm;
-use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::{Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy};
-use wayland_protocols::wlr::unstable::layer_shell::v1::client::{
+use smithay_client_toolkit::reexports::client::{
+    global_filter,
+	protocol::wl_callback,
+	protocol::wl_output::{self, WlOutput},
+	protocol::wl_pointer::{self, WlPointer},
+	protocol::wl_region::WlRegion,
+	protocol::wl_seat::{self, Capability, WlSeat},
+	protocol::wl_shm::WlShm,
+	protocol::wl_surface::WlSurface,
+	protocol::wl_buffer::WlBuffer,
+	protocol::wl_compositor::WlCompositor,
+	Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy
+};
+use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
     zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
 pub struct Application<C: Controller + Clone + 'static> {
     display: Display,
-    globals: Rc<Globals>,
+    pub globals: Rc<Globals>,
     global_manager: GlobalManager,
     pub inner: Vec<InnerApplication<C>>,
     token: RegistrationToken,
@@ -240,7 +243,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
 
         let global_manager = GlobalManager::new_with_cb(
             &attached_display,
-            wayland_client::global_filter!(
+            global_filter!(
                 [
                     ZwlrLayerShellV1,
                     1,
@@ -352,7 +355,8 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                     }
                                 }
                             }
-                            wl_output::Event::Done => {}
+                            wl_output::Event::Done => {
+                            }
                             _ => {}
                         });
                     }
@@ -461,7 +465,7 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 }
 
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
-    fn sync(&mut self, ev: Event) -> bool {
+    pub fn sync(&mut self, ev: Event) -> bool {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
         let mut damage = self.widget.sync(&mut sync_ctx, ev);
         while let Ok(signal) = sync_ctx.sync() {
@@ -532,6 +536,7 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);
+            println!("\nWAITING CONFIGURE : {} X {}\n", width, height);
             surface.surface.commit();
         }
         Ok(())
@@ -539,7 +544,7 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
 }
 
 impl<C: Controller + Clone + 'static> InnerApplication<C> {
-    fn empty(
+    pub fn empty(
         controller: C,
         widget: impl Widget + 'static,
         globals: Rc<Globals>,
@@ -562,7 +567,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             cb: Box::new(cb),
         }
     }
-    fn default(
+    pub fn default(
         controller: C,
         widget: impl Widget + 'static,
         globals: Rc<Globals>,
@@ -588,7 +593,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         default.replace_surface();
         default
     }
-    fn new(
+    pub fn new(
         controller: C,
         widget: impl Widget + 'static,
         config: ShellConfig,
@@ -657,37 +662,39 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
     fn render(&mut self, time: u32, recent_node: RenderNode) {
         let width = recent_node.width();
         let height = recent_node.height();
-        if let Ok((buffer, wl_buffer)) =
-            Buffer::new(&mut self.core.mempool, width as i32, height as i32)
-        {
-            let mut v = Vec::new();
-            let mut ctx = DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v);
-            if let Some(render_node) = self.core.ctx.render_node.as_mut() {
-                if let Err(region) = render_node.draw_merge(
-                    recent_node,
-                    &mut ctx,
-                    &Instruction::empty(0., 0., width, height),
-                    None,
-                ) {
-                    ctx.damage_region(&Background::Transparent, region, false);
+        if Some(time).ne(&self.core.ctx.time) {
+            if let Ok((buffer, wl_buffer)) =
+                Buffer::new(&mut self.core.mempool, width as i32, height as i32)
+            {
+                let mut v = Vec::new();
+                let mut ctx = DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v);
+                if let Some(render_node) = self.core.ctx.render_node.as_mut() {
+                    if let Err(region) = render_node.draw_merge(
+                        recent_node,
+                        &mut ctx,
+                        &Instruction::empty(0., 0., width, height),
+                        None,
+                    ) {
+                        ctx.damage_region(&Background::Transparent, region, false);
+                    }
+                } else {
+                    ctx.damage_region(
+                        &Background::Transparent,
+                        Region::new(0., 0., width, height),
+                        false,
+                    );
+                    recent_node.render(&mut ctx, None);
+                    self.core.ctx.render_node = Some(recent_node);
                 }
-            } else {
-                ctx.damage_region(
-                    &Background::Transparent,
-                    Region::new(0., 0., width, height),
-                    false,
-                );
-                recent_node.render(&mut ctx, None);
-                self.core.ctx.render_node = Some(recent_node);
-            }
-            self.core.ctx.pending_cb = false;
-            if let Some(surface) = self.core.surface.as_mut() {
-                surface.attach_buffer(wl_buffer);
-                surface.damage(&v);
-                surface.commit();
-                if let Some(_) = self.core.ctx.time {
-                    self.core.ctx.time = Some(time);
-                    frame_callback::<C>(time, surface.surface.clone());
+                self.core.ctx.pending_cb = false;
+                if let Some(surface) = self.core.surface.as_mut() {
+                    surface.attach_buffer(wl_buffer);
+                    surface.damage(&v);
+                    surface.commit();
+                    if let Some(_) = self.core.ctx.time {
+                        self.core.ctx.time = Some(time);
+                        frame_callback::<C>(time, surface.surface.clone());
+                    }
                 }
             }
         }
@@ -698,7 +705,18 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 draw_callback::<C>(&self.surface.as_ref().unwrap().surface, render_node);
             }
         } else {
+            let width = self.width();
+            let height = self.height();
+
             self.sync(ev);
+
+            let current_width = self.width();
+            let current_height = self.height();
+
+            // Resizing the surface in case the widget changed size
+            if width != current_width || height != current_height {
+                let _ = self.set_size(current_width, current_height);
+            }
         }
     }
 }
@@ -824,7 +842,7 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
 }
 
 fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurfaceV1>) {
-    shell.quick_assign(|shell, event, mut inner| match event {
+    shell.quick_assign(move |shell, event, mut inner| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
             width,

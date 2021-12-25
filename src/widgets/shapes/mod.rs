@@ -85,11 +85,11 @@ fn minimum_padding(tl: f32, tr: f32, br: f32, bl: f32) -> f32 {
 impl<W: Widget> Geometry for WidgetExt<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let border = self.border.0;
-        self.widget.set_width(width - border)
+        self.widget.set_width(width - 2. * border)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let border = self.border.0;
-        self.widget.set_height(height - border)?;
+        self.widget.set_height(height - 2. * border)?;
         Ok(())
     }
     fn width(&self) -> f32 {

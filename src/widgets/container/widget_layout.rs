@@ -64,6 +64,9 @@ impl Container for WidgetLayout {
     fn add(&mut self, widget: impl Widget + 'static) {
         self.widgets.push(Child::new(widget));
     }
+    fn remove(&mut self, index: usize) -> Child {
+        self.widgets.remove(index)
+    }
 }
 
 impl WidgetLayout {
