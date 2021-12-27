@@ -286,19 +286,15 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                     assign_pointer::<C>(&pointer);
                                 }
                                 if let Some(globals) = Rc::get_mut(&mut application.globals) {
-                                    if globals.seats.is_empty() {
+                                    let mut found = None;
+                                    for seat in &mut globals.seats {
+                                        if wl_seat.eq(&seat.seat) {
+                                            found = Some(());
+                                            seat.capabilities = capabilities;
+                                        }
+                                    }
+                                    if found.is_none() {
                                         globals.seats.push(Seat { capabilities, seat: wl_seat });
-                                    } else {
-                                        let mut found = None;
-                                        for seat in &mut globals.seats {
-                                            if wl_seat.eq(&seat.seat) {
-                                                found = Some(());
-                                                seat.capabilities = capabilities;
-                                            }
-                                        }
-                                        if found.is_none() {
-                                            globals.seats.push(Seat { capabilities, seat: wl_seat });
-                                        }
                                     }
                                 }
                             }
@@ -323,23 +319,17 @@ impl<C: Controller + Clone + 'static> Application<C> {
                             } => {
                                 if let Some(application) = application.get::<Application<C>>() {
                                     if let Some(globals) = Rc::get_mut(&mut application.globals) {
-                                        if globals.outputs.is_empty() {
+                                        let mut found = None;
+                                        for output in &mut globals.outputs {
+                                            if wl_output.eq(&output.output) {
+                                                found = Some(());
+                                                output.name = make.clone();
+                                            }
+                                        }
+                                        if found.is_none() {
                                             let mut output = Output::new(wl_output);
                                             output.name = make;
                                             globals.outputs.push(output);
-                                        } else {
-                                            let mut found = None;
-                                            for output in &mut globals.outputs {
-                                                if wl_output.eq(&output.output) {
-                                                    found = Some(());
-                                                    output.name = make.clone();
-                                                }
-                                            }
-                                            if found.is_none() {
-                                                let mut output = Output::new(wl_output);
-                                                output.name = make;
-                                                globals.outputs.push(output);
-                                            }
                                         }
                                     }
                                 }
@@ -352,26 +342,19 @@ impl<C: Controller + Clone + 'static> Application<C> {
                             } => {
                                 if let Some(application) = application.get::<Application<C>>() {
                                     if let Some(globals) = Rc::get_mut(&mut application.globals) {
-                                        if globals.outputs.is_empty() {
+                                        let mut found = None;
+                                        for output in &mut globals.outputs {
+                                            if wl_output.eq(&output.output) {
+                                                found = Some(());
+                                                output.width = width;
+                                                output.height = height;
+                                            }
+                                        }
+                                        if found.is_none() {
                                             let mut output = Output::new(wl_output);
                                             output.width = width;
                                             output.height = height;
                                             globals.outputs.push(output);
-                                        } else {
-                                            let mut found = None;
-                                            for output in &mut globals.outputs {
-                                                if wl_output.eq(&output.output) {
-                                                    found = Some(());
-                                                    output.width = width;
-                                                    output.height = height;
-                                                }
-                                            }
-                                            if found.is_none() {
-                                                let mut output = Output::new(wl_output);
-                                                output.width = width;
-                                                output.height = height;
-                                                globals.outputs.push(output);
-                                            }
                                         }
                                     }
                                 }
@@ -379,23 +362,17 @@ impl<C: Controller + Clone + 'static> Application<C> {
                             wl_output::Event::Scale { factor } => {
                                 if let Some(application) = application.get::<Application<C>>() {
                                     if let Some(globals) = Rc::get_mut(&mut application.globals) {
-                                        if globals.outputs.is_empty() {
+                                        let mut found = None;
+                                        for output in &mut globals.outputs {
+                                            if wl_output.eq(&output.output) {
+                                                found = Some(());
+                                                output.scale = factor;
+                                            }
+                                        }
+                                        if found.is_none() {
                                             let mut output = Output::new(wl_output);
                                             output.scale = factor;
                                             globals.outputs.push(output);
-                                        } else {
-                                            let mut found = None;
-                                            for output in &mut globals.outputs {
-                                                if wl_output.eq(&output.output) {
-                                                    found = Some(());
-                                                    output.scale = factor;
-                                                }
-                                            }
-                                            if found.is_none() {
-                                                let mut output = Output::new(wl_output);
-                                                output.scale = factor;
-                                                globals.outputs.push(output);
-                                            }
                                         }
                                     }
                                 }
@@ -510,6 +487,12 @@ impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
 }
 
 impl<C: Controller + Clone + 'static> CoreApplication<C> {
+    pub fn poll(&mut self,ev: Event) -> C {
+        let mut ctl = self.controller.clone();
+        let mut sync_ctx = SyncContext::new(&mut ctl, &mut self.ctx.font_cache);
+        self.widget.sync(&mut sync_ctx, ev);
+        ctl
+    }
     pub fn sync(&mut self, ev: Event) -> bool {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
         let mut damage = self.widget.sync(&mut sync_ctx, ev);
@@ -603,7 +586,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         globals: Rc<Globals>,
         cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
     ) -> Self {
-        InnerApplication {
+        let mut default = InnerApplication {
             core: CoreApplication {
                 controller,
                 ctx: Context {
@@ -618,7 +601,9 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 globals,
             },
             cb: Box::new(cb),
-        }
+        };
+        default.sync(Event::Prepare);
+        default
     }
     pub fn default(
         controller: C,

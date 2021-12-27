@@ -250,7 +250,7 @@ use crate::data::{Controller, Message};
 // Updates text on messages with a matching id or on Frame.
 // The retreived Data will replace all occurences of `{}` in the format.
 pub struct Listener {
-    id: u32,
+    msg: Message<'static>,
     poll: bool,
     format: Option<String>,
     text: Text,
@@ -277,7 +277,7 @@ impl Widget for Listener {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
         if self.poll {
-            if let Ok(data) = ctx.get(Message::new(self.id, data::Data::Null)) {
+            if let Ok(data) = ctx.get(self.msg) {
                 if let Some(format) = self.format.as_ref() {
                     self.text
                         .edit(format.replace("{}", &data.to_string()).as_str());
@@ -289,9 +289,9 @@ impl Widget for Listener {
             match event {
                 Event::Message(msg) => {
                     let Message(obj, data) = msg;
-                    if obj == self.id {
+                    if obj == self.msg.0 {
                         if let data::Data::Null = data {
-                            if let Ok(data) = ctx.get(Message::new(self.id, data::Data::Null)) {
+                            if let Ok(data) = ctx.get(self.msg) {
                                 if let Some(format) = self.format.as_ref() {
                                     self.text
                                         .edit(format.replace("{}", &data.to_string()).as_str());
@@ -310,7 +310,7 @@ impl Widget for Listener {
                     }
                 }
                 Event::Frame => {
-                    if let Ok(data) = ctx.get(Message::new(self.id, data::Data::Null)) {
+                    if let Ok(data) = ctx.get(self.msg) {
                         if let Some(format) = self.format.as_ref() {
                             self.text
                                 .edit(format.replace("{}", &data.to_string()).as_str());
@@ -329,7 +329,7 @@ impl Widget for Listener {
 impl From<Text> for Listener {
     fn from(text: Text) -> Self {
         Self {
-            id: 0,
+            msg: Message::default(),
             text,
             poll: false,
             format: None,
@@ -340,7 +340,7 @@ impl From<Text> for Listener {
 impl From<Label> for Listener {
     fn from(label: Label) -> Self {
         Self {
-            id: 0,
+            msg: Message::default(),
             text: label.into(),
             poll: false,
             format: None,
@@ -351,14 +351,14 @@ impl From<Label> for Listener {
 impl Listener {
     pub fn new<T: Into<Text>>(text: T) -> Self {
         Self {
-            id: 0,
+            msg: Message::default(),
             text: text.into(),
             poll: false,
             format: None,
         }
     }
-    pub fn id(mut self, id: u32) -> Self {
-        self.id = id;
+    pub fn msg(mut self, msg: Message<'static>) -> Self {
+        self.msg = msg;
         self
     }
     pub fn format(mut self, format: &str) -> Self {

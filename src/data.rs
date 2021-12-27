@@ -112,9 +112,6 @@ pub trait Controller {
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
     // These interface are from the pov of the widgets
     fn get<'c>(&'c self, msg: Message) -> Result<Data<'c>, ControllerError>;
-    // fn request<'c>(&'c self, obj: u32) -> Result<Data<'c>, ControllerError> {
-    //     self.send(Message::new(obj, Data::Null))
-    // }
     // The Message must be a u32 serial.
     fn send<'c>(&'c mut self, msg: Message) -> Result<Data<'c>, ControllerError>;
     // Returns an Ok(Message) if the application needs to be synced
@@ -133,6 +130,12 @@ impl<'d> From<u32> for Data<'d> {
     }
 }
 
+impl<'d> From<usize> for Data<'d> {
+    fn from(usize: usize) -> Self {
+        Data::Uint(usize as u32)
+    }
+}
+
 impl<'d> From<i32> for Data<'d> {
     fn from(int: i32) -> Self {
         Data::Int(int)
@@ -141,6 +144,12 @@ impl<'d> From<i32> for Data<'d> {
 
 impl<'d> From<&'d str> for Data<'d> {
     fn from(s: &'d str) -> Self {
+        Data::String(s)
+    }
+}
+
+impl<'d> From<&'d String> for Data<'d> {
+    fn from(s: &'d String) -> Self {
         Data::String(s)
     }
 }
@@ -160,6 +169,12 @@ impl<'d> From<f32> for Data<'d> {
 impl<'d> From<f64> for Data<'d> {
     fn from(f: f64) -> Self {
         Data::Double(f)
+    }
+}
+
+impl<'d> From<()> for Data<'d> {
+    fn from(_: ()) -> Self {
+        Data::Null
     }
 }
 

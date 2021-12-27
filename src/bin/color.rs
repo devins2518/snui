@@ -330,7 +330,7 @@ fn header() -> impl Widget {
     buttons.add(
         icon.clamp()
             .constraint(Constraint::Downward)
-            .size(25., 25.)
+            .with_size(25., 25.)
             .ext()
             .background(BG2)
             .even_radius(3.)
@@ -356,7 +356,7 @@ fn header() -> impl Widget {
     buttons.add(
         text.clamp()
             .constraint(Constraint::Downward)
-            .size(40., 25.)
+            .with_size(40., 25.)
             .ext()
             .background(BG2)
             .even_radius(3.)

@@ -4,7 +4,7 @@ use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
 pub struct Slider {
-    id: u32,
+    obj: Option<u32>,
     size: f32,
     pressed: bool,
     slider: Rectangle,
@@ -19,7 +19,7 @@ impl Slider {
             Orientation::Horizontal
         };
         Slider {
-            id: 0,
+            obj: None,
             size: match &orientation {
                 Orientation::Horizontal => width as f32,
                 Orientation::Vertical => height as f32,
@@ -40,8 +40,8 @@ impl Slider {
             orientation,
         }
     }
-    pub fn id(mut self, id: u32) -> Self {
-        self.id = id;
+    pub fn id(mut self, obj: u32) -> Self {
+        self.obj = Some(obj);
         self
     }
     pub fn orientation(mut self, orientation: Orientation) -> Self {
@@ -140,7 +140,9 @@ impl Widget for Slider {
                                 Orientation::Horizontal => self.slider.width() / self.size,
                                 Orientation::Vertical => self.slider.height() / self.size,
                             };
-                            let _ = ctx.send(Message::new(self.id, ratio));
+                            if let Some(obj) = self.obj {
+                                let _ = ctx.send(Message::new(obj, ratio));
+                            }
                             return Damage::Some;
                         }
                         Pointer::Scroll {
@@ -161,7 +163,9 @@ impl Widget for Slider {
                                     self.slider.height() / self.size
                                 }
                             };
-                            let _ = ctx.send(Message::new(self.id, ratio));
+                            if let Some(obj) = self.obj {
+                                let _ = ctx.send(Message::new(obj, ratio));
+                            }
                             return Damage::Some;
                         }
                         Pointer::Hover => {
@@ -169,18 +173,22 @@ impl Widget for Slider {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
-                                            let _ = ctx.send(Message::new(
-                                                self.id,
-                                                self.slider.width() / self.size,
-                                            ));
+                                            if let Some(obj) = self.obj {
+                                                let _ = ctx.send(Message::new(
+                                                    obj,
+                                                    self.slider.width() / self.size,
+                                                ));
+                                            }
                                         }
                                     }
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
-                                            let _ = ctx.send(Message::new(
-                                                self.id,
-                                                self.slider.height() / self.size,
-                                            ));
+                                            if let Some(obj) = self.obj {
+                                                let _ = ctx.send(Message::new(
+                                                    obj,
+                                                    self.slider.height() / self.size,
+                                                ));
+                                            }
                                         }
                                     }
                                 }
@@ -204,19 +212,23 @@ impl Widget for Slider {
                         Pointer::Hover => match &self.orientation {
                             Orientation::Horizontal => {
                                 if let Ok(_) = self.slider.set_width(x.min(self.size)) {
-                                    let _ = ctx.send(Message::new(
-                                        self.id,
-                                        self.slider.width() / self.size,
-                                    ));
+                                    if let Some(obj) = self.obj {
+                                        let _ = ctx.send(Message::new(
+                                            obj,
+                                            self.slider.width() / self.size,
+                                        ));
+                                    }
                                     return Damage::Some;
                                 }
                             }
                             Orientation::Vertical => {
                                 if let Ok(_) = self.slider.set_height(y.min(self.size)) {
-                                    let _ = ctx.send(Message::new(
-                                        self.id,
-                                        self.slider.height() / self.size,
-                                    ));
+                                    if let Some(obj) = self.obj {
+                                        let _ = ctx.send(Message::new(
+                                            obj,
+                                            self.slider.height() / self.size,
+                                        ));
+                                    }
                                     return Damage::Some;
                                 }
                             }
@@ -228,7 +240,7 @@ impl Widget for Slider {
             }
             Event::Message(msg) => {
                 let Message(obj, _) = msg;
-                if obj == self.id {
+                if Some(obj) == self.obj {
                     if let Ok(data) = ctx.get(msg) {
                         if self.filter(data).is_ok() {
                             return Damage::Some;
@@ -237,9 +249,11 @@ impl Widget for Slider {
                 }
             }
             Event::Frame => {
-                if let Ok(data) = ctx.get(Message::new(self.id, Data::Null)) {
-                    if self.filter(data).is_ok() {
-                        return Damage::Some;
+                if let Some(obj) = self.obj {
+                    if let Ok(data) = ctx.get(Message::new(obj, ())) {
+                        if self.filter(data).is_ok() {
+                            return Damage::Some;
+                        }
                     }
                 }
             }

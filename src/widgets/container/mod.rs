@@ -20,6 +20,40 @@ pub trait Container: Geometry + FromIterator<Child> {
     }
 }
 
+pub fn apply_width<W: Widget>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, width: f32) {
+    match fixed.binary_search(&index) {
+        Ok(index) => if index > 0 {
+            apply_width(widgets, fixed, index - 1, width);
+        }
+        Err(pos) => {
+            if let Err(w) = widgets[index].set_width(width) {
+                fixed.insert(pos, index);
+                let delta = width - w;
+                if index > 0 {
+                    apply_width(widgets, fixed, index - 1, width + delta);
+                }
+            }
+        }
+    }
+}
+
+pub fn apply_height<W: Widget>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, height: f32) {
+    match fixed.binary_search(&index) {
+        Ok(index) => if index > 0 {
+            apply_height(widgets, fixed, index - 1, height);
+        }
+        Err(pos) => {
+            if let Err(w) = widgets[index].set_height(height) {
+                fixed.insert(pos, index);
+                let delta = height - w;
+                if index > 0 {
+                    apply_height(widgets, fixed, index - 1, height + delta);
+                }
+            }
+        }
+    }
+}
+
 pub struct Child {
     coords: Coords,
     damage: Damage,

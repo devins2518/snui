@@ -85,31 +85,44 @@ struct Easer {
     end: f32,
     time: u32,
     frame_time: u32,
-    curve: Curve
+    curve: Curve,
 }
 
 impl Iterator for Easer {
     type Item = f32;
     fn next(&mut self) -> Option<Self::Item> {
         let cursor;
-        let frame = self.time / self.frame_time;
+        if self.time == 0 {
+            return None;
+        }
+        let frame = self.time / self.frame_time.max(1);
         match self.curve {
             Curve::Sinus => {
                 self.position += PI / frame as f32;
-                cursor = self.end * (self.position).sin().abs();
-                if self.position > PI { return None }
+                if self.position > PI {
+                    cursor = self.end * (PI).sin().abs();
+                    self.time = 0;
+                } else {
+                    cursor = self.end * (self.position).sin().abs();
+                }
             }
             Curve::Linear => {
                 self.position += self.end / frame as f32;
                 cursor = self.position;
-                if cursor > self.end { return None }
+                if cursor > self.end {
+                    self.time = 0;
+                }
             }
             Curve::Quadratic => {
                 let b = self.end;
                 let h = b.sqrt();
                 self.position += h * 2. / frame as f32;
-                cursor = self.end - (self.position - h).powi(2);
-                if self.position > 2. * h { return None }
+                if self.position > 2. * h {
+                    cursor = self.end - (2. * h - h).powi(2);
+                    self.time = 0;
+                } else {
+                    cursor = self.end - (self.position - h).powi(2);
+                }
             }
         }
         Some(cursor)
@@ -126,14 +139,16 @@ impl Easer {
             curve,
         }
     }
-    fn fps(&mut self, frame_time: u32) {
+    fn frame_time(&mut self, frame_time: u32) {
         self.frame_time = frame_time;
     }
-    fn reset(&mut self) {
+    fn reset(&mut self, time: u32) {
+        self.time = time;
         self.frame_time = 10;
         self.position = 0.;
     }
 }
+
 
 struct Animate {
     start: bool,
@@ -162,7 +177,7 @@ impl Widget for Animate {
                 ).into()
             } else {
                 self.start = false;
-                self.easer.reset();
+                self.easer.reset(1000);
             }
         }
         scene::RenderNode::None
@@ -170,7 +185,7 @@ impl Widget for Animate {
     fn sync<'d>(&'d mut self, _ctx: &mut context::SyncContext, event: Event) -> Damage {
         match event {
             Event::Callback(frame_time) => if self.start {
-                self.easer.fps(frame_time);
+                self.easer.frame_time(frame_time);
                 return Damage::Frame;
             }
             Event::Message(msg) => {
@@ -185,7 +200,7 @@ impl Widget for Animate {
                     }
                     Request::Stop => {
                         self.start = false;
-                        self.easer.reset();
+                        self.easer.reset(1000);
                     }
                 }
             }

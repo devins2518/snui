@@ -1,8 +1,9 @@
-use crate::widgets::container::{Child, Container};
+use crate::widgets::container::*;
 use crate::*;
 use scene::{Coords, Region, RenderNode};
 
 pub struct LayoutBox {
+    size: (f32, f32),
     widgets: Vec<Child>,
     orientation: Orientation,
 }
@@ -31,58 +32,36 @@ impl Container for LayoutBox {
 
 impl Geometry for LayoutBox {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        let mut local_width = 0.;
-        if width != self.width() {
+        if width != self.size.0 {
             let size = (width / self.widgets.len() as f32).ceil();
-            for child in self.widgets.iter_mut() {
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        if let Err(w) = child.set_width(size) {
-                            local_width += w;
-                        } else {
-                            local_width += size;
-                        }
-                    }
-                    Orientation::Vertical => {
-                        return Err(self.width());
-                        // if let Err(w) = child.set_width(width) {
-                        //     local_width = local_width.max(w);
-                        // }
+            match self.orientation {
+                Orientation::Horizontal => {
+                    let mut fixed = Vec::new();
+                    for i in 0..self.widgets.len() {
+                        apply_width(&mut self.widgets, &mut fixed, i, size);
                     }
                 }
+                Orientation::Vertical => return Err(self.width())
             }
+            self.size.0 = self.width();
         }
-        if local_width == width {
-            return Ok(());
-        }
-        Err(local_width)
+        Err(self.size.0)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let mut local_height = 0.;
-        if height != self.height() {
+        if height != self.size.1 {
             let size = (height / self.widgets.len() as f32).ceil();
-            for child in self.widgets.iter_mut() {
-                match self.orientation {
-                    Orientation::Vertical => {
-                        if let Err(h) = child.set_height(size) {
-                            local_height += h;
-                        } else {
-                            local_height += size;
-                        }
-                    }
-                    Orientation::Horizontal => {
-                        return Err(self.height());
-                        // if let Err(w) = child.set_height(height) {
-                        //     local_height = local_height.max(w);
-                        // }
+            match self.orientation {
+                Orientation::Horizontal => {
+                    let mut fixed = Vec::new();
+                    for i in 0..self.widgets.len() {
+                        apply_height(&mut self.widgets, &mut fixed, i, size);
                     }
                 }
+                Orientation::Vertical => return Err(self.height())
             }
+            self.size.1 = self.height();
         }
-        if local_height == height {
-            return Ok(());
-        }
-        Err(local_height)
+        Err(self.size.1)
     }
     fn width(&self) -> f32 {
         let mut width = 0.;
@@ -122,6 +101,7 @@ impl Widget for LayoutBox {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
+        self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
             region: Region::new(x, y, sw, sh),
@@ -160,6 +140,7 @@ impl Widget for LayoutBox {
 impl LayoutBox {
     pub fn new() -> Self {
         Self {
+            size: (0., 0.),
             widgets: Vec::new(),
             orientation: Orientation::Horizontal,
         }

@@ -1,9 +1,10 @@
-use crate::widgets::container::{Child, Container};
+use crate::widgets::container::*;
 use crate::widgets::*;
 use crate::*;
 use scene::Region;
 
 pub struct CenterBox {
+    size: (f32, f32),
     orientation: Orientation,
     widgets: [WidgetBox<Child>; 3],
 }
@@ -43,56 +44,36 @@ impl Container for CenterBox {
 
 impl Geometry for CenterBox {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        let mut local_width = 0.;
-        let size = (width / self.widgets.len() as f32).ceil();
-        if width != self.width() {
-            for child in self.widgets.iter_mut() {
-                match self.orientation {
-                    Orientation::Horizontal => {
-                        if let Err(w) = child.set_width(size) {
-                            local_width += w;
-                        } else {
-                            local_width += size;
-                        }
-                    }
-                    Orientation::Vertical => {
-                        return Err(self.width());
-                        // if let Err(w) = child.set_width(width) {
-                        //     local_width = local_width.max(w);
-                        // }
+        if width != self.size.0 {
+            let size = (width / self.widgets.len() as f32).ceil();
+            match self.orientation {
+                Orientation::Horizontal => {
+                    let mut fixed = Vec::new();
+                    for i in 0..self.widgets.len() {
+                        apply_width(&mut self.widgets, &mut fixed, i, size);
                     }
                 }
+                Orientation::Vertical => return Err(self.width())
             }
-        } else {
-            return Ok(());
+            self.size.0 = self.width();
         }
-        Err(local_width)
+        Err(self.size.0)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let mut local_height = 0.;
-        if height != self.height() {
+        if height != self.size.1 {
             let size = (height / self.widgets.len() as f32).ceil();
-            for child in self.widgets.iter_mut() {
-                match self.orientation {
-                    Orientation::Vertical => {
-                        if let Err(h) = child.set_height(size) {
-                            local_height += h;
-                        } else {
-                            local_height += size;
-                        }
-                    }
-                    Orientation::Horizontal => {
-                        return Err(self.height());
-                        // if let Err(w) = child.set_height(height) {
-                        //     local_height = local_height.max(w);
-                        // }
+            match self.orientation {
+                Orientation::Horizontal => {
+                    let mut fixed = Vec::new();
+                    for i in 0..self.widgets.len() {
+                        apply_height(&mut self.widgets, &mut fixed, i, size);
                     }
                 }
+                Orientation::Vertical => return Err(self.height())
             }
-        } else {
-            return Ok(());
+            self.size.1 = self.height();
         }
-        Err(local_height)
+        Err(self.size.1)
     }
     fn width(&self) -> f32 {
         let mut width = 0.;
@@ -132,6 +113,7 @@ impl Widget for CenterBox {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
+        self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
             region: Region::new(x, y, sw, sh),
@@ -174,6 +156,7 @@ impl CenterBox {
         third: impl Widget + 'static,
     ) -> Self {
         Self {
+            size: (0., 0.),
             widgets: [
                 Child::new(first).clamp().anchor(START, CENTER),
                 Child::new(second).clamp().anchor(CENTER, CENTER),
@@ -184,6 +167,7 @@ impl CenterBox {
     }
     pub fn new() -> Self {
         Self {
+            size: (0., 0.),
             widgets: [
                 Child::new(Spacer::default()).clamp().anchor(START, CENTER),
                 Child::new(Spacer::default()).clamp().anchor(CENTER, CENTER),
