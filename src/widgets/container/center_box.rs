@@ -45,47 +45,51 @@ impl Geometry for CenterBox {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let mut local_width = 0.;
         let size = (width / self.widgets.len() as f32).ceil();
-        for child in self.widgets.iter_mut() {
-            match self.orientation {
-                Orientation::Horizontal => {
-                    if let Err(w) = child.set_width(size) {
-                        local_width += w;
-                    } else {
-                        local_width += size;
+        if width != self.width() {
+            for child in self.widgets.iter_mut() {
+                match self.orientation {
+                    Orientation::Horizontal => {
+                        if let Err(w) = child.set_width(size) {
+                            local_width += w;
+                        } else {
+                            local_width += size;
+                        }
                     }
-                }
-                Orientation::Vertical => {
-                    if let Err(w) = child.set_width(width) {
-                        local_width = local_width.max(w);
+                    Orientation::Vertical => {
+                        return Err(self.width());
+                        // if let Err(w) = child.set_width(width) {
+                        //     local_width = local_width.max(w);
+                        // }
                     }
                 }
             }
-        }
-        if local_width == width {
+        } else {
             return Ok(());
         }
         Err(local_width)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let mut local_height = 0.;
-        let size = (height / self.widgets.len() as f32).ceil();
-        for child in self.widgets.iter_mut() {
-            match self.orientation {
-                Orientation::Vertical => {
-                    if let Err(h) = child.set_height(size) {
-                        local_height += h;
-                    } else {
-                        local_height += size;
+        if height != self.height() {
+            let size = (height / self.widgets.len() as f32).ceil();
+            for child in self.widgets.iter_mut() {
+                match self.orientation {
+                    Orientation::Vertical => {
+                        if let Err(h) = child.set_height(size) {
+                            local_height += h;
+                        } else {
+                            local_height += size;
+                        }
                     }
-                }
-                Orientation::Horizontal => {
-                    if let Err(w) = child.set_height(height) {
-                        local_height = local_height.max(w);
+                    Orientation::Horizontal => {
+                        return Err(self.height());
+                        // if let Err(w) = child.set_height(height) {
+                        //     local_height = local_height.max(w);
+                        // }
                     }
                 }
             }
-        }
-        if local_height == height {
+        } else {
             return Ok(());
         }
         Err(local_height)
@@ -141,12 +145,12 @@ impl Widget for CenterBox {
                         Orientation::Horizontal => {
                             let _ = wbox.set_height(sh);
                             node = wbox.create_node(x, y);
-                            dx += wbox.width().round();
+                            dx += wbox.width();
                         }
                         Orientation::Vertical => {
                             let _ = wbox.set_width(sw);
                             node = wbox.create_node(x, y);
-                            dy += wbox.height().round();
+                            dy += wbox.height();
                         }
                     }
                     node

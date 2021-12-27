@@ -83,7 +83,7 @@ impl Surface {
     }
     fn commit(&mut self) {
         self.surface.commit();
-        self.buffer = None;
+        std::mem::drop(&mut self.previous);
         self.previous = None;
     }
     fn destroy(&mut self) {
@@ -91,6 +91,9 @@ impl Surface {
         self.surface.destroy();
         self.region.destroy();
         self.shell.destroy();
+        if let Some(buffer) = self.buffer.as_ref() {
+            buffer.destroy();
+        }
         self.buffer = None;
     }
     fn destroy_previous(&mut self) {
@@ -249,14 +252,18 @@ impl<C: Controller + Clone + 'static> Application<C> {
                     1,
                     |shell: Main<ZwlrLayerShellV1>, mut application: DispatchData| {
                         if let Some(application) = application.get::<Application<C>>() {
-                            Rc::get_mut(&mut application.globals).unwrap().shell = Some(shell);
+                            if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                globals.shell = Some(shell);
+                            }
                         }
                     }
                 ],
                 [WlShm, 1, |shm: Main<WlShm>, mut application: DispatchData| {
                     shm.quick_assign(|_, _, _| {});
                     if let Some(application) = application.get::<Application<C>>() {
-                        Rc::get_mut(&mut application.globals).unwrap().shm = Some(shm);
+                        if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                            globals.shm = Some(shm);
+                        }
                     }
                 }],
                 [
@@ -264,19 +271,36 @@ impl<C: Controller + Clone + 'static> Application<C> {
                     4,
                     |compositor: Main<WlCompositor>, mut application: DispatchData| {
                         if let Some(application) = application.get::<Application<C>>() {
-                            Rc::get_mut(&mut application.globals).unwrap().compositor = Some(compositor);
+                            if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                globals.compositor = Some(compositor);
+                            }
                         }
                     }
                 ],
                 [WlSeat, 7, move |seat: Main<WlSeat>, _: DispatchData| {
-                    seat.quick_assign(move |seat, event, mut application| match event {
+                    seat.quick_assign(move |wl_seat, event, mut application| match event {
                         wl_seat::Event::Capabilities { capabilities } => {
                             if let Some(application) = application.get::<Application<C>>() {
                                 if pointer && capabilities & Capability::Pointer == Capability::Pointer {
-                                    let pointer = seat.get_pointer();
+                                    let pointer = wl_seat.get_pointer();
                                     assign_pointer::<C>(&pointer);
                                 }
-                                Rc::get_mut(&mut application.globals).unwrap().seats.push(Seat { capabilities, seat });
+                                if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                    if globals.seats.is_empty() {
+                                        globals.seats.push(Seat { capabilities, seat: wl_seat });
+                                    } else {
+                                        let mut found = None;
+                                        for seat in &mut globals.seats {
+                                            if wl_seat.eq(&seat.seat) {
+                                                found = Some(());
+                                                seat.capabilities = capabilities;
+                                            }
+                                        }
+                                        if found.is_none() {
+                                            globals.seats.push(Seat { capabilities, seat: wl_seat });
+                                        }
+                                    }
+                                }
                             }
                         }
                         _ => {}
@@ -298,18 +322,25 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 transform: _,
                             } => {
                                 if let Some(application) = application.get::<Application<C>>() {
-                                    if let Some(output) = Rc::get_mut(&mut application.globals).unwrap().outputs.last_mut() {
-                                        if wl_output == output.output {
-                                            output.name = make;
-                                        } else {
+                                    if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                        if globals.outputs.is_empty() {
                                             let mut output = Output::new(wl_output);
                                             output.name = make;
-                                            Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
+                                            globals.outputs.push(output);
+                                        } else {
+                                            let mut found = None;
+                                            for output in &mut globals.outputs {
+                                                if wl_output.eq(&output.output) {
+                                                    found = Some(());
+                                                    output.name = make.clone();
+                                                }
+                                            }
+                                            if found.is_none() {
+                                                let mut output = Output::new(wl_output);
+                                                output.name = make;
+                                                globals.outputs.push(output);
+                                            }
                                         }
-                                    } else {
-                                        let mut output = Output::new(wl_output);
-                                        output.name = make;
-                                        Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                     }
                                 }
                             }
@@ -320,38 +351,52 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 refresh: _,
                             } => {
                                 if let Some(application) = application.get::<Application<C>>() {
-                                    if let Some(output) = Rc::get_mut(&mut application.globals).unwrap().outputs.last_mut() {
-                                        if wl_output == output.output {
-                                            output.width = width;
-                                            output.height = height;
-                                        } else {
+                                    if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                        if globals.outputs.is_empty() {
                                             let mut output = Output::new(wl_output);
                                             output.width = width;
                                             output.height = height;
-                                            Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
+                                            globals.outputs.push(output);
+                                        } else {
+                                            let mut found = None;
+                                            for output in &mut globals.outputs {
+                                                if wl_output.eq(&output.output) {
+                                                    found = Some(());
+                                                    output.width = width;
+                                                    output.height = height;
+                                                }
+                                            }
+                                            if found.is_none() {
+                                                let mut output = Output::new(wl_output);
+                                                output.width = width;
+                                                output.height = height;
+                                                globals.outputs.push(output);
+                                            }
                                         }
-                                    } else {
-                                        let mut output = Output::new(wl_output);
-                                        output.width = width;
-                                        output.height = height;
-                                        Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                     }
                                 }
                             }
                             wl_output::Event::Scale { factor } => {
                                 if let Some(application) = application.get::<Application<C>>() {
-                                    if let Some(output) = Rc::get_mut(&mut application.globals).unwrap().outputs.last_mut() {
-                                        if wl_output == output.output {
-                                            output.scale = factor;
-                                        } else {
+                                    if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                        if globals.outputs.is_empty() {
                                             let mut output = Output::new(wl_output);
                                             output.scale = factor;
-                                            Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
+                                            globals.outputs.push(output);
+                                        } else {
+                                            let mut found = None;
+                                            for output in &mut globals.outputs {
+                                                if wl_output.eq(&output.output) {
+                                                    found = Some(());
+                                                    output.scale = factor;
+                                                }
+                                            }
+                                            if found.is_none() {
+                                                let mut output = Output::new(wl_output);
+                                                output.scale = factor;
+                                                globals.outputs.push(output);
+                                            }
                                         }
-                                    } else {
-                                        let mut output = Output::new(wl_output);
-                                        output.scale = factor;
-                                        Rc::get_mut(&mut application.globals).unwrap().outputs.push(output);
                                     }
                                 }
                             }
@@ -488,9 +533,17 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
             Shell::LayerShell { config: _, surface } => surface.detach(),
         }
     }
+    pub fn is_hidden(&self) -> bool {
+        if let Some(surface) = self.surface.as_ref() {
+            return !surface.alive
+        } else {
+            true
+        }
+    }
     pub fn replace_surface(&mut self) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
+            surface.alive = true;
             match &surface.shell {
                 Shell::LayerShell { config, surface: _ } => {
                     self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
@@ -511,6 +564,7 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
     pub fn replace_surface_by(&mut self, config: ShellConfig) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
+            surface.alive = true;
             self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
                 self.widget.deref(),
                 config,
@@ -536,7 +590,6 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         if let Some(surface) = self.surface.as_ref() {
             surface.set_size(width as u32, height as u32);
-            println!("\nWAITING CONFIGURE : {} X {}\n", width, height);
             surface.surface.commit();
         }
         Ok(())
@@ -635,23 +688,25 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             // Calling the application´s closure
             (self.cb)(&mut self.core, ev);
 
-            let current_width = self.width();
-            let current_height = self.height();
+            if !self.is_hidden() {
+                let current_width = self.width();
+                let current_height = self.height();
 
-            // Resizing the surface in case the widget changed size
-            if ev == Event::Frame {
-                self.ctx.render_node = None;
-            } else if width != current_width || height != current_height {
-                let _ = self.set_size(current_width, current_height);
-                return Err(());
+                // Resizing the surface in case the widget changed size
+                if ev == Event::Frame {
+                    self.ctx.render_node = None;
+                } else if width != current_width || height != current_height {
+                    let _ = self.set_size(current_width, current_height);
+                    return Err(());
+                }
+
+                // Creating the render node
+                let render_node = self.core.widget.create_node(0., 0.);
+
+                self.ctx.pending_cb = true;
+
+                return Ok(render_node);
             }
-
-            // Creating the render node
-            let render_node = self.core.widget.create_node(0., 0.);
-
-            self.ctx.pending_cb = true;
-
-            return Ok(render_node);
         } else {
             // Calling the application´s closure
             (self.cb)(&mut self.core, ev);
@@ -662,7 +717,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
     fn render(&mut self, time: u32, recent_node: RenderNode) {
         let width = recent_node.width();
         let height = recent_node.height();
-        if Some(time).ne(&self.core.ctx.time) {
+        if Some(time).ne(&self.core.ctx.time) || time == 0 {
             if let Ok((buffer, wl_buffer)) =
                 Buffer::new(&mut self.core.mempool, width as i32, height as i32)
             {
@@ -702,7 +757,9 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
     pub fn callback(&mut self, ev: Event) {
         if self.ctx.time.is_none() || ev.is_cb() {
             if let Ok(render_node) = self.roundtrip(ev) {
-                draw_callback::<C>(&self.surface.as_ref().unwrap().surface, render_node);
+                if let Some(surface) = self.surface.as_ref() {
+                    draw_callback::<C>(&surface.surface, render_node);
+                }
             }
         } else {
             let width = self.width();
@@ -729,9 +786,10 @@ fn frame_callback<C: Controller + Clone + 'static>(time: u32, surface: Main<WlSu
             wl_callback::Event::Done { callback_data } => {
                 let timeout = (callback_data - time).min(50);
                 if let Some(application) = application.get::<Application<C>>() {
-                    let inner_application = application.get_application(&h).unwrap();
-                    inner_application.ctx.time = None;
-                    inner_application.callback(Event::Callback(timeout));
+                    if let Some(inner_application) = application.get_application(&h) {
+                        inner_application.ctx.time = None;
+                        inner_application.callback(Event::Callback(timeout));
+                    }
                 }
             }
             _ => {}
@@ -849,6 +907,7 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
             height,
         } => {
             shell.ack_configure(serial);
+            println!("\nCONFIGURE - {} : {} X {}\n", serial, width, height);
             if let Some(application) = inner.get::<Application<C>>() {
                 for inner_application in &mut application.inner {
                     if let Some(app_surface) = inner_application.surface.as_mut() {

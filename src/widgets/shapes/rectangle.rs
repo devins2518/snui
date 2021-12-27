@@ -339,7 +339,7 @@ impl Primitive for Rectangle {
                     ShapeStyle::Border(color, border) => {
                         let stroke = Stroke {
                             width: *border,
-                            line_cap: LineCap::Square,
+                            line_cap: LineCap::Round,
                             line_join: LineJoin::Miter,
                             miter_limit: 4.,
                             dash: None,

@@ -2,6 +2,8 @@ pub mod shell;
 
 use tiny_skia::*;
 
+use super::Orientation;
+use super::widgets::Alignment;
 pub use smithay_client_toolkit;
 use smithay_client_toolkit::shm::AutoMemPool;
 pub use smithay_client_toolkit::reexports::client::{
@@ -83,6 +85,74 @@ impl ShellConfig {
             margin: [0; 4],
         }
     }
+    pub fn anchor(mut self, x: Alignment, y: Alignment) -> Self {
+        let mut anchor = Anchor::empty();
+        match x {
+            Alignment::Start => anchor.insert(Anchor::Left),
+            Alignment::End => anchor.insert(Anchor::Right),
+            _ => {}
+        }
+        match y {
+            Alignment::Start => anchor.insert(Anchor::Top),
+            Alignment::End => anchor.insert(Anchor::Top),
+            _ => {}
+        }
+        self.anchor = Some(anchor);
+        self
+    }
+    pub fn anchor_side(mut self, alignment: Alignment, orientation: Orientation) -> Self {
+        let mut anchor = Anchor::empty();
+        match orientation {
+            Orientation::Horizontal => match alignment {
+                Alignment::Start => {
+                    anchor.insert(Anchor::Top);
+                    anchor.insert(Anchor::Left);
+                    anchor.insert(Anchor::Bottom);
+                }
+                Alignment::End => {
+                    anchor.insert(Anchor::Top);
+                    anchor.insert(Anchor::Right);
+                    anchor.insert(Anchor::Bottom);
+                }
+                _ => {}
+            }
+            Orientation::Vertical => match alignment {
+                Alignment::Start => {
+                    anchor.insert(Anchor::Top);
+                    anchor.insert(Anchor::Left);
+                    anchor.insert(Anchor::Right);
+                }
+                Alignment::End => {
+                    anchor.insert(Anchor::Bottom);
+                    anchor.insert(Anchor::Left);
+                    anchor.insert(Anchor::Right);
+                }
+                _ => {}
+            }
+        }
+        self.anchor = Some(anchor);
+        self
+    }
+    pub fn output(mut self, output: WlOutput) -> Self {
+        self.output = Some(output);
+        self
+    }
+    pub fn background(mut self) -> Self {
+        self.layer = Layer::Background;
+        self
+    }
+    pub fn bottom(mut self) -> Self {
+        self.layer = Layer::Bottom;
+        self
+    }
+    pub fn overlay(mut self) -> Self {
+        self.layer = Layer::Overlay;
+        self
+    }
+    pub fn margin(mut self, top: i32, right: i32, bottom: i32, left: i32) -> Self {
+        self.margin = [top, right, bottom, left];
+        self
+    }
     pub fn layer_shell(
         layer: Layer,
         anchor: Option<Anchor>,
@@ -142,6 +212,10 @@ pub struct Output {
 pub struct Seat {
     pub seat: Main<WlSeat>,
     pub capabilities: Capability,
+}
+
+pub enum MultiGlobal {
+    Output(Output),
 }
 
 pub struct Globals {

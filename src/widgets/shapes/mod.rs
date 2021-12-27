@@ -89,8 +89,7 @@ impl<W: Widget> Geometry for WidgetExt<W> {
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let border = self.border.0;
-        self.widget.set_height(height - 2. * border)?;
-        Ok(())
+        self.widget.set_height(height - 2. * border)
     }
     fn width(&self) -> f32 {
         self.inner_width() + 2. * self.border.0

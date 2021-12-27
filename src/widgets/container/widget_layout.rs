@@ -86,7 +86,7 @@ impl WidgetLayout {
         self.spacing = spacing.into();
         self
     }
-    pub fn set_spacing<S: Into<f32>>(&mut self, spacing: f32) {
+    pub fn set_spacing<S: Into<f32>>(&mut self, spacing: S) {
         self.spacing = spacing.into();
     }
     pub fn justify(&mut self, alignment: Alignment) {

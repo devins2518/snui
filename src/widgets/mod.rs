@@ -207,14 +207,22 @@ impl<W: Widget> Geometry for WidgetBox<W> {
     fn width(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.width.unwrap_or(self.widget.width()),
-            Constraint::Upward => self.widget.width().min(self.width.unwrap_or(0.)),
+            Constraint::Upward => if let Some(width) = self.width {
+                self.widget.width().min(width)
+            } else {
+                self.widget.width()
+            }
             Constraint::Downward => self.widget.width().max(self.width.unwrap_or(0.)),
         }
     }
     fn height(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.height.unwrap_or(self.widget.height()),
-            Constraint::Upward => self.widget.height().min(self.height.unwrap_or(0.)),
+            Constraint::Upward => if let Some(height) = self.height {
+                self.widget.height().min(height)
+            } else {
+                self.widget.height()
+            }
             Constraint::Downward => self.widget.height().max(self.height.unwrap_or(0.)),
         }
     }
