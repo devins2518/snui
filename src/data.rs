@@ -11,86 +11,22 @@ pub enum Data<'d> {
     Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
-pub enum StaticData {
-    Null,
-    Int(i32),
-    Byte(u8),
-    Uint(u32),
-    Float(f32),
-    Double(f64),
-    Boolean(bool),
-    String(String),
-    Any(Box<(dyn std::any::Any + Sync + Send + 'static)>),
-}
-
-impl From<Data<'_>> for StaticData {
-    fn from(data: Data) -> Self {
-        match data {
-            Data::Boolean(s) => StaticData::Boolean(s),
-            Data::Uint(s) => StaticData::Uint(s),
-            Data::Int(s) => StaticData::Int(s),
-            Data::String(s) => StaticData::String(s.to_string()),
-            Data::Byte(s) => StaticData::Byte(s),
-            Data::Double(s) => StaticData::Double(s),
-            Data::Float(s) => StaticData::Float(s),
-            _ => panic!("Any cannot be made static")
-        }
-    }
-}
-
-impl StaticData {
-    pub fn as_ref(&self) -> Data<'_> {
-        match self {
-            StaticData::Boolean(s) => Data::Boolean(*s),
-            StaticData::Uint(s) => Data::Uint(*s),
-            StaticData::Int(s) => Data::Int(*s),
-            StaticData::String(s) => Data::String(s.as_str()),
-            StaticData::Byte(s) => Data::Byte(*s),
-            StaticData::Double(s) => Data::Double(*s),
-            StaticData::Float(s) => Data::Float(*s),
-            _ => panic!("Any cannot be made static")
-        }
-    }
-}
-
 // Meant for testing purposes and default
 #[derive(Clone, Copy, Debug)]
 pub struct DummyController {
     serial: Option<u32>,
 }
 
-pub struct StaticMessage (
-    pub u32,
-    pub StaticData
-);
-
-impl From<Message<'_>> for StaticMessage {
-    fn from(msg: Message<'_>) -> Self {
-        StaticMessage (
-            msg.0,
-            StaticData::from(msg.1)
-        )
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Message<'m>(
+pub struct Message<'m, R>(
     // The u32 is a bitmask
     // Users can create an Enum and alias a bitmask to a value or use a constant
-    pub u32,
+    pub R,
     pub Data<'m>,
 );
 
-impl<'m> Message<'m> {
-    pub fn new<D: Into<Data<'m>>>(obj: u32, data: D) -> Self {
-        Message(obj, data.into())
-    }
-}
-
-// Returns a message with object 0 and Data::Null
-impl<'m> Default for Message<'m> {
-    fn default() -> Self {
-        Message(0, Data::Null)
+impl<'m, R> Message<'m, R> {
+    pub fn new<D: Into<Data<'m>>>(request: R, data: D) -> Self {
+        Message(request, data.into())
     }
 }
 
@@ -104,18 +40,18 @@ pub enum ControllerError {
     PendingSerial,
 }
 
-pub trait Controller {
+pub trait Controller<R> {
     // Tells the model all incomming messages are linked
     // The Controller returns a token that can be used to deserialize
-    fn serialize(&mut self, msg: Message) -> Result<u32, ControllerError>;
+    fn serialize(&mut self, msg: Message<R>) -> Result<u32, ControllerError>;
     // Ends the serialization
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
     // These interface are from the pov of the widgets
-    fn get<'c>(&'c self, msg: Message) -> Result<Data<'c>, ControllerError>;
+    fn get<'c>(&'c self, msg: Message<R>) -> Result<Data<'c>, ControllerError>;
     // The Message must be a u32 serial.
-    fn send<'c>(&'c mut self, msg: Message) -> Result<Data<'c>, ControllerError>;
+    fn send<'c>(&'c mut self, msg: Message<R>) -> Result<Data<'c>, ControllerError>;
     // Returns an Ok(Message) if the application needs to be synced
-    fn sync(&mut self) -> Result<Message<'static>, ControllerError>;
+    fn sync(&mut self) -> Result<Message<'static, R>, ControllerError>;
 }
 
 impl<'d> From<u8> for Data<'d> {
@@ -257,8 +193,8 @@ impl DummyController {
     }
 }
 
-impl Controller for DummyController {
-    fn serialize(&mut self, _msg: Message) -> Result<u32, ControllerError> {
+impl Controller<()> for DummyController {
+    fn serialize(&mut self, _msg: Message<()>) -> Result<u32, ControllerError> {
         if self.serial.is_some() {
             return Err(ControllerError::PendingSerial);
         } else {
@@ -278,20 +214,20 @@ impl Controller for DummyController {
         }
         Ok(())
     }
-    fn get<'c>(&'c self, msg: Message) -> Result<Data<'c>, ControllerError> {
-        println!("<- {:?}", msg);
+    fn get<'c>(&'c self, msg: Message<()>) -> Result<Data<'c>, ControllerError> {
+        println!("<- {:?}", msg.1);
         println!("-> Null");
         Err(ControllerError::WrongObject)
     }
-    fn send<'c>(&'c mut self, msg: Message) -> Result<Data<'c>, ControllerError> {
+    fn send<'c>(&'c mut self, msg: Message<()>) -> Result<Data<'c>, ControllerError> {
         if let Some(serial) = &self.serial {
-            println!("<- {} : {:?}", serial, msg);
+            println!("<- {} : {:?}", serial, msg.1);
         } else {
-            println!("<- {:?}", msg);
+            println!("<- {:?}", msg.1);
         }
         Err(ControllerError::WrongObject)
     }
-    fn sync(&mut self) -> Result<Message<'static>, ControllerError> {
+    fn sync(&mut self) -> Result<Message<'static, ()>, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
 }

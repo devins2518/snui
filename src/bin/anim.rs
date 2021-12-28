@@ -1,4 +1,4 @@
-use snui::wayland::shell::*;
+// use snui::wayland::shell::*;
 use snui::data::*;
 use scene::Instruction;
 use snui::widgets::shapes::*;
@@ -8,20 +8,9 @@ use snui::{*, widgets::{*, text::*}};
 
 #[derive(Debug, Clone, Copy)]
 enum Request {
-    Stop = 0,
-    Start = 1,
-    Pause = 2
-}
-
-impl From<u32> for Request {
-    fn from(uint: u32) -> Self {
-        match uint {
-            0 => Request::Stop,
-            1 => Request::Start,
-            2 => Request::Pause,
-            _ => panic!("invalid value")
-        }
-    }
+    Stop,
+    Start,
+    Pause
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -37,33 +26,28 @@ impl Default for EaserCtl {
     }
 }
 
-impl Controller for EaserCtl {
-    fn serialize(&mut self, _msg: Message) -> Result<u32, ControllerError> {
+impl Controller<Request> for EaserCtl {
+    fn serialize(&mut self, _msg: Message<Request>) -> Result<u32, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
     fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
         Err(ControllerError::NonBlocking)
     }
-    fn get<'m>(&'m self, _msg: Message) -> Result<Data<'m>, ControllerError> {
+    fn get<'c>(&'c self, msg: Message<Request>) -> Result<Data<'c>, ControllerError> {
         if let Some(request) = self.request {
             return Ok(Data::from(request as u32))
         }
         Err(ControllerError::WrongObject)
     }
-    fn send<'m>(&'m mut self, msg: Message) -> Result<Data<'m>, ControllerError> {
+    fn send<'c>(&'c mut self, msg: Message<Request>) -> Result<Data<'c>, ControllerError> {
         let Message(request, _) = msg;
-        match request {
-            0 => self.request = Some(Request::Stop),
-            1 => self.request = Some(Request::Start),
-            2 => self.request = Some(Request::Stop),
-            _ => return Err(ControllerError::WrongObject)
-        }
-        Ok(Data::Null)
+        self.request = Some(request);
+        Err(ControllerError::WrongObject)
     }
-    fn sync(&mut self) -> Result<Message<'static>, ControllerError> {
+    fn sync(&mut self) -> Result<Message<'static, Request>, ControllerError> {
         if let Some(request) = self.request {
             self.request = None;
-            return Ok(Message::new(request as u32, Data::Null));
+            return Ok(Message::new(request, ()));
         }
         Err(ControllerError::NonBlocking)
     }
@@ -165,7 +149,7 @@ impl Geometry for Animate {
     }
 }
 
-impl Widget for Animate {
+impl Widget<Request> for Animate {
     fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
         if self.start {
             if let Some(delta) = self.easer.next() {
@@ -182,14 +166,14 @@ impl Widget for Animate {
         }
         scene::RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut context::SyncContext, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut context::SyncContext<Request>, event: &Event<Request>) -> Damage {
         match event {
             Event::Callback(frame_time) => if self.start {
-                self.easer.frame_time(frame_time);
+                self.easer.frame_time(*frame_time);
                 return Damage::Frame;
             }
             Event::Message(msg) => {
-                match Request::from(msg.0) {
+                match msg.0 {
                     Request::Start => {
                         self.start = true;
                         self.easer.end = self.width() - self.cursor;
@@ -225,7 +209,7 @@ impl Animate {
     }
 }
 
-fn ui() -> impl Widget {
+fn ui() -> impl Widget<Request> {
     let mut ui =
     	WidgetLayout::new(0.)
     	.orientation(Orientation::Vertical);
@@ -242,7 +226,7 @@ fn ui() -> impl Widget {
         .button(move |this, ctx, p| match p {
             Pointer::MouseClick { time:_, button, pressed } => {
                 if button.is_left() && pressed {
-                    if ctx.send(Message::new(Request::Start as u32, Data::Null)).is_ok() {
+                    if ctx.send(Message::new(&Request::Start, ())).is_ok() {
                         this.set_background(style::RED);
                     }
                 } else if button.is_left() {
@@ -258,18 +242,18 @@ fn ui() -> impl Widget {
 }
 
 fn main() {
-    let (mut snui, mut event_loop) = Application::new(true);
+    // let (mut snui, mut event_loop) = Application::new(true);
 
-    snui.create_inner_application(
-        EaserCtl::default(),
-        ui()
-    	.ext()
-    	.background(style::BG0)
-    	.even_radius(5.)
-    	.border(style::BG2, 5.),
-        event_loop.handle(),
-        |_, _| {},
-    );
+    // snui.create_inner_application(
+    //     EaserCtl::default(),
+    //     ui()
+    // 	.ext()
+    // 	.background(style::BG0)
+    // 	.even_radius(5.)
+    // 	.border(style::BG2, 5.),
+    //     event_loop.handle(),
+    //     |_, _| {},
+    // );
 
-    snui.run(&mut event_loop);
+    // snui.run(&mut event_loop);
 }

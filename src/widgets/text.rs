@@ -118,11 +118,6 @@ impl Label {
             size: (0., 0.),
         }
     }
-    pub fn into_box(self) -> WidgetBox<Self> {
-        let mut w = WidgetBox::new(self);
-        let _ = w.set_size(w.max_width(), w.max_height());
-        w.constraint(widgets::Constraint::Downward)
-    }
 }
 
 impl Geometry for Label {
@@ -142,11 +137,11 @@ impl Geometry for Label {
     }
 }
 
-impl Widget for Label {
+impl<R> Widget<R> for Label {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, _event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, _event: &Event<R>) -> Damage {
         if self.layout.is_none() {
             let layout = ctx.font_cache.layout(self).glyphs().clone();
             self.size = font::get_size(&layout);
@@ -214,11 +209,12 @@ impl Geometry for Text {
     }
 }
 
-impl Widget for Text {
+impl<R> Widget<R> for Text {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.label.create_node(x, y)
+        RenderNode::Instruction(
+            Instruction::new(x, y, self.label.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
         if let Some(string) = &self.buffer {
             ctx.font_cache.write(&mut self.layout, &self.label, string);
             let glyphs = self.layout.glyphs().clone();
@@ -249,14 +245,14 @@ use crate::data::{Controller, Message};
 
 // Updates text on messages with a matching id or on Frame.
 // The retreived Data will replace all occurences of `{}` in the format.
-pub struct Listener {
-    msg: Message<'static>,
+pub struct Listener<R: PartialEq + Clone> {
+    request: Option<R>,
     poll: bool,
     format: Option<String>,
     text: Text,
 }
 
-impl Geometry for Listener {
+impl<R: PartialEq + Clone> Geometry for Listener<R> {
     fn width(&self) -> f32 {
         self.text.width()
     }
@@ -271,27 +267,37 @@ impl Geometry for Listener {
     }
 }
 
-impl Widget for Listener {
+impl<R: PartialEq + Clone> Widget<R> for Listener<R> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.text.create_node(x, y)
+        RenderNode::Instruction(
+            Instruction::new(x, y, self.text.label.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
-        if self.poll {
-            if let Ok(data) = ctx.get(self.msg) {
-                if let Some(format) = self.format.as_ref() {
-                    self.text
-                        .edit(format.replace("{}", &data.to_string()).as_str());
-                } else {
-                    self.text.edit(format!("{}", data.to_string()).as_str());
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
+        if let Some(request) = self.request.as_ref() {
+            if self.poll {
+                if let Ok(data) = ctx.get(Message::new(request.clone(), ())) {
+                    if let Some(format) = self.format.as_ref() {
+                        self.text
+                            .edit(format.replace("{}", &data.to_string()).as_str());
+                    } else {
+                        self.text.edit(format!("{}", data.to_string()).as_str());
+                    }
                 }
-            }
-        } else {
-            match event {
-                Event::Message(msg) => {
-                    let Message(obj, data) = msg;
-                    if obj == self.msg.0 {
-                        if let data::Data::Null = data {
-                            if let Ok(data) = ctx.get(self.msg) {
+            } else {
+                match event {
+                    Event::Message(msg) => {
+                        let Message(request, data) = msg;
+                        if self.request.as_ref() == Some(request) {
+                            if let data::Data::Null = data {
+                                if let Ok(data) = ctx.get(Message::new(request.clone(), ())) {
+                                    if let Some(format) = self.format.as_ref() {
+                                        self.text
+                                            .edit(format.replace("{}", &data.to_string()).as_str());
+                                    } else {
+                                        self.text.edit(format!("{}", data.to_string()).as_str());
+                                    }
+                                }
+                            } else {
                                 if let Some(format) = self.format.as_ref() {
                                     self.text
                                         .edit(format.replace("{}", &data.to_string()).as_str());
@@ -299,7 +305,10 @@ impl Widget for Listener {
                                     self.text.edit(format!("{}", data.to_string()).as_str());
                                 }
                             }
-                        } else {
+                        }
+                    }
+                    Event::Frame => {
+                        if let Ok(data) = ctx.get(Message::new(request.clone(), ())) {
                             if let Some(format) = self.format.as_ref() {
                                 self.text
                                     .edit(format.replace("{}", &data.to_string()).as_str());
@@ -308,28 +317,18 @@ impl Widget for Listener {
                             }
                         }
                     }
+                    _ => {}
                 }
-                Event::Frame => {
-                    if let Ok(data) = ctx.get(self.msg) {
-                        if let Some(format) = self.format.as_ref() {
-                            self.text
-                                .edit(format.replace("{}", &data.to_string()).as_str());
-                        } else {
-                            self.text.edit(format!("{}", data.to_string()).as_str());
-                        }
-                    }
-                }
-                _ => {}
             }
         }
         self.text.sync(ctx, event)
     }
 }
 
-impl From<Text> for Listener {
+impl<R: PartialEq + Clone> From<Text> for Listener<R> {
     fn from(text: Text) -> Self {
         Self {
-            msg: Message::default(),
+            request: None,
             text,
             poll: false,
             format: None,
@@ -337,10 +336,10 @@ impl From<Text> for Listener {
     }
 }
 
-impl From<Label> for Listener {
+impl<R: PartialEq + Clone> From<Label> for Listener<R> {
     fn from(label: Label) -> Self {
         Self {
-            msg: Message::default(),
+            request: None,
             text: label.into(),
             poll: false,
             format: None,
@@ -348,17 +347,9 @@ impl From<Label> for Listener {
     }
 }
 
-impl Listener {
-    pub fn new<T: Into<Text>>(text: T) -> Self {
-        Self {
-            msg: Message::default(),
-            text: text.into(),
-            poll: false,
-            format: None,
-        }
-    }
-    pub fn msg(mut self, msg: Message<'static>) -> Self {
-        self.msg = msg;
+impl<R: PartialEq + Clone> Listener<R> {
+    pub fn request(mut self, request: R) -> Self {
+        self.request = Some(request);
         self
     }
     pub fn format(mut self, format: &str) -> Self {
@@ -367,14 +358,14 @@ impl Listener {
     }
 }
 
-impl Deref for Listener {
+impl<R: PartialEq + Clone> Deref for Listener<R> {
     type Target = Text;
     fn deref(&self) -> &Self::Target {
         &self.text
     }
 }
 
-impl DerefMut for Listener {
+impl<R: PartialEq + Clone> DerefMut for Listener<R> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.text
     }

@@ -8,19 +8,19 @@ pub use layout_box::LayoutBox;
 use scene::Coords;
 pub use widget_layout::WidgetLayout;
 
-pub trait Container: Geometry + FromIterator<Child> {
+pub trait Container<R: 'static>: Geometry + FromIterator<Child<R>> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn remove(&mut self, index: usize) -> Child;
-    fn add(&mut self, widget: impl Widget + 'static);
-    fn pop(&mut self) -> Child {
+    fn remove(&mut self, index: usize) -> Child<R>;
+    fn add(&mut self, widget: impl Widget<R> + 'static);
+    fn pop(&mut self) -> Child<R> {
         self.remove(self.len() - 1)
     }
 }
 
-pub fn apply_width<W: Widget>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, width: f32) {
+pub fn apply_width<R, W: Widget<R>>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, width: f32) {
     match fixed.binary_search(&index) {
         Ok(index) => if index > 0 {
             apply_width(widgets, fixed, index - 1, width);
@@ -37,7 +37,7 @@ pub fn apply_width<W: Widget>(widgets: &mut [W], fixed: &mut Vec<usize>, index: 
     }
 }
 
-pub fn apply_height<W: Widget>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, height: f32) {
+pub fn apply_height<R, W: Widget<R>>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, height: f32) {
     match fixed.binary_search(&index) {
         Ok(index) => if index > 0 {
             apply_height(widgets, fixed, index - 1, height);
@@ -54,15 +54,15 @@ pub fn apply_height<W: Widget>(widgets: &mut [W], fixed: &mut Vec<usize>, index:
     }
 }
 
-pub struct Child {
+pub struct Child<R> {
     coords: Coords,
     damage: Damage,
     queue_draw: bool,
-    widget: Box<dyn Widget>,
+    widget: Box<dyn Widget<R>>,
 }
 
-impl Child {
-    pub(crate) fn new(widget: impl Widget + 'static) -> Self {
+impl<R> Child<R> {
+    pub(crate) fn new(widget: impl Widget<R> + 'static) -> Self {
         Child {
             queue_draw: false,
             damage: Damage::None,
@@ -88,7 +88,7 @@ impl Child {
     }
 }
 
-impl Geometry for Child {
+impl<R> Geometry for Child<R> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -103,8 +103,8 @@ impl Geometry for Child {
     }
 }
 
-impl From<Box<dyn Widget>> for Child {
-    fn from(widget: Box<dyn Widget>) -> Self {
+impl<R> From<Box<dyn Widget<R>>> for Child<R> {
+    fn from(widget: Box<dyn Widget<R>>) -> Self {
         Child {
             queue_draw: false,
             damage: Damage::None,
@@ -114,7 +114,7 @@ impl From<Box<dyn Widget>> for Child {
     }
 }
 
-impl Widget for Child {
+impl<R> Widget<R> for Child<R> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if self.queue_draw || self.damage.is_some() {
             self.damage = Damage::None;
@@ -124,18 +124,18 @@ impl Widget for Child {
         }
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
         self.damage = self.damage.max(match event {
             Event::Pointer(mut x, mut y, p) => {
                 x -= self.coords.x;
                 y -= self.coords.y;
-                let result = self.widget.sync(ctx, Event::Pointer(x, y, p));
+                let result = self.widget.sync(ctx, &Event::Pointer(x, y, *p));
                 result
             }
             Event::Frame => self.widget.sync(ctx, event),
             _ => self.widget.sync(ctx, event),
         });
-        self.queue_draw = self.damage.is_some() || event == Event::Frame;
+        self.queue_draw = self.damage.is_some() || event.is_frame();
         self.damage
     }
     fn contains(&self, x: f32, y: f32) -> bool {

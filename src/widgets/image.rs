@@ -153,11 +153,11 @@ impl Primitive for Image {
     }
 }
 
-impl Widget for Image {
+impl<R> Widget<R> for Image {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext, _event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<R>, _event: &Event<R>) -> Damage {
         Damage::None
     }
 }

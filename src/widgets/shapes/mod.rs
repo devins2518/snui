@@ -1,7 +1,8 @@
 pub mod rectangle;
 
-use crate::scene::*;
 use crate::*;
+use crate::scene::*;
+use std::marker::PhantomData;
 pub use rectangle::Rectangle;
 use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::{Deref, DerefMut};
@@ -38,20 +39,22 @@ impl From<u32> for ShapeStyle {
     }
 }
 
-pub struct WidgetExt<W: Widget> {
-    widget: Padding<W>,
+pub struct WidgetExt<R, W: Widget<R>> {
+    widget: Padding<R, W>,
     radius: (f32, f32, f32, f32),
     background: Background,
     border: (f32, u32),
+    _request : PhantomData<R>
 }
 
-impl<W: Widget> WidgetExt<W> {
+impl<R, W: Widget<R>> WidgetExt<R, W> {
     pub fn new(widget: W) -> Self {
         WidgetExt {
             widget: Padding::new(widget),
             background: Background::Transparent,
             border: (0., 0),
             radius: (0., 0., 0., 0.),
+            _request: PhantomData
         }
     }
     fn inner_width(&self) -> f32 {
@@ -82,7 +85,7 @@ fn minimum_padding(tl: f32, tr: f32, br: f32, bl: f32) -> f32 {
     return radius.floor();
 }
 
-impl<W: Widget> Geometry for WidgetExt<W> {
+impl<R, W: Widget<R>> Geometry for WidgetExt<R, W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let border = self.border.0;
         self.widget.set_width(width - 2. * border)
@@ -99,7 +102,7 @@ impl<W: Widget> Geometry for WidgetExt<W> {
     }
 }
 
-impl<W: Widget + Style> WidgetExt<W> {
+impl<R, W: Widget<R> + Style> WidgetExt<R, W> {
     pub fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         self.widget.set_radius(tl, tr, br, bl);
         let delta = minimum_padding(tl, tr, br, bl);
@@ -122,7 +125,7 @@ impl<W: Widget + Style> WidgetExt<W> {
     }
 }
 
-impl<W: Widget> Style for WidgetExt<W> {
+impl<R, W: Widget<R>> Style for WidgetExt<R, W> {
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         let delta = minimum_padding(tl, tr, br, bl);
         self.widget.padding.0 = self.widget.padding.0.max(delta);
@@ -165,7 +168,7 @@ impl<W: Widget> Style for WidgetExt<W> {
     }
 }
 
-impl<W: Widget> Widget for WidgetExt<W> {
+impl<R, W: Widget<R>> Widget<R> for WidgetExt<R, W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let (border_size, border_color) = self.border;
         let node = self.widget.create_node(x + border_size, y + border_size);
@@ -219,12 +222,12 @@ impl<W: Widget> Widget for WidgetExt<W> {
             ),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
         if let Event::Pointer(mut x, mut y, p) = event {
             let border = self.border.0;
             x -= border;
             y -= border;
-            self.widget.sync(ctx, Event::Pointer(x, y, p))
+            self.widget.sync(ctx, &Event::Pointer(x, y, *p))
         } else {
             self.widget.sync(ctx, event)
         }
@@ -238,14 +241,14 @@ fn minimum_radius(radius: f32, border: f32) -> f32 {
     radius - (border / 2.)
 }
 
-impl<W: Widget> Deref for WidgetExt<W> {
+impl<R, W: Widget<R>> Deref for WidgetExt<R, W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         self.widget.deref()
     }
 }
 
-impl<W: Widget> DerefMut for WidgetExt<W> {
+impl<R, W: Widget<R>> DerefMut for WidgetExt<R, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.widget.deref_mut()
     }

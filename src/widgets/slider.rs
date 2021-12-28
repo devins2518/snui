@@ -1,17 +1,18 @@
 use crate::data::*;
 use crate::*;
+use scene::Instruction;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
-pub struct Slider {
-    obj: Option<u32>,
+pub struct Slider<R: PartialEq + Clone> {
+    request: Option<R>,
     size: f32,
     pressed: bool,
     slider: Rectangle,
     orientation: Orientation,
 }
 
-impl Slider {
+impl<R: PartialEq + Clone> Slider<R> {
     pub fn new(width: u32, height: u32) -> Self {
         let orientation = if height > width {
             Orientation::Vertical
@@ -19,7 +20,7 @@ impl Slider {
             Orientation::Horizontal
         };
         Slider {
-            obj: None,
+            request: None,
             size: match &orientation {
                 Orientation::Horizontal => width as f32,
                 Orientation::Vertical => height as f32,
@@ -40,8 +41,8 @@ impl Slider {
             orientation,
         }
     }
-    pub fn id(mut self, obj: u32) -> Self {
-        self.obj = Some(obj);
+    pub fn request(mut self, request: R) -> Self {
+        self.request = Some(request);
         self
     }
     pub fn orientation(mut self, orientation: Orientation) -> Self {
@@ -72,7 +73,7 @@ impl Slider {
     }
 }
 
-impl Geometry for Slider {
+impl<R: PartialEq + Clone> Geometry for Slider<R> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = &self.orientation {
             self.size
@@ -111,22 +112,23 @@ impl Geometry for Slider {
     }
 }
 
-impl Widget for Slider {
+impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.slider.create_node(x, y)
+        RenderNode::Instruction(
+            Instruction::new(x, y, self.slider.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
         match event {
             Event::Pointer(x, y, pointer) => {
-                if self.contains(x, y) {
+                if self.contains(*x, *y) {
                     match pointer {
                         Pointer::MouseClick {
                             time: _,
                             button,
                             pressed,
                         } => {
-                            self.pressed = pressed;
-                            if pressed && button == MouseButton::Left {
+                            self.pressed = *pressed;
+                            if self.pressed && button.is_left() {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
                                         let _ = self.slider.set_width(x.round());
@@ -140,8 +142,8 @@ impl Widget for Slider {
                                 Orientation::Horizontal => self.slider.width() / self.size,
                                 Orientation::Vertical => self.slider.height() / self.size,
                             };
-                            if let Some(obj) = self.obj {
-                                let _ = ctx.send(Message::new(obj, ratio));
+                            if let Some(request) = self.request.as_ref() {
+                                let _ = ctx.send(Message::new(request.clone(), ratio));
                             }
                             return Damage::Some;
                         }
@@ -163,8 +165,8 @@ impl Widget for Slider {
                                     self.slider.height() / self.size
                                 }
                             };
-                            if let Some(obj) = self.obj {
-                                let _ = ctx.send(Message::new(obj, ratio));
+                            if let Some(request) = self.request.as_ref() {
+                                let _ = ctx.send(Message::new(request.clone(), ratio));
                             }
                             return Damage::Some;
                         }
@@ -173,9 +175,9 @@ impl Widget for Slider {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
-                                            if let Some(obj) = self.obj {
+                                            if let Some(request) = self.request.as_ref() {
                                                 let _ = ctx.send(Message::new(
-                                                    obj,
+                                                    request.clone(),
                                                     self.slider.width() / self.size,
                                                 ));
                                             }
@@ -183,9 +185,9 @@ impl Widget for Slider {
                                     }
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
-                                            if let Some(obj) = self.obj {
+                                            if let Some(request) = self.request.as_ref() {
                                                 let _ = ctx.send(Message::new(
-                                                    obj,
+                                                    request.clone(),
                                                     self.slider.height() / self.size,
                                                 ));
                                             }
@@ -204,17 +206,17 @@ impl Widget for Slider {
                             button,
                             pressed,
                         } => {
-                            if button == MouseButton::Left {
-                                self.pressed = pressed;
+                            if button.is_left() {
+                                self.pressed = *pressed;
                                 return Damage::Some;
                             }
                         }
                         Pointer::Hover => match &self.orientation {
                             Orientation::Horizontal => {
                                 if let Ok(_) = self.slider.set_width(x.min(self.size)) {
-                                    if let Some(obj) = self.obj {
+                                    if let Some(request) = self.request.as_ref() {
                                         let _ = ctx.send(Message::new(
-                                            obj,
+                                            request.clone(),
                                             self.slider.width() / self.size,
                                         ));
                                     }
@@ -223,9 +225,9 @@ impl Widget for Slider {
                             }
                             Orientation::Vertical => {
                                 if let Ok(_) = self.slider.set_height(y.min(self.size)) {
-                                    if let Some(obj) = self.obj {
+                                    if let Some(request) = self.request.as_ref() {
                                         let _ = ctx.send(Message::new(
-                                            obj,
+                                            request.clone(),
                                             self.slider.height() / self.size,
                                         ));
                                     }
@@ -239,18 +241,20 @@ impl Widget for Slider {
                 }
             }
             Event::Message(msg) => {
-                let Message(obj, _) = msg;
-                if Some(obj) == self.obj {
-                    if let Ok(data) = ctx.get(msg) {
+                let Message(request, data) = msg;
+                if let Some(this) = self.request.as_ref() {
+                    if this.eq(request) {
+                    if let Ok(data) = ctx.get(Message::new(this.clone(), *data)) {
                         if self.filter(data).is_ok() {
                             return Damage::Some;
                         }
                     }
+                    }
                 }
             }
             Event::Frame => {
-                if let Some(obj) = self.obj {
-                    if let Ok(data) = ctx.get(Message::new(obj, ())) {
+                if let Some(request) = self.request.as_ref() {
+                    if let Ok(data) = ctx.get(Message::new(request.clone(), ())) {
                         if self.filter(data).is_ok() {
                             return Damage::Some;
                         }
@@ -263,7 +267,7 @@ impl Widget for Slider {
     }
 }
 
-impl Style for Slider {
+impl<R: PartialEq + Clone> Style for Slider<R> {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.slider.set_background(background);
     }

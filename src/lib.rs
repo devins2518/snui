@@ -180,24 +180,29 @@ impl MouseButton {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Event<'d> {
+pub enum Event<'d, R> {
     // Send when a Full redraw is neccessary
     Frame,
     Prepare,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
     // Your message object
-    Message(data::Message<'d>),
+    Message(data::Message<'d, R>),
     // Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     Pointer(f32, f32, Pointer),
 }
 
-impl<'d> Event<'d> {
+impl<'d, R> Event<'d, R> {
     pub fn is_cb(&self) -> bool {
         match self {
             Self::Callback(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_frame(&self) -> bool {
+        match self {
+            Self::Frame => true,
             _ => false,
         }
     }
@@ -269,12 +274,12 @@ pub trait Primitive: Geometry + std::fmt::Debug {
     fn into_primitive(&self) -> scene::PrimitiveType;
 }
 
-pub trait Widget: Geometry {
+pub trait Widget<R>: Geometry {
     // Widgets are expected to compute their layout when
     // they're creating their render node.
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
     // Interface to communicate with the application and retained mode draw operation
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage;
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &'d Event<'d, R>) -> Damage;
     fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
         context::canvas::Canvas::new(scene::Region::new(x, y, self.width(), self.height()))
     }
@@ -283,34 +288,34 @@ pub trait Widget: Geometry {
     }
 }
 
-pub trait WidgetUtil: Widget + Sized {
-    fn ext(self) -> WidgetExt<Self>;
-    fn clamp(self) -> WidgetBox<Self>;
-    fn pad(self, padding: f32) -> Padding<Self>;
-    fn child(self) -> Child;
+pub trait WidgetUtil<R>: Widget<R> + Sized {
+    fn ext(self) -> WidgetExt<R, Self>;
+    fn clamp(self) -> WidgetBox<R, Self>;
+    fn pad(self, padding: f32) -> Padding<R, Self>;
+    fn child(self) -> Child<R>;
     fn with_width(self, width: f32) -> Self;
     fn with_height(self, height: f32) -> Self;
     fn with_size(self, width: f32, height: f32) -> Self;
-    fn button<F: for <'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext, Pointer)>(
+    fn button<F: for <'d> FnMut(&'d mut Proxy<R, Self>, &'d mut SyncContext<R>, Pointer)>(
         self,
         cb: F
-    ) -> Button<Self, F>;
+    ) -> Button<R, Self, F>;
 }
 
-impl<W> WidgetUtil for W
+impl<W, R> WidgetUtil<R> for W
 where
-    W: Widget + 'static,
+    W: Widget<R> + 'static,
 {
-    fn pad(self, padding: f32) -> Padding<Self> {
+    fn pad(self, padding: f32) -> Padding<R, Self> {
         Padding::new(self).even_padding(padding)
     }
-    fn clamp(self) -> WidgetBox<Self> {
+    fn clamp(self) -> WidgetBox<R, Self> {
         WidgetBox::new(self)
     }
-    fn ext(self) -> WidgetExt<W> {
+    fn ext(self) -> WidgetExt<R, Self> {
         WidgetExt::new(self)
     }
-    fn child(self) -> Child {
+    fn child(self) -> Child<R> {
         Child::new(self)
     }
     fn with_width(mut self, width: f32) -> Self {
@@ -328,9 +333,9 @@ where
     fn button<F>(
         self,
         cb: F
-    ) -> Button<Self, F>
+    ) -> Button<R, Self, F>
     where
-        F: for <'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext, Pointer)
+        F: for <'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer)
     {
         Button::new(self, cb)
     }
