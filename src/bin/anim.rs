@@ -1,4 +1,4 @@
-// use snui::wayland::shell::*;
+use snui::wayland::shell::*;
 use snui::data::*;
 use scene::Instruction;
 use snui::widgets::shapes::*;
@@ -242,18 +242,18 @@ fn ui() -> impl Widget<Request> {
 }
 
 fn main() {
-    // let (mut snui, mut event_loop) = Application::new(true);
+    let (mut snui, mut event_loop) = Application::new(true);
 
-    // snui.create_inner_application(
-    //     EaserCtl::default(),
-    //     ui()
-    // 	.ext()
-    // 	.background(style::BG0)
-    // 	.even_radius(5.)
-    // 	.border(style::BG2, 5.),
-    //     event_loop.handle(),
-    //     |_, _| {},
-    // );
+    snui.create_inner_application(
+        EaserCtl::default(),
+        ui()
+    	.ext()
+    	.background(style::BG0)
+    	.even_radius(5.)
+    	.border(style::BG2, 5.),
+        event_loop.handle(),
+        |_, _| {},
+    );
 
-    // snui.run(&mut event_loop);
+    snui.run(&mut event_loop);
 }

@@ -32,11 +32,15 @@ use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1
     zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
-pub struct Application<C: Controller + Clone + 'static> {
+pub struct Application<R, C>
+where
+    R: Clone,
+    C: Controller<R> + Clone + 'static
+{
     display: Display,
     pub globals: Rc<Globals>,
     global_manager: GlobalManager,
-    pub inner: Vec<InnerApplication<C>>,
+    pub inner: Vec<InnerApplication<R, C>>,
     token: RegistrationToken,
 }
 
@@ -47,18 +51,26 @@ struct Context {
     font_cache: FontCache,
 }
 
-pub struct CoreApplication<C: Controller + Clone> {
+pub struct CoreApplication<R, C>
+where
+    R: Clone,
+    C: Controller<R> + Clone
+{
     pub controller: C,
     ctx: Context,
     globals: Rc<Globals>,
     mempool: AutoMemPool,
-    widget: Box<dyn Widget>,
+    widget: Box<dyn Widget<R>>,
     surface: Option<Surface>,
 }
 
-pub struct InnerApplication<C: Controller + Clone> {
-    core: CoreApplication<C>,
-    cb: Box<dyn FnMut(&mut CoreApplication<C>, Event)>,
+pub struct InnerApplication<R, C>
+where
+    R: Clone,
+    C: Controller<R> + Clone
+{
+    core: CoreApplication<R, C>,
+    cb: Box<dyn FnMut(&mut CoreApplication<R, C>, &Event<R>)>,
 }
 
 impl Surface {
@@ -127,16 +139,20 @@ impl Globals {
             shell: None,
         }
     }
-    pub fn create_shell_surface<C: Controller + Clone + 'static>(
+    pub fn create_shell_surface<R, C>(
         &self,
-        geometry: &dyn Widget,
+        geometry: &dyn Widget<R>,
         namespace: &str,
         layer: Layer,
         anchor: Option<Anchor>,
         output: Option<WlOutput>,
         margin: [i32; 4],
         previous: Option<Surface>,
-    ) -> Option<Surface> {
+    ) -> Option<Surface>
+    where
+        R: Clone + 'static,
+        C: Controller<R> + Clone + 'static
+    {
         if self.compositor.is_none() || self.shell.is_none() {
             None
         } else {
@@ -154,7 +170,7 @@ impl Globals {
             }
             shell.set_size(geometry.width() as u32, geometry.height() as u32);
             shell.set_margin(margin[0], margin[1], margin[2], margin[3]);
-            assign_surface::<C>(&shell);
+            assign_surface::<R, C>(&shell);
             surface.commit();
             Some(Surface::new(
                 surface,
@@ -167,12 +183,16 @@ impl Globals {
             ))
         }
     }
-    pub fn create_shell_surface_from<C: Controller + Clone + 'static>(
+    pub fn create_shell_surface_from<R, C>(
         &self,
-        geometry: &dyn Widget,
+        geometry: &dyn Widget<R>,
         config: ShellConfig,
         previous: Option<Surface>,
-    ) -> Option<Surface> {
+    ) -> Option<Surface>
+    where
+        R: Clone + 'static,
+        C: Controller<R> + Clone + 'static
+    {
         if self.compositor.is_none() || self.shell.is_none() {
             None
         } else {
@@ -198,7 +218,7 @@ impl Globals {
                 config.margin[3],
             );
             surface.commit();
-            assign_surface::<C>(&shell);
+            assign_surface::<R, C>(&shell);
             Some(Surface::new(
                 surface,
                 Shell::LayerShell {
@@ -234,7 +254,11 @@ impl Output {
     }
 }
 
-impl<C: Controller + Clone + 'static> Application<C> {
+impl<R, C> Application<R, C>
+where
+    R: Clone + 'static,
+    C: Controller<R> + Clone + 'static
+{
     pub fn new(pointer: bool) -> (Self, EventLoop<'static, Self>) {
         let display = Display::connect_to_env().unwrap();
         let event_queue = display.create_event_queue();
@@ -251,7 +275,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                     ZwlrLayerShellV1,
                     1,
                     |shell: Main<ZwlrLayerShellV1>, mut application: DispatchData| {
-                        if let Some(application) = application.get::<Application<C>>() {
+                        if let Some(application) = application.get::<Application<R, C>>() {
                             if let Some(globals) = Rc::get_mut(&mut application.globals) {
                                 globals.shell = Some(shell);
                             }
@@ -260,7 +284,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                 ],
                 [WlShm, 1, |shm: Main<WlShm>, mut application: DispatchData| {
                     shm.quick_assign(|_, _, _| {});
-                    if let Some(application) = application.get::<Application<C>>() {
+                    if let Some(application) = application.get::<Application<R, C>>() {
                         if let Some(globals) = Rc::get_mut(&mut application.globals) {
                             globals.shm = Some(shm);
                         }
@@ -270,7 +294,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                     WlCompositor,
                     4,
                     |compositor: Main<WlCompositor>, mut application: DispatchData| {
-                        if let Some(application) = application.get::<Application<C>>() {
+                        if let Some(application) = application.get::<Application<R, C>>() {
                             if let Some(globals) = Rc::get_mut(&mut application.globals) {
                                 globals.compositor = Some(compositor);
                             }
@@ -280,10 +304,10 @@ impl<C: Controller + Clone + 'static> Application<C> {
                 [WlSeat, 7, move |seat: Main<WlSeat>, _: DispatchData| {
                     seat.quick_assign(move |wl_seat, event, mut application| match event {
                         wl_seat::Event::Capabilities { capabilities } => {
-                            if let Some(application) = application.get::<Application<C>>() {
+                            if let Some(application) = application.get::<Application<R, C>>() {
                                 if pointer && capabilities & Capability::Pointer == Capability::Pointer {
                                     let pointer = wl_seat.get_pointer();
-                                    assign_pointer::<C>(&pointer);
+                                    assign_pointer::<R, C>(&pointer);
                                 }
                                 if let Some(globals) = Rc::get_mut(&mut application.globals) {
                                     let mut found = None;
@@ -317,7 +341,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 model: _,
                                 transform: _,
                             } => {
-                                if let Some(application) = application.get::<Application<C>>() {
+                                if let Some(application) = application.get::<Application<R, C>>() {
                                     if let Some(globals) = Rc::get_mut(&mut application.globals) {
                                         let mut found = None;
                                         for output in &mut globals.outputs {
@@ -340,7 +364,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 height,
                                 refresh: _,
                             } => {
-                                if let Some(application) = application.get::<Application<C>>() {
+                                if let Some(application) = application.get::<Application<R, C>>() {
                                     if let Some(globals) = Rc::get_mut(&mut application.globals) {
                                         let mut found = None;
                                         for output in &mut globals.outputs {
@@ -360,7 +384,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
                                 }
                             }
                             wl_output::Event::Scale { factor } => {
-                                if let Some(application) = application.get::<Application<C>>() {
+                                if let Some(application) = application.get::<Application<R, C>>() {
                                     if let Some(globals) = Rc::get_mut(&mut application.globals) {
                                         let mut found = None;
                                         for output in &mut globals.outputs {
@@ -417,7 +441,7 @@ impl<C: Controller + Clone + 'static> Application<C> {
         }
         0
     }
-    fn get_application(&mut self, surface: &WlSurface) -> Option<&mut InnerApplication<C>> {
+    fn get_application(&mut self, surface: &WlSurface) -> Option<&mut InnerApplication<R, C>> {
         for inner in &mut self.inner {
             if inner.eq(surface) {
                 return Some(inner);
@@ -434,9 +458,9 @@ impl<C: Controller + Clone + 'static> Application<C> {
     pub fn create_empty_inner_application<Data: 'static>(
         &mut self,
         controller: C,
-        widget: impl Widget + 'static,
+        widget: impl Widget<R> + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<R, C>, &Event<R>) + 'static,
     ) {
         let inner_application = InnerApplication::empty(controller, widget, self.globals.clone(), cb);
         self.inner.push(inner_application);
@@ -446,9 +470,9 @@ impl<C: Controller + Clone + 'static> Application<C> {
         &mut self,
         controller: C,
         config: ShellConfig,
-        widget: impl Widget + 'static,
+        widget: impl Widget<R> + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<R, C>, &Event<R>) + 'static,
     ) {
         let inner_application = InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
         self.inner.push(inner_application);
@@ -457,9 +481,9 @@ impl<C: Controller + Clone + 'static> Application<C> {
     pub fn create_inner_application<Data: 'static>(
         &mut self,
         controller: C,
-        widget: impl Widget + 'static,
+        widget: impl Widget<R> + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<R, C>, &Event<R>) + 'static,
     ) {
         let inner_application = InnerApplication::default(controller, widget, self.globals.clone(), cb);
         self.inner.push(inner_application);
@@ -473,31 +497,43 @@ impl<C: Controller + Clone + 'static> Application<C> {
     }
 }
 
-impl<C: Controller + Clone> Deref for InnerApplication<C> {
-    type Target = CoreApplication<C>;
+impl<R, C> Deref for InnerApplication<R, C>
+where
+    R: Clone,
+    C: Controller<R> + Clone + 'static
+{
+    type Target = CoreApplication<R, C>;
     fn deref(&self) -> &Self::Target {
         &self.core
     }
 }
 
-impl<C: Controller + Clone> DerefMut for InnerApplication<C> {
+impl<R, C> DerefMut for InnerApplication<R, C>
+where
+    R: Clone,
+    C: Controller<R> + Clone + 'static
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.core
     }
 }
 
-impl<C: Controller + Clone + 'static> CoreApplication<C> {
-    pub fn poll(&mut self,ev: Event) -> C {
+impl<R, C> CoreApplication<R, C>
+where
+    R: Clone + 'static,
+    C: Controller<R> + Clone + 'static
+{
+    pub fn poll(&mut self, ev: Event<R>) -> C {
         let mut ctl = self.controller.clone();
         let mut sync_ctx = SyncContext::new(&mut ctl, &mut self.ctx.font_cache);
-        self.widget.sync(&mut sync_ctx, ev);
+        self.widget.sync(&mut sync_ctx, &ev);
         ctl
     }
-    pub fn sync(&mut self, ev: Event) -> bool {
+    pub fn sync(&mut self, ev: &Event<R>) -> bool {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
         let mut damage = self.widget.sync(&mut sync_ctx, ev);
-        while let Ok(signal) = sync_ctx.sync() {
-            damage = damage.max(self.widget.sync(&mut sync_ctx, Event::Message(signal)));
+        while let Ok(msg) = sync_ctx.sync() {
+            damage = damage.max(self.widget.sync(&mut sync_ctx, &Event::Message(msg)));
         }
         if damage == Damage::Frame {
             if self.ctx.time.is_none() {
@@ -529,7 +565,7 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
             surface.alive = true;
             match &surface.shell {
                 Shell::LayerShell { config, surface: _ } => {
-                    self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
+                    self.surface = self.globals.as_ref().create_shell_surface_from::<R, C>(
                         self.widget.deref(),
                         config.clone(),
                         Some(surface.clone()),
@@ -537,7 +573,7 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
                 }
             }
         } else {
-            self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
+            self.surface = self.globals.as_ref().create_shell_surface_from::<R, C>(
                 self.widget.deref(),
                 ShellConfig::default_layer_shell(),
                 None,
@@ -548,13 +584,13 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
             surface.alive = true;
-            self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
+            self.surface = self.globals.as_ref().create_shell_surface_from::<R, C>(
                 self.widget.deref(),
                 config,
                 Some(surface.clone()),
             );
         } else {
-            self.surface = self.globals.as_ref().create_shell_surface_from::<C>(
+            self.surface = self.globals.as_ref().create_shell_surface_from::<R, C>(
                 self.widget.deref(),
                 config,
                 None,
@@ -563,7 +599,11 @@ impl<C: Controller + Clone + 'static> CoreApplication<C> {
     }
 }
 
-impl<C: Controller + Clone> Geometry for CoreApplication<C> {
+impl<R, C> Geometry for InnerApplication<R, C>
+where
+    R: Clone,
+    C: Controller<R> + Clone + 'static
+{
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -579,12 +619,16 @@ impl<C: Controller + Clone> Geometry for CoreApplication<C> {
     }
 }
 
-impl<C: Controller + Clone + 'static> InnerApplication<C> {
+impl<R, C> InnerApplication<R, C>
+where
+    R: Clone + 'static,
+    C: Controller<R> + Clone + 'static
+{
     pub fn empty(
         controller: C,
-        widget: impl Widget + 'static,
+        widget: impl Widget<R> + 'static,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<R, C>, &Event<R>) + 'static,
     ) -> Self {
         let mut default = InnerApplication {
             core: CoreApplication {
@@ -602,14 +646,14 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             },
             cb: Box::new(cb),
         };
-        default.sync(Event::Prepare);
+        default.sync(&Event::Prepare);
         default
     }
     pub fn default(
         controller: C,
-        widget: impl Widget + 'static,
+        widget: impl Widget<R> + 'static,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<R, C>, &Event<R>) + 'static,
     ) -> Self {
         let mut default = InnerApplication {
             core: CoreApplication {
@@ -627,16 +671,16 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             },
             cb: Box::new(cb),
         };
-        default.sync(Event::Prepare);
+        default.sync(&Event::Prepare);
         default.replace_surface();
         default
     }
     pub fn new(
         controller: C,
-        widget: impl Widget + 'static,
+        widget: impl Widget<R> + 'static,
         config: ShellConfig,
         globals: Rc<Globals>,
-        cb: impl FnMut(&mut CoreApplication<C>, Event) + 'static,
+        cb: impl FnMut(&mut CoreApplication<R, C>, &Event<R>) + 'static,
     ) -> Self {
         let mut new = InnerApplication {
             core: CoreApplication {
@@ -654,7 +698,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
             },
             cb: Box::new(cb),
         };
-        new.sync(Event::Prepare);
+        new.sync(&Event::Prepare);
         new.replace_surface_by(config);
         new
     }
@@ -664,12 +708,12 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
         }
         false
     }
-    pub fn roundtrip(&mut self, ev: Event) -> Result<RenderNode, ()> {
+    pub fn roundtrip(&mut self, ev: &Event<R>) -> Result<RenderNode, ()> {
         let width = self.width();
         let height = self.height();
 
         // Sending the event to the widget tree
-        if self.sync(ev) || ev == Event::Frame {
+        if self.sync(ev) || ev.is_frame() {
             // Calling the application´s closure
             (self.cb)(&mut self.core, ev);
 
@@ -678,7 +722,7 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                 let current_height = self.height();
 
                 // Resizing the surface in case the widget changed size
-                if ev == Event::Frame {
+                if ev.is_frame() {
                     self.ctx.render_node = None;
                 } else if width != current_width || height != current_height {
                     let _ = self.set_size(current_width, current_height);
@@ -733,24 +777,24 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
                     surface.commit();
                     if let Some(_) = self.core.ctx.time {
                         self.core.ctx.time = Some(time);
-                        frame_callback::<C>(time, surface.surface.clone());
+                        frame_callback::<R, C>(time, surface.surface.clone());
                     }
                 }
             }
         }
     }
-    pub fn callback(&mut self, ev: Event) {
+    pub fn callback(&mut self, ev: Event<R>) {
         if self.ctx.time.is_none() || ev.is_cb() {
-            if let Ok(render_node) = self.roundtrip(ev) {
+            if let Ok(render_node) = self.roundtrip(&ev) {
                 if let Some(surface) = self.surface.as_ref() {
-                    draw_callback::<C>(&surface.surface, render_node);
+                    draw_callback::<R, C>(&surface.surface, render_node);
                 }
             }
         } else {
             let width = self.width();
             let height = self.height();
 
-            self.sync(ev);
+            self.sync(&ev);
 
             let current_width = self.width();
             let current_height = self.height();
@@ -763,14 +807,18 @@ impl<C: Controller + Clone + 'static> InnerApplication<C> {
     }
 }
 
-fn frame_callback<C: Controller + Clone + 'static>(time: u32, surface: Main<WlSurface>) {
+fn frame_callback<R, C>(time: u32, surface: Main<WlSurface>)
+where
+    R: Clone + 'static,
+    C: Controller<R> + Clone + 'static
+{
     let h = surface.detach();
     surface
         .frame()
         .quick_assign(move |_, event, mut application| match event {
             wl_callback::Event::Done { callback_data } => {
                 let timeout = (callback_data - time).min(50);
-                if let Some(application) = application.get::<Application<C>>() {
+                if let Some(application) = application.get::<Application<R, C>>() {
                     if let Some(inner_application) = application.get_application(&h) {
                         inner_application.ctx.time = None;
                         inner_application.callback(Event::Callback(timeout));
@@ -782,16 +830,17 @@ fn frame_callback<C: Controller + Clone + 'static>(time: u32, surface: Main<WlSu
     surface.commit();
 }
 
-fn draw_callback<C: Controller + Clone + 'static>(
-    surface: &Main<WlSurface>,
-    mut recent_node: RenderNode,
-) {
+fn draw_callback<R, C>(surface: &Main<WlSurface>, mut recent_node: RenderNode)
+where
+    R: Clone + 'static,
+    C: Controller<R> + Clone + 'static
+{
     let h = surface.detach();
     surface
         .frame()
         .quick_assign(move |_, event, mut application| match event {
             wl_callback::Event::Done { callback_data } => {
-                if let Some(application) = application.get::<Application<C>>() {
+                if let Some(application) = application.get::<Application<R, C>>() {
                     let inner_application = application.get_application(&h).unwrap();
                     inner_application.render(callback_data, std::mem::take(&mut recent_node));
                 }
@@ -814,14 +863,18 @@ impl From<ModifiersState> for Modifiers {
     }
 }
 
-fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
+fn assign_pointer<R, C>(pointer: &Main<WlPointer>)
+where
+    R: Clone + 'static,
+    C: Controller<R> + Clone + 'static
+{
     let mut index = 0;
     let mut input = Pointer::Enter;
     let (mut x, mut y) = (0., 0.);
     pointer.quick_assign(move |_, event, mut inner| match event {
         wl_pointer::Event::Leave { serial: _, surface } => {
             input = Pointer::Leave;
-            if let Some(application) = inner.get::<Application<C>>() {
+            if let Some(application) = inner.get::<Application<R, C>>() {
                 if let Some(inner_application) = application.get_application(&surface) {
                     inner_application.callback(Event::Pointer(x as f32, y as f32, input));
                 }
@@ -840,7 +893,7 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
             };
         }
         wl_pointer::Event::Frame => {
-            if let Some(application) = inner.get::<Application<C>>() {
+            if let Some(application) = inner.get::<Application<R, C>>() {
                 let inner_application = application.inner.get_mut(index).unwrap();
                 inner_application.callback(Event::Pointer(x as f32, y as f32, input));
             }
@@ -865,7 +918,7 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
             surface_x,
             surface_y,
         } => {
-            if let Some(application) = inner.get::<Application<C>>() {
+            if let Some(application) = inner.get::<Application<R, C>>() {
                 x = surface_x;
                 y = surface_y;
                 index = application.get_index(&surface);
@@ -884,7 +937,11 @@ fn assign_pointer<C: Controller + Clone + 'static>(pointer: &Main<WlPointer>) {
     });
 }
 
-fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurfaceV1>) {
+fn assign_surface<R, C>(shell: &Main<ZwlrLayerSurfaceV1>)
+where
+    R: Clone + 'static,
+    C: Controller<R> + Clone + 'static
+{
     shell.quick_assign(move |shell, event, mut inner| match event {
         zwlr_layer_surface_v1::Event::Configure {
             serial,
@@ -893,7 +950,7 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
         } => {
             shell.ack_configure(serial);
             println!("\nCONFIGURE - {} : {} X {}\n", serial, width, height);
-            if let Some(application) = inner.get::<Application<C>>() {
+            if let Some(application) = inner.get::<Application<R, C>>() {
                 for inner_application in &mut application.inner {
                     if let Some(app_surface) = inner_application.surface.as_mut() {
                         match &app_surface.shell {
@@ -902,14 +959,14 @@ fn assign_surface<C: Controller + Clone + 'static>(shell: &Main<ZwlrLayerSurface
                                     app_surface.destroy_previous();
                                     let _ = inner_application.widget.set_size(width as f32, height as f32);
                                     if inner_application.ctx.pending_cb {
-                                        if let Ok(render_node) = inner_application.roundtrip(Event::Frame) {
-                                            draw_callback::<C>(
+                                        if let Ok(render_node) = inner_application.roundtrip(&Event::Frame) {
+                                            draw_callback::<R, C>(
                                                 &inner_application.surface.as_ref().unwrap().surface,
                                                 render_node,
                                             );
                                         }
                                     } else {
-                                        if let Ok(render_node) = inner_application.roundtrip(Event::Frame) {
+                                        if let Ok(render_node) = inner_application.roundtrip(&Event::Frame) {
                                             inner_application.render(0, render_node);
                                         }
                                     }

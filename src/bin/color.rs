@@ -5,69 +5,69 @@ use snui::wayland::shell::*;
 use snui::widgets::{shapes::*, text::*, *};
 use snui::{style::*, *};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Signal {
-    Close = 0,
-    Source = 1 << 1,
-    Red = 1 << 2,
-    Green = 1 << 3,
-    Blue = 1 << 4,
-    Alpha = 1 << 5,
+#[derive(Clone, Copy, Debug)]
+struct ColorControl {
+    signal: Option<Request>,
+    color: tiny_skia::Color,
 }
 
-// There's already a Listener of this type in snui
-// I just wrote this one before the other and it's just slightly more convenient for formatting.
-struct Listener {
-    id: u32,
-    text: Text,
-}
-
-impl Geometry for Listener {
-    fn width(&self) -> f32 {
-        self.text.width()
+impl Controller<Request> for ColorControl {
+    fn serialize(&mut self, _msg: Message<Request>) -> Result<u32, ControllerError> {
+        Err(data::ControllerError::WrongObject)
     }
-    fn height(&self) -> f32 {
-        self.text.height()
+    fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
+        Err(data::ControllerError::WrongObject)
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.text.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.text.set_height(height)
-    }
-}
-
-impl Widget for Listener {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.text.create_node(x, y)
-    }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
-        match event {
-            Event::Message(msg) => {
-                let Message(obj, _) = msg;
-                if obj == Signal::Source as u32 {
-                    if let Ok(data) = ctx.get(Message::new(self.id, Data::Null)) {
-                        match data {
-                            Data::Byte(b) => self.text.edit(&b.to_string()),
-                            Data::Uint(uint) => {
-                                self.text
-                                    .edit(format!("{:#010X}", uint).replace("0x", "#").as_str());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
+    fn get<'c>(&'c self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
+        let Message(signal, _) = msg;
+        Ok(
+            match signal {
+                Request::Alpha => self.color.alpha().into(),
+                Request::Red => self.color.red().into(),
+                Request::Green => self.color.green().into(),
+                Request::Blue => self.color.blue().into(),
+                Request::Source => self.color.to_color_u8().get().into(),
+                _ => Data::Null
             }
-            _ => {}
+        )
+    }
+    fn send<'c>(&'c mut self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
+        let Message(signal, value) = msg;
+        match value {
+            Data::Float(f) => match signal {
+                Request::Alpha => self.color.set_alpha(f),
+                Request::Red => self.color.set_red(f),
+                Request::Green => self.color.set_green(f),
+                Request::Blue => self.color.set_blue(f),
+                _ => return Err(ControllerError::WrongObject)
+            }
+            Data::Uint(color) => {
+                self.color = u32_to_source(color);
+            }
+            _ => return Err(ControllerError::WrongObject)
         }
-        self.text.sync(ctx, event)
+        self.signal = Some(signal);
+        Ok(Data::Null)
+    }
+    fn sync(&mut self) -> Result<Message<'static, Request>, ControllerError> {
+        if let Some(signal) = self.signal {
+            if signal != Request::Close {
+                self.signal = None;
+                return Ok(Message::new(Request::Source, ()));
+            }
+        }
+        Err(data::ControllerError::WrongObject)
     }
 }
 
-impl<'d> From<Signal> for Data<'d> {
-    fn from(this: Signal) -> Self {
-        Data::Uint(this as u32)
-    }
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Request {
+    Close,
+    Source,
+    Red,
+    Green,
+    Blue,
+    Alpha,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -94,17 +94,20 @@ impl Geometry for ColorBlock {
     }
 }
 
-impl Widget for ColorBlock {
+impl Widget<Request> for ColorBlock {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        Rectangle::empty(self.width, self.height)
-            .background(self.color)
-            .even_radius(5.)
-            .create_node(x, y)
+        Instruction::new(
+            x,
+            y,
+            Rectangle::empty(self.width, self.height)
+                .background(self.color)
+                .even_radius(5.)
+        ).into()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Request>, event: &'d Event<'d, Request>) -> Damage {
         if let Event::Message(_) = event {
             let color = ctx
-                .get(Message::new(Signal::Source as u32, Data::Null))
+                .get(Message::new(Request::Source, ()))
                 .unwrap();
             if let Data::Uint(color) = color {
                 self.color = u32_to_source(color).to_color_u8();
@@ -133,7 +136,7 @@ impl Geometry for Cross {
     }
 }
 
-impl Widget for Cross {
+impl Widget<Request> for Cross {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let mut canvas = self.create_canvas(x, y);
 
@@ -153,8 +156,8 @@ impl Widget for Cross {
 
         canvas.finish()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext, event: Event) -> Damage {
-        if let Event::Pointer(x, y, p) = event {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Request>, event: &'d Event<'d, Request>) -> Damage {
+        if let Event::Pointer(x, y, p) = *event {
             if let Pointer::MouseClick {
                 time: _,
                 button,
@@ -162,104 +165,13 @@ impl Widget for Cross {
             } = p
             {
                 if self.contains(x, y) {
-                    if button == MouseButton::Left && pressed {
-                        let _ = ctx.send(Message::new(Signal::Close as u32, Data::Null));
+                    if button.is_left() && pressed {
+                        let _ = ctx.request(Request::Close);
                     }
                 }
             }
         }
         Damage::None
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct ColorControl {
-    signal: Option<Signal>,
-    color: tiny_skia::Color,
-}
-
-impl Controller for ColorControl {
-    fn serialize(&mut self, _msg: Message) -> Result<u32, ControllerError> {
-        Err(data::ControllerError::WrongObject)
-    }
-    fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
-        Err(data::ControllerError::WrongObject)
-    }
-    fn get<'m>(&'m self, msg: Message) -> Result<Data<'m>, ControllerError> {
-        let Message(obj, _) = msg;
-        Ok(if obj == Signal::Red as u32 {
-            self.color.red().into()
-        } else if obj == Signal::Green as u32 {
-            self.color.green().into()
-        } else if obj == Signal::Blue as u32 {
-            self.color.blue().into()
-        } else if obj == Signal::Alpha as u32 {
-            self.color.alpha().into()
-        } else if obj == Signal::Source as u32 {
-            self.color.to_color_u8().get().into()
-        } else {
-            Data::Null
-        })
-    }
-    fn send<'m>(&'m mut self, msg: data::Message) -> Result<Data<'m>, ControllerError> {
-        let Message(obj, value) = msg;
-        if obj == Signal::Close as u32 {
-            self.signal = Some(Signal::Close);
-            return Ok(Data::Null);
-        }
-        match value {
-            Data::Byte(b) => {
-                if obj == Signal::Red as u32 {
-                    self.signal = Some(Signal::Red);
-                    self.color.set_red(b as f32 / 255.);
-                } else if obj == Signal::Green as u32 {
-                    self.signal = Some(Signal::Green);
-                    self.color.set_green(b as f32 / 255.);
-                } else if obj == Signal::Blue as u32 {
-                    self.signal = Some(Signal::Blue);
-                    self.color.set_blue(b as f32 / 255.);
-                } else if obj == Signal::Alpha as u32 {
-                    self.signal = Some(Signal::Alpha);
-                    self.color.set_alpha(b as f32 / 255.);
-                }
-            }
-            Data::Float(f) => {
-                if obj == Signal::Red as u32 {
-                    self.color.set_red(f);
-                    self.signal = Some(Signal::Red);
-                    return Ok(self.color.to_color_u8().get().into());
-                } else if obj == Signal::Green as u32 {
-                    self.color.set_green(f);
-                    self.signal = Some(Signal::Green);
-                    return Ok(self.color.to_color_u8().get().into());
-                } else if obj == Signal::Blue as u32 {
-                    self.color.set_blue(f);
-                    self.signal = Some(Signal::Blue);
-                    return Ok(self.color.to_color_u8().get().into());
-                } else if obj == Signal::Alpha as u32 {
-                    self.color.set_alpha(f);
-                    self.signal = Some(Signal::Alpha);
-                    return Ok(self.color.to_color_u8().get().into());
-                }
-            }
-            Data::Uint(source) => {
-                if obj == Signal::Source as u32 {
-                    self.signal = Some(Signal::Source);
-                    self.color = u32_to_source(source);
-                }
-            }
-            _ => {}
-        }
-        Ok(Data::Null)
-    }
-    fn sync(&mut self) -> Result<Message<'static>, ControllerError> {
-        if let Some(signal) = self.signal {
-            if signal != Signal::Close {
-                self.signal = None;
-                return Ok(Message::new(Signal::Source as u32, signal as u32));
-            }
-        }
-        Err(data::ControllerError::WrongObject)
     }
 }
 
@@ -286,7 +198,7 @@ fn main() {
         event_loop.handle(),
         |core, _| {
             if let Some(signal) = core.controller.signal {
-                if signal == Signal::Close {
+                if signal == Request::Close {
                     core.destroy();
                     std::process::exit(0);
                 }
@@ -297,31 +209,31 @@ fn main() {
     snui.run(&mut event_loop);
 }
 
-fn sliders() -> WidgetLayout {
+fn sliders() -> WidgetLayout<Request> {
     [RED, GRN, BLU, BG0]
         .iter()
         .map(|color| {
-            let id = match *color {
-                RED => Signal::Red,
-                BLU => Signal::Blue,
-                GRN => Signal::Green,
-                BG0 => Signal::Alpha,
-                _ => Signal::Close,
+            let request= match *color {
+                RED => Request::Red,
+                BLU => Request::Blue,
+                GRN => Request::Green,
+                BG0 => Request::Alpha,
+                _ => Request::Close,
             };
             widgets::slider::Slider::new(200, 8)
-                .id(id as u32)
+                .request(request)
                 .background(*color)
                 .ext()
                 .background(BG2)
                 .even_radius(3.)
                 .child()
         })
-        .collect::<WidgetLayout>()
+        .collect::<WidgetLayout<Request>>()
         .spacing(10.)
         .orientation(Orientation::Vertical)
 }
 
-fn header() -> impl Widget {
+fn header() -> impl Widget<Request> {
     let mut buttons = WidgetLayout::new(5.);
     let text: Text = Label::default("Copy", 15.).into();
     let icon = Label::new("", 21.)
@@ -370,7 +282,7 @@ fn header() -> impl Widget {
                 } => {
                     if button == MouseButton::Left && pressed {
                         if let Data::Uint(_) = ctx
-                            .get(Message::new(Signal::Source as u32, Data::Null))
+                            .get(Message::new(Request::Source, Data::Null))
                             .unwrap()
                         {
                             this.edit("Copied");
@@ -390,18 +302,18 @@ fn header() -> impl Widget {
     );
 
     let header =
-        CenterBox::from(buttons, Label::default("app_name", 15.), Cross {}).with_width(330.);
+        CenterBox::from(buttons, Label::default("app_name", 15.), Cross {}).with_width(305.);
 
     header
 }
 
-fn body() -> WidgetLayout {
+fn body() -> WidgetLayout<Request> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
-    let listener = Listener {
-        id: Signal::Source as u32,
-        text: "Welcome".into(),
-    }
+	let listener = Listener::from(
+    	Label::default("", 18.)
+	)
+	.request(Request::Source)
     .clamp()
     .with_size(200., 22.)
     .anchor(CENTER, START)

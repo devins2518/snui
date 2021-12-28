@@ -190,7 +190,7 @@ impl<'d, R> ToString for Data<'d, R> {
 }
 
 impl<'d, R: ToString> Data<'d, R> {
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         match self {
             Data::Request(request) => request.to_string(),
             Data::Any(_) => panic!("Any cannot be formatted into a string."),
