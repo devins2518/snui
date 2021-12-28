@@ -99,7 +99,6 @@ where
 
 impl<R, W, F> Geometry for Button<R, W, F>
 where
-    R: 'static,
     W: Widget<R>,
     F: for <'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer)
 {
@@ -122,7 +121,6 @@ where
 
 impl<R, W, F> Widget<R> for Button<R, W, F>
 where
-    R: 'static,
     W: Widget<R>,
     F: for <'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer)
 {

@@ -1,5 +1,5 @@
-#[derive(Debug, Clone, Copy)]
-pub enum Data<'d> {
+#[derive(Clone, Copy, Debug)]
+pub enum Data<'d, R> {
     Null,
     Int(i32),
     Byte(u8),
@@ -8,6 +8,7 @@ pub enum Data<'d> {
     Double(f64),
     Boolean(bool),
     String(&'d str),
+    Request(&'d R),
     Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
@@ -21,12 +22,15 @@ pub struct Message<'m, R>(
     // The u32 is a bitmask
     // Users can create an Enum and alias a bitmask to a value or use a constant
     pub R,
-    pub Data<'m>,
+    pub Data<'m, R>,
 );
 
 impl<'m, R> Message<'m, R> {
-    pub fn new<D: Into<Data<'m>>>(request: R, data: D) -> Self {
+    pub fn new<D: Into<Data<'m, R>>>(request: R, data: D) -> Self {
         Message(request, data.into())
+    }
+    pub fn request(request: R) -> Self {
+        Message(request, ().into())
     }
 }
 
@@ -47,81 +51,84 @@ pub trait Controller<R> {
     // Ends the serialization
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
     // These interface are from the pov of the widgets
-    fn get<'c>(&'c self, msg: Message<R>) -> Result<Data<'c>, ControllerError>;
+    fn get<'c>(&'c self, msg: Message<R>) -> Result<Data<'c, R>, ControllerError>;
     // The Message must be a u32 serial.
-    fn send<'c>(&'c mut self, msg: Message<R>) -> Result<Data<'c>, ControllerError>;
+    fn send<'c>(&'c mut self, msg: Message<R>) -> Result<Data<'c, R>, ControllerError>;
+    fn request<'c>(&'c mut self, request: R) -> Result<Data<'c, R>, ControllerError> {
+        self.send(Message::new(request, ()))
+    }
     // Returns an Ok(Message) if the application needs to be synced
     fn sync(&mut self) -> Result<Message<'static, R>, ControllerError>;
 }
 
-impl<'d> From<u8> for Data<'d> {
+impl<'d, R> From<u8> for Data<'d, R> {
     fn from(byte: u8) -> Self {
         Data::Byte(byte)
     }
 }
 
-impl<'d> From<u32> for Data<'d> {
+impl<'d, R> From<u32> for Data<'d, R> {
     fn from(uint: u32) -> Self {
         Data::Uint(uint)
     }
 }
 
-impl<'d> From<usize> for Data<'d> {
+impl<'d, R> From<usize> for Data<'d, R> {
     fn from(usize: usize) -> Self {
         Data::Uint(usize as u32)
     }
 }
 
-impl<'d> From<i32> for Data<'d> {
+impl<'d, R> From<i32> for Data<'d, R> {
     fn from(int: i32) -> Self {
         Data::Int(int)
     }
 }
 
-impl<'d> From<&'d str> for Data<'d> {
+impl<'d, R> From<&'d str> for Data<'d, R> {
     fn from(s: &'d str) -> Self {
         Data::String(s)
     }
 }
 
-impl<'d> From<&'d String> for Data<'d> {
+impl<'d, R> From<&'d String> for Data<'d, R> {
     fn from(s: &'d String) -> Self {
         Data::String(s)
     }
 }
 
-impl<'d> From<bool> for Data<'d> {
+impl<'d, R> From<bool> for Data<'d, R> {
     fn from(b: bool) -> Self {
         Data::Boolean(b)
     }
 }
 
-impl<'d> From<f32> for Data<'d> {
+impl<'d, R> From<f32> for Data<'d, R> {
     fn from(f: f32) -> Self {
         Data::Float(f)
     }
 }
 
-impl<'d> From<f64> for Data<'d> {
+impl<'d, R> From<f64> for Data<'d, R> {
     fn from(f: f64) -> Self {
         Data::Double(f)
     }
 }
 
-impl<'d> From<()> for Data<'d> {
+impl<'d, R> From<()> for Data<'d, R> {
     fn from(_: ()) -> Self {
         Data::Null
     }
 }
 
-impl<'d> From<&'d (dyn std::any::Any + Sync + Send)> for Data<'d> {
+impl<'d, R> From<&'d (dyn std::any::Any + Sync + Send)> for Data<'d, R> {
     fn from(any: &'d (dyn std::any::Any + Sync + Send)) -> Self {
         Data::Any(any)
     }
 }
 
 // Always returns false for Any
-impl<'d> PartialEq for Data<'d> {
+impl<'d, R: PartialEq> PartialEq for Data<'d, R> {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Data::Boolean(s) => {
@@ -165,7 +172,7 @@ impl<'d> PartialEq for Data<'d> {
     }
 }
 
-impl<'d> ToString for Data<'d> {
+impl<'d, R> ToString for Data<'d, R> {
     fn to_string(&self) -> String {
         match self {
             Data::Boolean(b) => b.to_string(),
@@ -176,12 +183,23 @@ impl<'d> ToString for Data<'d> {
             Data::Double(d) => d.to_string(),
             Data::Float(f) => f.to_string(),
             Data::Null => String::new(),
+            Data::Request(_) => panic!("{} cannot be formatted into a string.", std::any::type_name::<R>()),
             Data::Any(_) => panic!("Any cannot be formatted into a string."),
         }
     }
 }
 
-impl<'d> Eq for Data<'d> {}
+impl<'d, R: ToString> Data<'d, R> {
+    fn to_string(&self) -> String {
+        match self {
+            Data::Request(request) => request.to_string(),
+            Data::Any(_) => panic!("Any cannot be formatted into a string."),
+            _ => self.to_string()
+        }
+    }
+}
+
+impl<'d, R: PartialEq> Eq for Data<'d, R> {}
 
 /*
  * Barebone implementation of Controller.
@@ -214,12 +232,12 @@ impl Controller<()> for DummyController {
         }
         Ok(())
     }
-    fn get<'c>(&'c self, msg: Message<()>) -> Result<Data<'c>, ControllerError> {
+    fn get<'c>(&'c self, msg: Message<()>) -> Result<Data<'c, ()>, ControllerError> {
         println!("<- {:?}", msg.1);
         println!("-> Null");
         Err(ControllerError::WrongObject)
     }
-    fn send<'c>(&'c mut self, msg: Message<()>) -> Result<Data<'c>, ControllerError> {
+    fn send<'c>(&'c mut self, msg: Message<()>) -> Result<Data<'c, ()>, ControllerError> {
         if let Some(serial) = &self.serial {
             println!("<- {} : {:?}", serial, msg.1);
         } else {

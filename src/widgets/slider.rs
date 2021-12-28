@@ -49,7 +49,7 @@ impl<R: PartialEq + Clone> Slider<R> {
         self.orientation = orientation;
         self
     }
-    fn filter(&mut self, data: Data) -> Result<(), f32> {
+    fn filter(&mut self, data: Data<R>) -> Result<(), f32> {
         match data {
             Data::Float(ratio) => match &self.orientation {
                 Orientation::Horizontal => {
@@ -244,7 +244,7 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                 let Message(request, data) = msg;
                 if let Some(this) = self.request.as_ref() {
                     if this.eq(request) {
-                    if let Ok(data) = ctx.get(Message::new(this.clone(), *data)) {
+                    if let Ok(data) = ctx.get(Message::new(this.clone(), data.clone())) {
                         if self.filter(data).is_ok() {
                             return Damage::Some;
                         }

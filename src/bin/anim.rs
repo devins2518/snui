@@ -33,13 +33,13 @@ impl Controller<Request> for EaserCtl {
     fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
         Err(ControllerError::NonBlocking)
     }
-    fn get<'c>(&'c self, msg: Message<Request>) -> Result<Data<'c>, ControllerError> {
+    fn get<'c>(&'c self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
         if let Some(request) = self.request {
             return Ok(Data::from(request as u32))
         }
         Err(ControllerError::WrongObject)
     }
-    fn send<'c>(&'c mut self, msg: Message<Request>) -> Result<Data<'c>, ControllerError> {
+    fn send<'c>(&'c mut self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
         let Message(request, _) = msg;
         self.request = Some(request);
         Err(ControllerError::WrongObject)
@@ -226,7 +226,7 @@ fn ui() -> impl Widget<Request> {
         .button(move |this, ctx, p| match p {
             Pointer::MouseClick { time:_, button, pressed } => {
                 if button.is_left() && pressed {
-                    if ctx.send(Message::new(&Request::Start, ())).is_ok() {
+                    if ctx.send(Message::new(Request::Start, ())).is_ok() {
                         this.set_background(style::RED);
                     }
                 } else if button.is_left() {
