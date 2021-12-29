@@ -95,8 +95,8 @@ impl Label {
             size: (0., 0.),
         }
     }
-    pub fn font(mut self, font: FontProperty) -> Self {
-        self.fonts.push(font);
+    pub fn font<F: Into<FontProperty>>(mut self, font: F) -> Self {
+        self.fonts.push(font.into());
         self
     }
     pub fn color(mut self, color: u32) -> Self {

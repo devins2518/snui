@@ -46,6 +46,15 @@ pub struct FontProperty {
     pub style: FontStyle,
 }
 
+impl From<&str> for FontProperty {
+    fn from(name: &str) -> Self {
+        FontProperty {
+            name: name.to_string(),
+            style: FontStyle::Regular
+        }
+    }
+}
+
 impl FontProperty {
     pub fn new(name: &str) -> FontProperty {
         FontProperty {

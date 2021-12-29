@@ -111,7 +111,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                 .widgets
                 .iter_mut()
                 .map(|child| {
-                    let node;
+                    let mut node;
                     let ww = child.width();
                     let wh = child.height();
                     match orientation {
@@ -122,7 +122,19 @@ impl<M> Widget<M> for WidgetLayout<M> {
                                 Alignment::End => dy = sh - wh,
                             }
                             child.coords = Coords::new(dx, dy);
-                            node = child.create_node_ext(x, y, ww, sh);
+                            node = child.create_node(x, y);
+                            if !node.is_none() {
+                                node = RenderNode::Extension {
+                                    background: scene::Instruction::empty(
+                                        x + dx,
+                                        y + dy,
+                                        ww,
+                                        sh,
+                                    ),
+                                    border: None,
+                                    node: Box::new(node),
+                                };
+                            }
                             dx += child.width() + spacing;
                         }
                         Orientation::Vertical => {
@@ -132,7 +144,19 @@ impl<M> Widget<M> for WidgetLayout<M> {
                                 Alignment::End => dx = sw - ww,
                             }
                             child.coords = Coords::new(dx, dy);
-                            node = child.create_node_ext(x, y, sw, wh);
+                            node = child.create_node(x, y);
+                            if !node.is_none() {
+                                node = RenderNode::Extension {
+                                    background: scene::Instruction::empty(
+                                        x + dx,
+                                        y + dy,
+                                        sw,
+                                        wh,
+                                    ),
+                                    border: None,
+                                    node: Box::new(node),
+                                };
+                            }
                             dy += child.height() + spacing;
                         }
                     }

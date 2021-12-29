@@ -33,13 +33,13 @@ impl Default for EaserCtl {
 
 impl Controller<AnimationState> for EaserCtl {
     fn serialize(&mut self) -> Result<u32, ControllerError> {
-        Err(ControllerError::NonBlocking)
+        Err(ControllerError::WrongSerial)
     }
     fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
-        Err(ControllerError::NonBlocking)
+        Err(ControllerError::WrongSerial)
     }
     fn get<'m>(&'m self, _msg: &'m AnimationState) -> Result<Data<'m, AnimationState>, ControllerError> {
-        return Ok(Data::Request(self.state));
+        return Ok(Data::Message(self.state));
     }
     fn send<'m>(&'m mut self, msg: AnimationState) -> Result<Data<'m, AnimationState>, ControllerError> {
         match msg {
@@ -52,7 +52,7 @@ impl Controller<AnimationState> for EaserCtl {
     fn sync(&mut self) -> Result<AnimationState, ControllerError> {
         if !self.block {
             match self.state {
-                AnimationState::Stop => return Err(ControllerError::NonBlocking),
+                AnimationState::Stop => return Err(ControllerError::Waiting),
                 AnimationState::Start => {
                     self.block = true;
                     return Ok(self.state);
@@ -246,14 +246,14 @@ fn ui() -> impl Widget<AnimationState> {
                     pressed,
                 } => {
                     if button.is_left() && pressed {
-                        if let Data::Request(state) = ctx.get(&AnimationState::Start).unwrap() {
+                        if let Data::Message(state) = ctx.get(&AnimationState::Start).unwrap() {
                             match state {
                                 AnimationState::Start => {
-                                    this.edit("Pause");
+                                    this.edit("Run");
                                     ctx.send(AnimationState::Pause)
                                 }
                                 AnimationState::Pause | AnimationState::Stop => {
-                                    this.edit("Run");
+                                    this.edit("Pause");
                                     ctx.send(AnimationState::Start)
                                 }
                             }.unwrap();

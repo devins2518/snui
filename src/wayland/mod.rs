@@ -62,6 +62,10 @@ pub enum Shell {
     },
 }
 
+pub enum ShellConfig {
+    LayerShell(LayerShellConfig)
+}
+
 #[derive(Debug, Clone)]
 pub struct LayerShellConfig {
     pub layer: Layer,
@@ -73,8 +77,8 @@ pub struct LayerShellConfig {
     pub margin: [i32; 4],
 }
 
-impl LayerShellConfig {
-    pub fn default_layer_shell() -> Self {
+impl Default for LayerShellConfig {
+    fn default() -> Self {
         Self {
             layer: Layer::Top,
             anchor: None,
@@ -85,6 +89,9 @@ impl LayerShellConfig {
             margin: [0; 4],
         }
     }
+}
+
+impl LayerShellConfig {
     pub fn anchor(mut self, x: Alignment, y: Alignment) -> Self {
         let mut anchor = Anchor::empty();
         match x {
@@ -151,6 +158,10 @@ impl LayerShellConfig {
     }
     pub fn margin(mut self, top: i32, right: i32, bottom: i32, left: i32) -> Self {
         self.margin = [top, right, bottom, left];
+        self
+    }
+    pub fn namespace(mut self, namespace: &str) -> Self {
+        self.namespace = namespace.to_string();
         self
     }
     pub fn layer_shell(

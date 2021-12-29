@@ -892,16 +892,12 @@ impl RenderNode {
                                 .map(|i| {
                                     if let Some(node) = this_nodes.get_mut(i) {
                                         let mut node = mem::take(node);
-                                        if let Err(region) = node.draw_merge(
+                                        let _ = node.draw_merge(
                                             mem::take(&mut nodes[i]),
                                             ctx,
                                             shape,
                                             clip,
-                                        ) {
-                                            println!("{:#?}", region);
-                                            ctx.damage_region(&Background::from(shape), region, false);
-                                            node.render(ctx, None);
-                                        }
+                                        );
                                         node
                                     } else {
                                         mem::take(&mut nodes[i])

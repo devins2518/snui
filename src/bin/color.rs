@@ -1,5 +1,5 @@
 use snui::context::*;
-use snui::data::{Controller, ControllerError, Data, IntoMessage};
+use snui::data::{Controller, ControllerError, Data, TryIntoMessage};
 use snui::scene::*;
 use snui::wayland::shell::*;
 use snui::widgets::{shapes::*, text::*, *};
@@ -27,7 +27,7 @@ enum ColorRequest {
     Alpha(f32),
 }
 
-impl IntoMessage<f32> for ColorRequest {
+impl TryIntoMessage<f32> for ColorRequest {
     type Error = ();
     fn into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
         match self {
@@ -43,10 +43,10 @@ impl IntoMessage<f32> for ColorRequest {
 
 impl Controller<ColorRequest> for ColorControl {
     fn serialize(&mut self) -> Result<u32, ControllerError> {
-        Err(data::ControllerError::WrongObject)
+        Err(data::ControllerError::WrongSerial)
     }
-    fn deserialize(&mut self, token: u32) -> Result<(), ControllerError> {
-        Err(data::ControllerError::WrongObject)
+    fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
+        Err(data::ControllerError::WrongSerial)
     }
     fn get<'m>(&'m self, msg: &'m ColorRequest) -> Result<Data<'m, ColorRequest>, ControllerError> {
         match msg {
@@ -63,7 +63,7 @@ impl Controller<ColorRequest> for ColorControl {
             }
             _ => {}
         }
-        Err(data::ControllerError::WrongObject)
+        Err(data::ControllerError::Message)
     }
     fn send<'m>(&'m mut self, msg: ColorRequest) -> Result<Data<'m, ColorRequest>, ControllerError> {
         match msg {
@@ -72,7 +72,7 @@ impl Controller<ColorRequest> for ColorControl {
             ColorRequest::Green(green) => self.color.set_green(green),
             ColorRequest::Blue(blue) => self.color.set_blue(blue),
             ColorRequest::Close => {}
-            _ => return Err(ControllerError::WrongObject),
+            _ => return Err(ControllerError::Message),
         }
         self.signal = Some(msg);
         Ok(Data::Null)
@@ -84,7 +84,7 @@ impl Controller<ColorRequest> for ColorControl {
                 return Ok(ColorRequest::Source(Format::Uint));
             }
         }
-        Err(data::ControllerError::WrongObject)
+        Err(data::ControllerError::Waiting)
     }
 }
 
@@ -307,9 +307,9 @@ fn header() -> impl Widget<ColorRequest> {
                     pressed,
                     button,
                 } => {
-                    if button == MouseButton::Left && pressed {
+                    if button.is_left() && pressed {
                         if let Data::Uint(_) = ctx
-                            .get(&ColorRequest::Source(Format::Hex))
+                            .get(&ColorRequest::Source(Format::Uint))
                             .unwrap()
                         {
                             this.edit("Copied");

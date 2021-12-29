@@ -89,8 +89,8 @@ impl<M> Child<M> {
         if !node.is_none() {
             return RenderNode::Extension {
                 background: scene::Instruction::empty(
-                    x,
-                    y,
+                    x + self.coords.x,
+                    y + self.coords.y,
                     width,
                     height,
                 ),

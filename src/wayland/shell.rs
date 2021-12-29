@@ -11,6 +11,7 @@ use smithay_client_toolkit::WaylandSource;
 
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use smithay_client_toolkit::reexports::client::{
     global_filter,
@@ -26,8 +27,8 @@ use smithay_client_toolkit::reexports::client::{
     Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy,
 };
 use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::{
-    zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
-    zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+    zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
+    zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
 
 pub struct Application<M, C>
@@ -36,7 +37,7 @@ where
     C: Controller<M> + Clone + 'static,
 {
     display: Display,
-    pub globals: Rc<Globals>,
+    pub globals: Rc<RefCell<Globals>>,
     global_manager: GlobalManager,
     pub inner: Vec<InnerApplication<M, C>>,
     token: RegistrationToken,
@@ -56,7 +57,7 @@ where
 {
     pub controller: C,
     ctx: Context,
-    globals: Rc<Globals>,
+    globals: Rc<RefCell<Globals>>,
     mempool: AutoMemPool,
     widget: Box<dyn Widget<M>>,
     surface: Option<Surface>,
@@ -137,96 +138,55 @@ impl Globals {
             shell: None,
         }
     }
-    pub fn create_shell_surface<M, C>(
-        &self,
-        geometry: &dyn Widget<M>,
-        namespace: &str,
-        layer: Layer,
-        anchor: Option<Anchor>,
-        output: Option<WlOutput>,
-        margin: [i32; 4],
-        previous: Option<Surface>,
-    ) -> Option<Surface>
-    where
-        M: Clone + 'static,
-        C: Controller<M> + Clone + 'static,
-    {
-        if self.compositor.is_none() || self.shell.is_none() {
-            None
-        } else {
-            let region = self.compositor.as_ref().unwrap().create_region();
-            let surface = self.compositor.as_ref().unwrap().create_surface();
-            let shell = self.shell.as_ref().unwrap().get_layer_surface(
-                &surface,
-                output.as_ref(),
-                layer,
-                namespace.to_string(),
-            );
-            surface.quick_assign(|_, _, _| {});
-            if let Some(anchor) = &anchor {
-                shell.set_anchor(*anchor);
-            }
-            shell.set_size(geometry.width() as u32, geometry.height() as u32);
-            shell.set_margin(margin[0], margin[1], margin[2], margin[3]);
-            assign_surface::<M, C>(&shell);
-            surface.commit();
-            Some(Surface::new(
-                surface,
-                Shell::LayerShell {
-                    surface: shell,
-                    config: LayerShellConfig::layer_shell(layer, anchor, output, namespace, margin),
-                },
-                region,
-                previous,
-            ))
-        }
-    }
     pub fn create_shell_surface_from<M, C>(
         &self,
         geometry: &dyn Widget<M>,
-        config: LayerShellConfig,
+        config: ShellConfig,
         previous: Option<Surface>,
     ) -> Option<Surface>
     where
         M: Clone + 'static,
         C: Controller<M> + Clone + 'static,
     {
-        if self.compositor.is_none() || self.shell.is_none() {
-            None
-        } else {
-            let region = self.compositor.as_ref().unwrap().create_region();
-            let surface = self.compositor.as_ref().unwrap().create_surface();
-            let shell = self.shell.as_ref().unwrap().get_layer_surface(
-                &surface,
-                config.output.as_ref(),
-                config.layer,
-                config.namespace.clone(),
-            );
-            if let Some(anchor) = &config.anchor {
-                shell.set_anchor(*anchor);
+        if self.compositor.is_some() {
+            match config {
+                ShellConfig::LayerShell(config) => if let Some(layer_shell) = self.shell.as_ref() {
+                    let region = self.compositor.as_ref().unwrap().create_region();
+                    let wl_surface = self.compositor.as_ref().unwrap().create_surface();
+                    let layer_surface = layer_shell.get_layer_surface(
+                        &wl_surface,
+                        config.output.as_ref(),
+                        config.layer,
+                        config.namespace.clone(),
+                    );
+                    if let Some(anchor) = &config.anchor {
+                        layer_surface.set_anchor(*anchor);
+                    }
+                    wl_surface.quick_assign(|_, _, _| {});
+                    layer_surface.set_exclusive_zone(config.exclusive);
+                    layer_surface.set_keyboard_interactivity(config.interactivity);
+                    layer_surface.set_size(geometry.width() as u32, geometry.height() as u32);
+                    layer_surface.set_margin(
+                        config.margin[0],
+                        config.margin[1],
+                        config.margin[2],
+                        config.margin[3],
+                    );
+                    wl_surface.commit();
+                    assign_surface::<M, C>(&layer_surface);
+                    return Some(Surface::new(
+                        wl_surface,
+                        Shell::LayerShell {
+                            surface: layer_surface,
+                            config,
+                        },
+                        region,
+                        previous,
+                    ))
+                }
             }
-            surface.quick_assign(|_, _, _| {});
-            shell.set_exclusive_zone(config.exclusive);
-            shell.set_keyboard_interactivity(config.interactivity);
-            shell.set_size(geometry.width() as u32, geometry.height() as u32);
-            shell.set_margin(
-                config.margin[0],
-                config.margin[1],
-                config.margin[2],
-                config.margin[3],
-            );
-            surface.commit();
-            assign_surface::<M, C>(&shell);
-            Some(Surface::new(
-                surface,
-                Shell::LayerShell {
-                    surface: shell,
-                    config,
-                },
-                region,
-                previous,
-            ))
         }
+        None
     }
     pub fn create_mempool(&self) -> AutoMemPool {
         let attached = Attached::from(self.shm.clone().unwrap());
@@ -272,10 +232,10 @@ where
                 [
                     ZwlrLayerShellV1,
                     1,
-                    |shell: Main<ZwlrLayerShellV1>, mut application: DispatchData| {
+                    |layer_shell: Main<ZwlrLayerShellV1>, mut application: DispatchData| {
                         if let Some(application) = application.get::<Application<M, C>>() {
-                            if let Some(globals) = Rc::get_mut(&mut application.globals) {
-                                globals.shell = Some(shell);
+                            if let Ok(mut globals) = application.globals.try_borrow_mut() {
+                                globals.shell = Some(layer_shell);
                             }
                         }
                     }
@@ -286,7 +246,7 @@ where
                     |shm: Main<WlShm>, mut application: DispatchData| {
                         shm.quick_assign(|_, _, _| {});
                         if let Some(application) = application.get::<Application<M, C>>() {
-                            if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                            if let Ok(mut globals) = application.globals.try_borrow_mut() {
                                 globals.shm = Some(shm);
                             }
                         }
@@ -297,7 +257,7 @@ where
                     4,
                     |compositor: Main<WlCompositor>, mut application: DispatchData| {
                         if let Some(application) = application.get::<Application<M, C>>() {
-                            if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                            if let Ok(mut globals) = application.globals.try_borrow_mut() {
                                 globals.compositor = Some(compositor);
                             }
                         }
@@ -313,7 +273,7 @@ where
                                     let pointer = wl_seat.get_pointer();
                                     assign_pointer::<M, C>(&pointer);
                                 }
-                                if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                if let Ok(mut globals) = application.globals.try_borrow_mut() {
                                     let mut found = None;
                                     for seat in &mut globals.seats {
                                         if wl_seat.eq(&seat.seat) {
@@ -349,7 +309,7 @@ where
                                 transform: _,
                             } => {
                                 if let Some(application) = application.get::<Application<M, C>>() {
-                                    if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                    if let Ok(mut globals) = application.globals.try_borrow_mut() {
                                         let mut found = None;
                                         for output in &mut globals.outputs {
                                             if wl_output.eq(&output.output) {
@@ -372,7 +332,7 @@ where
                                 refresh: _,
                             } => {
                                 if let Some(application) = application.get::<Application<M, C>>() {
-                                    if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                    if let Ok(mut globals) = application.globals.try_borrow_mut() {
                                         let mut found = None;
                                         for output in &mut globals.outputs {
                                             if wl_output.eq(&output.output) {
@@ -392,7 +352,7 @@ where
                             }
                             wl_output::Event::Scale { factor } => {
                                 if let Some(application) = application.get::<Application<M, C>>() {
-                                    if let Some(globals) = Rc::get_mut(&mut application.globals) {
+                                    if let Ok(mut globals) = application.globals.try_borrow_mut() {
                                         let mut found = None;
                                         for output in &mut globals.outputs {
                                             if wl_output.eq(&output.output) {
@@ -424,7 +384,7 @@ where
         let (mut application, mut event_loop) = (
             Application {
                 display,
-                globals: Rc::new(globals),
+                globals: Rc::new(RefCell::new(globals)),
                 global_manager,
                 inner: Vec::new(),
                 token,
@@ -476,7 +436,7 @@ where
     pub fn create_inner_application_from<Data: 'static>(
         &mut self,
         controller: C,
-        config: LayerShellConfig,
+        config: ShellConfig,
         widget: impl Widget<M> + 'static,
         handle: LoopHandle<'_, Data>,
         cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
@@ -494,7 +454,7 @@ where
         cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
     ) {
         let inner_application =
-            InnerApplication::default(controller, widget, self.globals.clone(), cb);
+            InnerApplication::normal(controller, widget, self.globals.clone(), cb);
         self.inner.push(inner_application);
         handle.update(&self.token).unwrap();
     }
@@ -574,32 +534,32 @@ where
             surface.alive = true;
             match &surface.shell {
                 Shell::LayerShell { config, surface: _ } => {
-                    self.surface = self.globals.as_ref().create_shell_surface_from::<M, C>(
+                    self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
                         self.widget.deref(),
-                        config.clone(),
+                        ShellConfig::LayerShell(config.clone()),
                         Some(surface.clone()),
                     );
                 }
             }
         } else {
-            self.surface = self.globals.as_ref().create_shell_surface_from::<M, C>(
+            self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
                 self.widget.deref(),
-                LayerShellConfig::default_layer_shell(),
+                ShellConfig::LayerShell(LayerShellConfig::default()),
                 None,
             );
         }
     }
-    pub fn replace_surface_by(&mut self, config: LayerShellConfig) {
+    pub fn replace_surface_by(&mut self, config: ShellConfig) {
         if let Some(surface) = self.surface.as_mut() {
             surface.destroy();
             surface.alive = true;
-            self.surface = self.globals.as_ref().create_shell_surface_from::<M, C>(
+            self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
                 self.widget.deref(),
                 config,
                 Some(surface.clone()),
             );
         } else {
-            self.surface = self.globals.as_ref().create_shell_surface_from::<M, C>(
+            self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
                 self.widget.deref(),
                 config,
                 None,
@@ -636,9 +596,10 @@ where
     pub fn empty(
         controller: C,
         widget: impl Widget<M> + 'static,
-        globals: Rc<Globals>,
+        globals: Rc<RefCell<Globals>>,
         cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
     ) -> Self {
+        let mempool = globals.borrow().create_mempool();
         let mut default = InnerApplication {
             core: CoreApplication {
                 controller,
@@ -650,7 +611,7 @@ where
                 },
                 surface: None,
                 widget: Box::new(widget),
-                mempool: globals.as_ref().create_mempool(),
+                mempool,
                 globals,
             },
             cb: Box::new(cb),
@@ -658,12 +619,13 @@ where
         default.sync(&Event::Prepare);
         default
     }
-    pub fn default(
+    pub fn normal(
         controller: C,
         widget: impl Widget<M> + 'static,
-        globals: Rc<Globals>,
+        globals: Rc<RefCell<Globals>>,
         cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
     ) -> Self {
+        let mempool = globals.borrow().create_mempool();
         let mut default = InnerApplication {
             core: CoreApplication {
                 controller,
@@ -675,7 +637,7 @@ where
                 },
                 surface: None,
                 widget: Box::new(widget),
-                mempool: globals.as_ref().create_mempool(),
+                mempool,
                 globals,
             },
             cb: Box::new(cb),
@@ -687,10 +649,11 @@ where
     pub fn new(
         controller: C,
         widget: impl Widget<M> + 'static,
-        config: LayerShellConfig,
-        globals: Rc<Globals>,
+        config: ShellConfig,
+        globals: Rc<RefCell<Globals>>,
         cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
     ) -> Self {
+        let mempool = globals.borrow().create_mempool();
         let mut new = InnerApplication {
             core: CoreApplication {
                 controller,
@@ -702,7 +665,7 @@ where
                 },
                 surface: None,
                 widget: Box::new(widget),
-                mempool: globals.as_ref().create_mempool(),
+                mempool,
                 globals,
             },
             cb: Box::new(cb),
@@ -741,7 +704,6 @@ where
 
                 // Creating the render node
                 let render_node = self.core.widget.create_node(0., 0.);
-                // println!("{:#?}", render_node);
 
                 self.ctx.pending_cb = true;
 

@@ -11,6 +11,7 @@ use crate::*;
 pub use button::Button;
 pub use container::*;
 pub use shapes::Style;
+pub use slider::Slider;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;

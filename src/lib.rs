@@ -180,6 +180,7 @@ impl MouseButton {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Event<'d, M> {
     // Send when a Full redraw is neccessary
     Frame,

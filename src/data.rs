@@ -9,21 +9,39 @@ pub enum Data<'d, M> {
     Boolean(bool),
     Str(&'d str),
     String(String),
-    Request(M),
+    Message(M),
+    MsgRef(&'d M),
     Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
-pub trait IntoMessage<T> {
+pub trait TryIntoMessage<T> {
     type Error;
     fn into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
 }
 
-#[derive(Clone, Copy, Debug)]
+pub trait IntoMessage<T>
+where
+    Self: Sized
+{
+    fn into(&self, _: T) -> Self;
+}
+
+impl<I, T> TryIntoMessage<T> for I
+where
+    Self: IntoMessage<T>
+{
+    type Error = ();
+    fn into(&self, t: T) -> Result<Self, Self::Error>
+    where Self : Sized {
+        Ok(IntoMessage::into(self, t))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControllerError {
     Waiting,
     Blocking,
-    WrongObject,
-    NonBlocking,
+    Message,
     WrongSerial,
     PendingSerial,
 }
@@ -152,6 +170,16 @@ impl<'d, M: PartialEq> PartialEq for Data<'d, M> {
                     return s == o;
                 }
             }
+            Data::Message(s) => {
+                if let Data::Message(o) = other {
+                    return s == o;
+                }
+            }
+            Data::MsgRef(s) => {
+                if let Data::MsgRef(o) = other {
+                    return s == o;
+                }
+            }
             _ => {}
         }
         false
@@ -170,7 +198,11 @@ impl<'d, M> ToString for Data<'d, M> {
             Data::Double(d) => d.to_string(),
             Data::Float(f) => f.to_string(),
             Data::Null => String::new(),
-            Data::Request(_) => panic!(
+            Data::Message(_) => panic!(
+                "{} cannot be formatted into a string.",
+                std::any::type_name::<M>()
+            ),
+            Data::MsgRef(_) => panic!(
                 "{} cannot be formatted into a string.",
                 std::any::type_name::<M>()
             ),
@@ -182,7 +214,8 @@ impl<'d, M> ToString for Data<'d, M> {
 impl<'d, M: ToString> Data<'d, M> {
     pub fn to_string(&self) -> String {
         match self {
-            Data::Request(request) => request.to_string(),
+            Data::Message(request) => request.to_string(),
+            Data::MsgRef(request) => request.to_string(),
             Data::Any(_) => panic!("Any cannot be formatted into a string."),
             _ => self.to_string(),
         }
@@ -249,9 +282,9 @@ where
             println!("<- {:?}", msg);
         }
         self.data = msg;
-        Err(ControllerError::WrongObject)
+        Err(ControllerError::Message)
     }
     fn sync(&mut self) -> Result<M, ControllerError> {
-        Err(ControllerError::NonBlocking)
+        Err(ControllerError::Waiting)
     }
 }
