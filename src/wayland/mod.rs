@@ -57,13 +57,13 @@ impl<'b> Buffer<'b> {
 #[derive(Debug, Clone)]
 pub enum Shell {
     LayerShell {
-        config: ShellConfig,
+        config: LayerShellConfig,
         surface: Main<ZwlrLayerSurfaceV1>,
     },
 }
 
 #[derive(Debug, Clone)]
-pub struct ShellConfig {
+pub struct LayerShellConfig {
     pub layer: Layer,
     pub anchor: Option<Anchor>,
     pub output: Option<WlOutput>,
@@ -73,9 +73,9 @@ pub struct ShellConfig {
     pub margin: [i32; 4],
 }
 
-impl ShellConfig {
+impl LayerShellConfig {
     pub fn default_layer_shell() -> Self {
-        ShellConfig {
+        Self {
             layer: Layer::Top,
             anchor: None,
             output: None,
@@ -160,7 +160,7 @@ impl ShellConfig {
         namespace: &str,
         margin: [i32; 4],
     ) -> Self {
-        ShellConfig {
+        Self {
             layer,
             anchor,
             output,

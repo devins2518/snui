@@ -3,14 +3,14 @@ use crate::widgets::*;
 use crate::*;
 use scene::Region;
 
-pub struct CenterBox<R> {
+pub struct CenterBox<M> {
     size: (f32, f32),
     orientation: Orientation,
-    widgets: [WidgetBox<R, Child<R>>; 3],
+    widgets: [WidgetBox<M, Child<M>>; 3],
 }
 
-impl<R: 'static> FromIterator<Child<R>> for CenterBox<R> {
-    fn from_iter<T: IntoIterator<Item = Child<R>>>(iter: T) -> Self {
+impl<M: 'static> FromIterator<Child<M>> for CenterBox<M> {
+    fn from_iter<T: IntoIterator<Item = Child<M>>>(iter: T) -> Self {
         let mut centerbox = CenterBox::new();
         let mut i = 0;
         for c in iter {
@@ -25,11 +25,11 @@ impl<R: 'static> FromIterator<Child<R>> for CenterBox<R> {
     }
 }
 
-impl<R: 'static> Container<R> for CenterBox<R> {
+impl<M: 'static> Container<M> for CenterBox<M> {
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: impl Widget<R> + 'static) {
+    fn add(&mut self, widget: impl Widget<M> + 'static) {
         for wbox in self.widgets.iter_mut() {
             if wbox.width() == 0. && wbox.height() == 0. {
                 wbox.widget.widget = Box::new(widget);
@@ -37,12 +37,12 @@ impl<R: 'static> Container<R> for CenterBox<R> {
             }
         }
     }
-    fn remove(&mut self, index: usize) -> Child<R> {
+    fn remove(&mut self, index: usize) -> Child<M> {
         std::mem::replace(&mut self.widgets[index], Child::new(()).clamp()).widget
     }
 }
 
-impl<R> Geometry for CenterBox<R> {
+impl<M> Geometry for CenterBox<M> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width != self.size.0 {
             let size = (width / self.widgets.len() as f32).ceil();
@@ -109,7 +109,7 @@ impl<R> Geometry for CenterBox<R> {
     }
 }
 
-impl<R> Widget<R> for CenterBox<R> {
+impl<M> Widget<M> for CenterBox<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -140,7 +140,7 @@ impl<R> Widget<R> for CenterBox<R> {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
         let mut damage = Damage::None;
         for wbox in self.widgets.iter_mut() {
             damage = damage.max(wbox.sync(ctx, event));
@@ -149,11 +149,11 @@ impl<R> Widget<R> for CenterBox<R> {
     }
 }
 
-impl<R: 'static> CenterBox<R> {
+impl<M: 'static> CenterBox<M> {
     pub fn from(
-        first: impl Widget<R> + 'static,
-        second: impl Widget<R> + 'static,
-        third: impl Widget<R> + 'static,
+        first: impl Widget<M> + 'static,
+        second: impl Widget<M> + 'static,
+        third: impl Widget<M> + 'static,
     ) -> Self {
         Self {
             size: (0., 0.),

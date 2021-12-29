@@ -4,15 +4,15 @@ use scene::Instruction;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
-pub struct Slider<R: PartialEq + Clone> {
-    request: Option<R>,
+pub struct Slider<M: PartialEq + IntoMessage<f32>> {
+    message: Option<M>,
     size: f32,
     pressed: bool,
     slider: Rectangle,
     orientation: Orientation,
 }
 
-impl<R: PartialEq + Clone> Slider<R> {
+impl<M: PartialEq + IntoMessage<f32>> Slider<M> {
     pub fn new(width: u32, height: u32) -> Self {
         let orientation = if height > width {
             Orientation::Vertical
@@ -20,7 +20,7 @@ impl<R: PartialEq + Clone> Slider<R> {
             Orientation::Horizontal
         };
         Slider {
-            request: None,
+            message: None,
             size: match &orientation {
                 Orientation::Horizontal => width as f32,
                 Orientation::Vertical => height as f32,
@@ -41,15 +41,15 @@ impl<R: PartialEq + Clone> Slider<R> {
             orientation,
         }
     }
-    pub fn request(mut self, request: R) -> Self {
-        self.request = Some(request);
+    pub fn message(mut self, message: M) -> Self {
+        self.message = Some(message);
         self
     }
     pub fn orientation(mut self, orientation: Orientation) -> Self {
         self.orientation = orientation;
         self
     }
-    fn filter(&mut self, data: Data<R>) -> Result<(), f32> {
+    fn filter(&mut self, data: Data<M>) -> Result<(), f32> {
         match data {
             Data::Float(ratio) => match &self.orientation {
                 Orientation::Horizontal => {
@@ -73,7 +73,7 @@ impl<R: PartialEq + Clone> Slider<R> {
     }
 }
 
-impl<R: PartialEq + Clone> Geometry for Slider<R> {
+impl<M: PartialEq + IntoMessage<f32>> Geometry for Slider<M> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = &self.orientation {
             self.size
@@ -112,11 +112,11 @@ impl<R: PartialEq + Clone> Geometry for Slider<R> {
     }
 }
 
-impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
+impl<M: PartialEq + IntoMessage<f32>> Widget<M> for Slider<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.slider.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
         match event {
             Event::Pointer(x, y, pointer) => {
                 if self.contains(*x, *y) {
@@ -141,8 +141,10 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                                 Orientation::Horizontal => self.slider.width() / self.size,
                                 Orientation::Vertical => self.slider.height() / self.size,
                             };
-                            if let Some(request) = self.request.as_ref() {
-                                let _ = ctx.send(Message::new(request.clone(), ratio));
+                            if let Some(message) = self.message.as_ref() {
+                                if let Ok(msg) = message.into(ratio) {
+                                    let _ = ctx.send(msg);
+                                }
                             }
                             return Damage::Some;
                         }
@@ -164,8 +166,10 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                                     self.slider.height() / self.size
                                 }
                             };
-                            if let Some(request) = self.request.as_ref() {
-                                let _ = ctx.send(Message::new(request.clone(), ratio));
+                            if let Some(message) = self.message.as_ref() {
+                                if let Ok(msg) = message.into(ratio) {
+                                    let _ = ctx.send(msg);
+                                }
                             }
                             return Damage::Some;
                         }
@@ -174,21 +178,19 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
-                                            if let Some(request) = self.request.as_ref() {
-                                                let _ = ctx.send(Message::new(
-                                                    request.clone(),
-                                                    self.slider.width() / self.size,
-                                                ));
+                                            if let Some(message) = self.message.as_ref() {
+                                                if let Ok(msg) = message.into(self.slider.width() / self.size) {
+                                                    let _ = ctx.send(msg);
+                                                }
                                             }
                                         }
                                     }
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
-                                            if let Some(request) = self.request.as_ref() {
-                                                let _ = ctx.send(Message::new(
-                                                    request.clone(),
-                                                    self.slider.height() / self.size,
-                                                ));
+                                            if let Some(message) = self.message.as_ref() {
+                                                if let Ok(msg) = message.into(self.slider.height() / self.size) {
+                                                    let _ = ctx.send(msg);
+                                                }
                                             }
                                         }
                                     }
@@ -213,22 +215,20 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                         Pointer::Hover => match &self.orientation {
                             Orientation::Horizontal => {
                                 if let Ok(_) = self.slider.set_width(x.min(self.size)) {
-                                    if let Some(request) = self.request.as_ref() {
-                                        let _ = ctx.send(Message::new(
-                                            request.clone(),
-                                            self.slider.width() / self.size,
-                                        ));
+                                    if let Some(message) = self.message.as_ref() {
+                                        if let Ok(msg) = message.into(self.slider.width() / self.size) {
+                                            let _ = ctx.send(msg);
+                                        }
                                     }
                                     return Damage::Some;
                                 }
                             }
                             Orientation::Vertical => {
                                 if let Ok(_) = self.slider.set_height(y.min(self.size)) {
-                                    if let Some(request) = self.request.as_ref() {
-                                        let _ = ctx.send(Message::new(
-                                            request.clone(),
-                                            self.slider.height() / self.size,
-                                        ));
+                                    if let Some(message) = self.message.as_ref() {
+                                        if let Ok(msg) = message.into(self.slider.height() / self.size) {
+                                            let _ = ctx.send(msg);
+                                        }
                                     }
                                     return Damage::Some;
                                 }
@@ -240,10 +240,9 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                 }
             }
             Event::Message(msg) => {
-                let Message(request, data) = msg;
-                if let Some(this) = self.request.as_ref() {
-                    if this.eq(request) {
-                        if let Ok(data) = ctx.get(Message::new(this.clone(), data.clone())) {
+                if let Some(this) = self.message.as_ref() {
+                    if this.eq(msg) {
+                        if let Ok(data) = ctx.get(msg) {
                             if self.filter(data).is_ok() {
                                 return Damage::Some;
                             }
@@ -252,11 +251,28 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                 }
             }
             Event::Frame => {
-                if let Some(request) = self.request.as_ref() {
-                    if let Ok(data) = ctx.get(Message::new(request.clone(), ())) {
-                        if self.filter(data).is_ok() {
-                            return Damage::Some;
+                if let Some(message) = self.message.as_ref() {
+                    if let Ok(data) = ctx.get(message) {
+                        match data {
+                            Data::Float(ratio) => match &self.orientation {
+                                Orientation::Horizontal => {
+                                    let _  = self.slider.set_width(ratio * self.size);
+                                }
+                                Orientation::Vertical => {
+                                    let _  = self.slider.set_height(ratio * self.size);
+                                }
+                            },
+                            Data::Double(ratio) => match &self.orientation {
+                                Orientation::Horizontal => {
+                                    let _  = self.slider.set_width(ratio as f32 * self.size);
+                                }
+                                Orientation::Vertical => {
+                                    let _  = self.slider.set_height(ratio as f32 * self.size);
+                                }
+                            },
+                            _ => return Damage::None
                         }
+                        return Damage::Some;
                     }
                 }
             }
@@ -266,7 +282,7 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
     }
 }
 
-impl<R: PartialEq + Clone> Style for Slider<R> {
+impl<M: PartialEq + IntoMessage<f32> + Clone> Style for Slider<M> {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.slider.set_background(background);
     }

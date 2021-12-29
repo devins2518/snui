@@ -1,5 +1,5 @@
 #[derive(Clone, Debug)]
-pub enum Data<'d, R> {
+pub enum Data<'d, M> {
     Null,
     Int(i32),
     Byte(u8),
@@ -9,36 +9,18 @@ pub enum Data<'d, R> {
     Boolean(bool),
     Str(&'d str),
     String(String),
-    Request(R),
+    Request(M),
     Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
-// Meant for testing purposes and default
-#[derive(Clone, Copy, Debug)]
-pub struct DummyController {
-    serial: Option<u32>,
-}
-
-#[derive(Debug)]
-pub struct Message<'m, R>(
-    // The u32 is a bitmask
-    // Users can create an Enum and alias a bitmask to a value or use a constant
-    pub R,
-    pub Data<'m, R>,
-);
-
-impl<'m, R> Message<'m, R> {
-    pub fn new<D: Into<Data<'m, R>>>(request: R, data: D) -> Self {
-        Message(request, data.into())
-    }
-    pub fn request(request: R) -> Self {
-        Message(request, ().into())
-    }
+pub trait IntoMessage<T> {
+    type Error;
+    fn into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum ControllerError {
-    Wait,
+    Waiting,
     Blocking,
     WrongObject,
     NonBlocking,
@@ -46,97 +28,88 @@ pub enum ControllerError {
     PendingSerial,
 }
 
-pub trait Controller<R> {
+pub trait Controller<M> {
     // Tells the model all incomming messages are linked
     // The Controller returns a token that can be used to deserialize
-    fn serialize(&mut self, msg: Message<R>) -> Result<u32, ControllerError>;
+    fn serialize(&mut self) -> Result<u32, ControllerError>;
     // Ends the serialization
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
     // These interface are from the pov of the widgets
-    fn get<'c>(&'c self, msg: Message<R>) -> Result<Data<'c, R>, ControllerError>;
+    fn get<'m>(&'m self, msg: &'m M) -> Result<Data<'m, M>, ControllerError>;
     // The Message must be a u32 serial.
-    fn send<'c>(&'c mut self, msg: Message<R>) -> Result<Data<'c, R>, ControllerError>;
-    fn request<'c>(&'c mut self, request: R) -> Result<Data<'c, R>, ControllerError> {
-        self.send(Message::new(request, ()))
-    }
+    fn send<'m>(&'m mut self, msg: M) -> Result<Data<'m, M>, ControllerError>;
     // Returns an Ok(Message) if the application needs to be synced
-    fn sync(&mut self) -> Result<Message<'static, R>, ControllerError>;
+    fn sync(&mut self) -> Result<M, ControllerError>;
 }
 
-impl<'d, R> From<u8> for Data<'d, R> {
+impl<'d, M> From<u8> for Data<'d, M> {
     fn from(byte: u8) -> Self {
         Data::Byte(byte)
     }
 }
 
-impl<'d, R> From<u32> for Data<'d, R> {
+impl<'d, M> From<u32> for Data<'d, M> {
     fn from(uint: u32) -> Self {
         Data::Uint(uint)
     }
 }
 
-impl<'d, R> From<usize> for Data<'d, R> {
+impl<'d, M> From<usize> for Data<'d, M> {
     fn from(usize: usize) -> Self {
         Data::Uint(usize as u32)
     }
 }
 
-impl<'d, R> From<String> for Data<'d, R> {
+impl<'d, M> From<String> for Data<'d, M> {
     fn from(string: String) -> Self {
         Data::String(string)
     }
 }
 
-impl<'d, R> From<i32> for Data<'d, R> {
+impl<'d, M> From<i32> for Data<'d, M> {
     fn from(int: i32) -> Self {
         Data::Int(int)
     }
 }
 
-impl<'d, R> From<&'d str> for Data<'d, R> {
+impl<'d, M> From<&'d str> for Data<'d, M> {
     fn from(s: &'d str) -> Self {
         Data::Str(s)
     }
 }
 
-impl<'d, R> From<&'d String> for Data<'d, R> {
+impl<'d, M> From<&'d String> for Data<'d, M> {
     fn from(s: &'d String) -> Self {
         Data::Str(s)
     }
 }
 
-impl<'d, R> From<bool> for Data<'d, R> {
+impl<'d, M> From<bool> for Data<'d, M> {
     fn from(b: bool) -> Self {
         Data::Boolean(b)
     }
 }
 
-impl<'d, R> From<f32> for Data<'d, R> {
+impl<'d, M> From<f32> for Data<'d, M> {
     fn from(f: f32) -> Self {
         Data::Float(f)
     }
 }
 
-impl<'d, R> From<f64> for Data<'d, R> {
+impl<'d, M> From<f64> for Data<'d, M> {
     fn from(f: f64) -> Self {
         Data::Double(f)
     }
 }
 
-impl<'d, R> From<()> for Data<'d, R> {
+impl<'d, M> From<()> for Data<'d, M> {
     fn from(_: ()) -> Self {
         Data::Null
     }
 }
 
-impl<'d, R> From<&'d (dyn std::any::Any + Sync + Send)> for Data<'d, R> {
-    fn from(any: &'d (dyn std::any::Any + Sync + Send)) -> Self {
-        Data::Any(any)
-    }
-}
-
 // Always returns false for Any
-impl<'d, R: PartialEq> PartialEq for Data<'d, R> {
+impl<'d, M: PartialEq> PartialEq for Data<'d, M> {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Data::Boolean(s) => {
@@ -185,7 +158,7 @@ impl<'d, R: PartialEq> PartialEq for Data<'d, R> {
     }
 }
 
-impl<'d, R> ToString for Data<'d, R> {
+impl<'d, M> ToString for Data<'d, M> {
     fn to_string(&self) -> String {
         match self {
             Data::Boolean(b) => b.to_string(),
@@ -199,14 +172,14 @@ impl<'d, R> ToString for Data<'d, R> {
             Data::Null => String::new(),
             Data::Request(_) => panic!(
                 "{} cannot be formatted into a string.",
-                std::any::type_name::<R>()
+                std::any::type_name::<M>()
             ),
             Data::Any(_) => panic!("Any cannot be formatted into a string."),
         }
     }
 }
 
-impl<'d, R: ToString> Data<'d, R> {
+impl<'d, M: ToString> Data<'d, M> {
     pub fn to_string(&self) -> String {
         match self {
             Data::Request(request) => request.to_string(),
@@ -216,20 +189,36 @@ impl<'d, R: ToString> Data<'d, R> {
     }
 }
 
-impl<'d, R: PartialEq> Eq for Data<'d, R> {}
+impl<'d, M: PartialEq> Eq for Data<'d, M> {}
+
+// Meant for testing purposes and default
+#[derive(Clone, Copy, Debug)]
+pub struct DummyController<M>
+where
+    M: std::fmt::Debug
+{
+    serial: Option<u32>,
+    data: M
+}
 
 /*
  * Barebone implementation of Controller.
  * Can be used for debugging your application.
  */
-impl DummyController {
-    pub fn new() -> Self {
-        DummyController { serial: None }
+impl<M> DummyController<M>
+where
+    M: std::fmt::Debug
+{
+    pub fn new(data: M) -> Self {
+        DummyController { serial: None, data }
     }
 }
 
-impl Controller<()> for DummyController {
-    fn serialize(&mut self, _msg: Message<()>) -> Result<u32, ControllerError> {
+impl<M> Controller<M> for DummyController<M>
+where
+    M: std::fmt::Debug
+{
+    fn serialize(&mut self) -> Result<u32, ControllerError> {
         if self.serial.is_some() {
             return Err(ControllerError::PendingSerial);
         } else {
@@ -249,20 +238,20 @@ impl Controller<()> for DummyController {
         }
         Ok(())
     }
-    fn get<'c>(&'c self, msg: Message<()>) -> Result<Data<'c, ()>, ControllerError> {
-        println!("<- {:?}", msg.1);
-        println!("-> Null");
-        Err(ControllerError::WrongObject)
+    fn get<'m>(&'m self, msg: &'m M) -> Result<Data<'m, M>, ControllerError> {
+        println!("<- {:?}", msg);
+        Ok(Data::Null)
     }
-    fn send<'c>(&'c mut self, msg: Message<()>) -> Result<Data<'c, ()>, ControllerError> {
+    fn send<'m>(&'m mut self, msg: M) -> Result<Data<'m, M>, ControllerError> {
         if let Some(serial) = &self.serial {
-            println!("<- {} : {:?}", serial, msg.1);
+            println!("<- {} : {:?}", serial, msg);
         } else {
-            println!("<- {:?}", msg.1);
+            println!("<- {:?}", msg);
         }
+        self.data = msg;
         Err(ControllerError::WrongObject)
     }
-    fn sync(&mut self) -> Result<Message<'static, ()>, ControllerError> {
+    fn sync(&mut self) -> Result<M, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
 }

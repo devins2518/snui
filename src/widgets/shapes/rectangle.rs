@@ -427,7 +427,7 @@ impl Style for Rectangle {
     }
 }
 
-impl<R> Widget<R> for Rectangle {
+impl<M> Widget<M> for Rectangle {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if let ShapeStyle::Background(background) = &mut self.style {
             match background {
@@ -452,7 +452,7 @@ impl<R> Widget<R> for Rectangle {
         }
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<R>, _event: &Event<R>) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: &Event<M>) -> Damage {
         Damage::None
     }
 }

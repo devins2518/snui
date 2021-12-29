@@ -2,31 +2,31 @@ use crate::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-pub struct Proxy<R, W>
+pub struct Proxy<M, W>
 where
-    W: Widget<R>,
+    W: Widget<M>,
 {
     child: W,
     damage: Damage,
     queue_draw: bool,
-    _request: PhantomData<R>,
+    _request: PhantomData<M>,
 }
 
-impl<R, W: Widget<R>> Deref for Proxy<R, W> {
+impl<M, W: Widget<M>> Deref for Proxy<M, W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.child
     }
 }
 
-impl<R, W: Widget<R>> DerefMut for Proxy<R, W> {
+impl<M, W: Widget<M>> DerefMut for Proxy<M, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.damage = self.damage.max(Damage::Some);
         &mut self.child
     }
 }
 
-impl<R, W: Widget<R>> Geometry for Proxy<R, W> {
+impl<M, W: Widget<M>> Geometry for Proxy<M, W> {
     fn width(&self) -> f32 {
         self.child.width()
     }
@@ -44,7 +44,7 @@ impl<R, W: Widget<R>> Geometry for Proxy<R, W> {
     }
 }
 
-impl<R, W: Widget<R>> Widget<R> for Proxy<R, W> {
+impl<M, W: Widget<M>> Widget<M> for Proxy<M, W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if self.queue_draw || self.damage.is_some() {
             self.damage = Damage::None;
@@ -52,14 +52,14 @@ impl<R, W: Widget<R>> Widget<R> for Proxy<R, W> {
         }
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<'d, R>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<'d, M>) -> Damage {
         self.damage = self.damage.max(self.child.sync(ctx, event));
         self.queue_draw = self.damage.is_some() || event.is_frame();
         self.damage
     }
 }
 
-impl<R, W: Widget<R>> Proxy<R, W> {
+impl<M, W: Widget<M>> Proxy<M, W> {
     pub fn new(child: W) -> Self {
         Proxy {
             child,
@@ -70,20 +70,20 @@ impl<R, W: Widget<R>> Proxy<R, W> {
     }
 }
 
-pub struct Button<R, W, F>
+pub struct Button<M, W, F>
 where
-    W: Widget<R>,
-    F: for<'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer),
+    W: Widget<M>,
+    F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
     focused: bool,
-    proxy: Proxy<R, W>,
+    proxy: Proxy<M, W>,
     cb: F,
 }
 
-impl<R, W, F> Button<R, W, F>
+impl<M, W, F> Button<M, W, F>
 where
-    W: Widget<R>,
-    F: for<'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer),
+    W: Widget<M>,
+    F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
     pub fn new(child: W, cb: F) -> Self {
         Self {
@@ -94,10 +94,10 @@ where
     }
 }
 
-impl<R, W, F> Geometry for Button<R, W, F>
+impl<M, W, F> Geometry for Button<M, W, F>
 where
-    W: Widget<R>,
-    F: for<'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer),
+    W: Widget<M>,
+    F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
     fn width(&self) -> f32 {
         self.proxy.width()
@@ -116,15 +116,15 @@ where
     }
 }
 
-impl<R, W, F> Widget<R> for Button<R, W, F>
+impl<M, W, F> Widget<M> for Button<M, W, F>
 where
-    W: Widget<R>,
-    F: for<'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer),
+    W: Widget<M>,
+    F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.proxy.create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<'d, R>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, pointer) = event {
             if self.contains(*x, *y) {
                 if self.focused {
@@ -142,21 +142,21 @@ where
     }
 }
 
-impl<R, W, F> Deref for Button<R, W, F>
+impl<M, W, F> Deref for Button<M, W, F>
 where
-    W: Widget<R>,
-    F: for<'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer),
+    W: Widget<M>,
+    F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
-    type Target = Proxy<R, W>;
+    type Target = Proxy<M, W>;
     fn deref(&self) -> &Self::Target {
         &self.proxy
     }
 }
 
-impl<R, W, F> DerefMut for Button<R, W, F>
+impl<M, W, F> DerefMut for Button<M, W, F>
 where
-    W: Widget<R>,
-    F: for<'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer),
+    W: Widget<M>,
+    F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.proxy

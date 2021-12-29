@@ -2,14 +2,14 @@ use crate::widgets::container::*;
 use crate::*;
 use scene::{Coords, Region, RenderNode};
 
-pub struct LayoutBox<R> {
+pub struct LayoutBox<M> {
     size: (f32, f32),
-    widgets: Vec<Child<R>>,
+    widgets: Vec<Child<M>>,
     orientation: Orientation,
 }
 
-impl<R: 'static> FromIterator<Child<R>> for LayoutBox<R> {
-    fn from_iter<T: IntoIterator<Item = Child<R>>>(iter: T) -> Self {
+impl<M: 'static> FromIterator<Child<M>> for LayoutBox<M> {
+    fn from_iter<T: IntoIterator<Item = Child<M>>>(iter: T) -> Self {
         let mut layoutbox = LayoutBox::new();
         for c in iter {
             layoutbox.widgets.push(c);
@@ -18,19 +18,19 @@ impl<R: 'static> FromIterator<Child<R>> for LayoutBox<R> {
     }
 }
 
-impl<R: 'static> Container<R> for LayoutBox<R> {
+impl<M: 'static> Container<M> for LayoutBox<M> {
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: impl Widget<R> + 'static) {
+    fn add(&mut self, widget: impl Widget<M> + 'static) {
         self.widgets.push(Child::new(widget));
     }
-    fn remove(&mut self, index: usize) -> Child<R> {
+    fn remove(&mut self, index: usize) -> Child<M> {
         self.widgets.remove(index)
     }
 }
 
-impl<R> Geometry for LayoutBox<R> {
+impl<M> Geometry for LayoutBox<M> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width != self.size.0 {
             let size = (width / self.widgets.len() as f32).ceil();
@@ -97,7 +97,7 @@ impl<R> Geometry for LayoutBox<R> {
     }
 }
 
-impl<R> Widget<R> for LayoutBox<R> {
+impl<M> Widget<M> for LayoutBox<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -128,7 +128,7 @@ impl<R> Widget<R> for LayoutBox<R> {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
         let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
             damage = damage.max(child.sync(ctx, event));
@@ -137,7 +137,7 @@ impl<R> Widget<R> for LayoutBox<R> {
     }
 }
 
-impl<R> LayoutBox<R> {
+impl<M> LayoutBox<M> {
     pub fn new() -> Self {
         Self {
             size: (0., 0.),

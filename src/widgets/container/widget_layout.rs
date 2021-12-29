@@ -3,15 +3,15 @@ use crate::widgets::Alignment;
 use crate::*;
 use scene::{Coords, Region, RenderNode};
 
-pub struct WidgetLayout<R> {
+pub struct WidgetLayout<M> {
     spacing: f32,
-    widgets: Vec<Child<R>>,
+    widgets: Vec<Child<M>>,
     alignment: Alignment,
     orientation: Orientation,
 }
 
-impl<R> FromIterator<Child<R>> for WidgetLayout<R> {
-    fn from_iter<T: IntoIterator<Item = Child<R>>>(iter: T) -> Self {
+impl<M> FromIterator<Child<M>> for WidgetLayout<M> {
+    fn from_iter<T: IntoIterator<Item = Child<M>>>(iter: T) -> Self {
         let mut layout = WidgetLayout::new(0.);
         for c in iter {
             layout.widgets.push(c);
@@ -20,7 +20,7 @@ impl<R> FromIterator<Child<R>> for WidgetLayout<R> {
     }
 }
 
-impl<R> Geometry for WidgetLayout<R> {
+impl<M> Geometry for WidgetLayout<M> {
     fn width(&self) -> f32 {
         let mut width = 0.;
         match self.orientation {
@@ -57,19 +57,19 @@ impl<R> Geometry for WidgetLayout<R> {
     }
 }
 
-impl<R: 'static> Container<R> for WidgetLayout<R> {
+impl<M: 'static> Container<M> for WidgetLayout<M> {
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: impl Widget<R> + 'static) {
+    fn add(&mut self, widget: impl Widget<M> + 'static) {
         self.widgets.push(Child::new(widget));
     }
-    fn remove(&mut self, index: usize) -> Child<R> {
+    fn remove(&mut self, index: usize) -> Child<M> {
         self.widgets.remove(index)
     }
 }
 
-impl<R> WidgetLayout<R> {
+impl<M> WidgetLayout<M> {
     pub fn new<S: Into<f32>>(spacing: S) -> Self {
         WidgetLayout {
             spacing: spacing.into(),
@@ -97,7 +97,7 @@ impl<R> WidgetLayout<R> {
     }
 }
 
-impl<R> Widget<R> for WidgetLayout<R> {
+impl<M> Widget<M> for WidgetLayout<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -141,7 +141,7 @@ impl<R> Widget<R> for WidgetLayout<R> {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
         let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
             damage = damage.max(child.sync(ctx, event));

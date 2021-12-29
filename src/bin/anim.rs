@@ -32,35 +32,34 @@ impl Default for EaserCtl {
 }
 
 impl Controller<AnimationState> for EaserCtl {
-    fn serialize(&mut self, _msg: Message<AnimationState>) -> Result<u32, ControllerError> {
+    fn serialize(&mut self) -> Result<u32, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
     fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
         Err(ControllerError::NonBlocking)
     }
-    fn get<'c>(&'c self, _msg: Message<AnimationState>) -> Result<Data<'c, AnimationState>, ControllerError> {
+    fn get<'m>(&'m self, _msg: &'m AnimationState) -> Result<Data<'m, AnimationState>, ControllerError> {
         return Ok(Data::Request(self.state));
     }
-    fn send<'c>(&'c mut self, msg: Message<AnimationState>) -> Result<Data<'c, AnimationState>, ControllerError> {
-        let Message(state, _) = msg;
-        match state {
+    fn send<'m>(&'m mut self, msg: AnimationState) -> Result<Data<'m, AnimationState>, ControllerError> {
+        match msg {
             AnimationState::Stop | AnimationState::Pause => self.block = false,
             _ => {}
         }
-        self.state = state;
+        self.state = msg;
         Ok(Data::Null)
     }
-    fn sync(&mut self) -> Result<Message<'static, AnimationState>, ControllerError> {
+    fn sync(&mut self) -> Result<AnimationState, ControllerError> {
         if !self.block {
             match self.state {
                 AnimationState::Stop => return Err(ControllerError::NonBlocking),
                 AnimationState::Start => {
                     self.block = true;
-                    return Ok(Message::new(self.state, ()));
+                    return Ok(self.state);
                 }
                 AnimationState::Pause => {
                     self.block = true;
-                    return Ok(Message::new(self.state, ()))
+                    return Ok(self.state)
                 }
             }
         }
@@ -80,7 +79,7 @@ enum Curve {
 // I recommend you use a library that provide better easing functions.
 
 struct Easer {
-    position: f32,
+    cursor: f32,
     end: f32,
     time: u32,
     frame_time: u32,
@@ -90,48 +89,50 @@ struct Easer {
 impl Iterator for Easer {
     type Item = f32;
     fn next(&mut self) -> Option<Self::Item> {
-        let cursor;
+        let position;
         if self.time == 0 {
             return None;
         }
         let frame = self.time / self.frame_time.max(1);
         match self.curve {
             Curve::Sinus => {
-                self.position += PI / frame as f32;
-                if self.position > PI {
-                    cursor = self.end * (PI).sin().abs();
+                self.cursor += PI / frame as f32;
+                if self.cursor > PI {
+                    position = self.end * (PI).sin().abs();
                     self.time = 0;
                 } else {
-                    cursor = self.end * (self.position).sin().abs();
+                    position = self.end * (self.cursor).sin().abs();
                 }
             }
             Curve::Linear => {
-                self.position += self.end / frame as f32;
-                cursor = self.position;
-                if cursor > self.end {
+                self.cursor += self.end / frame as f32;
+                if self.cursor > self.end {
+                    position = self.end;
                     self.time = 0;
+                } else {
+                    position = self.cursor;
                 }
             }
             Curve::Quadratic => {
                 let b = self.end;
                 let h = b.sqrt();
-                self.position += h * 2. / frame as f32;
-                if self.position > 2. * h {
-                    cursor = self.end - (2. * h - h).powi(2);
+                self.cursor += h * 2. / frame as f32;
+                if self.cursor > 2. * h {
+                    position = self.end - (2. * h - h).powi(2);
                     self.time = 0;
                 } else {
-                    cursor = self.end - (self.position - h).powi(2);
+                    position = self.end - (self.cursor - h).powi(2);
                 }
             }
         }
-        Some(cursor)
+        Some(position)
     }
 }
 
 impl Easer {
     fn new(start: f32, end: f32, time: u32, curve: Curve) -> Self {
         Easer {
-            position: start,
+            cursor: start,
             end,
             frame_time: 10,
             time,
@@ -144,7 +145,7 @@ impl Easer {
     fn reset(&mut self, time: u32) {
         self.time = time;
         self.frame_time = 10;
-        self.position = 0.;
+        self.cursor = 0.;
     }
 }
 
@@ -191,11 +192,11 @@ impl Widget<AnimationState> for Animate {
                     self.easer.frame_time(*frame_time);
                     return Damage::Frame;
                 } else {
-                    ctx.request(AnimationState::Stop);
+                    ctx.send(AnimationState::Stop);
                 }
             }
             Event::Message(msg) => {
-                match msg.0 {
+                match msg {
                     AnimationState::Start => {
                         self.start = true;
                         self.easer.end = self.width() - self.cursor;
@@ -210,11 +211,6 @@ impl Widget<AnimationState> for Animate {
                     }
                 }
             },
-            Event::Frame => {
-                self.start = true;
-                self.easer.end = self.width() - self.cursor;
-                return Damage::Frame;
-            }
             _ => {}
         }
         Damage::None
@@ -250,15 +246,15 @@ fn ui() -> impl Widget<AnimationState> {
                     pressed,
                 } => {
                     if button.is_left() && pressed {
-                        if let Data::Request(state) = ctx.get(Message::new(AnimationState::Start, ())).unwrap() {
+                        if let Data::Request(state) = ctx.get(&AnimationState::Start).unwrap() {
                             match state {
                                 AnimationState::Start => {
                                     this.edit("Pause");
-                                    ctx.request(AnimationState::Pause)
+                                    ctx.send(AnimationState::Pause)
                                 }
                                 AnimationState::Pause | AnimationState::Stop => {
                                     this.edit("Run");
-                                    ctx.request(AnimationState::Start)
+                                    ctx.send(AnimationState::Start)
                                 }
                             }.unwrap();
                         }

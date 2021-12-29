@@ -92,8 +92,8 @@ pub enum Backend<'b> {
     Dummy,
 }
 
-pub struct SyncContext<'c, R> {
-    controller: &'c mut dyn Controller<R>,
+pub struct SyncContext<'c, M> {
+    controller: &'c mut dyn Controller<M>,
     pub(crate) font_cache: &'c mut FontCache,
 }
 
@@ -137,8 +137,8 @@ impl<'c> DerefMut for Backend<'c> {
     }
 }
 
-impl<'c, R> SyncContext<'c, R> {
-    pub fn new(controller: &'c mut impl Controller<R>, font_cache: &'c mut FontCache) -> Self {
+impl<'c, M> SyncContext<'c, M> {
+    pub fn new(controller: &'c mut impl Controller<M>, font_cache: &'c mut FontCache) -> Self {
         Self {
             controller,
             font_cache,
@@ -146,20 +146,20 @@ impl<'c, R> SyncContext<'c, R> {
     }
 }
 
-impl<'c, R> Controller<R> for SyncContext<'c, R> {
+impl<'c, M> Controller<M> for SyncContext<'c, M> {
+    fn serialize(&mut self) -> Result<u32, ControllerError> {
+        self.controller.serialize()
+    }
     fn deserialize(&mut self, token: u32) -> Result<(), ControllerError> {
         self.controller.deserialize(token)
     }
-    fn get<'m>(&'m self, msg: Message<R>) -> Result<Data<'m, R>, ControllerError> {
+    fn get<'m>(&'m self, msg: &'m M) -> Result<Data<'m, M>, ControllerError> {
         self.controller.get(msg)
     }
-    fn serialize(&mut self, msg: Message<R>) -> Result<u32, ControllerError> {
-        self.controller.serialize(msg)
-    }
-    fn send<'m>(&'m mut self, msg: Message<R>) -> Result<Data<'m, R>, ControllerError> {
+    fn send<'m>(&'m mut self, msg: M) -> Result<Data<'m, M>, ControllerError> {
         self.controller.send(msg)
     }
-    fn sync(&mut self) -> Result<Message<'static, R>, ControllerError> {
+    fn sync(&mut self) -> Result<M, ControllerError> {
         self.controller.sync()
     }
 }

@@ -8,19 +8,19 @@ pub use layout_box::LayoutBox;
 use scene::Coords;
 pub use widget_layout::WidgetLayout;
 
-pub trait Container<R: 'static>: Geometry + FromIterator<Child<R>> {
+pub trait Container<M: 'static>: Geometry + FromIterator<Child<M>> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn remove(&mut self, index: usize) -> Child<R>;
-    fn add(&mut self, widget: impl Widget<R> + 'static);
-    fn pop(&mut self) -> Child<R> {
+    fn remove(&mut self, index: usize) -> Child<M>;
+    fn add(&mut self, widget: impl Widget<M> + 'static);
+    fn pop(&mut self) -> Child<M> {
         self.remove(self.len() - 1)
     }
 }
 
-pub fn apply_width<R, W: Widget<R>>(
+pub fn apply_width<M, W: Widget<M>>(
     widgets: &mut [W],
     fixed: &mut Vec<usize>,
     index: usize,
@@ -44,7 +44,7 @@ pub fn apply_width<R, W: Widget<R>>(
     }
 }
 
-pub fn apply_height<R, W: Widget<R>>(
+pub fn apply_height<M, W: Widget<M>>(
     widgets: &mut [W],
     fixed: &mut Vec<usize>,
     index: usize,
@@ -68,15 +68,15 @@ pub fn apply_height<R, W: Widget<R>>(
     }
 }
 
-pub struct Child<R> {
+pub struct Child<M> {
     coords: Coords,
     damage: Damage,
     queue_draw: bool,
-    widget: Box<dyn Widget<R>>,
+    widget: Box<dyn Widget<M>>,
 }
 
-impl<R> Child<R> {
-    pub(crate) fn new(widget: impl Widget<R> + 'static) -> Self {
+impl<M> Child<M> {
+    pub(crate) fn new(widget: impl Widget<M> + 'static) -> Self {
         Child {
             queue_draw: false,
             damage: Damage::None,
@@ -102,7 +102,7 @@ impl<R> Child<R> {
     }
 }
 
-impl<R> Geometry for Child<R> {
+impl<M> Geometry for Child<M> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -117,8 +117,8 @@ impl<R> Geometry for Child<R> {
     }
 }
 
-impl<R> From<Box<dyn Widget<R>>> for Child<R> {
-    fn from(widget: Box<dyn Widget<R>>) -> Self {
+impl<M> From<Box<dyn Widget<M>>> for Child<M> {
+    fn from(widget: Box<dyn Widget<M>>) -> Self {
         Child {
             queue_draw: false,
             damage: Damage::None,
@@ -128,7 +128,7 @@ impl<R> From<Box<dyn Widget<R>>> for Child<R> {
     }
 }
 
-impl<R> Widget<R> for Child<R> {
+impl<M> Widget<M> for Child<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if self.queue_draw || self.damage.is_some() {
             self.damage = Damage::None;
@@ -138,7 +138,7 @@ impl<R> Widget<R> for Child<R> {
         }
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
         self.damage = self.damage.max(match event {
             Event::Pointer(mut x, mut y, p) => {
                 x -= self.coords.x;
