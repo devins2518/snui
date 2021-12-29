@@ -1,10 +1,10 @@
 pub mod rectangle;
 
-use crate::*;
 use crate::scene::*;
-use std::marker::PhantomData;
+use crate::*;
 pub use rectangle::Rectangle;
 use std::f32::consts::FRAC_1_SQRT_2;
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use widgets::Padding;
 
@@ -44,7 +44,7 @@ pub struct WidgetExt<R, W: Widget<R>> {
     radius: (f32, f32, f32, f32),
     background: Background,
     border: (f32, u32),
-    _request : PhantomData<R>
+    _request: PhantomData<R>,
 }
 
 impl<R, W: Widget<R>> WidgetExt<R, W> {
@@ -54,7 +54,7 @@ impl<R, W: Widget<R>> WidgetExt<R, W> {
             background: Background::Transparent,
             border: (0., 0),
             radius: (0., 0., 0., 0.),
-            _request: PhantomData
+            _request: PhantomData,
         }
     }
     fn inner_width(&self) -> f32 {

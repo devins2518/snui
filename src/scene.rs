@@ -199,9 +199,7 @@ impl Background {
                     }
                     Background::Color(blend(acolor, &bcolor))
                 }
-                Background::Image(_, _) => {
-                    Background::Composite(vec![self.clone(), other])
-                }
+                Background::Image(_, _) => Background::Composite(vec![self.clone(), other]),
                 Background::Transparent => self.clone(),
                 Background::Composite(mut layers) => {
                     layers.insert(0, self.clone());
@@ -252,9 +250,9 @@ impl Background {
                     match background {
                         Background::Composite(mut ol) => {
                             layers.append(&mut ol);
-                            return Background::Composite(layers)
+                            return Background::Composite(layers);
                         }
-                        _ => layers.push(background)
+                        _ => layers.push(background),
                     }
                 }
                 Background::Composite(layers)
@@ -785,7 +783,7 @@ impl RenderNode {
             }
         }
     }
-    fn merge<'r>(&'r mut self, other: Self) {
+    pub fn merge<'r>(&'r mut self, other: Self) {
         match self {
             RenderNode::Container { region, nodes } => {
                 let this_region = region;
@@ -894,12 +892,16 @@ impl RenderNode {
                                 .map(|i| {
                                     if let Some(node) = this_nodes.get_mut(i) {
                                         let mut node = mem::take(node);
-                                        let _ = node.draw_merge(
+                                        if let Err(region) = node.draw_merge(
                                             mem::take(&mut nodes[i]),
                                             ctx,
                                             shape,
                                             clip,
-                                        );
+                                        ) {
+                                            println!("{:#?}", region);
+                                            ctx.damage_region(&Background::from(shape), region, false);
+                                            node.render(ctx, None);
+                                        }
                                         node
                                     } else {
                                         mem::take(&mut nodes[i])

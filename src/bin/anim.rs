@@ -1,62 +1,77 @@
-use snui::wayland::shell::*;
-use snui::data::*;
 use scene::Instruction;
-use snui::widgets::shapes::*;
+use snui::data::*;
+use snui::wayland::shell::*;
 use snui::widgets::container::*;
+use snui::widgets::shapes::*;
+use snui::{
+    widgets::{text::*, *},
+    *,
+};
 use std::f32::consts::PI;
-use snui::{*, widgets::{*, text::*}};
 
-#[derive(Debug, Clone, Copy)]
-enum Request {
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum AnimationState {
     Stop,
     Start,
-    Pause
+    Pause,
 }
 
 #[derive(Debug, Clone, Copy)]
 struct EaserCtl {
-    request: Option<Request>,
+    block: bool,
+    state: AnimationState,
 }
 
 impl Default for EaserCtl {
     fn default() -> Self {
         EaserCtl {
-            request: None
+            block: false,
+            state: AnimationState::Stop
         }
     }
 }
 
-impl Controller<Request> for EaserCtl {
-    fn serialize(&mut self, _msg: Message<Request>) -> Result<u32, ControllerError> {
+impl Controller<AnimationState> for EaserCtl {
+    fn serialize(&mut self, _msg: Message<AnimationState>) -> Result<u32, ControllerError> {
         Err(ControllerError::NonBlocking)
     }
     fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
         Err(ControllerError::NonBlocking)
     }
-    fn get<'c>(&'c self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
-        if let Some(request) = self.request {
-            return Ok(Data::from(request as u32))
-        }
-        Err(ControllerError::WrongObject)
+    fn get<'c>(&'c self, _msg: Message<AnimationState>) -> Result<Data<'c, AnimationState>, ControllerError> {
+        return Ok(Data::Request(self.state));
     }
-    fn send<'c>(&'c mut self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
-        let Message(request, _) = msg;
-        self.request = Some(request);
-        Err(ControllerError::WrongObject)
-    }
-    fn sync(&mut self) -> Result<Message<'static, Request>, ControllerError> {
-        if let Some(request) = self.request {
-            self.request = None;
-            return Ok(Message::new(request, ()));
+    fn send<'c>(&'c mut self, msg: Message<AnimationState>) -> Result<Data<'c, AnimationState>, ControllerError> {
+        let Message(state, _) = msg;
+        match state {
+            AnimationState::Stop | AnimationState::Pause => self.block = false,
+            _ => {}
         }
-        Err(ControllerError::NonBlocking)
+        self.state = state;
+        Ok(Data::Null)
+    }
+    fn sync(&mut self) -> Result<Message<'static, AnimationState>, ControllerError> {
+        if !self.block {
+            match self.state {
+                AnimationState::Stop => return Err(ControllerError::NonBlocking),
+                AnimationState::Start => {
+                    self.block = true;
+                    return Ok(Message::new(self.state, ()));
+                }
+                AnimationState::Pause => {
+                    self.block = true;
+                    return Ok(Message::new(self.state, ()))
+                }
+            }
+        }
+        Err(ControllerError::Blocking)
     }
 }
 
 enum Curve {
     Quadratic,
     Linear,
-    Sinus
+    Sinus,
 }
 
 // Note
@@ -133,7 +148,6 @@ impl Easer {
     }
 }
 
-
 struct Animate {
     start: bool,
     cursor: f32,
@@ -149,16 +163,16 @@ impl Geometry for Animate {
     }
 }
 
-impl Widget<Request> for Animate {
+impl Widget<AnimationState> for Animate {
     fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
         if self.start {
             if let Some(delta) = self.easer.next() {
                 return Instruction::new(
                     x + delta,
                     y,
-                    Rectangle::empty(self.cursor, 30.)
-                    .background(style::RED)
-                ).into()
+                    Rectangle::empty(self.cursor, 30.).background(style::RED),
+                )
+                .into();
             } else {
                 self.start = false;
                 self.easer.reset(1000);
@@ -166,28 +180,36 @@ impl Widget<Request> for Animate {
         }
         scene::RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut context::SyncContext<Request>, event: &Event<Request>) -> Damage {
+    fn sync<'d>(
+        &'d mut self,
+        ctx: &mut context::SyncContext<AnimationState>,
+        event: &Event<AnimationState>,
+    ) -> Damage {
         match event {
-            Event::Callback(frame_time) => if self.start {
-                self.easer.frame_time(*frame_time);
-                return Damage::Frame;
+            Event::Callback(frame_time) => {
+                if self.start {
+                    self.easer.frame_time(*frame_time);
+                    return Damage::Frame;
+                } else {
+                    ctx.request(AnimationState::Stop);
+                }
             }
             Event::Message(msg) => {
                 match msg.0 {
-                    Request::Start => {
+                    AnimationState::Start => {
                         self.start = true;
                         self.easer.end = self.width() - self.cursor;
                         return Damage::Frame;
                     }
-                    Request::Pause => {
+                    AnimationState::Pause => {
                         self.start = false;
                     }
-                    Request::Stop => {
+                    AnimationState::Stop => {
                         self.start = false;
                         self.easer.reset(1000);
                     }
                 }
-            }
+            },
             Event::Frame => {
                 self.start = true;
                 self.easer.end = self.width() - self.cursor;
@@ -204,41 +226,50 @@ impl Animate {
         Animate {
             start: false,
             cursor: 20.,
-            easer: Easer::new(0., 0., 1000, curve)
+            easer: Easer::new(0., 0., 1000, curve),
         }
     }
 }
 
-fn ui() -> impl Widget<Request> {
-    let mut ui =
-    	WidgetLayout::new(0.)
-    	.orientation(Orientation::Vertical);
+fn ui() -> impl Widget<AnimationState> {
+    let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
     ui.add(Animate::new(Curve::Linear));
     ui.add(Animate::new(Curve::Sinus));
     ui.add(Animate::new(Curve::Quadratic));
 
     ui.add(
         Text::from(Label::default("Launch", 15.))
-        .ext()
-        .even_padding(5.)
-        .background(style::BG1)
-        .border(style::BG2, 2.)
-        .button(move |this, ctx, p| match p {
-            Pointer::MouseClick { time:_, button, pressed } => {
-                if button.is_left() && pressed {
-                    if ctx.send(Message::new(Request::Start, ())).is_ok() {
-                        this.set_background(style::RED);
+            .ext()
+            .even_padding(5.)
+            .background(style::BG1)
+            .border(style::BG2, 2.)
+            .button(move |this, ctx, p| match p {
+                Pointer::MouseClick {
+                    time: _,
+                    button,
+                    pressed,
+                } => {
+                    if button.is_left() && pressed {
+                        if let Data::Request(state) = ctx.get(Message::new(AnimationState::Start, ())).unwrap() {
+                            match state {
+                                AnimationState::Start => {
+                                    this.edit("Pause");
+                                    ctx.request(AnimationState::Pause)
+                                }
+                                AnimationState::Pause | AnimationState::Stop => {
+                                    this.edit("Run");
+                                    ctx.request(AnimationState::Start)
+                                }
+                            }.unwrap();
+                        }
                     }
-                } else if button.is_left() {
-                    this.set_background(style::BG1);
                 }
-            }
-            _ => {}
-        })
+                _ => {}
+            }),
     );
     ui.justify(CENTER);
 
-	ui
+    ui
 }
 
 fn main() {
@@ -246,11 +277,10 @@ fn main() {
 
     snui.create_inner_application(
         EaserCtl::default(),
-        ui()
-    	.ext()
-    	.background(style::BG0)
-    	.even_radius(5.)
-    	.border(style::BG2, 5.),
+        ui().ext()
+            .background(style::BG0)
+            .even_radius(5.)
+            .border(style::BG2, 5.),
         event_loop.handle(),
         |_, _| {},
     );

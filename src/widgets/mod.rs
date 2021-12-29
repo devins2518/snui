@@ -5,15 +5,15 @@ pub mod shapes;
 pub mod slider;
 pub mod text;
 
-use crate::*;
-use tiny_skia::*;
 use crate::scene::Coords;
+pub use crate::widgets::image::Image;
+use crate::*;
 pub use button::Button;
 pub use container::*;
 pub use shapes::Style;
-use std::ops::{Deref, DerefMut};
 use std::marker::PhantomData;
-pub use crate::widgets::image::Image;
+use std::ops::{Deref, DerefMut};
+use tiny_skia::*;
 
 pub const START: Alignment = Alignment::Start;
 pub const CENTER: Alignment = Alignment::Center;
@@ -120,7 +120,7 @@ impl Default for Spacer {
 pub struct Padding<R, W: Widget<R>> {
     pub padding: (f32, f32, f32, f32),
     pub widget: W,
-    _request : PhantomData<R>
+    _request: PhantomData<R>,
 }
 
 impl<R, W: Widget<R>> Geometry for Padding<R, W> {
@@ -166,7 +166,7 @@ impl<R, W: Widget<R>> Padding<R, W> {
         Self {
             widget,
             padding: (0., 0., 0., 0.),
-            _request: PhantomData
+            _request: PhantomData,
         }
     }
     pub fn set_padding(&mut self, top: f32, right: f32, bottom: f32, left: f32) {
@@ -204,17 +204,19 @@ pub struct WidgetBox<R, W: Widget<R>> {
     height: Option<f32>,
     constraint: Constraint,
     anchor: (Alignment, Alignment),
-    _request : PhantomData<R>
+    _request: PhantomData<R>,
 }
 
 impl<R, W: Widget<R>> Geometry for WidgetBox<R, W> {
     fn width(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.width.unwrap_or(self.widget.width()),
-            Constraint::Upward => if let Some(width) = self.width {
-                self.widget.width().min(width)
-            } else {
-                self.widget.width()
+            Constraint::Upward => {
+                if let Some(width) = self.width {
+                    self.widget.width().min(width)
+                } else {
+                    self.widget.width()
+                }
             }
             Constraint::Downward => self.widget.width().max(self.width.unwrap_or(0.)),
         }
@@ -222,10 +224,12 @@ impl<R, W: Widget<R>> Geometry for WidgetBox<R, W> {
     fn height(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.height.unwrap_or(self.widget.height()),
-            Constraint::Upward => if let Some(height) = self.height {
-                self.widget.height().min(height)
-            } else {
-                self.widget.height()
+            Constraint::Upward => {
+                if let Some(height) = self.height {
+                    self.widget.height().min(height)
+                } else {
+                    self.widget.height()
+                }
             }
             Constraint::Downward => self.widget.height().max(self.height.unwrap_or(0.)),
         }
@@ -314,7 +318,7 @@ impl<R, W: Widget<R>> WidgetBox<R, W> {
             coords: Coords::new(0., 0.),
             anchor: (Alignment::Center, Alignment::Center),
             constraint: Constraint::Downward,
-            _request: PhantomData
+            _request: PhantomData,
         }
     }
     pub fn coords(&self) -> Coords {

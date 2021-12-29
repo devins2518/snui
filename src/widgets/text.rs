@@ -211,8 +211,7 @@ impl Geometry for Text {
 
 impl<R> Widget<R> for Text {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(
-            Instruction::new(x, y, self.label.clone()))
+        RenderNode::Instruction(Instruction::new(x, y, self.label.clone()))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
         if let Some(string) = &self.buffer {
@@ -269,8 +268,7 @@ impl<R: PartialEq + Clone> Geometry for Listener<R> {
 
 impl<R: PartialEq + Clone> Widget<R> for Listener<R> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(
-            Instruction::new(x, y, self.text.label.clone()))
+        RenderNode::Instruction(Instruction::new(x, y, self.text.label.clone()))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
         if let Some(request) = self.request.as_ref() {
@@ -354,6 +352,10 @@ impl<R: PartialEq + Clone> Listener<R> {
     }
     pub fn format(mut self, format: &str) -> Self {
         self.format = Some(format.to_string());
+        self
+    }
+    pub fn poll(mut self) -> Self {
+        self.poll = true;
         self
     }
 }

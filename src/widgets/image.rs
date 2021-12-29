@@ -124,8 +124,7 @@ impl Primitive for Image {
         scene::Background::Image(scene::Coords::new(0., 0.), self.clone())
     }
     fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
-        widgets::shapes::Rectangle::empty(self.width(), self.height())
-            .apply_background(background)
+        widgets::shapes::Rectangle::empty(self.width(), self.height()).apply_background(background)
     }
     fn into_primitive(&self) -> scene::PrimitiveType {
         self.clone().into()

@@ -114,8 +114,7 @@ impl<R: PartialEq + Clone> Geometry for Slider<R> {
 
 impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(
-            Instruction::new(x, y, self.slider.clone()))
+        RenderNode::Instruction(Instruction::new(x, y, self.slider.clone()))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<R>, event: &Event<R>) -> Damage {
         match event {
@@ -244,11 +243,11 @@ impl<R: PartialEq + Clone> Widget<R> for Slider<R> {
                 let Message(request, data) = msg;
                 if let Some(this) = self.request.as_ref() {
                     if this.eq(request) {
-                    if let Ok(data) = ctx.get(Message::new(this.clone(), data.clone())) {
-                        if self.filter(data).is_ok() {
-                            return Damage::Some;
+                        if let Ok(data) = ctx.get(Message::new(this.clone(), data.clone())) {
+                            if self.filter(data).is_ok() {
+                                return Damage::Some;
+                            }
                         }
-                    }
                     }
                 }
             }

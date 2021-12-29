@@ -1,10 +1,10 @@
-#[cfg(feature = "wayland")]
-pub mod wayland;
-pub mod widgets;
 pub mod context;
 pub mod data;
 pub mod font;
 pub mod scene;
+#[cfg(feature = "wayland")]
+pub mod wayland;
+pub mod widgets;
 
 use context::*;
 use scene::RenderNode;
@@ -296,9 +296,9 @@ pub trait WidgetUtil<R>: Widget<R> + Sized {
     fn with_width(self, width: f32) -> Self;
     fn with_height(self, height: f32) -> Self;
     fn with_size(self, width: f32, height: f32) -> Self;
-    fn button<F: for <'d> FnMut(&'d mut Proxy<R, Self>, &'d mut SyncContext<R>, Pointer)>(
+    fn button<F: for<'d> FnMut(&'d mut Proxy<R, Self>, &'d mut SyncContext<R>, Pointer)>(
         self,
-        cb: F
+        cb: F,
     ) -> Button<R, Self, F>;
 }
 
@@ -330,12 +330,9 @@ where
         let _ = self.set_size(width, height);
         self
     }
-    fn button<F>(
-        self,
-        cb: F
-    ) -> Button<R, Self, F>
+    fn button<F>(self, cb: F) -> Button<R, Self, F>
     where
-        F: for <'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer)
+        F: for<'d> FnMut(&'d mut Proxy<R, W>, &'d mut SyncContext<R>, Pointer),
     {
         Button::new(self, cb)
     }

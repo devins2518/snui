@@ -148,18 +148,14 @@ impl GlyphCache {
     }
     pub fn load(path: &Path) -> FontResult<Self> {
         match read(path) {
-            Ok(bytes) => {
-                match Font::from_bytes(bytes, fontdue::FontSettings::default()) {
-                    Ok(font) => {
-                        Ok(Self {
-                            font,
-                            glyphs: HashMap::new(),
-                        })
-                    }
-                    Err(_) => FontResult::Err("Isn't a font")
-                }
-            }
-            Err(_) => FontResult::Err("Invalid path")
+            Ok(bytes) => match Font::from_bytes(bytes, fontdue::FontSettings::default()) {
+                Ok(font) => Ok(Self {
+                    font,
+                    glyphs: HashMap::new(),
+                }),
+                Err(_) => FontResult::Err("Isn't a font"),
+            },
+            Err(_) => FontResult::Err("Invalid path"),
         }
     }
     pub fn render_glyph(&mut self, glyph: &GlyphPosition, source: Color) -> Option<Vec<u32>> {

@@ -2,25 +2,25 @@ pub mod shell;
 
 use tiny_skia::*;
 
-use super::Orientation;
 use super::widgets::Alignment;
+use super::Orientation;
 pub use smithay_client_toolkit;
-use smithay_client_toolkit::shm::AutoMemPool;
 pub use smithay_client_toolkit::reexports::client::{
-    Main,
-	protocol::wl_region::WlRegion,
-	protocol::wl_seat::{Capability, WlSeat},
-	protocol::wl_shm::WlShm,
-	protocol::wl_surface::WlSurface,
     protocol::wl_buffer::WlBuffer,
-	protocol::wl_compositor::WlCompositor,
-	protocol::wl_output::WlOutput,
+    protocol::wl_compositor::WlCompositor,
+    protocol::wl_output::WlOutput,
+    protocol::wl_region::WlRegion,
+    protocol::wl_seat::{Capability, WlSeat},
+    protocol::wl_shm::WlShm,
+    protocol::wl_surface::WlSurface,
+    Main,
 };
 pub use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::{
     zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
     zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::KeyboardInteractivity,
     zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
 };
+use smithay_client_toolkit::shm::AutoMemPool;
 
 use crate::context::Backend;
 use smithay_client_toolkit::shm::Format;
@@ -28,7 +28,7 @@ use smithay_client_toolkit::shm::Format;
 const FORMAT: Format = Format::Argb8888;
 
 pub enum DisplayEvent {
-    Output
+    Output,
 }
 
 pub struct Buffer<'b> {
@@ -115,7 +115,7 @@ impl ShellConfig {
                     anchor.insert(Anchor::Bottom);
                 }
                 _ => {}
-            }
+            },
             Orientation::Vertical => match alignment {
                 Alignment::Start => {
                     anchor.insert(Anchor::Top);
@@ -128,7 +128,7 @@ impl ShellConfig {
                     anchor.insert(Anchor::Right);
                 }
                 _ => {}
-            }
+            },
         }
         self.anchor = Some(anchor);
         self

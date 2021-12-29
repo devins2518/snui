@@ -263,10 +263,10 @@ impl<'c> DrawContext<'c> {
                             ),
                             anti_alias: false,
                             force_hq_pipeline: true,
-                            blend_mode: BlendMode::SourceOver
+                            blend_mode: BlendMode::SourceOver,
                         },
                         Transform::identity(),
-                        None
+                        None,
                     );
                 }
             }

@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Data<'d, R> {
     Null,
     Int(i32),
@@ -7,8 +7,9 @@ pub enum Data<'d, R> {
     Float(f32),
     Double(f64),
     Boolean(bool),
-    String(&'d str),
-    Request(&'d R),
+    Str(&'d str),
+    String(String),
+    Request(R),
     Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
@@ -18,6 +19,7 @@ pub struct DummyController {
     serial: Option<u32>,
 }
 
+#[derive(Debug)]
 pub struct Message<'m, R>(
     // The u32 is a bitmask
     // Users can create an Enum and alias a bitmask to a value or use a constant
@@ -79,6 +81,12 @@ impl<'d, R> From<usize> for Data<'d, R> {
     }
 }
 
+impl<'d, R> From<String> for Data<'d, R> {
+    fn from(string: String) -> Self {
+        Data::String(string)
+    }
+}
+
 impl<'d, R> From<i32> for Data<'d, R> {
     fn from(int: i32) -> Self {
         Data::Int(int)
@@ -87,13 +95,13 @@ impl<'d, R> From<i32> for Data<'d, R> {
 
 impl<'d, R> From<&'d str> for Data<'d, R> {
     fn from(s: &'d str) -> Self {
-        Data::String(s)
+        Data::Str(s)
     }
 }
 
 impl<'d, R> From<&'d String> for Data<'d, R> {
     fn from(s: &'d String) -> Self {
-        Data::String(s)
+        Data::Str(s)
     }
 }
 
@@ -151,6 +159,11 @@ impl<'d, R: PartialEq> PartialEq for Data<'d, R> {
                     return s == o;
                 }
             }
+            Data::Str(s) => {
+                if let Data::Str(o) = other {
+                    return s == o;
+                }
+            }
             Data::Byte(s) => {
                 if let Data::Byte(o) = other {
                     return s == o;
@@ -179,11 +192,15 @@ impl<'d, R> ToString for Data<'d, R> {
             Data::Uint(u) => u.to_string(),
             Data::Int(i) => i.to_string(),
             Data::String(s) => s.to_string(),
+            Data::Str(s) => s.to_string(),
             Data::Byte(b) => b.to_string(),
             Data::Double(d) => d.to_string(),
             Data::Float(f) => f.to_string(),
             Data::Null => String::new(),
-            Data::Request(_) => panic!("{} cannot be formatted into a string.", std::any::type_name::<R>()),
+            Data::Request(_) => panic!(
+                "{} cannot be formatted into a string.",
+                std::any::type_name::<R>()
+            ),
             Data::Any(_) => panic!("Any cannot be formatted into a string."),
         }
     }
@@ -194,7 +211,7 @@ impl<'d, R: ToString> Data<'d, R> {
         match self {
             Data::Request(request) => request.to_string(),
             Data::Any(_) => panic!("Any cannot be formatted into a string."),
-            _ => self.to_string()
+            _ => self.to_string(),
         }
     }
 }

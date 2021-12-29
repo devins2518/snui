@@ -20,10 +20,17 @@ pub trait Container<R: 'static>: Geometry + FromIterator<Child<R>> {
     }
 }
 
-pub fn apply_width<R, W: Widget<R>>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, width: f32) {
+pub fn apply_width<R, W: Widget<R>>(
+    widgets: &mut [W],
+    fixed: &mut Vec<usize>,
+    index: usize,
+    width: f32,
+) {
     match fixed.binary_search(&index) {
-        Ok(index) => if index > 0 {
-            apply_width(widgets, fixed, index - 1, width);
+        Ok(index) => {
+            if index > 0 {
+                apply_width(widgets, fixed, index - 1, width);
+            }
         }
         Err(pos) => {
             if let Err(w) = widgets[index].set_width(width) {
@@ -37,10 +44,17 @@ pub fn apply_width<R, W: Widget<R>>(widgets: &mut [W], fixed: &mut Vec<usize>, i
     }
 }
 
-pub fn apply_height<R, W: Widget<R>>(widgets: &mut [W], fixed: &mut Vec<usize>, index: usize, height: f32) {
+pub fn apply_height<R, W: Widget<R>>(
+    widgets: &mut [W],
+    fixed: &mut Vec<usize>,
+    index: usize,
+    height: f32,
+) {
     match fixed.binary_search(&index) {
-        Ok(index) => if index > 0 {
-            apply_height(widgets, fixed, index - 1, height);
+        Ok(index) => {
+            if index > 0 {
+                apply_height(widgets, fixed, index - 1, height);
+            }
         }
         Err(pos) => {
             if let Err(w) = widgets[index].set_height(height) {
@@ -75,8 +89,8 @@ impl<R> Child<R> {
         if !node.is_none() {
             return RenderNode::Extension {
                 background: scene::Instruction::empty(
-                    x + self.coords.x,
-                    y + self.coords.y,
+                    x,
+                    y,
                     width,
                     height,
                 ),

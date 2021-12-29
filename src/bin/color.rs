@@ -11,6 +11,22 @@ struct ColorControl {
     color: tiny_skia::Color,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Format {
+    Hex,
+    Uint,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Request {
+    Close,
+    Source(Format),
+    Red,
+    Green,
+    Blue,
+    Alpha,
+}
+
 impl Controller<Request> for ColorControl {
     fn serialize(&mut self, _msg: Message<Request>) -> Result<u32, ControllerError> {
         Err(data::ControllerError::WrongObject)
@@ -20,16 +36,21 @@ impl Controller<Request> for ColorControl {
     }
     fn get<'c>(&'c self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
         let Message(signal, _) = msg;
-        Ok(
-            match signal {
-                Request::Alpha => self.color.alpha().into(),
-                Request::Red => self.color.red().into(),
-                Request::Green => self.color.green().into(),
-                Request::Blue => self.color.blue().into(),
-                Request::Source => self.color.to_color_u8().get().into(),
-                _ => Data::Null
+        match signal {
+            Request::Alpha => return Ok(self.color.alpha().into()),
+            Request::Red => return Ok(self.color.red().into()),
+            Request::Green => return Ok(self.color.green().into()),
+            Request::Blue => return Ok(self.color.blue().into()),
+            Request::Source(format) => {
+                let color = self.color.to_color_u8().get();
+                match format {
+                    Format::Uint => return Ok(color.into()),
+                    Format::Hex => return Ok(format!("{:#010X}", color).replace("0x", "#").into()),
+                }
             }
-        )
+            _ => {}
+        }
+        Err(data::ControllerError::WrongObject)
     }
     fn send<'c>(&'c mut self, msg: Message<Request>) -> Result<Data<'c, Request>, ControllerError> {
         let Message(signal, value) = msg;
@@ -39,12 +60,13 @@ impl Controller<Request> for ColorControl {
                 Request::Red => self.color.set_red(f),
                 Request::Green => self.color.set_green(f),
                 Request::Blue => self.color.set_blue(f),
-                _ => return Err(ControllerError::WrongObject)
-            }
+                Request::Close => {}
+                _ => return Err(ControllerError::WrongObject),
+            },
             Data::Uint(color) => {
                 self.color = u32_to_source(color);
             }
-            _ => return Err(ControllerError::WrongObject)
+            _ => return Err(ControllerError::WrongObject),
         }
         self.signal = Some(signal);
         Ok(Data::Null)
@@ -53,21 +75,11 @@ impl Controller<Request> for ColorControl {
         if let Some(signal) = self.signal {
             if signal != Request::Close {
                 self.signal = None;
-                return Ok(Message::new(Request::Source, ()));
+                return Ok(Message::new(Request::Source(Format::Uint), ()));
             }
         }
         Err(data::ControllerError::WrongObject)
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Request {
-    Close,
-    Source,
-    Red,
-    Green,
-    Blue,
-    Alpha,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -101,13 +113,18 @@ impl Widget<Request> for ColorBlock {
             y,
             Rectangle::empty(self.width, self.height)
                 .background(self.color)
-                .even_radius(5.)
-        ).into()
+                .even_radius(5.),
+        )
+        .into()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Request>, event: &'d Event<'d, Request>) -> Damage {
+    fn sync<'d>(
+        &'d mut self,
+        ctx: &mut SyncContext<Request>,
+        event: &'d Event<'d, Request>,
+    ) -> Damage {
         if let Event::Message(_) = event {
             let color = ctx
-                .get(Message::new(Request::Source, ()))
+                .get(Message::new(Request::Source(Format::Uint), ()))
                 .unwrap();
             if let Data::Uint(color) = color {
                 self.color = u32_to_source(color).to_color_u8();
@@ -156,7 +173,11 @@ impl Widget<Request> for Cross {
 
         canvas.finish()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Request>, event: &'d Event<'d, Request>) -> Damage {
+    fn sync<'d>(
+        &'d mut self,
+        ctx: &mut SyncContext<Request>,
+        event: &'d Event<'d, Request>,
+    ) -> Damage {
         if let Event::Pointer(x, y, p) = *event {
             if let Pointer::MouseClick {
                 time: _,
@@ -213,7 +234,7 @@ fn sliders() -> WidgetLayout<Request> {
     [RED, GRN, BLU, BG0]
         .iter()
         .map(|color| {
-            let request= match *color {
+            let request = match *color {
                 RED => Request::Red,
                 BLU => Request::Blue,
                 GRN => Request::Green,
@@ -282,7 +303,7 @@ fn header() -> impl Widget<Request> {
                 } => {
                     if button == MouseButton::Left && pressed {
                         if let Data::Uint(_) = ctx
-                            .get(Message::new(Request::Source, Data::Null))
+                            .get(Message::new(Request::Source(Format::Hex), ()))
                             .unwrap()
                         {
                             this.edit("Copied");
@@ -310,14 +331,13 @@ fn header() -> impl Widget<Request> {
 fn body() -> WidgetLayout<Request> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
-	let listener = Listener::from(
-    	Label::default("", 18.)
-	)
-	.request(Request::Source)
-    .clamp()
-    .with_size(200., 22.)
-    .anchor(CENTER, START)
-    .constraint(Constraint::Downward);
+    let listener = Listener::from(Label::default("", 18.))
+        .request(Request::Source(Format::Hex))
+        .poll()
+        .clamp()
+        .with_size(200., 22.)
+        .anchor(CENTER, START)
+        .constraint(Constraint::Downward);
 
     let mut indicator = WidgetLayout::new(0.).orientation(Orientation::Vertical);
 

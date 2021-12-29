@@ -53,7 +53,7 @@ impl<R> Geometry for CenterBox<R> {
                         apply_width(&mut self.widgets, &mut fixed, i, size);
                     }
                 }
-                Orientation::Vertical => return Err(self.width())
+                Orientation::Vertical => return Err(self.width()),
             }
             self.size.0 = self.width();
         }
@@ -69,7 +69,7 @@ impl<R> Geometry for CenterBox<R> {
                         apply_height(&mut self.widgets, &mut fixed, i, size);
                     }
                 }
-                Orientation::Vertical => return Err(self.height())
+                Orientation::Vertical => return Err(self.height()),
             }
             self.size.1 = self.height();
         }
