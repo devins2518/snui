@@ -38,7 +38,6 @@ impl TryIntoMessage<f32> for ColorRequest {
             _ => Err(())
         }
     }
-
 }
 
 impl Controller<ColorRequest> for ColorControl {

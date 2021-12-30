@@ -4,7 +4,24 @@ Widgets are composable UI components. You start with a root widget which you add
 
 For the most part widgets are separated in two kinds, layout widgets which often implement the `Container` trait and singles which wrap one widgets or simply directly return a `RenderNode`.
 
-snui at a high level 
+## Quick overview
+
+```rust
+pub trait Widget<M>: Geometry {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage;
+	...
+}
+```
+
+> I have omitted a few methods that aren't really necessary here.
+
+Two things to note: 
+
+1. `Widget`s are required to implement the [`Geometry`]() trait.
+2. `Widget`s has a generic parameter representing the [message](./MESSAGE.MD). 
+
+### snui at a high level 
 
 1. **sync** : An event from the display or a message is passed down the widget tree through the `sync` method. Widgets are given **mutable** access to the [SyncContext](../src/context.rs) which implements the `Controller` trait and wraps your real controller. Many [sync](../src/data.rs) can occur before the widget is asked to create its `RenderNode`.
 

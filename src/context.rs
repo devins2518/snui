@@ -150,8 +150,8 @@ impl<'c, M> Controller<M> for SyncContext<'c, M> {
     fn serialize(&mut self) -> Result<u32, ControllerError> {
         self.controller.serialize()
     }
-    fn deserialize(&mut self, token: u32) -> Result<(), ControllerError> {
-        self.controller.deserialize(token)
+    fn deserialize(&mut self, serial: u32) -> Result<(), ControllerError> {
+        self.controller.deserialize(serial)
     }
     fn get<'m>(&'m self, msg: &'m M) -> Result<Data<'m, M>, ControllerError> {
         self.controller.get(msg)

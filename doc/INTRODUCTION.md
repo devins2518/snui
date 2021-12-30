@@ -14,10 +14,10 @@ To create the GUI, you first need to create a `widget` tree. `Widget`s from this
 Provide a simple and accessible way to write small GUI applications in Rust. Ideally, [snui]() could serve as the foundation for a desktop shell.
 
 
-## Key traits
+## Key elements
 
 - [**Primitive**](PRIMITIVE.md) : Rendered UI components.
 
-- [**Controller**](CONTROLLER.md) : The heart of your application.
+- [**Messages**](MESSAGE.md) : How data is communicated in snui.
 
 - [**Widget**](WIDGET.md) : How the user interface is represented.

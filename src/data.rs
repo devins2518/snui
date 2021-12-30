@@ -44,18 +44,25 @@ pub enum ControllerError {
     Message,
     WrongSerial,
     PendingSerial,
+    NonSerialized,
 }
 
 pub trait Controller<M> {
     // Tells the model all incomming messages are linked
     // The Controller returns a token that can be used to deserialize
-    fn serialize(&mut self) -> Result<u32, ControllerError>;
+    fn serialize(&mut self) -> Result<u32, ControllerError> {
+        Err(ControllerError::NonSerialized)
+    }
     // Ends the serialization
-    fn deserialize(&mut self, token: u32) -> Result<(), ControllerError>;
+    fn deserialize(&mut self, _serial: u32) -> Result<(), ControllerError> {
+        Err(ControllerError::NonSerialized)
+    }
     // These interface are from the pov of the widgets
     fn get<'m>(&'m self, msg: &'m M) -> Result<Data<'m, M>, ControllerError>;
-    // The Message must be a u32 serial.
     fn send<'m>(&'m mut self, msg: M) -> Result<Data<'m, M>, ControllerError>;
+    fn send_serialize<'m>(&'m mut self, _serial: u32, _msg: M) -> Result<Data<'m, M>, ControllerError> {
+        Err(ControllerError::NonSerialized)
+    }
     // Returns an Ok(Message) if the application needs to be synced
     fn sync(&mut self) -> Result<M, ControllerError>;
 }
@@ -260,9 +267,9 @@ where
         println!("Serialize Token: {}", 1);
         Ok(1)
     }
-    fn deserialize(&mut self, token: u32) -> Result<(), ControllerError> {
-        if let Some(serial) = self.serial {
-            if serial != token {
+    fn deserialize(&mut self, serial: u32) -> Result<(), ControllerError> {
+        if let Some(this) = self.serial {
+            if this != serial {
                 return Err(ControllerError::WrongSerial);
             } else {
                 println!("Deserialize: {}", 1);
@@ -276,12 +283,15 @@ where
         Ok(Data::Null)
     }
     fn send<'m>(&'m mut self, msg: M) -> Result<Data<'m, M>, ControllerError> {
-        if let Some(serial) = &self.serial {
+        self.data = msg;
+        Err(ControllerError::Message)
+    }
+    fn send_serialize<'m>(&'m mut self, serial: u32, msg: M) -> Result<Data<'m, M>, ControllerError> {
+        if Some(serial) == self.serial {
             println!("<- {} : {:?}", serial, msg);
         } else {
             println!("<- {:?}", msg);
         }
-        self.data = msg;
         Err(ControllerError::Message)
     }
     fn sync(&mut self) -> Result<M, ControllerError> {

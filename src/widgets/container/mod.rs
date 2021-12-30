@@ -84,22 +84,6 @@ impl<M> Child<M> {
             widget: Box::new(widget),
         }
     }
-    fn create_node_ext(&mut self, x: f32, y: f32, width: f32, height: f32) -> RenderNode {
-        let node = self.create_node(x, y);
-        if !node.is_none() {
-            return RenderNode::Extension {
-                background: scene::Instruction::empty(
-                    x + self.coords.x,
-                    y + self.coords.y,
-                    width,
-                    height,
-                ),
-                border: None,
-                node: Box::new(node),
-            };
-        }
-        node
-    }
 }
 
 impl<M> Geometry for Child<M> {
