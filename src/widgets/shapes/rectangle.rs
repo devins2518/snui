@@ -86,8 +86,8 @@ impl Rectangle {
         let mut height = self.height;
         let (mut x, mut y) = (0., 0.);
         if let ShapeStyle::Border(_, size) = &self.style {
-            x += (size / 2.).ceil();
-            y += (size / 2.).ceil();
+            x += size / 2.;
+            y += size / 2.;
             width += size;
             height += size;
         }
@@ -339,7 +339,7 @@ impl Primitive for Rectangle {
                     ShapeStyle::Border(color, border) => {
                         let stroke = Stroke {
                             width: *border,
-                            line_cap: LineCap::Round,
+                            line_cap: LineCap::Butt,
                             line_join: LineJoin::Miter,
                             miter_limit: 4.,
                             dash: None,

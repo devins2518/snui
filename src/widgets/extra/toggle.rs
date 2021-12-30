@@ -11,7 +11,6 @@ pub enum ToggleState {
     Deactivated
 }
 
-// Do not disturb toggle
 pub struct Toggle<M: TryIntoMessage<ToggleState>> {
     toggle: Rectangle,
     orientation: Orientation,
@@ -83,16 +82,18 @@ impl<M: TryIntoMessage<ToggleState>> Widget<M> for Toggle<M> {
                             pressed,
                         } => {
                             if button.is_left() && pressed {
-                                self.state = match self.state {
+                                let state = match self.state {
                                     ToggleState::Activated => ToggleState::Deactivated,
                                     ToggleState::Deactivated => ToggleState::Activated
                                 };
                                 if let Some(msg) = self.message.as_ref() {
-                                    if let Ok(msg) = TryIntoMessage::try_into(msg, self.state) {
-                                        let _ = ctx.send(msg);
+                                    if let Ok(msg) = TryIntoMessage::try_into(msg, state) {
+                                        if ctx.send(msg).is_ok() {
+                                            self.state = state;
+                                            return Damage::Frame;
+                                        }
                                     }
                                 }
-                                return Damage::Frame;
                             }
                         }
                         _ => {}

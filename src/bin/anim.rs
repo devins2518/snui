@@ -206,8 +206,8 @@ fn main() {
     snui.create_inner_application(
         EaserCtl::default(),
         ui().ext()
-            .background(style::GRN)
-            .even_radius(2.)
+            .background(style::BG0)
+            .even_radius(4.)
             .border(style::BG2, 5.),
         event_loop.handle(),
         |_, _| {},
