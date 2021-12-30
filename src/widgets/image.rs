@@ -25,6 +25,9 @@ pub struct Image {
 impl PartialEq for Image {
     fn eq(&self, other: &Self) -> bool {
         self.image.as_ptr() == other.image.as_ptr()
+        && self.scale == other.scale
+        && self.width == other.width
+        && self.height == other.height
     }
 }
 

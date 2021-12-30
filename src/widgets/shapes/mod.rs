@@ -193,6 +193,9 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
             }
             _ => {}
         }
+        if node.is_none() {
+            return RenderNode::None
+        }
         RenderNode::Extension {
             node: Box::new(node),
             border: {

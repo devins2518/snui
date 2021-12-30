@@ -1,11 +1,13 @@
 use crate::data::*;
 use crate::*;
 use scene::Instruction;
+use data::TryIntoMessage;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
 pub struct Slider<M: PartialEq + TryIntoMessage<f32>> {
     message: Option<M>,
+    flip: bool,
     size: f32,
     pressed: bool,
     slider: Rectangle,
@@ -21,6 +23,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Slider<M> {
         };
         Slider {
             message: None,
+            flip: false,
             size: match &orientation {
                 Orientation::Horizontal => width as f32,
                 Orientation::Vertical => height as f32,
@@ -40,6 +43,10 @@ impl<M: PartialEq + TryIntoMessage<f32>> Slider<M> {
             },
             orientation,
         }
+    }
+    pub fn flip(mut self) -> Self {
+        self.flip = true;
+        self
     }
     pub fn message(mut self, message: M) -> Self {
         self.message = Some(message);
@@ -114,7 +121,20 @@ impl<M: PartialEq + TryIntoMessage<f32>> Geometry for Slider<M> {
 
 impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(Instruction::new(x, y, self.slider.clone()))
+        if self.flip {
+            match self.orientation {
+                Orientation::Horizontal => {
+                    let delta = self.width() - self.slider.width();
+                    RenderNode::Instruction(Instruction::new(x + delta, y, self.slider.clone()))
+                }
+                Orientation::Vertical => {
+                    let delta = self.height() - self.slider.height();
+                    RenderNode::Instruction(Instruction::new(x, y + delta, self.slider.clone()))
+                }
+            }
+        } else {
+            RenderNode::Instruction(Instruction::new(x, y, self.slider.clone()))
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
         match event {
@@ -142,7 +162,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                                 Orientation::Vertical => self.slider.height() / self.size,
                             };
                             if let Some(message) = self.message.as_ref() {
-                                if let Ok(msg) = message.into(ratio) {
+                                if let Ok(msg) = message.try_into(ratio) {
                                     let _ = ctx.send(msg);
                                 }
                             }
@@ -167,7 +187,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                                 }
                             };
                             if let Some(message) = self.message.as_ref() {
-                                if let Ok(msg) = message.into(ratio) {
+                                if let Ok(msg) = message.try_into(ratio) {
                                     let _ = ctx.send(msg);
                                 }
                             }
@@ -179,7 +199,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
                                             if let Some(message) = self.message.as_ref() {
-                                                if let Ok(msg) = message.into(self.slider.width() / self.size) {
+                                                if let Ok(msg) = message.try_into(self.slider.width() / self.size) {
                                                     let _ = ctx.send(msg);
                                                 }
                                             }
@@ -188,7 +208,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
                                             if let Some(message) = self.message.as_ref() {
-                                                if let Ok(msg) = message.into(self.slider.height() / self.size) {
+                                                if let Ok(msg) = message.try_into(self.slider.height() / self.size) {
                                                     let _ = ctx.send(msg);
                                                 }
                                             }
@@ -216,7 +236,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                             Orientation::Horizontal => {
                                 if let Ok(_) = self.slider.set_width(x.min(self.size)) {
                                     if let Some(message) = self.message.as_ref() {
-                                        if let Ok(msg) = message.into(self.slider.width() / self.size) {
+                                        if let Ok(msg) = message.try_into(self.slider.width() / self.size) {
                                             let _ = ctx.send(msg);
                                         }
                                     }
@@ -226,7 +246,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                             Orientation::Vertical => {
                                 if let Ok(_) = self.slider.set_height(y.min(self.size)) {
                                     if let Some(message) = self.message.as_ref() {
-                                        if let Ok(msg) = message.into(self.slider.height() / self.size) {
+                                        if let Ok(msg) = message.try_into(self.slider.height() / self.size) {
                                             let _ = ctx.send(msg);
                                         }
                                     }

@@ -29,7 +29,7 @@ enum ColorMsg {
 
 impl TryIntoMessage<f32> for ColorMsg {
     type Error = ();
-    fn into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
+    fn try_into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
         match self {
             Self::Red(_) => Ok(Self::Red(f)),
             Self::Green(_) => Ok(Self::Green(f)),

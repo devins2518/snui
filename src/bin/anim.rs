@@ -7,13 +7,26 @@ use snui::{
     widgets::{text::*, *},
     *,
 };
-use std::f32::consts::PI;
+use snui::widgets::extra::{
+    Easer,
+    Curve,
+    toggle::*
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AnimationState {
     Stop,
     Start,
     Pause,
+}
+
+impl IntoMessage<ToggleState> for AnimationState {
+    fn into(&self, t: ToggleState) -> Self {
+        match t {
+            ToggleState::Activated => AnimationState::Start,
+            ToggleState::Deactivated => AnimationState::Pause,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -67,88 +80,6 @@ impl Controller<AnimationState> for EaserCtl {
     }
 }
 
-enum Curve {
-    Quadratic,
-    Linear,
-    Sinus,
-}
-
-// Note
-// The easer could have been much better done.
-// I just wanted something that "worked".
-// I recommend you use a library that provide better easing functions.
-
-struct Easer {
-    cursor: f32,
-    end: f32,
-    time: u32,
-    frame_time: u32,
-    curve: Curve,
-}
-
-impl Iterator for Easer {
-    type Item = f32;
-    fn next(&mut self) -> Option<Self::Item> {
-        let position;
-        if self.time == 0 {
-            return None;
-        }
-        let frame = self.time / self.frame_time.max(1);
-        match self.curve {
-            Curve::Sinus => {
-                self.cursor += PI / frame as f32;
-                if self.cursor > PI {
-                    position = self.end * (PI).sin().abs();
-                    self.time = 0;
-                } else {
-                    position = self.end * (self.cursor).sin().abs();
-                }
-            }
-            Curve::Linear => {
-                self.cursor += self.end / frame as f32;
-                if self.cursor > self.end {
-                    position = self.end;
-                    self.time = 0;
-                } else {
-                    position = self.cursor;
-                }
-            }
-            Curve::Quadratic => {
-                let b = self.end;
-                let h = b.sqrt();
-                self.cursor += h * 2. / frame as f32;
-                if self.cursor > 2. * h {
-                    position = self.end - (2. * h - h).powi(2);
-                    self.time = 0;
-                } else {
-                    position = self.end - (self.cursor - h).powi(2);
-                }
-            }
-        }
-        Some(position)
-    }
-}
-
-impl Easer {
-    fn new(start: f32, end: f32, time: u32, curve: Curve) -> Self {
-        Easer {
-            cursor: start,
-            end,
-            frame_time: 10,
-            time,
-            curve,
-        }
-    }
-    fn frame_time(&mut self, frame_time: u32) {
-        self.frame_time = frame_time;
-    }
-    fn reset(&mut self, time: u32) {
-        self.time = time;
-        self.frame_time = 10;
-        self.cursor = 0.;
-    }
-}
-
 struct Animate {
     start: bool,
     cursor: f32,
@@ -199,7 +130,7 @@ impl Widget<AnimationState> for Animate {
                 match msg {
                     AnimationState::Start => {
                         self.start = true;
-                        self.easer.end = self.width() - self.cursor;
+                        self.easer.set_max(self.width() - self.cursor);
                         return Damage::Frame;
                     }
                     AnimationState::Pause => {
@@ -234,34 +165,35 @@ fn ui() -> impl Widget<AnimationState> {
     ui.add(Animate::new(Curve::Quadratic));
 
     ui.add(
-        Text::from(Label::default("Launch", 15.))
-            .ext()
-            .even_padding(5.)
-            .background(style::BG1)
-            .border(style::BG2, 2.)
-            .button(move |this, ctx, p| match p {
-                Pointer::MouseClick {
-                    time: _,
-                    button,
-                    pressed,
-                } => {
-                    if button.is_left() && pressed {
-                        if let Data::Message(state) = ctx.get(&AnimationState::Start).unwrap() {
-                            match state {
-                                AnimationState::Start => {
-                                    this.edit("Run");
-                                    ctx.send(AnimationState::Pause)
-                                }
-                                AnimationState::Pause | AnimationState::Stop => {
-                                    this.edit("Pause");
-                                    ctx.send(AnimationState::Start)
-                                }
-                            }.unwrap();
-                        }
+        Toggle::default()
+        .message(AnimationState::Pause)
+        .duration(200)
+        .ext()
+        .background(style::BG1)
+        .even_radius(3.)
+        .button(move |this, ctx, p| match p {
+            Pointer::MouseClick {
+                time: _,
+                button,
+                pressed,
+            } => {
+                if button.is_left() && pressed {
+                    if let Data::Message(state) = ctx.get(&AnimationState::Start).unwrap() {
+                        match state {
+                            AnimationState::Start => {
+                                this.set_background(style::BG1);
+                                ctx.send(AnimationState::Pause)
+                            }
+                            AnimationState::Pause | AnimationState::Stop => {
+                                this.set_background(style::RED);
+                                ctx.send(AnimationState::Start)
+                            }
+                        }.unwrap();
                     }
                 }
-                _ => {}
-            }),
+            }
+            _ => {}
+        }),
     );
     ui.justify(CENTER);
 
@@ -274,8 +206,8 @@ fn main() {
     snui.create_inner_application(
         EaserCtl::default(),
         ui().ext()
-            .background(style::BG0)
-            .even_radius(5.)
+            .background(style::GRN)
+            .even_radius(2.)
             .border(style::BG2, 5.),
         event_loop.handle(),
         |_, _| {},

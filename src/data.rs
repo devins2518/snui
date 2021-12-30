@@ -16,7 +16,7 @@ pub enum Data<'d, M> {
 
 pub trait TryIntoMessage<T> {
     type Error;
-    fn into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
+    fn try_into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
 }
 
 pub trait IntoMessage<T>
@@ -31,7 +31,7 @@ where
     Self: IntoMessage<T>
 {
     type Error = ();
-    fn into(&self, t: T) -> Result<Self, Self::Error>
+    fn try_into(&self, t: T) -> Result<Self, Self::Error>
     where Self : Sized {
         Ok(IntoMessage::into(self, t))
     }

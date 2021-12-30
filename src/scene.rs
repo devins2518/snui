@@ -708,10 +708,10 @@ impl RenderNode {
                 border,
                 node,
             } => {
-                background.render(ctx, clip);
                 if let Some(border) = border.as_ref() {
                     border.render(ctx, clip);
                 }
+                background.render(ctx, clip);
                 node.render(ctx, clip);
             }
             Self::Draw { region, steps } => {
