@@ -7,7 +7,7 @@ use snui::{style::*, *};
 
 #[derive(Clone, Copy, Debug)]
 struct ColorControl {
-    signal: Option<ColorRequest>,
+    signal: Option<ColorMsg>,
     color: tiny_skia::Color,
 }
 
@@ -18,7 +18,7 @@ enum Format {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum ColorRequest {
+enum ColorMsg {
     Close,
     Source(Format),
     Red(f32),
@@ -27,7 +27,7 @@ enum ColorRequest {
     Alpha(f32),
 }
 
-impl TryIntoMessage<f32> for ColorRequest {
+impl TryIntoMessage<f32> for ColorMsg {
     type Error = ();
     fn into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
         match self {
@@ -40,20 +40,20 @@ impl TryIntoMessage<f32> for ColorRequest {
     }
 }
 
-impl Controller<ColorRequest> for ColorControl {
+impl Controller<ColorMsg> for ColorControl {
     fn serialize(&mut self) -> Result<u32, ControllerError> {
         Err(data::ControllerError::WrongSerial)
     }
     fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
         Err(data::ControllerError::WrongSerial)
     }
-    fn get<'m>(&'m self, msg: &'m ColorRequest) -> Result<Data<'m, ColorRequest>, ControllerError> {
+    fn get<'m>(&'m self, msg: &'m ColorMsg) -> Result<Data<'m, ColorMsg>, ControllerError> {
         match msg {
-            ColorRequest::Alpha(_) => return Ok(self.color.alpha().into()),
-            ColorRequest::Red(_) => return Ok(self.color.red().into()),
-            ColorRequest::Green(_) => return Ok(self.color.green().into()),
-            ColorRequest::Blue(_) => return Ok(self.color.blue().into()),
-            ColorRequest::Source(format) => {
+            ColorMsg::Alpha(_) => return Ok(self.color.alpha().into()),
+            ColorMsg::Red(_) => return Ok(self.color.red().into()),
+            ColorMsg::Green(_) => return Ok(self.color.green().into()),
+            ColorMsg::Blue(_) => return Ok(self.color.blue().into()),
+            ColorMsg::Source(format) => {
                 let color = self.color.to_color_u8().get();
                 match format {
                     Format::Uint => return Ok(color.into()),
@@ -64,23 +64,23 @@ impl Controller<ColorRequest> for ColorControl {
         }
         Err(data::ControllerError::Message)
     }
-    fn send<'m>(&'m mut self, msg: ColorRequest) -> Result<Data<'m, ColorRequest>, ControllerError> {
+    fn send<'m>(&'m mut self, msg: ColorMsg) -> Result<Data<'m, ColorMsg>, ControllerError> {
         match msg {
-            ColorRequest::Alpha(alpha) => self.color.set_alpha(alpha),
-            ColorRequest::Red(red) => self.color.set_red(red),
-            ColorRequest::Green(green) => self.color.set_green(green),
-            ColorRequest::Blue(blue) => self.color.set_blue(blue),
-            ColorRequest::Close => {}
+            ColorMsg::Alpha(alpha) => self.color.set_alpha(alpha),
+            ColorMsg::Red(red) => self.color.set_red(red),
+            ColorMsg::Green(green) => self.color.set_green(green),
+            ColorMsg::Blue(blue) => self.color.set_blue(blue),
+            ColorMsg::Close => {}
             _ => return Err(ControllerError::Message),
         }
         self.signal = Some(msg);
         Ok(Data::Null)
     }
-    fn sync(&mut self) -> Result<ColorRequest, ControllerError> {
+    fn sync(&mut self) -> Result<ColorMsg, ControllerError> {
         if let Some(signal) = self.signal {
-            if signal != ColorRequest::Close {
+            if signal != ColorMsg::Close {
                 self.signal = None;
-                return Ok(ColorRequest::Source(Format::Uint));
+                return Ok(ColorMsg::Source(Format::Uint));
             }
         }
         Err(data::ControllerError::Waiting)
@@ -111,7 +111,7 @@ impl Geometry for ColorBlock {
     }
 }
 
-impl Widget<ColorRequest> for ColorBlock {
+impl Widget<ColorMsg> for ColorBlock {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         Instruction::new(
             x,
@@ -124,12 +124,12 @@ impl Widget<ColorRequest> for ColorBlock {
     }
     fn sync<'d>(
         &'d mut self,
-        ctx: &mut SyncContext<ColorRequest>,
-        event: &'d Event<'d, ColorRequest>,
+        ctx: &mut SyncContext<ColorMsg>,
+        event: &'d Event<'d, ColorMsg>,
     ) -> Damage {
         if let Event::Message(_) = event {
             let color = ctx
-                .get(&ColorRequest::Source(Format::Uint))
+                .get(&ColorMsg::Source(Format::Uint))
                 .unwrap();
             if let Data::Uint(color) = color {
                 self.color = u32_to_source(color).to_color_u8();
@@ -158,7 +158,7 @@ impl Geometry for Cross {
     }
 }
 
-impl Widget<ColorRequest> for Cross {
+impl Widget<ColorMsg> for Cross {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         let mut canvas = self.create_canvas(x, y);
 
@@ -180,8 +180,8 @@ impl Widget<ColorRequest> for Cross {
     }
     fn sync<'d>(
         &'d mut self,
-        ctx: &mut SyncContext<ColorRequest>,
-        event: &'d Event<'d, ColorRequest>,
+        ctx: &mut SyncContext<ColorMsg>,
+        event: &'d Event<'d, ColorMsg>,
     ) -> Damage {
         if let Event::Pointer(x, y, p) = *event {
             if let Pointer::MouseClick {
@@ -192,7 +192,7 @@ impl Widget<ColorRequest> for Cross {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        let _ = ctx.send(ColorRequest::Close);
+                        let _ = ctx.send(ColorMsg::Close);
                     }
                 }
             }
@@ -224,7 +224,7 @@ fn main() {
         event_loop.handle(),
         |core, _| {
             if let Some(signal) = core.controller.signal {
-                if signal == ColorRequest::Close {
+                if signal == ColorMsg::Close {
                     core.destroy();
                     std::process::exit(0);
                 }
@@ -235,16 +235,16 @@ fn main() {
     snui.run(&mut event_loop);
 }
 
-fn sliders() -> WidgetLayout<ColorRequest> {
+fn sliders() -> WidgetLayout<ColorMsg> {
     [RED, GRN, BLU, BG0]
         .iter()
         .map(|color| {
             let message = match *color {
-                RED => ColorRequest::Red(0.),
-                BLU => ColorRequest::Blue(0.),
-                GRN => ColorRequest::Green(0.),
-                BG0 => ColorRequest::Alpha(0.),
-                _ => ColorRequest::Close,
+                RED => ColorMsg::Red(0.),
+                BLU => ColorMsg::Blue(0.),
+                GRN => ColorMsg::Green(0.),
+                BG0 => ColorMsg::Alpha(0.),
+                _ => ColorMsg::Close,
             };
             widgets::slider::Slider::new(200, 8)
                 .message(message)
@@ -254,12 +254,12 @@ fn sliders() -> WidgetLayout<ColorRequest> {
                 .even_radius(3.)
                 .child()
         })
-        .collect::<WidgetLayout<ColorRequest>>()
+        .collect::<WidgetLayout<ColorMsg>>()
         .spacing(10.)
         .orientation(Orientation::Vertical)
 }
 
-fn header() -> impl Widget<ColorRequest> {
+fn header() -> impl Widget<ColorMsg> {
     let mut buttons = WidgetLayout::new(5.);
     let text: Text = Label::default("Copy", 15.).into();
     let icon = Label::new("", 21.)
@@ -308,7 +308,7 @@ fn header() -> impl Widget<ColorRequest> {
                 } => {
                     if button.is_left() && pressed {
                         if let Data::Uint(_) = ctx
-                            .get(&ColorRequest::Source(Format::Uint))
+                            .get(&ColorMsg::Source(Format::Uint))
                             .unwrap()
                         {
                             this.edit("Copied");
@@ -333,11 +333,11 @@ fn header() -> impl Widget<ColorRequest> {
     header
 }
 
-fn body() -> WidgetLayout<ColorRequest> {
+fn body() -> WidgetLayout<ColorMsg> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
     let listener = Listener::from(Label::default("", 18.))
-        .message(ColorRequest::Source(Format::Hex))
+        .message(ColorMsg::Source(Format::Hex))
         .poll()
         .clamp()
         .with_size(200., 22.)

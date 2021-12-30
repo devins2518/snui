@@ -32,7 +32,9 @@ pub trait TryIntoMessage<T> {
 }
 ```
 
-> IntoMessage is identical except it returns `Self`.
+> `IntoMessage` is identical except it returns `Self`.
+
+> All types implementing `IntoMessage<T>` automatically have an implementation of `TryIntoMessage<T>`
 
 What `TryIntoMessage<T>` allows you to do is build a new message from a template and a given `T`.
 
@@ -48,7 +50,7 @@ pub struct Slider<M: PartialEq + TryIntoMessage<f32>> {
 }
 ```
 
-This is snui's [slider](https://material.io/components/sliders) implementation. As you can see it requires that the `M` implements `TryIntoMessage<f32>` but more importantly that it stores a message.
+This is snui's [slider](../src/widgets/slider.rs) implementation. As you can see it requires that the `M` implements `TryIntoMessage<f32>` but more importantly that it stores a message.
 
 Let's define our **message** :
 ```rust
@@ -64,14 +66,14 @@ Our message enum has to two members, both taking an `f32`. A slider that would s
 let slider = Slider::new(400, 10).message(System::Volume(-1.));
 ```
 
-As volume, I gave `-1.` but obviously I don't want the slider to send continuously `-1.` to my controller, I want it to send its ratio.
+As volume, I gave a symbolic value `-1.` but obviously I don't want the slider to send continuously `-1.` to my controller, I want it to send its ratio.
 
 This is when `TryIntoMessage<f32>` comes into play.
 
 ```rust
 impl TryIntoMessage<f32> for System {
 	type Error = ();
-    fn into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
+	fn into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
 		match self {
 			System::Volume(_) => Ok(System::Volume(f)),
 			System::Brightness(_) => Ok(System::Brightness(f))
@@ -80,7 +82,9 @@ impl TryIntoMessage<f32> for System {
 }
 ```
 
-> In this instance, we could have implemented `IntoMessage<f32>` since all our enum members can return a new message. All types implementing `IntoMessage<T>` automatically have an implementation of `TryIntoMessage<T>`
+> In this instance, we could have implemented `IntoMessage<f32>` since all our enum members can return a new message. 
+
+
 
 Our slider can then do this :
 
@@ -95,7 +99,7 @@ if let Some(message) = self.message.as_ref() {
 
 > `System::Volume(-1.)` becomes `System::Volume(ratio)`
 
-When you click or scroll on the [slider](), it calculates the ratio the bar takes of the available space, build a new message from the given and the ratio and sends it to the `Controller`.
+When you click or scroll on the [slider](../src/widgets/slider.rs), it calculates the ratio the bar takes of the available space, build a new message from the given one and the ratio and sends it to the `Controller`.
 
 ### Summary
 
