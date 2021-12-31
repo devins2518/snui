@@ -14,9 +14,12 @@ pub enum Data<'d, M> {
     Any(&'d (dyn std::any::Any + Sync + Send)),
 }
 
-pub trait TryIntoMessage<T> {
+pub trait TryIntoMessage<T>
+where
+    Self: Sized
+{
     type Error;
-    fn try_into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
+    fn try_into(&self, _: T) -> Result<Self, Self::Error>;
 }
 
 pub trait IntoMessage<T>

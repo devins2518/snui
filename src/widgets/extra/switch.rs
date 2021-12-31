@@ -6,22 +6,22 @@ use crate::scene::Instruction;
 use crate::widgets::shapes::{Style, Rectangle};
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
-pub enum ToggleState {
+pub enum SwitchState {
     Activated,
     Deactivated
 }
 
-pub struct Toggle<M: TryIntoMessage<ToggleState>> {
+pub struct Switch<M: TryIntoMessage<SwitchState>> {
     toggle: Rectangle,
     orientation: Orientation,
-    state: ToggleState,
+    state: SwitchState,
     easer: Easer,
     position: f32,
     duration: u32,
     message: Option<M>
 }
 
-impl<M: TryIntoMessage<ToggleState>> Geometry for Toggle<M> {
+impl<M: TryIntoMessage<SwitchState>> Geometry for Switch<M> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = self.orientation {
             self.toggle.width() * 2.
@@ -52,7 +52,7 @@ impl<M: TryIntoMessage<ToggleState>> Geometry for Toggle<M> {
     }
 }
 
-impl<M: TryIntoMessage<ToggleState>> Widget<M> for Toggle<M> {
+impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         match self.orientation {
             Orientation::Horizontal => {
@@ -83,8 +83,8 @@ impl<M: TryIntoMessage<ToggleState>> Widget<M> for Toggle<M> {
                         } => {
                             if button.is_left() && pressed {
                                 let state = match self.state {
-                                    ToggleState::Activated => ToggleState::Deactivated,
-                                    ToggleState::Deactivated => ToggleState::Activated
+                                    SwitchState::Activated => SwitchState::Deactivated,
+                                    SwitchState::Deactivated => SwitchState::Activated
                                 };
                                 if let Some(msg) = self.message.as_ref() {
                                     if let Ok(msg) = TryIntoMessage::try_into(msg, state) {
@@ -103,14 +103,14 @@ impl<M: TryIntoMessage<ToggleState>> Widget<M> for Toggle<M> {
             Event::Callback(frame_time) => {
                 self.easer.frame_time(*frame_time);
                 match self.state {
-                    ToggleState::Activated => match self.easer.trend() {
+                    SwitchState::Activated => match self.easer.trend() {
                         Trend::Neutral | Trend::Positive => if let Some(position) = self.easer.next() {
                             self.position = position;
                             return Damage::Frame;
                         }
                         _ => {}
                     }
-                    ToggleState::Deactivated => match self.easer.trend() {
+                    SwitchState::Deactivated => match self.easer.trend() {
                         Trend::Negative => if let Some(position) = self.easer.next() {
                             self.position = position;
                             return Damage::Frame
@@ -126,25 +126,25 @@ impl<M: TryIntoMessage<ToggleState>> Widget<M> for Toggle<M> {
     }
 }
 
-impl<M: TryIntoMessage<ToggleState>> Default for Toggle<M> {
+impl<M: TryIntoMessage<SwitchState>> Default for Switch<M> {
     fn default() -> Self {
         Self {
             toggle: Rectangle::empty(20., 20.)
             .background(style::BG2),
         	position: 0.,
-        	easer: Easer::new(0., 20., 500, Curve::Sinus),
+        	easer: Easer::new(Start::Min, 20., 500, Curve::Sinus),
         	orientation: Orientation::Horizontal,
         	message: None,
         	duration: 500,
-        	state: ToggleState::Deactivated
+        	state: SwitchState::Deactivated
         }
     }
 }
 
-impl<M: TryIntoMessage<ToggleState>> Toggle<M> {
+impl<M: TryIntoMessage<SwitchState>> Switch<M> {
     // Time in ms
     pub fn duration(mut self, duration: u32) -> Self {
-        self.duration = duration;
+        self.duration = duration / 2;
         self.easer.reset(duration);
         self
     }
@@ -152,12 +152,12 @@ impl<M: TryIntoMessage<ToggleState>> Toggle<M> {
         self.message = Some(message);
         self
     }
-    pub fn state(&self) -> ToggleState {
+    pub fn state(&self) -> SwitchState {
         self.state
     }
 }
 
-impl<M: TryIntoMessage<ToggleState>> Style for Toggle<M> {
+impl<M: TryIntoMessage<SwitchState>> Style for Switch<M> {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.toggle.set_background(background);
     }
