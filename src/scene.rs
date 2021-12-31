@@ -15,6 +15,15 @@ pub struct Coords {
     pub y: f32,
 }
 
+impl Default for Coords {
+    fn default() -> Self {
+        Coords {
+            x: 0.,
+            y: 0.,
+        }
+    }
+}
+
 impl From<(f32, f32)> for Coords {
     fn from(coords: (f32, f32)) -> Self {
         Coords {

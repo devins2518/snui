@@ -145,7 +145,7 @@ impl<M: TryIntoMessage<SwitchState>> Switch<M> {
     // Time in ms
     pub fn duration(mut self, duration: u32) -> Self {
         self.duration = duration / 2;
-        self.easer.reset(duration);
+        self.easer.reset(self.duration);
         self
     }
     pub fn message(mut self, message: M) -> Self {

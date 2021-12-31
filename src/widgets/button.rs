@@ -68,6 +68,9 @@ impl<M, W: Widget<M>> Proxy<M, W> {
             _request: PhantomData,
         }
     }
+    pub fn get_mut(&mut self) -> &mut W {
+        &mut self.child
+    }
 }
 
 pub struct Button<M, W, F>

@@ -84,6 +84,9 @@ impl<M> Child<M> {
             widget: Box::new(widget),
         }
     }
+    pub fn set_coords(&mut self, x: f32, y: f32) {
+        self.coords = Coords::new(x, y);
+    }
 }
 
 impl<M> Geometry for Child<M> {
