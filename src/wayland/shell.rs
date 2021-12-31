@@ -33,7 +33,6 @@ use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1
 
 pub struct Application<M, C>
 where
-    M: Clone,
     C: Controller<M> + Clone + 'static,
 {
     display: Display,
@@ -52,7 +51,6 @@ struct Context {
 
 pub struct CoreApplication<M, C>
 where
-    M: Clone,
     C: Controller<M> + Clone,
 {
     pub controller: C,
@@ -65,7 +63,6 @@ where
 
 pub struct InnerApplication<M, C>
 where
-    M: Clone,
     C: Controller<M> + Clone,
 {
     core: CoreApplication<M, C>,
@@ -145,7 +142,7 @@ impl Globals {
         previous: Option<Surface>,
     ) -> Option<Surface>
     where
-        M: Clone + 'static,
+        M: 'static,
         C: Controller<M> + Clone + 'static,
     {
         if self.compositor.is_some() {
@@ -214,7 +211,7 @@ impl Output {
 
 impl<M, C> Application<M, C>
 where
-    M: Clone + 'static,
+    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     pub fn new(pointer: bool) -> (Self, EventLoop<'static, Self>) {
@@ -468,7 +465,6 @@ where
 
 impl<M, C> Deref for InnerApplication<M, C>
 where
-    M: Clone,
     C: Controller<M> + Clone + 'static,
 {
     type Target = CoreApplication<M, C>;
@@ -479,7 +475,6 @@ where
 
 impl<M, C> DerefMut for InnerApplication<M, C>
 where
-    M: Clone,
     C: Controller<M> + Clone + 'static,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -489,7 +484,7 @@ where
 
 impl<M, C> CoreApplication<M, C>
 where
-    M: Clone + 'static,
+    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     pub fn poll(&mut self, ev: Event<M>) -> C {
@@ -570,7 +565,6 @@ where
 
 impl<M, C> Geometry for InnerApplication<M, C>
 where
-    M: Clone,
     C: Controller<M> + Clone + 'static,
 {
     fn width(&self) -> f32 {
@@ -590,7 +584,7 @@ where
 
 impl<M, C> InnerApplication<M, C>
 where
-    M: Clone + 'static,
+    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     pub fn empty(
@@ -783,7 +777,7 @@ where
 
 fn frame_callback<M, C>(time: u32, surface: Main<WlSurface>)
 where
-    M: Clone + 'static,
+    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     let h = surface.detach();
@@ -806,7 +800,7 @@ where
 
 fn draw_callback<M, C>(surface: &Main<WlSurface>, mut recent_node: RenderNode)
 where
-    M: Clone + 'static,
+    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     let h = surface.detach();
@@ -839,7 +833,7 @@ impl From<ModifiersState> for Modifiers {
 
 fn assign_pointer<M, C>(pointer: &Main<WlPointer>)
 where
-    M: Clone + 'static,
+    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     let mut index = 0;
@@ -913,7 +907,7 @@ where
 
 fn assign_surface<M, C>(shell: &Main<ZwlrLayerSurfaceV1>)
 where
-    M: Clone + 'static,
+    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     shell.quick_assign(move |shell, event, mut inner| match event {
