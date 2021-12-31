@@ -4,13 +4,14 @@ use snui::wayland::shell::*;
 use snui::widgets::container::*;
 use snui::widgets::shapes::*;
 use snui::{
-    widgets::{text::*, *},
+    widgets::*,
     *,
 };
 use snui::widgets::extra::{
     Easer,
     Curve,
-    toggle::*
+    Start,
+    switch::*
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -20,11 +21,11 @@ enum AnimationState {
     Pause,
 }
 
-impl IntoMessage<ToggleState> for AnimationState {
-    fn into(&self, t: ToggleState) -> Self {
+impl IntoMessage<SwitchState> for AnimationState {
+    fn into(&self, t: SwitchState) -> Self {
         match t {
-            ToggleState::Activated => AnimationState::Start,
-            ToggleState::Deactivated => AnimationState::Pause,
+            SwitchState::Activated => AnimationState::Start,
+            SwitchState::Deactivated => AnimationState::Pause,
         }
     }
 }
@@ -45,12 +46,6 @@ impl Default for EaserCtl {
 }
 
 impl Controller<AnimationState> for EaserCtl {
-    fn serialize(&mut self) -> Result<u32, ControllerError> {
-        Err(ControllerError::WrongSerial)
-    }
-    fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
-        Err(ControllerError::WrongSerial)
-    }
     fn get<'m>(&'m self, _msg: &'m AnimationState) -> Result<Data<'m, AnimationState>, ControllerError> {
         return Ok(Data::Message(self.state));
     }
@@ -153,7 +148,7 @@ impl Animate {
         Animate {
             start: false,
             cursor: 20.,
-            easer: Easer::new(0., 0., 1000, curve),
+            easer: Easer::new(Start::Min, 0., 1000, curve),
         }
     }
 }
@@ -165,7 +160,7 @@ fn ui() -> impl Widget<AnimationState> {
     ui.add(Animate::new(Curve::Quadratic));
 
     ui.add(
-        Toggle::default()
+        Switch::default()
         .message(AnimationState::Pause)
         .duration(200)
         .ext()
@@ -206,8 +201,8 @@ fn main() {
     snui.create_inner_application(
         EaserCtl::default(),
         ui().ext()
-            .background(style::GRN)
-            .even_radius(2.)
+            .background(style::BG0)
+            .even_radius(4.)
             .border(style::BG2, 5.),
         event_loop.handle(),
         |_, _| {},

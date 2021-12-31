@@ -1,4 +1,4 @@
-pub mod toggle;
+pub mod switch;
 
 use std::f32::consts::{PI, FRAC_PI_2};
 
@@ -7,6 +7,12 @@ pub enum Curve {
     Quadratic,
     Linear,
     Sinus,
+}
+
+pub enum Start {
+    Min,
+    Middle,
+    Max,
 }
 
 pub struct Easer {
@@ -68,9 +74,22 @@ impl Iterator for Easer {
 }
 
 impl Easer {
-    pub fn new(start: f32, max: f32, time: u32, curve: Curve) -> Self {
+    pub fn new(start: Start, max: f32, time: u32, curve: Curve) -> Self {
+        let cursor = match start {
+            Start::Max => match curve {
+                Curve::Linear => max,
+                Curve::Quadratic => max.sqrt(),
+                Curve::Sinus => FRAC_PI_2
+            }
+            Start::Min => 0.,
+            Start::Middle => match curve {
+                Curve::Linear => max / 2.,
+                Curve::Quadratic => max.sqrt(),
+                Curve::Sinus => FRAC_PI_2
+            }
+        };
         Easer {
-            cursor: start,
+            cursor,
             max,
             frame_time: 1,
             time,

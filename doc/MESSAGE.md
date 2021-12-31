@@ -28,7 +28,7 @@ A companion of your **message** is `TryIntoMessage` and it's big brother `IntoMe
 ```rust
 pub trait TryIntoMessage<T> {
     type Error;
-    fn into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
+    fn try_into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
 }
 ```
 
@@ -91,7 +91,7 @@ Our slider can then do this :
 ```rust
 let ratio: f32 = todo!();
 if let Some(message) = self.message.as_ref() {
-	if let Ok(msg) = message.into(ratio) {
+	if let Ok(msg) = message.try_into(ratio) {
 		let _ = ctx.send(msg)
 	}
 }
