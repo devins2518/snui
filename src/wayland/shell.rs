@@ -1,5 +1,5 @@
 use crate::context::DrawContext;
-use crate::data::Controller;
+use crate::controller::Controller;
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::*;

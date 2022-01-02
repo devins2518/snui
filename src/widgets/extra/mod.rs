@@ -1,6 +1,6 @@
 pub mod switch;
 
-use std::f32::consts::{PI, FRAC_PI_2};
+use std::f32::consts::{FRAC_PI_2, PI};
 
 // A simple easer with a few curves
 pub enum Curve {
@@ -27,7 +27,7 @@ pub struct Easer {
 pub enum Trend {
     Positive,
     Neutral,
-    Negative
+    Negative,
 }
 
 impl Iterator for Easer {
@@ -62,10 +62,10 @@ impl Iterator for Easer {
                 let h = b.sqrt();
                 self.cursor += h * 2. / frame as f32;
                 if self.cursor > 2. * h {
-                    position = self.max - (2. * h - h).powi(2);
+                    position = self.max - (2. * h - h).powi(2).round();
                     self.time = 0;
                 } else {
-                    position = self.max - (self.cursor - h).powi(2);
+                    position = self.max - (self.cursor - h).powi(2).round();
                 }
             }
         }
@@ -79,14 +79,14 @@ impl Easer {
             Start::Max => match curve {
                 Curve::Linear => max,
                 Curve::Quadratic => max.sqrt(),
-                Curve::Sinus => FRAC_PI_2
-            }
+                Curve::Sinus => FRAC_PI_2,
+            },
             Start::Min => 0.,
             Start::Middle => match curve {
                 Curve::Linear => max / 2.,
                 Curve::Quadratic => max.sqrt(),
-                Curve::Sinus => FRAC_PI_2
-            }
+                Curve::Sinus => FRAC_PI_2,
+            },
         };
         Easer {
             cursor,
@@ -113,14 +113,12 @@ impl Easer {
                     Trend::Neutral
                 }
             }
-            Curve::Linear => {
-                Trend::Positive
-            }
+            Curve::Linear => Trend::Positive,
             Curve::Quadratic => {
                 let b = self.max;
                 let h = b.sqrt();
                 if self.cursor > 0. && self.cursor < h {
-                    return Trend::Positive
+                    return Trend::Positive;
                 } else if self.cursor > h && self.cursor < 2. * h {
                     Trend::Negative
                 } else {
@@ -131,12 +129,8 @@ impl Easer {
     }
     pub fn position(&self) -> f32 {
         match self.curve {
-            Curve::Sinus => {
-                self.max * (self.cursor).sin().abs()
-            }
-            Curve::Linear => {
-                self.cursor
-            }
+            Curve::Sinus => self.max * (self.cursor).sin().abs(),
+            Curve::Linear => self.cursor,
             Curve::Quadratic => {
                 let b = self.max;
                 let h = b.sqrt();

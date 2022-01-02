@@ -118,19 +118,14 @@ impl<M> Widget<M> for WidgetLayout<M> {
                         Orientation::Horizontal => {
                             match alignment {
                                 Alignment::Start => dy = 0.,
-                                Alignment::Center => dy = ((sh - wh) / 2.).floor(),
+                                Alignment::Center => dy = (sh - wh) / 2.,
                                 Alignment::End => dy = sh - wh,
                             }
                             child.coords = Coords::new(dx, dy);
                             node = child.create_node(x, y);
                             if !node.is_none() {
                                 node = RenderNode::Extension {
-                                    background: scene::Instruction::empty(
-                                        x + dx,
-                                        y + dy,
-                                        ww,
-                                        sh,
-                                    ),
+                                    background: scene::Instruction::empty(x + dx, y + dy, ww, sh),
                                     border: None,
                                     node: Box::new(node),
                                 };
@@ -140,19 +135,14 @@ impl<M> Widget<M> for WidgetLayout<M> {
                         Orientation::Vertical => {
                             match alignment {
                                 Alignment::Start => dx = 0.,
-                                Alignment::Center => dx = ((sw - ww) / 2.).floor(),
+                                Alignment::Center => dx = (sw - ww) / 2.,
                                 Alignment::End => dx = sw - ww,
                             }
                             child.coords = Coords::new(dx, dy);
                             node = child.create_node(x, y);
                             if !node.is_none() {
                                 node = RenderNode::Extension {
-                                    background: scene::Instruction::empty(
-                                        x + dx,
-                                        y + dy,
-                                        sw,
-                                        wh,
-                                    ),
+                                    background: scene::Instruction::empty(x + dx, y + dy, sw, wh),
                                     border: None,
                                     node: Box::new(node),
                                 };
@@ -165,7 +155,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage {
         let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
             damage = damage.max(child.sync(ctx, event));

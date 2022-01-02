@@ -1,11 +1,10 @@
-use crate::data::*;
 use crate::*;
 use scene::Instruction;
-use data::TryIntoMessage;
+use crate::controller::*;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
-pub struct Slider<M: PartialEq + TryIntoMessage<f32>> {
+pub struct Slider<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> {
     message: Option<M>,
     flip: bool,
     size: f32,
@@ -14,7 +13,7 @@ pub struct Slider<M: PartialEq + TryIntoMessage<f32>> {
     orientation: Orientation,
 }
 
-impl<M: PartialEq + TryIntoMessage<f32>> Slider<M> {
+impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Slider<M> {
     pub fn new(width: u32, height: u32) -> Self {
         let orientation = if height > width {
             Orientation::Vertical
@@ -56,31 +55,9 @@ impl<M: PartialEq + TryIntoMessage<f32>> Slider<M> {
         self.orientation = orientation;
         self
     }
-    fn filter(&mut self, data: Data<M>) -> Result<(), f32> {
-        match data {
-            Data::Float(ratio) => match &self.orientation {
-                Orientation::Horizontal => {
-                    return self.slider.set_width(ratio * self.size);
-                }
-                Orientation::Vertical => {
-                    return self.slider.set_height(ratio * self.size);
-                }
-            },
-            Data::Double(ratio) => match &self.orientation {
-                Orientation::Horizontal => {
-                    return self.slider.set_width(ratio as f32 * self.size);
-                }
-                Orientation::Vertical => {
-                    return self.slider.set_height(ratio as f32 * self.size);
-                }
-            },
-            _ => {}
-        }
-        Err(0.)
-    }
 }
 
-impl<M: PartialEq + TryIntoMessage<f32>> Geometry for Slider<M> {
+impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Geometry for Slider<M> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = &self.orientation {
             self.size
@@ -119,7 +96,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Geometry for Slider<M> {
     }
 }
 
-impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
+impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if self.flip {
             match self.orientation {
@@ -136,7 +113,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
             RenderNode::Instruction(Instruction::new(x, y, self.slider.clone()))
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage {
         match event {
             Event::Pointer(x, y, pointer) => {
                 if self.contains(*x, *y) {
@@ -199,7 +176,9 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
                                             if let Some(message) = self.message.as_ref() {
-                                                if let Ok(msg) = message.try_into(self.slider.width() / self.size) {
+                                                if let Ok(msg) = message
+                                                    .try_into(self.slider.width() / self.size)
+                                                {
                                                     let _ = ctx.send(msg);
                                                 }
                                             }
@@ -208,7 +187,9 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
                                             if let Some(message) = self.message.as_ref() {
-                                                if let Ok(msg) = message.try_into(self.slider.height() / self.size) {
+                                                if let Ok(msg) = message
+                                                    .try_into(self.slider.height() / self.size)
+                                                {
                                                     let _ = ctx.send(msg);
                                                 }
                                             }
@@ -236,7 +217,9 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                             Orientation::Horizontal => {
                                 if let Ok(_) = self.slider.set_width(x.min(self.size)) {
                                     if let Some(message) = self.message.as_ref() {
-                                        if let Ok(msg) = message.try_into(self.slider.width() / self.size) {
+                                        if let Ok(msg) =
+                                            message.try_into(self.slider.width() / self.size)
+                                        {
                                             let _ = ctx.send(msg);
                                         }
                                     }
@@ -246,7 +229,9 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
                             Orientation::Vertical => {
                                 if let Ok(_) = self.slider.set_height(y.min(self.size)) {
                                     if let Some(message) = self.message.as_ref() {
-                                        if let Ok(msg) = message.try_into(self.slider.height() / self.size) {
+                                        if let Ok(msg) =
+                                            message.try_into(self.slider.height() / self.size)
+                                        {
                                             let _ = ctx.send(msg);
                                         }
                                     }
@@ -262,8 +247,16 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
             Event::Message(msg) => {
                 if let Some(this) = self.message.as_ref() {
                     if this.eq(msg) {
-                        if let Ok(data) = ctx.get(msg) {
-                            if self.filter(data).is_ok() {
+                        if let Ok(msg) = ctx.get(msg) {
+                            if let Ok(ratio) = msg.try_into() {
+                                match &self.orientation {
+                                    Orientation::Horizontal => {
+                                        let _ = self.slider.set_width(ratio * self.size);
+                                    }
+                                    Orientation::Vertical => {
+                                        let _ = self.slider.set_height(ratio * self.size);
+                                    }
+                                }
                                 return Damage::Some;
                             }
                         }
@@ -272,27 +265,18 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
             }
             Event::Frame => {
                 if let Some(message) = self.message.as_ref() {
-                    if let Ok(data) = ctx.get(message) {
-                        match data {
-                            Data::Float(ratio) => match &self.orientation {
+                    if let Ok(msg) = ctx.get(message) {
+                        if let Ok(ratio) = msg.try_into() {
+                            match &self.orientation {
                                 Orientation::Horizontal => {
-                                    let _  = self.slider.set_width(ratio * self.size);
+                                    let _ = self.slider.set_width(ratio * self.size);
                                 }
                                 Orientation::Vertical => {
-                                    let _  = self.slider.set_height(ratio * self.size);
+                                    let _ = self.slider.set_height(ratio * self.size);
                                 }
-                            },
-                            Data::Double(ratio) => match &self.orientation {
-                                Orientation::Horizontal => {
-                                    let _  = self.slider.set_width(ratio as f32 * self.size);
-                                }
-                                Orientation::Vertical => {
-                                    let _  = self.slider.set_height(ratio as f32 * self.size);
-                                }
-                            },
-                            _ => return Damage::None
+                            }
+                            return Damage::Some;
                         }
-                        return Damage::Some;
                     }
                 }
             }
@@ -302,7 +286,7 @@ impl<M: PartialEq + TryIntoMessage<f32>> Widget<M> for Slider<M> {
     }
 }
 
-impl<M: PartialEq + TryIntoMessage<f32> + Clone> Style for Slider<M> {
+impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Style for Slider<M> {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.slider.set_background(background);
     }

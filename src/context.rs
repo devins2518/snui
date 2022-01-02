@@ -1,6 +1,6 @@
 use crate::font::FontCache;
 use crate::*;
-use data::*;
+use controller::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
@@ -153,13 +153,13 @@ impl<'c, M> Controller<M> for SyncContext<'c, M> {
     fn deserialize(&mut self, serial: u32) -> Result<(), ControllerError> {
         self.controller.deserialize(serial)
     }
-    fn get<'m>(&'m self, msg: &'m M) -> Result<Data<'m, M>, ControllerError> {
+    fn get(&self, msg: &M) -> Result<M, ControllerError> {
         self.controller.get(msg)
     }
-    fn send<'m>(&'m mut self, msg: M) -> Result<Data<'m, M>, ControllerError> {
+    fn send(&mut self, msg: M) -> Result<M, ControllerError> {
         self.controller.send(msg)
     }
-    fn sync(&mut self) -> Result<M, ControllerError> {
+    fn sync<'s>(&mut self) -> Result<M, ControllerError> {
         self.controller.sync()
     }
 }

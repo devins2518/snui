@@ -1,18 +1,10 @@
 use scene::Instruction;
-use snui::data::*;
+use snui::controller::*;
 use snui::wayland::shell::*;
 use snui::widgets::container::*;
+use snui::widgets::extra::{switch::*, Curve, Easer, Start};
 use snui::widgets::shapes::*;
-use snui::{
-    widgets::*,
-    *,
-};
-use snui::widgets::extra::{
-    Easer,
-    Curve,
-    Start,
-    switch::*
-};
+use snui::{widgets::*, *};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AnimationState {
@@ -30,7 +22,7 @@ impl IntoMessage<SwitchState> for AnimationState {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct EaserCtl {
     block: bool,
     state: AnimationState,
@@ -40,24 +32,24 @@ impl Default for EaserCtl {
     fn default() -> Self {
         EaserCtl {
             block: false,
-            state: AnimationState::Stop
+            state: AnimationState::Stop,
         }
     }
 }
 
 impl Controller<AnimationState> for EaserCtl {
-    fn get<'m>(&'m self, _msg: &'m AnimationState) -> Result<Data<'m, AnimationState>, ControllerError> {
-        return Ok(Data::Message(self.state));
+    fn get(&self, _msg: &AnimationState) -> Result<AnimationState, ControllerError> {
+        return Ok(self.state);
     }
-    fn send<'m>(&'m mut self, msg: AnimationState) -> Result<Data<'m, AnimationState>, ControllerError> {
+    fn send(&mut self, msg: AnimationState) -> Result<AnimationState, ControllerError> {
         match msg {
             AnimationState::Stop | AnimationState::Pause => self.block = false,
             _ => {}
         }
         self.state = msg;
-        Ok(Data::Null)
+        Ok(self.state)
     }
-    fn sync(&mut self) -> Result<AnimationState, ControllerError> {
+    fn sync<'s>(&mut self) -> Result<AnimationState, ControllerError> {
         if !self.block {
             match self.state {
                 AnimationState::Stop => return Err(ControllerError::Waiting),
@@ -67,7 +59,7 @@ impl Controller<AnimationState> for EaserCtl {
                 }
                 AnimationState::Pause => {
                     self.block = true;
-                    return Ok(self.state)
+                    return Ok(self.state);
                 }
             }
         }
@@ -121,20 +113,18 @@ impl Widget<AnimationState> for Animate {
                     ctx.send(AnimationState::Stop);
                 }
             }
-            Event::Message(msg) => {
-                match msg {
-                    AnimationState::Start => {
-                        self.start = true;
-                        self.easer.set_max(self.width() - self.cursor);
-                        return Damage::Frame;
-                    }
-                    AnimationState::Pause => {
-                        self.start = false;
-                    }
-                    AnimationState::Stop => {
-                        self.start = false;
-                        self.easer.reset(1000);
-                    }
+            Event::Message(msg) => match msg {
+                AnimationState::Start => {
+                    self.start = true;
+                    self.easer.set_max(self.width() - self.cursor);
+                    return Damage::Frame;
+                }
+                AnimationState::Pause => {
+                    self.start = false;
+                }
+                AnimationState::Stop => {
+                    self.start = false;
+                    self.easer.reset(1000);
                 }
             },
             _ => {}
@@ -161,34 +151,35 @@ fn ui() -> impl Widget<AnimationState> {
 
     ui.add(
         Switch::default()
-        .message(AnimationState::Pause)
-        .duration(200)
-        .ext()
-        .background(style::BG1)
-        .even_radius(3.)
-        .button(move |this, ctx, p| match p {
-            Pointer::MouseClick {
-                time: _,
-                button,
-                pressed,
-            } => {
-                if button.is_left() && pressed {
-                    if let Data::Message(state) = ctx.get(&AnimationState::Start).unwrap() {
-                        match state {
-                            AnimationState::Start => {
-                                this.set_background(style::BG1);
-                                ctx.send(AnimationState::Pause)
+            .message(AnimationState::Pause)
+            .duration(200)
+            .ext()
+            .background(style::BG1)
+            .even_radius(3.)
+            .button(move |this, ctx, p| match p {
+                Pointer::MouseClick {
+                    time: _,
+                    button,
+                    pressed,
+                } => {
+                    if button.is_left() && pressed {
+                        if let Ok(state) = ctx.get(&AnimationState::Start) {
+                            match state {
+                                AnimationState::Start => {
+                                    this.set_background(style::BG1);
+                                    ctx.send(AnimationState::Pause)
+                                }
+                                AnimationState::Pause | AnimationState::Stop => {
+                                    this.set_background(style::RED);
+                                    ctx.send(AnimationState::Start)
+                                }
                             }
-                            AnimationState::Pause | AnimationState::Stop => {
-                                this.set_background(style::RED);
-                                ctx.send(AnimationState::Start)
-                            }
-                        }.unwrap();
+                            .unwrap();
+                        }
                     }
                 }
-            }
-            _ => {}
-        }),
+                _ => {}
+            }),
     );
     ui.justify(CENTER);
 

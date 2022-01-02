@@ -1,14 +1,14 @@
-use crate::*;
-use crate::data::*;
-use crate::widgets::extra::*;
-use crate::data::TryIntoMessage;
+use crate::controller::TryIntoMessage;
+use crate::controller::*;
 use crate::scene::Instruction;
-use crate::widgets::shapes::{Style, Rectangle};
+use crate::widgets::extra::*;
+use crate::widgets::shapes::{Rectangle, Style};
+use crate::*;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum SwitchState {
     Activated,
-    Deactivated
+    Deactivated,
 }
 
 pub struct Switch<M: TryIntoMessage<SwitchState>> {
@@ -18,7 +18,7 @@ pub struct Switch<M: TryIntoMessage<SwitchState>> {
     easer: Easer,
     position: f32,
     duration: u32,
-    message: Option<M>
+    message: Option<M>,
 }
 
 impl<M: TryIntoMessage<SwitchState>> Geometry for Switch<M> {
@@ -56,18 +56,10 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         match self.orientation {
             Orientation::Horizontal => {
-                Instruction::new(
-                    x + self.position,
-                    y,
-                    self.toggle.clone()
-                ).into()
+                Instruction::new(x + self.position, y, self.toggle.clone()).into()
             }
             Orientation::Vertical => {
-                Instruction::new(
-                    x,
-                    y + self.position,
-                    self.toggle.clone()
-                ).into()
+                Instruction::new(x, y + self.position, self.toggle.clone()).into()
             }
         }
     }
@@ -84,7 +76,7 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
                             if button.is_left() && pressed {
                                 let state = match self.state {
                                     SwitchState::Activated => SwitchState::Deactivated,
-                                    SwitchState::Deactivated => SwitchState::Activated
+                                    SwitchState::Deactivated => SwitchState::Activated,
                                 };
                                 if let Some(msg) = self.message.as_ref() {
                                     if let Ok(msg) = TryIntoMessage::try_into(msg, state) {
@@ -104,20 +96,24 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
                 self.easer.frame_time(*frame_time);
                 match self.state {
                     SwitchState::Activated => match self.easer.trend() {
-                        Trend::Neutral | Trend::Positive => if let Some(position) = self.easer.next() {
-                            self.position = position;
-                            return Damage::Frame;
+                        Trend::Neutral | Trend::Positive => {
+                            if let Some(position) = self.easer.next() {
+                                self.position = position;
+                                return Damage::Frame;
+                            }
                         }
                         _ => {}
-                    }
+                    },
                     SwitchState::Deactivated => match self.easer.trend() {
-                        Trend::Negative => if let Some(position) = self.easer.next() {
-                            self.position = position;
-                            return Damage::Frame
+                        Trend::Negative => {
+                            if let Some(position) = self.easer.next() {
+                                self.position = position;
+                                return Damage::Frame;
+                            }
                         }
                         Trend::Neutral => self.easer.reset(self.duration),
                         _ => {}
-                    }
+                    },
                 }
             }
             _ => {}
@@ -129,14 +125,13 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
 impl<M: TryIntoMessage<SwitchState>> Default for Switch<M> {
     fn default() -> Self {
         Self {
-            toggle: Rectangle::empty(20., 20.)
-            .background(style::BG2),
-        	position: 0.,
-        	easer: Easer::new(Start::Min, 20., 500, Curve::Sinus),
-        	orientation: Orientation::Horizontal,
-        	message: None,
-        	duration: 500,
-        	state: SwitchState::Deactivated
+            toggle: Rectangle::empty(20., 20.).background(style::BG2),
+            position: 0.,
+            easer: Easer::new(Start::Min, 20., 500, Curve::Sinus),
+            orientation: Orientation::Horizontal,
+            message: None,
+            duration: 500,
+            state: SwitchState::Deactivated,
         }
     }
 }

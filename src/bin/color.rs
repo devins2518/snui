@@ -1,70 +1,83 @@
 use snui::context::*;
-use snui::data::{Controller, ControllerError, Data, TryIntoMessage};
+use snui::controller::{Controller, ControllerError, TryIntoMessage};
 use snui::scene::*;
 use snui::wayland::shell::*;
 use snui::widgets::{shapes::*, text::*, *};
 use snui::{style::*, *};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct ColorControl {
     signal: Option<ColorMsg>,
     color: tiny_skia::Color,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Format {
-    Hex,
-    Uint,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum ColorMsg {
     Close,
-    Source(Format),
+    Null,
+    Source(u32),
     Red(f32),
     Green(f32),
     Blue(f32),
     Alpha(f32),
 }
 
+impl TryInto<String> for ColorMsg {
+    type Error = ();
+    fn try_into(self) -> Result<String, Self::Error> {
+        match self {
+            Self::Source(color) => {
+                Ok(format!("{:#010X}", color).replace("0x", "#"))
+            },
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryInto<f32> for ColorMsg {
+    type Error = ();
+    fn try_into(self) -> Result<f32, Self::Error> {
+        match self {
+            Self::Red(f) => Ok(f),
+            Self::Green(f) => Ok(f),
+            Self::Blue(f) => Ok(f),
+            Self::Alpha(f) => Ok(f),
+            _ => Err(()),
+        }
+    }
+}
+
 impl TryIntoMessage<f32> for ColorMsg {
     type Error = ();
-    fn try_into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
+    fn try_into(&self, f: f32) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
         match self {
             Self::Red(_) => Ok(Self::Red(f)),
             Self::Green(_) => Ok(Self::Green(f)),
             Self::Blue(_) => Ok(Self::Blue(f)),
             Self::Alpha(_) => Ok(Self::Alpha(f)),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
 
 impl Controller<ColorMsg> for ColorControl {
-    fn serialize(&mut self) -> Result<u32, ControllerError> {
-        Err(data::ControllerError::WrongSerial)
-    }
-    fn deserialize(&mut self, _token: u32) -> Result<(), ControllerError> {
-        Err(data::ControllerError::WrongSerial)
-    }
-    fn get<'m>(&'m self, msg: &'m ColorMsg) -> Result<Data<'m, ColorMsg>, ControllerError> {
+    fn get<'m>(&'m self, msg: &'m ColorMsg) -> Result<ColorMsg, ControllerError> {
         match msg {
-            ColorMsg::Alpha(_) => return Ok(self.color.alpha().into()),
-            ColorMsg::Red(_) => return Ok(self.color.red().into()),
-            ColorMsg::Green(_) => return Ok(self.color.green().into()),
-            ColorMsg::Blue(_) => return Ok(self.color.blue().into()),
-            ColorMsg::Source(format) => {
+            ColorMsg::Alpha(_) => Ok(ColorMsg::Alpha(self.color.alpha())),
+            ColorMsg::Red(_) => Ok(ColorMsg::Red(self.color.red())),
+            ColorMsg::Green(_) => Ok(ColorMsg::Red(self.color.green())),
+            ColorMsg::Blue(_) => Ok(ColorMsg::Blue(self.color.blue())),
+            ColorMsg::Source(_) => {
                 let color = self.color.to_color_u8().get();
-                match format {
-                    Format::Uint => return Ok(color.into()),
-                    Format::Hex => return Ok(format!("{:#010X}", color).replace("0x", "#").into()),
-                }
+                Ok(ColorMsg::Source(color))
             }
-            _ => {}
+            _ => Err(ControllerError::Message),
         }
-        Err(data::ControllerError::Message)
     }
-    fn send<'m>(&'m mut self, msg: ColorMsg) -> Result<Data<'m, ColorMsg>, ControllerError> {
+    fn send<'m>(&'m mut self, msg: ColorMsg) -> Result<ColorMsg, ControllerError> {
         match msg {
             ColorMsg::Alpha(alpha) => self.color.set_alpha(alpha),
             ColorMsg::Red(red) => self.color.set_red(red),
@@ -74,16 +87,18 @@ impl Controller<ColorMsg> for ColorControl {
             _ => return Err(ControllerError::Message),
         }
         self.signal = Some(msg);
-        Ok(Data::Null)
+        Ok(ColorMsg::Null)
     }
     fn sync(&mut self) -> Result<ColorMsg, ControllerError> {
-        if let Some(signal) = self.signal {
-            if signal != ColorMsg::Close {
+        if let Some(signal) = &self.signal {
+            if ColorMsg::Close.ne(signal) {
                 self.signal = None;
-                return Ok(ColorMsg::Source(Format::Uint));
+                return Ok(ColorMsg::Source(
+                    self.color.to_color_u8().get(),
+                ));
             }
         }
-        Err(data::ControllerError::Waiting)
+        Err(ControllerError::Waiting)
     }
 }
 
@@ -128,10 +143,8 @@ impl Widget<ColorMsg> for ColorBlock {
         event: &'d Event<'d, ColorMsg>,
     ) -> Damage {
         if let Event::Message(_) = event {
-            let color = ctx
-                .get(&ColorMsg::Source(Format::Uint))
-                .unwrap();
-            if let Data::Uint(color) = color {
+            let color = ctx.get(&ColorMsg::Source(0)).unwrap();
+            if let ColorMsg::Source(color) = color {
                 self.color = u32_to_source(color).to_color_u8();
             }
             return Damage::Some;
@@ -223,8 +236,8 @@ fn main() {
             .even_radius(5.),
         event_loop.handle(),
         |core, _| {
-            if let Some(signal) = core.controller.signal {
-                if signal == ColorMsg::Close {
+            if let Some(signal) = &core.controller.signal {
+                if ColorMsg::Close.eq(signal) {
                     core.destroy();
                     std::process::exit(0);
                 }
@@ -300,20 +313,15 @@ fn header() -> impl Widget<ColorMsg> {
             .even_radius(3.)
             .even_padding(2.)
             .border(BG2, 2.)
-            .button(|this, ctx, p| match p {
+            .button(|this, _, p| match p {
                 Pointer::MouseClick {
                     time: _,
                     pressed,
                     button,
                 } => {
                     if button.is_left() && pressed {
-                        if let Data::Uint(_) = ctx
-                            .get(&ColorMsg::Source(Format::Uint))
-                            .unwrap()
-                        {
-                            this.edit("Copied");
-                            this.set_background(Background::solid(BG1));
-                        }
+                        this.edit("Copied");
+                        this.set_background(Background::solid(BG1));
                     } else if button == MouseButton::Left {
                         this.edit("Copy");
                     }
@@ -337,7 +345,7 @@ fn body() -> WidgetLayout<ColorMsg> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
     let listener = Listener::from(Label::default("", 18.))
-        .message(ColorMsg::Source(Format::Hex))
+        .message(ColorMsg::Source(0))
         .poll()
         .clamp()
         .with_size(200., 22.)

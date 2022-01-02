@@ -11,8 +11,8 @@ The `Controller` trait is modelled similarly to rust's [mpsc](https://doc.rust-l
 
 ```rust
 pub trait Controller {
-    fn get<'m>(&'m self, msg: &'m M) -> Result<Data<'m, M>, ControllerError>;
-    fn send<'m>(&'m mut self, msg: M) -> Result<Data<'m, M>, ControllerError>;
+    fn get(&self, msg: &M) -> Result<M, ControllerError>;
+    fn send(&mut self, msg: M) -> Result<M, ControllerError>;
 	...
 }
 ```
@@ -117,7 +117,7 @@ pub trait Controller<M> {
 	...
     fn serialize(&mut self) -> Result<u32, ControllerError>;
     fn deserialize(&mut self, serial: u32) -> Result<(), ControllerError>;
-    fn send_serialize<'m>(&'m mut self, serial: u32, msg: M) -> Result<Data<'m, M>, ControllerError>;
+    fn send_serialize(&mut self, _serial: u32, _msg: M) -> Result<M, ControllerError>;
 }
 ```
 
