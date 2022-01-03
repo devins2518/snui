@@ -9,9 +9,9 @@ use smithay_client_toolkit::seat::keyboard::ModifiersState;
 use smithay_client_toolkit::shm::AutoMemPool;
 use smithay_client_toolkit::WaylandSource;
 
+use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use smithay_client_toolkit::reexports::client::{
     global_filter,
@@ -36,7 +36,7 @@ where
     C: Controller<M> + Clone + 'static,
 {
     display: Display,
-    pub globals: Rc<RefCell<Globals>>,
+    globals: Rc<RefCell<Globals>>,
     global_manager: GlobalManager,
     pub inner: Vec<InnerApplication<M, C>>,
     token: RegistrationToken,
@@ -66,7 +66,7 @@ where
     C: Controller<M> + Clone,
 {
     core: CoreApplication<M, C>,
-    cb: Box<dyn FnMut(&mut CoreApplication<M, C>, &Event<M>)>,
+    cb: Box<dyn FnMut(&mut CoreApplication<M, C>, Event<M>)>,
 }
 
 impl Surface {
@@ -147,39 +147,41 @@ impl Globals {
     {
         if self.compositor.is_some() {
             match config {
-                ShellConfig::LayerShell(config) => if let Some(layer_shell) = self.shell.as_ref() {
-                    let region = self.compositor.as_ref().unwrap().create_region();
-                    let wl_surface = self.compositor.as_ref().unwrap().create_surface();
-                    let layer_surface = layer_shell.get_layer_surface(
-                        &wl_surface,
-                        config.output.as_ref(),
-                        config.layer,
-                        config.namespace.clone(),
-                    );
-                    if let Some(anchor) = &config.anchor {
-                        layer_surface.set_anchor(*anchor);
+                ShellConfig::LayerShell(config) => {
+                    if let Some(layer_shell) = self.shell.as_ref() {
+                        let region = self.compositor.as_ref().unwrap().create_region();
+                        let wl_surface = self.compositor.as_ref().unwrap().create_surface();
+                        let layer_surface = layer_shell.get_layer_surface(
+                            &wl_surface,
+                            config.output.as_ref(),
+                            config.layer,
+                            config.namespace.clone(),
+                        );
+                        if let Some(anchor) = &config.anchor {
+                            layer_surface.set_anchor(*anchor);
+                        }
+                        wl_surface.quick_assign(|_, _, _| {});
+                        layer_surface.set_exclusive_zone(config.exclusive);
+                        layer_surface.set_keyboard_interactivity(config.interactivity);
+                        layer_surface.set_size(geometry.width() as u32, geometry.height() as u32);
+                        layer_surface.set_margin(
+                            config.margin[0],
+                            config.margin[1],
+                            config.margin[2],
+                            config.margin[3],
+                        );
+                        wl_surface.commit();
+                        assign_surface::<M, C>(&layer_surface);
+                        return Some(Surface::new(
+                            wl_surface,
+                            Shell::LayerShell {
+                                surface: layer_surface,
+                                config,
+                            },
+                            region,
+                            previous,
+                        ));
                     }
-                    wl_surface.quick_assign(|_, _, _| {});
-                    layer_surface.set_exclusive_zone(config.exclusive);
-                    layer_surface.set_keyboard_interactivity(config.interactivity);
-                    layer_surface.set_size(geometry.width() as u32, geometry.height() as u32);
-                    layer_surface.set_margin(
-                        config.margin[0],
-                        config.margin[1],
-                        config.margin[2],
-                        config.margin[3],
-                    );
-                    wl_surface.commit();
-                    assign_surface::<M, C>(&layer_surface);
-                    return Some(Surface::new(
-                        wl_surface,
-                        Shell::LayerShell {
-                            surface: layer_surface,
-                            config,
-                        },
-                        region,
-                        previous,
-                    ))
                 }
             }
         }
@@ -423,7 +425,7 @@ where
         controller: C,
         widget: impl Widget<M> + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
+        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
     ) {
         let inner_application =
             InnerApplication::empty(controller, widget, self.globals.clone(), cb);
@@ -436,7 +438,7 @@ where
         config: ShellConfig,
         widget: impl Widget<M> + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
+        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
     ) {
         let inner_application =
             InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
@@ -448,7 +450,7 @@ where
         controller: C,
         widget: impl Widget<M> + 'static,
         handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
+        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
     ) {
         let inner_application =
             InnerApplication::normal(controller, widget, self.globals.clone(), cb);
@@ -490,14 +492,14 @@ where
     pub fn poll(&mut self, ev: Event<M>) -> C {
         let mut ctl = self.controller.clone();
         let mut sync_ctx = SyncContext::new(&mut ctl, &mut self.ctx.font_cache);
-        self.widget.sync(&mut sync_ctx, &ev);
+        self.widget.sync(&mut sync_ctx, ev);
         ctl
     }
-    pub fn sync(&mut self, ev: &Event<M>) -> bool {
+    pub fn sync(&mut self, ev: Event<M>) -> bool {
         let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
         let mut damage = self.widget.sync(&mut sync_ctx, ev);
         while let Ok(msg) = sync_ctx.sync() {
-            damage = damage.max(self.widget.sync(&mut sync_ctx, &Event::Message(msg)));
+            damage = damage.max(self.widget.sync(&mut sync_ctx, Event::Message(&msg)));
         }
         if damage == Damage::Frame {
             if self.ctx.time.is_none() {
@@ -591,7 +593,7 @@ where
         controller: C,
         widget: impl Widget<M> + 'static,
         globals: Rc<RefCell<Globals>>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
+        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
     ) -> Self {
         let mempool = globals.borrow().create_mempool();
         let mut default = InnerApplication {
@@ -610,14 +612,14 @@ where
             },
             cb: Box::new(cb),
         };
-        default.sync(&Event::Prepare);
+        default.sync(Event::Prepare);
         default
     }
     pub fn normal(
         controller: C,
         widget: impl Widget<M> + 'static,
         globals: Rc<RefCell<Globals>>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
+        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
     ) -> Self {
         let mempool = globals.borrow().create_mempool();
         let mut default = InnerApplication {
@@ -636,7 +638,7 @@ where
             },
             cb: Box::new(cb),
         };
-        default.sync(&Event::Prepare);
+        default.sync(Event::Prepare);
         default.replace_surface();
         default
     }
@@ -645,7 +647,7 @@ where
         widget: impl Widget<M> + 'static,
         config: ShellConfig,
         globals: Rc<RefCell<Globals>>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, &Event<M>) + 'static,
+        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
     ) -> Self {
         let mempool = globals.borrow().create_mempool();
         let mut new = InnerApplication {
@@ -664,7 +666,7 @@ where
             },
             cb: Box::new(cb),
         };
-        new.sync(&Event::Prepare);
+        new.sync(Event::Prepare);
         new.replace_surface_by(config);
         new
     }
@@ -674,7 +676,7 @@ where
         }
         false
     }
-    pub fn roundtrip(&mut self, ev: &Event<M>) -> Result<RenderNode, ()> {
+    pub fn roundtrip(&mut self, ev: Event<M>) -> Result<RenderNode, ()> {
         let width = self.width();
         let height = self.height();
 
@@ -694,7 +696,6 @@ where
                     let _ = self.set_size(current_width, current_height);
                     return Err(());
                 }
-
 
                 // Creating the render node
                 let render_node = self.core.widget.create_node(0., 0.);
@@ -753,7 +754,7 @@ where
     }
     pub fn callback(&mut self, ev: Event<M>) {
         if self.ctx.time.is_none() || ev.is_cb() {
-            if let Ok(render_node) = self.roundtrip(&ev) {
+            if let Ok(render_node) = self.roundtrip(ev) {
                 if let Some(surface) = self.surface.as_ref() {
                     draw_callback::<M, C>(&surface.surface, render_node);
                 }
@@ -762,7 +763,7 @@ where
             let width = self.width();
             let height = self.height();
 
-            self.sync(&ev);
+            self.sync(ev);
 
             let current_width = self.width();
             let current_height = self.height();
@@ -930,7 +931,7 @@ where
                                         .set_size(width as f32, height as f32);
                                     if inner_application.ctx.pending_cb {
                                         if let Ok(render_node) =
-                                            inner_application.roundtrip(&Event::Frame)
+                                            inner_application.roundtrip(Event::Frame)
                                         {
                                             draw_callback::<M, C>(
                                                 &inner_application
@@ -943,7 +944,7 @@ where
                                         }
                                     } else {
                                         if let Ok(render_node) =
-                                            inner_application.roundtrip(&Event::Frame)
+                                            inner_application.roundtrip(Event::Frame)
                                         {
                                             inner_application.render(0, render_node);
                                         }

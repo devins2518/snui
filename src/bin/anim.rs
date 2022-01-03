@@ -102,12 +102,12 @@ impl Widget<AnimationState> for Animate {
     fn sync<'d>(
         &'d mut self,
         ctx: &mut context::SyncContext<AnimationState>,
-        event: &Event<AnimationState>,
+        event: Event<AnimationState>,
     ) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if self.start {
-                    self.easer.frame_time(*frame_time);
+                    self.easer.frame_time(frame_time);
                     return Damage::Frame;
                 } else {
                     ctx.send(AnimationState::Stop);

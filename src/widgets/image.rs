@@ -25,9 +25,9 @@ pub struct Image {
 impl PartialEq for Image {
     fn eq(&self, other: &Self) -> bool {
         self.image.as_ptr() == other.image.as_ptr()
-        && self.scale == other.scale
-        && self.width == other.width
-        && self.height == other.height
+            && self.scale == other.scale
+            && self.width == other.width
+            && self.height == other.height
     }
 }
 
@@ -159,7 +159,7 @@ impl<M> Widget<M> for Image {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None
     }
 }

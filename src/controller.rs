@@ -1,6 +1,3 @@
-use std::ops::{Deref, DerefMut};
-use std::marker::PhantomData;
-
 pub trait TryIntoMessage<T>
 where
     Self: Sized,
@@ -38,33 +35,6 @@ pub enum ControllerError {
     WrongSerial,
     PendingSerial,
     NonSerialized,
-}
-
-pub struct Message<'m, M: 'm> (
-    pub M,
-    PhantomData<&'m ()>
-);
-
-impl<'m, M: 'm> Message<'m, M> {
-    pub fn get(self) -> M {
-        self.0
-    }
-}
-
-impl<'m, M: 'm> Deref for Message<'m, M> {
-    type Target = M;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'m, M: 'm> DerefMut for Message<'m, M> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<'m, M: 'm> Message<'m, M> {
 }
 
 pub trait Controller<M> {

@@ -26,9 +26,7 @@ impl TryInto<String> for ColorMsg {
     type Error = ();
     fn try_into(self) -> Result<String, Self::Error> {
         match self {
-            Self::Source(color) => {
-                Ok(format!("{:#010X}", color).replace("0x", "#"))
-            },
+            Self::Source(color) => Ok(format!("{:#010X}", color).replace("0x", "#")),
             _ => Err(()),
         }
     }
@@ -93,9 +91,7 @@ impl Controller<ColorMsg> for ColorControl {
         if let Some(signal) = &self.signal {
             if ColorMsg::Close.ne(signal) {
                 self.signal = None;
-                return Ok(ColorMsg::Source(
-                    self.color.to_color_u8().get(),
-                ));
+                return Ok(ColorMsg::Source(self.color.to_color_u8().get()));
             }
         }
         Err(ControllerError::Waiting)
@@ -140,7 +136,7 @@ impl Widget<ColorMsg> for ColorBlock {
     fn sync<'d>(
         &'d mut self,
         ctx: &mut SyncContext<ColorMsg>,
-        event: &'d Event<'d, ColorMsg>,
+        event: Event<'d, ColorMsg>,
     ) -> Damage {
         if let Event::Message(_) = event {
             let color = ctx.get(&ColorMsg::Source(0)).unwrap();
@@ -194,9 +190,9 @@ impl Widget<ColorMsg> for Cross {
     fn sync<'d>(
         &'d mut self,
         ctx: &mut SyncContext<ColorMsg>,
-        event: &'d Event<'d, ColorMsg>,
+        event: Event<'d, ColorMsg>,
     ) -> Damage {
-        if let Event::Pointer(x, y, p) = *event {
+        if let Event::Pointer(x, y, p) = event {
             if let Pointer::MouseClick {
                 time: _,
                 button,

@@ -125,12 +125,12 @@ impl<M> Widget<M> for Child<M> {
         }
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
         self.damage = self.damage.max(match event {
             Event::Pointer(mut x, mut y, p) => {
                 x -= self.coords.x;
                 y -= self.coords.y;
-                let result = self.widget.sync(ctx, &Event::Pointer(x, y, *p));
+                let result = self.widget.sync(ctx, Event::Pointer(x, y, p));
                 result
             }
             Event::Frame => self.widget.sync(ctx, event),

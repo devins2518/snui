@@ -1,6 +1,6 @@
+use crate::controller::*;
 use crate::*;
 use scene::Instruction;
-use crate::controller::*;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
@@ -113,17 +113,17 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
             RenderNode::Instruction(Instruction::new(x, y, self.slider.clone()))
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
             Event::Pointer(x, y, pointer) => {
-                if self.contains(*x, *y) {
+                if self.contains(x, y) {
                     match pointer {
                         Pointer::MouseClick {
                             time: _,
                             button,
                             pressed,
                         } => {
-                            self.pressed = *pressed;
+                            self.pressed = pressed;
                             if self.pressed && button.is_left() {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
@@ -209,7 +209,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                             pressed,
                         } => {
                             if button.is_left() {
-                                self.pressed = *pressed;
+                                self.pressed = pressed;
                                 return Damage::Some;
                             }
                         }

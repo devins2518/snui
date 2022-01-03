@@ -194,7 +194,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
             _ => {}
         }
         if node.is_none() {
-            return RenderNode::None
+            return RenderNode::None;
         }
         RenderNode::Extension {
             node: Box::new(node),
@@ -225,12 +225,12 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
             ),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
         if let Event::Pointer(mut x, mut y, p) = event {
             let border = self.border.0;
             x -= border;
             y -= border;
-            self.widget.sync(ctx, &Event::Pointer(x, y, *p))
+            self.widget.sync(ctx, Event::Pointer(x, y, p))
         } else {
             self.widget.sync(ctx, event)
         }

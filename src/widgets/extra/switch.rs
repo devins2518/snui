@@ -63,11 +63,11 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
             }
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
-                if self.contains(*x, *y) {
-                    match *p {
+                if self.contains(x, y) {
+                    match p {
                         Pointer::MouseClick {
                             time: _,
                             button,
@@ -93,7 +93,7 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
                 }
             }
             Event::Callback(frame_time) => {
-                self.easer.frame_time(*frame_time);
+                self.easer.frame_time(frame_time);
                 match self.state {
                     SwitchState::Activated => match self.easer.trend() {
                         Trend::Neutral | Trend::Positive => {

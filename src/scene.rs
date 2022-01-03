@@ -17,10 +17,7 @@ pub struct Coords {
 
 impl Default for Coords {
     fn default() -> Self {
-        Coords {
-            x: 0.,
-            y: 0.,
-        }
+        Coords { x: 0., y: 0. }
     }
 }
 
@@ -907,7 +904,11 @@ impl RenderNode {
                                             shape,
                                             clip,
                                         ) {
-                                            ctx.damage_region(&Background::from(shape), region, false);
+                                            ctx.damage_region(
+                                                &Background::from(shape),
+                                                region,
+                                                false,
+                                            );
                                             node.render(ctx, None);
                                         }
                                         node

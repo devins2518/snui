@@ -141,7 +141,7 @@ impl<M> Widget<M> for Label {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, _event: &'d Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, _event: Event<'d, M>) -> Damage {
         if self.layout.is_none() {
             let layout = ctx.font_cache.layout(self).glyphs().clone();
             self.size = font::get_size(&layout);
@@ -213,7 +213,7 @@ impl<M> Widget<M> for Text {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.label.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Some(string) = &self.buffer {
             ctx.font_cache.write(&mut self.layout, &self.label, string);
             let glyphs = self.layout.glyphs().clone();
@@ -270,7 +270,7 @@ impl<M: PartialEq + TryInto<String>> Widget<M> for Listener<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.text.label.clone()))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Some(message) = self.message.as_ref() {
             if self.poll {
                 if let Ok(msg) = ctx.get(message) {

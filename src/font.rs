@@ -50,7 +50,7 @@ impl From<&str> for FontProperty {
     fn from(name: &str) -> Self {
         FontProperty {
             name: name.to_string(),
-            style: FontStyle::Regular
+            style: FontStyle::Regular,
         }
     }
 }

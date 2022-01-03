@@ -52,7 +52,7 @@ impl<M, W: Widget<M>> Widget<M> for Proxy<M, W> {
         }
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         self.damage = self.damage.max(self.child.sync(ctx, event));
         self.queue_draw = self.damage.is_some() || event.is_frame();
         self.damage
@@ -127,11 +127,11 @@ where
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.proxy.create_node(x, y)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, pointer) = event {
-            if self.contains(*x, *y) {
+            if self.contains(x, y) {
                 if self.focused {
-                    (self.cb)(&mut self.proxy, ctx, *pointer);
+                    (self.cb)(&mut self.proxy, ctx, pointer);
                 } else {
                     self.focused = true;
                     (self.cb)(&mut self.proxy, ctx, Pointer::Enter);

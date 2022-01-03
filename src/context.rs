@@ -298,35 +298,40 @@ impl<'c> DrawContext<'c> {
         self.pending_damage.clear();
     }
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
-        if let Some(layout) = label.get_layout() {
-            for gp in layout.as_ref() {
-                if let Some(glyph_cache) =
-                    self.font_cache.fonts.get_mut(&label.fonts()[gp.font_index])
-                {
-                    if let Some(pixmap) = glyph_cache.render_glyph(gp, label.get_color()) {
-                        if let Some(pixmap) = PixmapRef::from_bytes(
-                            unsafe {
-                                std::slice::from_raw_parts(
-                                    pixmap.as_ptr() as *mut u8,
-                                    pixmap.len() * std::mem::size_of::<u32>(),
-                                )
-                            },
-                            gp.width as u32,
-                            gp.height as u32,
-                        ) {
-                            match &mut self.backend {
-                                Backend::Pixmap(dt) => {
-                                    dt.draw_pixmap(
-                                        (x.round() + gp.x) as i32,
-                                        (y.round() + gp.y) as i32,
-                                        pixmap,
-                                        &TEXT,
-                                        Transform::identity(),
-                                        None,
-                                    );
-                                }
-                                _ => (),
+        let mut layout;
+        for gp in {
+            if let Some(layout) = label.get_layout() {
+                layout.as_ref()
+            } else {
+                layout = self.font_cache.layout(label);
+                layout.glyphs()
+            }
+        } {
+            if let Some(glyph_cache) = self.font_cache.fonts.get_mut(&label.fonts()[gp.font_index])
+            {
+                if let Some(pixmap) = glyph_cache.render_glyph(gp, label.get_color()) {
+                    if let Some(pixmap) = PixmapRef::from_bytes(
+                        unsafe {
+                            std::slice::from_raw_parts(
+                                pixmap.as_ptr() as *mut u8,
+                                pixmap.len() * std::mem::size_of::<u32>(),
+                            )
+                        },
+                        gp.width as u32,
+                        gp.height as u32,
+                    ) {
+                        match &mut self.backend {
+                            Backend::Pixmap(dt) => {
+                                dt.draw_pixmap(
+                                    (x.round() + gp.x) as i32,
+                                    (y.round() + gp.y) as i32,
+                                    pixmap,
+                                    &TEXT,
+                                    Transform::identity(),
+                                    None,
+                                );
                             }
+                            _ => (),
                         }
                     }
                 }

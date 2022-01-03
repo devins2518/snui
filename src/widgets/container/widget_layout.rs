@@ -155,7 +155,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                 .collect(),
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &'d Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
             damage = damage.max(child.sync(ctx, event));

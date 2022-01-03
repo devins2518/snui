@@ -63,7 +63,7 @@ pub enum Shell {
 }
 
 pub enum ShellConfig {
-    LayerShell(LayerShellConfig)
+    LayerShell(LayerShellConfig),
 }
 
 #[derive(Debug, Clone)]

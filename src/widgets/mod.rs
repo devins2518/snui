@@ -1,6 +1,6 @@
 pub mod button;
-pub mod extra;
 pub mod container;
+pub mod extra;
 pub mod image;
 pub mod shapes;
 pub mod slider;
@@ -65,7 +65,7 @@ impl<M> Widget<M> for () {
     fn create_node(&mut self, _x: f32, _y: f32) -> RenderNode {
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None
     }
 }
@@ -90,7 +90,7 @@ impl<M> Widget<M> for Spacer {
     fn create_node(&mut self, _x: f32, _y: f32) -> RenderNode {
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None
     }
 }
@@ -151,12 +151,12 @@ impl<M, W: Widget<M>> Widget<M> for Padding<M, W> {
         let (top, _, _, left) = self.padding;
         self.widget.create_node(x + left, y + top)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
         let (top, _, _, left) = self.padding;
         if let Event::Pointer(mut x, mut y, p) = event {
             x -= left;
             y -= top;
-            self.widget.sync(ctx, &Event::Pointer(x, y, *p))
+            self.widget.sync(ctx, Event::Pointer(x, y, p))
         } else {
             self.widget.sync(ctx, event)
         }
@@ -273,11 +273,11 @@ impl<M, W: Widget<M>> Geometry for WidgetBox<M, W> {
 }
 
 impl<M, W: Widget<M>> Widget<M> for WidgetBox<M, W> {
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: &Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
         if let Event::Pointer(mut x, mut y, pointer) = event {
             x -= self.coords.x;
             y -= self.coords.y;
-            self.widget.sync(ctx, &Event::Pointer(x, y, *pointer))
+            self.widget.sync(ctx, Event::Pointer(x, y, pointer))
         } else {
             self.widget.sync(ctx, event)
         }
