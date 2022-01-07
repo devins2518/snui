@@ -94,9 +94,6 @@ impl Image {
     pub fn pixmap(&self) -> PixmapRef {
         PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap()
     }
-    pub fn as_ref(&self) -> &[u8] {
-        self.image.as_ref()
-    }
 }
 
 impl Geometry for Image {
@@ -161,6 +158,12 @@ impl<M> Widget<M> for Image {
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None
+    }
+}
+
+impl AsRef<[u8]> for Image {
+    fn as_ref(&self) -> &[u8] {
+        self.image.as_ref()
     }
 }
 

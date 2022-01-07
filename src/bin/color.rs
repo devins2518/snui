@@ -143,7 +143,7 @@ impl Widget<ColorMsg> for ColorBlock {
             if let ColorMsg::Source(color) = color {
                 self.color = u32_to_source(color).to_color_u8();
             }
-            return Damage::Some;
+            return Damage::Partial;
         }
         Damage::None
     }

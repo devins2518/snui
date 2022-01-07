@@ -5,6 +5,7 @@ use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
 pub struct Slider<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> {
+    step: f32,
     message: Option<M>,
     flip: bool,
     size: f32,
@@ -21,6 +22,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Slider<M> {
             Orientation::Horizontal
         };
         Slider {
+            step: 5.,
             message: None,
             flip: false,
             size: match &orientation {
@@ -143,7 +145,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                                     let _ = ctx.send(msg);
                                 }
                             }
-                            return Damage::Some;
+                            return Damage::Partial;
                         }
                         Pointer::Scroll {
                             orientation: _,
@@ -152,13 +154,23 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                             let ratio = match &self.orientation {
                                 Orientation::Horizontal => {
                                     let _ = self.slider.set_width(
-                                        (self.slider.width() - value).clamp(0., self.width()),
+                                        (self.slider.width()
+                                            - match value {
+                                                Move::Value(v) => v,
+                                                Move::Step(s) => s as f32 * self.step,
+                                            })
+                                        .clamp(0., self.width()),
                                     );
                                     self.slider.width() / self.size
                                 }
                                 Orientation::Vertical => {
                                     let _ = self.slider.set_height(
-                                        (self.slider.height() - value).clamp(0., self.height()),
+                                        (self.slider.height()
+                                            - match value {
+                                                Move::Value(v) => v,
+                                                Move::Step(s) => s as f32 * self.step,
+                                            })
+                                        .clamp(0., self.height()),
                                     );
                                     self.slider.height() / self.size
                                 }
@@ -168,7 +180,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                                     let _ = ctx.send(msg);
                                 }
                             }
-                            return Damage::Some;
+                            return Damage::Partial;
                         }
                         Pointer::Hover => {
                             if self.pressed {
@@ -196,7 +208,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                                         }
                                     }
                                 }
-                                return Damage::Some;
+                                return Damage::Partial;
                             }
                         }
                         _ => {}
@@ -210,7 +222,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                         } => {
                             if button.is_left() {
                                 self.pressed = pressed;
-                                return Damage::Some;
+                                return Damage::Partial;
                             }
                         }
                         Pointer::Hover => match &self.orientation {
@@ -223,7 +235,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                                             let _ = ctx.send(msg);
                                         }
                                     }
-                                    return Damage::Some;
+                                    return Damage::Partial;
                                 }
                             }
                             Orientation::Vertical => {
@@ -235,7 +247,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                                             let _ = ctx.send(msg);
                                         }
                                     }
-                                    return Damage::Some;
+                                    return Damage::Partial;
                                 }
                             }
                         },
@@ -257,7 +269,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                                         let _ = self.slider.set_height(ratio * self.size);
                                     }
                                 }
-                                return Damage::Some;
+                                return Damage::Partial;
                             }
                         }
                     }
@@ -275,7 +287,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
                                     let _ = self.slider.set_height(ratio * self.size);
                                 }
                             }
-                            return Damage::Some;
+                            return Damage::Partial;
                         }
                     }
                 }

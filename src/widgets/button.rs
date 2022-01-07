@@ -21,7 +21,7 @@ impl<M, W: Widget<M>> Deref for Proxy<M, W> {
 
 impl<M, W: Widget<M>> DerefMut for Proxy<M, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.damage = self.damage.max(Damage::Some);
+        self.damage = self.damage.max(Damage::Partial);
         &mut self.child
     }
 }
@@ -64,7 +64,7 @@ impl<M, W: Widget<M>> Proxy<M, W> {
         Proxy {
             child,
             queue_draw: true,
-            damage: Damage::Some,
+            damage: Damage::Partial,
             _request: PhantomData,
         }
     }

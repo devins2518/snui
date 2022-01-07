@@ -2,960 +2,675 @@ use crate::context::DrawContext;
 use crate::controller::Controller;
 use crate::font::FontCache;
 use crate::scene::*;
-use crate::wayland::*;
+use crate::wayland::{Globals, Output, Seat, Shell, Surface};
 use crate::*;
-use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
-use smithay_client_toolkit::seat::keyboard::ModifiersState;
-use smithay_client_toolkit::shm::AutoMemPool;
-use smithay_client_toolkit::WaylandSource;
+// use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
+// use smithay_client_toolkit::seat::keyboard::ModifiersState;
+// use smithay_client_toolkit::shm::AutoMemPool;
+// use smithay_client_toolkit::WaylandSource;
 
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-use smithay_client_toolkit::reexports::client::{
-    global_filter,
-    protocol::wl_buffer::WlBuffer,
+use wayland_client::{
+    protocol::wl_buffer,
     protocol::wl_callback,
-    protocol::wl_compositor::WlCompositor,
-    protocol::wl_output::{self, WlOutput},
-    protocol::wl_pointer::{self, WlPointer},
-    protocol::wl_region::WlRegion,
-    protocol::wl_seat::{self, Capability, WlSeat},
-    protocol::wl_shm::WlShm,
-    protocol::wl_surface::WlSurface,
-    Attached, Display, GlobalError, GlobalManager, Interface, Main, Proxy,
+    protocol::wl_compositor,
+    protocol::wl_output,
+    protocol::wl_pointer::{self, Axis, ButtonState},
+    protocol::wl_region,
+    protocol::wl_registry,
+    protocol::wl_seat::{self, Capability},
+    protocol::wl_shm,
+    protocol::wl_subcompositor,
+    protocol::wl_subsurface,
+    protocol::wl_surface,
+    Connection, ConnectionHandle, Dispatch, QueueHandle, WEnum,
 };
-use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::{
-    zwlr_layer_shell_v1::ZwlrLayerShellV1, zwlr_layer_surface_v1,
-    zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+use wayland_protocols::{
+    wlr::unstable::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1},
+    xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
+
+pub struct WaylandClient<M, C>
+where
+    M: 'static,
+    C: Controller<M> + Clone + 'static,
+{
+    focus: Option<usize>,
+    font_cache: FontCache,
+    connection: Connection,
+    globals: Rc<RefCell<Globals>>,
+    event_buffer: Event<'static, M>,
+    applications: Vec<Application<M, C>>,
+}
 
 pub struct Application<M, C>
 where
-    C: Controller<M> + Clone + 'static,
+    C: Controller<M>,
 {
-    display: Display,
+    state: State,
+    controller: C,
     globals: Rc<RefCell<Globals>>,
-    global_manager: GlobalManager,
-    pub inner: Vec<InnerApplication<M, C>>,
-    token: RegistrationToken,
-}
-
-struct Context {
-    pending_cb: bool,
-    time: Option<u32>,
-    render_node: Option<RenderNode>,
-    font_cache: FontCache,
-}
-
-pub struct CoreApplication<M, C>
-where
-    C: Controller<M> + Clone,
-{
-    pub controller: C,
-    ctx: Context,
-    globals: Rc<RefCell<Globals>>,
-    mempool: AutoMemPool,
+    // mempool: AutoMemPool,
     widget: Box<dyn Widget<M>>,
     surface: Option<Surface>,
 }
 
-pub struct InnerApplication<M, C>
+struct State {
+    configured: bool,
+    pending_cb: bool,
+    time: Option<u32>,
+    render_node: RenderNode,
+}
+
+impl<M, C> Application<M, C>
 where
-    C: Controller<M> + Clone,
+    C: Controller<M>,
 {
-    core: CoreApplication<M, C>,
-    cb: Box<dyn FnMut(&mut CoreApplication<M, C>, Event<M>)>,
+    fn eq_surface(&mut self, surface: &wl_surface::WlSurface) -> bool {
+        match self.surface.as_ref() {
+            Some(s) => s.wl_surface.eq(surface),
+            _ => false,
+        }
+    }
+    fn set_size(&mut self, conn: &mut ConnectionHandle, width: f32, height: f32) {
+        let (width, height) = Geometry::set_size(self, width, height)
+            .err()
+            .unwrap_or((width, height));
+
+        if let Some(s) = self.surface.as_ref() {
+            s.set_size(conn, width as u32, height as u32)
+        }
+    }
+}
+
+impl<M, C> Geometry for Application<M, C>
+where
+    C: Controller<M>,
+{
+    fn height(&self) -> f32 {
+        self.widget.height()
+    }
+    fn width(&self) -> f32 {
+        self.widget.width()
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.widget.set_width(width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.widget.set_height(height)
+    }
+}
+
+impl Globals {
+    fn create_xdg_surface<M, C>(
+        &self,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<WaylandClient<M, C>>,
+    ) -> Option<Surface>
+    where
+        C: Controller<M> + Clone,
+    {
+        let wm_base = self.wm_base.as_ref()?;
+        let compositor = self.compositor.as_ref()?;
+
+        let wl_surface = compositor.create_surface(conn, qh, ()).ok()?;
+        let wl_region = compositor.create_region(conn, qh, ()).ok()?;
+        let xdg_surface = wm_base.get_xdg_surface(conn, &wl_surface, qh, ()).ok()?;
+        let toplevel = xdg_surface.get_toplevel(conn, qh, ()).ok()?;
+
+        wl_surface.commit(conn);
+
+        Some(Surface {
+            wl_surface,
+            wl_region,
+            wl_buffer: None,
+            previous: None,
+            shell: Shell::Xdg {
+                xdg_surface,
+                toplevel,
+            },
+        })
+    }
 }
 
 impl Surface {
     fn new(
-        surface: Main<WlSurface>,
+        wl_surface: wl_surface::WlSurface,
+        wl_region: wl_region::WlRegion,
         shell: Shell,
-        region: Main<WlRegion>,
         previous: Option<Surface>,
     ) -> Self {
         Surface {
-            alive: true,
-            surface,
+            wl_surface,
             shell,
-            region,
+            wl_region,
             previous: if let Some(surface) = previous {
                 Some(Box::new(surface))
             } else {
                 None
             },
-            buffer: None,
+            wl_buffer: None,
         }
     }
-    fn commit(&mut self) {
-        self.surface.commit();
+    fn commit(&mut self, ch: &mut ConnectionHandle) {
+        self.wl_surface.commit(ch);
         std::mem::drop(&mut self.previous);
         self.previous = None;
     }
-    fn destroy(&mut self) {
-        self.alive = false;
-        self.surface.destroy();
-        self.region.destroy();
-        self.shell.destroy();
-        if let Some(buffer) = self.buffer.as_ref() {
-            buffer.destroy();
+    fn destroy(&mut self, ch: &mut ConnectionHandle) {
+        self.wl_surface.destroy(ch);
+        self.wl_region.destroy(ch);
+        self.shell.destroy(ch);
+        if let Some(buffer) = self.wl_buffer.as_ref() {
+            buffer.destroy(ch);
         }
-        self.buffer = None;
+        self.wl_buffer = None;
     }
-    fn destroy_previous(&mut self) {
+    fn destroy_previous(&mut self, ch: &mut ConnectionHandle) {
         if let Some(surface) = self.previous.as_mut() {
-            surface.destroy();
+            surface.destroy(ch);
         }
         self.previous = None;
     }
-    fn set_size(&self, width: u32, height: u32) {
-        self.shell.set_size(width, height);
+    fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
+        self.shell.set_size(ch, width, height);
     }
-    fn damage(&self, report: &[Region]) {
-        self.surface.attach(self.buffer.as_ref(), 0, 0);
+    fn damage(&self, ch: &mut ConnectionHandle, report: &[Region]) {
+        self.wl_surface.attach(ch, self.wl_buffer.as_ref(), 0, 0);
         for d in report {
-            self.surface
-                .damage(d.x as i32, d.y as i32, d.width as i32, d.height as i32);
+            self.wl_surface
+                .damage(ch, d.x as i32, d.y as i32, d.width as i32, d.height as i32);
         }
     }
-    fn attach_buffer(&mut self, buffer: WlBuffer) {
-        self.buffer = Some(buffer);
+    fn attach_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer) {
+        self.wl_buffer = Some(wl_buffer);
     }
 }
 
-impl Globals {
-    fn new() -> Self {
-        Self {
-            outputs: Vec::new(),
-            seats: Vec::new(),
-            shm: None,
-            compositor: None,
-            shell: None,
-        }
-    }
-    pub fn create_shell_surface_from<M, C>(
-        &self,
-        geometry: &dyn Widget<M>,
-        config: ShellConfig,
-        previous: Option<Surface>,
-    ) -> Option<Surface>
-    where
-        M: 'static,
-        C: Controller<M> + Clone + 'static,
-    {
-        if self.compositor.is_some() {
-            match config {
-                ShellConfig::LayerShell(config) => {
-                    if let Some(layer_shell) = self.shell.as_ref() {
-                        let region = self.compositor.as_ref().unwrap().create_region();
-                        let wl_surface = self.compositor.as_ref().unwrap().create_surface();
-                        let layer_surface = layer_shell.get_layer_surface(
-                            &wl_surface,
-                            config.output.as_ref(),
-                            config.layer,
-                            config.namespace.clone(),
-                        );
-                        if let Some(anchor) = &config.anchor {
-                            layer_surface.set_anchor(*anchor);
-                        }
-                        wl_surface.quick_assign(|_, _, _| {});
-                        layer_surface.set_exclusive_zone(config.exclusive);
-                        layer_surface.set_keyboard_interactivity(config.interactivity);
-                        layer_surface.set_size(geometry.width() as u32, geometry.height() as u32);
-                        layer_surface.set_margin(
-                            config.margin[0],
-                            config.margin[1],
-                            config.margin[2],
-                            config.margin[3],
-                        );
-                        wl_surface.commit();
-                        assign_surface::<M, C>(&layer_surface);
-                        return Some(Surface::new(
-                            wl_surface,
-                            Shell::LayerShell {
-                                surface: layer_surface,
-                                config,
-                            },
-                            region,
-                            previous,
-                        ));
-                    }
-                }
-            }
-        }
-        None
-    }
-    pub fn create_mempool(&self) -> AutoMemPool {
-        let attached = Attached::from(self.shm.clone().unwrap());
-        AutoMemPool::new(attached).unwrap()
-    }
-    pub fn get_outputs(&self) -> Vec<Output> {
-        self.outputs.clone()
-    }
-    pub fn get_seats(&self) -> &[Seat] {
-        &self.seats
-    }
-}
-
-impl Output {
-    fn new(output: Main<WlOutput>) -> Self {
-        Output {
-            width: 0,
-            height: 0,
-            scale: 1,
-            name: String::new(),
-            output,
-        }
-    }
-}
-
-impl<M, C> Application<M, C>
+impl<M, C> Dispatch<wl_registry::WlRegistry> for WaylandClient<M, C>
 where
     M: 'static,
     C: Controller<M> + Clone + 'static,
 {
-    pub fn new(pointer: bool) -> (Self, EventLoop<'static, Self>) {
-        let display = Display::connect_to_env().unwrap();
-        let event_queue = display.create_event_queue();
-        let attached_display = (*display).clone().attach(event_queue.token());
+    type UserData = ();
 
-        let display_handle = display.clone();
-
-        let globals = Globals::new();
-
-        let global_manager = GlobalManager::new_with_cb(
-            &attached_display,
-            global_filter!(
-                [
-                    ZwlrLayerShellV1,
-                    1,
-                    |layer_shell: Main<ZwlrLayerShellV1>, mut application: DispatchData| {
-                        if let Some(application) = application.get::<Application<M, C>>() {
-                            if let Ok(mut globals) = application.globals.try_borrow_mut() {
-                                globals.shell = Some(layer_shell);
-                            }
-                        }
-                    }
-                ],
-                [
-                    WlShm,
-                    1,
-                    |shm: Main<WlShm>, mut application: DispatchData| {
-                        shm.quick_assign(|_, _, _| {});
-                        if let Some(application) = application.get::<Application<M, C>>() {
-                            if let Ok(mut globals) = application.globals.try_borrow_mut() {
-                                globals.shm = Some(shm);
-                            }
-                        }
-                    }
-                ],
-                [
-                    WlCompositor,
-                    4,
-                    |compositor: Main<WlCompositor>, mut application: DispatchData| {
-                        if let Some(application) = application.get::<Application<M, C>>() {
-                            if let Ok(mut globals) = application.globals.try_borrow_mut() {
-                                globals.compositor = Some(compositor);
-                            }
-                        }
-                    }
-                ],
-                [WlSeat, 7, move |seat: Main<WlSeat>, _: DispatchData| {
-                    seat.quick_assign(move |wl_seat, event, mut application| match event {
-                        wl_seat::Event::Capabilities { capabilities } => {
-                            if let Some(application) = application.get::<Application<M, C>>() {
-                                if pointer
-                                    && capabilities & Capability::Pointer == Capability::Pointer
-                                {
-                                    let pointer = wl_seat.get_pointer();
-                                    assign_pointer::<M, C>(&pointer);
-                                }
-                                if let Ok(mut globals) = application.globals.try_borrow_mut() {
-                                    let mut found = None;
-                                    for seat in &mut globals.seats {
-                                        if wl_seat.eq(&seat.seat) {
-                                            found = Some(());
-                                            seat.capabilities = capabilities;
-                                        }
-                                    }
-                                    if found.is_none() {
-                                        globals.seats.push(Seat {
-                                            capabilities,
-                                            seat: wl_seat,
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                        _ => {}
-                    });
-                }],
-                [
-                    WlOutput,
-                    3,
-                    |output: Main<WlOutput>, _application: DispatchData| {
-                        output.quick_assign(move |wl_output, event, mut application| match event {
-                            wl_output::Event::Geometry {
-                                x: _,
-                                y: _,
-                                physical_width: _,
-                                physical_height: _,
-                                subpixel: _,
-                                make,
-                                model: _,
-                                transform: _,
-                            } => {
-                                if let Some(application) = application.get::<Application<M, C>>() {
-                                    if let Ok(mut globals) = application.globals.try_borrow_mut() {
-                                        let mut found = None;
-                                        for output in &mut globals.outputs {
-                                            if wl_output.eq(&output.output) {
-                                                found = Some(());
-                                                output.name = make.clone();
-                                            }
-                                        }
-                                        if found.is_none() {
-                                            let mut output = Output::new(wl_output);
-                                            output.name = make;
-                                            globals.outputs.push(output);
-                                        }
-                                    }
-                                }
-                            }
-                            wl_output::Event::Mode {
-                                flags: _,
-                                width,
-                                height,
-                                refresh: _,
-                            } => {
-                                if let Some(application) = application.get::<Application<M, C>>() {
-                                    if let Ok(mut globals) = application.globals.try_borrow_mut() {
-                                        let mut found = None;
-                                        for output in &mut globals.outputs {
-                                            if wl_output.eq(&output.output) {
-                                                found = Some(());
-                                                output.width = width;
-                                                output.height = height;
-                                            }
-                                        }
-                                        if found.is_none() {
-                                            let mut output = Output::new(wl_output);
-                                            output.width = width;
-                                            output.height = height;
-                                            globals.outputs.push(output);
-                                        }
-                                    }
-                                }
-                            }
-                            wl_output::Event::Scale { factor } => {
-                                if let Some(application) = application.get::<Application<M, C>>() {
-                                    if let Ok(mut globals) = application.globals.try_borrow_mut() {
-                                        let mut found = None;
-                                        for output in &mut globals.outputs {
-                                            if wl_output.eq(&output.output) {
-                                                found = Some(());
-                                                output.scale = factor;
-                                            }
-                                        }
-                                        if found.is_none() {
-                                            let mut output = Output::new(wl_output);
-                                            output.scale = factor;
-                                            globals.outputs.push(output);
-                                        }
-                                    }
-                                }
-                            }
-                            wl_output::Event::Done => {}
-                            _ => {}
-                        });
-                    }
-                ]
-            ),
-        );
-
-        let event_loop = EventLoop::try_new().expect("Failed to initialize the event loop!");
-        let token = WaylandSource::new(event_queue)
-            .quick_insert(event_loop.handle())
-            .unwrap();
-
-        let (mut application, mut event_loop) = (
-            Application {
-                display,
-                globals: Rc::new(RefCell::new(globals)),
-                global_manager,
-                inner: Vec::new(),
-                token,
-            },
-            event_loop,
-        );
-
-        for _ in 0..2 {
-            display_handle.flush().unwrap();
-            event_loop.dispatch(None, &mut application).unwrap();
-        }
-
-        (application, event_loop)
-    }
-    fn get_index(&self, surface: &WlSurface) -> usize {
-        for i in 0..self.inner.len() {
-            if self.inner[i].eq(surface) {
-                return i;
-            }
-        }
-        0
-    }
-    fn get_application(&mut self, surface: &WlSurface) -> Option<&mut InnerApplication<M, C>> {
-        for inner in &mut self.inner {
-            if inner.eq(surface) {
-                return Some(inner);
-            }
-        }
-        None
-    }
-    pub fn get_global<I>(&self) -> Result<Main<I>, GlobalError>
-    where
-        I: Interface + AsRef<Proxy<I>> + From<Proxy<I>>,
-    {
-        self.global_manager.instantiate_range::<I>(0, 1 << 8)
-    }
-    pub fn create_empty_inner_application<Data: 'static>(
+    fn event(
         &mut self,
-        controller: C,
-        widget: impl Widget<M> + 'static,
-        handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
+        registry: &wl_registry::WlRegistry,
+        event: wl_registry::Event,
+        _: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        qh: &wayland_client::QueueHandle<Self>,
     ) {
-        let inner_application =
-            InnerApplication::empty(controller, widget, self.globals.clone(), cb);
-        self.inner.push(inner_application);
-        handle.update(&self.token).unwrap();
-    }
-    pub fn create_inner_application_from<Data: 'static>(
-        &mut self,
-        controller: C,
-        config: ShellConfig,
-        widget: impl Widget<M> + 'static,
-        handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
-    ) {
-        let inner_application =
-            InnerApplication::new(controller, widget, config, self.globals.clone(), cb);
-        self.inner.push(inner_application);
-        handle.update(&self.token).unwrap();
-    }
-    pub fn create_inner_application<Data: 'static>(
-        &mut self,
-        controller: C,
-        widget: impl Widget<M> + 'static,
-        handle: LoopHandle<'_, Data>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
-    ) {
-        let inner_application =
-            InnerApplication::normal(controller, widget, self.globals.clone(), cb);
-        self.inner.push(inner_application);
-        handle.update(&self.token).unwrap();
-    }
-    pub fn run(mut self, event_loop: &mut EventLoop<'static, Self>) {
-        loop {
-            self.display.flush().unwrap();
-            event_loop.dispatch(None, &mut self).unwrap();
-        }
-    }
-}
-
-impl<M, C> Deref for InnerApplication<M, C>
-where
-    C: Controller<M> + Clone + 'static,
-{
-    type Target = CoreApplication<M, C>;
-    fn deref(&self) -> &Self::Target {
-        &self.core
-    }
-}
-
-impl<M, C> DerefMut for InnerApplication<M, C>
-where
-    C: Controller<M> + Clone + 'static,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.core
-    }
-}
-
-impl<M, C> CoreApplication<M, C>
-where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
-{
-    pub fn poll(&mut self, ev: Event<M>) -> C {
-        let mut ctl = self.controller.clone();
-        let mut sync_ctx = SyncContext::new(&mut ctl, &mut self.ctx.font_cache);
-        self.widget.sync(&mut sync_ctx, ev);
-        ctl
-    }
-    pub fn sync(&mut self, ev: Event<M>) -> bool {
-        let mut sync_ctx = SyncContext::new(&mut self.controller, &mut self.ctx.font_cache);
-        let mut damage = self.widget.sync(&mut sync_ctx, ev);
-        while let Ok(msg) = sync_ctx.sync() {
-            damage = damage.max(self.widget.sync(&mut sync_ctx, Event::Message(&msg)));
-        }
-        if damage == Damage::Frame {
-            if self.ctx.time.is_none() {
-                self.ctx.time = Some(0);
-            }
-        }
-        damage.is_some() && !self.ctx.pending_cb
-    }
-    pub fn destroy(&mut self) {
-        if let Some(surface) = self.surface.as_mut() {
-            surface.destroy();
-        }
-    }
-    pub fn get_layer_surface(&self) -> ZwlrLayerSurfaceV1 {
-        match &self.surface.as_ref().unwrap().shell {
-            Shell::LayerShell { config: _, surface } => surface.detach(),
-        }
-    }
-    pub fn is_hidden(&self) -> bool {
-        if let Some(surface) = self.surface.as_ref() {
-            return !surface.alive;
-        } else {
-            true
-        }
-    }
-    pub fn replace_surface(&mut self) {
-        if let Some(surface) = self.surface.as_mut() {
-            surface.destroy();
-            surface.alive = true;
-            match &surface.shell {
-                Shell::LayerShell { config, surface: _ } => {
-                    self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
-                        self.widget.deref(),
-                        ShellConfig::LayerShell(config.clone()),
-                        Some(surface.clone()),
-                    );
+        if let wl_registry::Event::Global {
+            name, interface, ..
+        } = event
+        {
+            match &interface[..] {
+                "wl_compositor" => {
+                    self.globals.borrow_mut().compositor = registry
+                        .bind::<wl_compositor::WlCompositor, _>(conn, name, 1, qh, ())
+                        .ok();
                 }
-            }
-        } else {
-            self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
-                self.widget.deref(),
-                ShellConfig::LayerShell(LayerShellConfig::default()),
-                None,
-            );
-        }
-    }
-    pub fn replace_surface_by(&mut self, config: ShellConfig) {
-        if let Some(surface) = self.surface.as_mut() {
-            surface.destroy();
-            surface.alive = true;
-            self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
-                self.widget.deref(),
-                config,
-                Some(surface.clone()),
-            );
-        } else {
-            self.surface = self.globals.borrow().create_shell_surface_from::<M, C>(
-                self.widget.deref(),
-                config,
-                None,
-            );
-        }
-    }
-}
-
-impl<M, C> Geometry for InnerApplication<M, C>
-where
-    C: Controller<M> + Clone + 'static,
-{
-    fn width(&self) -> f32 {
-        self.widget.width()
-    }
-    fn height(&self) -> f32 {
-        self.widget.height()
-    }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        if let Some(surface) = self.surface.as_ref() {
-            surface.set_size(width as u32, height as u32);
-            surface.surface.commit();
-        }
-        Ok(())
-    }
-}
-
-impl<M, C> InnerApplication<M, C>
-where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
-{
-    pub fn empty(
-        controller: C,
-        widget: impl Widget<M> + 'static,
-        globals: Rc<RefCell<Globals>>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
-    ) -> Self {
-        let mempool = globals.borrow().create_mempool();
-        let mut default = InnerApplication {
-            core: CoreApplication {
-                controller,
-                ctx: Context {
-                    pending_cb: false,
-                    time: None,
-                    font_cache: FontCache::new(),
-                    render_node: None,
-                },
-                surface: None,
-                widget: Box::new(widget),
-                mempool,
-                globals,
-            },
-            cb: Box::new(cb),
-        };
-        default.sync(Event::Prepare);
-        default
-    }
-    pub fn normal(
-        controller: C,
-        widget: impl Widget<M> + 'static,
-        globals: Rc<RefCell<Globals>>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
-    ) -> Self {
-        let mempool = globals.borrow().create_mempool();
-        let mut default = InnerApplication {
-            core: CoreApplication {
-                controller,
-                ctx: Context {
-                    pending_cb: false,
-                    time: None,
-                    font_cache: FontCache::new(),
-                    render_node: None,
-                },
-                surface: None,
-                widget: Box::new(widget),
-                mempool,
-                globals,
-            },
-            cb: Box::new(cb),
-        };
-        default.sync(Event::Prepare);
-        default.replace_surface();
-        default
-    }
-    pub fn new(
-        controller: C,
-        widget: impl Widget<M> + 'static,
-        config: ShellConfig,
-        globals: Rc<RefCell<Globals>>,
-        cb: impl FnMut(&mut CoreApplication<M, C>, Event<M>) + 'static,
-    ) -> Self {
-        let mempool = globals.borrow().create_mempool();
-        let mut new = InnerApplication {
-            core: CoreApplication {
-                controller,
-                ctx: Context {
-                    pending_cb: false,
-                    time: None,
-                    font_cache: FontCache::new(),
-                    render_node: None,
-                },
-                surface: None,
-                widget: Box::new(widget),
-                mempool,
-                globals,
-            },
-            cb: Box::new(cb),
-        };
-        new.sync(Event::Prepare);
-        new.replace_surface_by(config);
-        new
-    }
-    fn eq(&self, wl_surface: &WlSurface) -> bool {
-        if let Some(surface) = &self.surface {
-            return surface.surface.detach().eq(wl_surface);
-        }
-        false
-    }
-    pub fn roundtrip(&mut self, ev: Event<M>) -> Result<RenderNode, ()> {
-        let width = self.width();
-        let height = self.height();
-
-        // Sending the event to the widget tree
-        if self.sync(ev) || ev.is_frame() {
-            // Calling the application´s closure
-            (self.cb)(&mut self.core, ev);
-
-            if !self.is_hidden() {
-                let current_width = self.width();
-                let current_height = self.height();
-
-                // Resizing the surface in case the widget changed size
-                if ev.is_frame() {
-                    self.ctx.render_node = None;
-                } else if width != current_width || height != current_height {
-                    let _ = self.set_size(current_width, current_height);
-                    return Err(());
+                "wl_subcompositor" => {
+                    self.globals.borrow_mut().subcompositor = registry
+                        .bind::<wl_subcompositor::WlSubcompositor, _>(conn, name, 1, qh, ())
+                        .ok();
                 }
-
-                // Creating the render node
-                let render_node = self.core.widget.create_node(0., 0.);
-
-                self.ctx.pending_cb = true;
-
-                return Ok(render_node);
+                "wl_shm" => {
+                    self.globals.borrow_mut().shm = registry
+                        .bind::<wl_shm::WlShm, _>(conn, name, 1, qh, ())
+                        .ok();
+                }
+                "wl_seat" => {
+                    registry
+                        .bind::<wl_seat::WlSeat, _>(conn, name, 1, qh, ())
+                        .unwrap();
+                }
+                "wl_output" => {
+                    registry
+                        .bind::<wl_output::WlOutput, _>(conn, name, 1, qh, ())
+                        .unwrap();
+                }
+                "zwlr_layer_shell" => {
+                    self.globals.borrow_mut().layer_shell = registry
+                        .bind::<zwlr_layer_shell_v1::ZwlrLayerShellV1, _>(conn, name, 1, qh, ())
+                        .ok();
+                }
+                "xdg_wm_base" => {
+                    self.globals.borrow_mut().wm_base = registry
+                        .bind::<xdg_wm_base::XdgWmBase, _>(conn, name, 1, qh, ())
+                        .ok();
+                }
+                _ => {}
             }
-        } else {
-            // Calling the application´s closure
-            (self.cb)(&mut self.core, ev);
         }
-
-        Err(())
     }
-    fn render(&mut self, time: u32, recent_node: RenderNode) {
-        let width = recent_node.width();
-        let height = recent_node.height();
-        if Some(time).ne(&self.core.ctx.time) || time == 0 {
-            if let Ok((buffer, wl_buffer)) =
-                Buffer::new(&mut self.core.mempool, width as i32, height as i32)
-            {
-                let mut v = Vec::new();
-                let mut ctx =
-                    DrawContext::new(buffer.backend, &mut self.core.ctx.font_cache, &mut v);
-                if let Some(render_node) = self.core.ctx.render_node.as_mut() {
-                    if let Err(region) = render_node.draw_merge(
-                        recent_node,
-                        &mut ctx,
-                        &Instruction::empty(0., 0., width, height),
-                        None,
-                    ) {
-                        ctx.damage_region(&Background::Transparent, region, false);
+}
+
+impl<M, C> Dispatch<wl_compositor::WlCompositor> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        _: &wl_compositor::WlCompositor,
+        _: wl_compositor::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        // wl_compositor has no event
+    }
+}
+
+impl<M, C> Dispatch<wl_subcompositor::WlSubcompositor> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        _: &wl_subcompositor::WlSubcompositor,
+        _: wl_subcompositor::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        // wl_compositor has no event
+    }
+}
+
+impl<M, C> Dispatch<wl_surface::WlSurface> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        _: &wl_surface::WlSurface,
+        _: wl_surface::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        todo!()
+    }
+}
+
+impl<M, C> Dispatch<wl_subsurface::WlSubsurface> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        _: &wl_subsurface::WlSubsurface,
+        _: wl_subsurface::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        // wl_subsurface has no event
+    }
+}
+
+impl<M, C> Dispatch<wl_region::WlRegion> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        _: &wl_region::WlRegion,
+        _: wl_region::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        // wl_region has no event
+    }
+}
+
+impl<M, C> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        toplevel: &xdg_toplevel::XdgToplevel,
+        event: xdg_toplevel::Event,
+        _: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        qh: &wayland_client::QueueHandle<Self>,
+    ) {
+        if let Some(application) = self.applications.iter_mut().find(|a| {
+            if let Some(s) = a.surface.as_ref() {
+                let t_toplevel = toplevel;
+                match &s.shell {
+                    wayland::Shell::Xdg { toplevel, .. } => toplevel.eq(t_toplevel),
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }) {
+            match event {
+                xdg_toplevel::Event::Configure { width, height, .. } => {
+                    todo!()
+                }
+                xdg_toplevel::Event::Close => {
+                    application.surface.as_mut().unwrap().destroy(conn);
+                }
+                _ => {}
+            }
+        }
+        // wl_region has no event
+    }
+}
+
+impl<M, C> Dispatch<wl_shm::WlShm> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        _: &wl_shm::WlShm,
+        _: wl_shm::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        // wl_shm has no event
+    }
+}
+
+impl<M, C> Dispatch<xdg_wm_base::XdgWmBase> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        wm_base: &xdg_wm_base::XdgWmBase,
+        event: xdg_wm_base::Event,
+        _: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        if let xdg_wm_base::Event::Ping { serial } = event {
+            wm_base.pong(conn, serial);
+        }
+    }
+}
+
+impl<M, C> Dispatch<xdg_surface::XdgSurface> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        xdg_surface: &xdg_surface::XdgSurface,
+        event: xdg_surface::Event,
+        _: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        if let xdg_surface::Event::Configure { serial, .. } = event {
+            xdg_surface.ack_configure(conn, serial);
+            if let Some(application) = self.applications.iter_mut().find(|a| {
+                if let Some(s) = a.surface.as_ref() {
+                    let t_xdg_surface = xdg_surface;
+                    match &s.shell {
+                        wayland::Shell::Xdg { xdg_surface, .. } => xdg_surface.eq(t_xdg_surface),
+                        _ => false,
                     }
                 } else {
-                    ctx.damage_region(
-                        &Background::Transparent,
-                        Region::new(0., 0., width, height),
-                        false,
-                    );
-                    recent_node.render(&mut ctx, None);
-                    self.core.ctx.render_node = Some(recent_node);
+                    false
                 }
-                self.core.ctx.pending_cb = false;
-                if let Some(surface) = self.core.surface.as_mut() {
-                    surface.attach_buffer(wl_buffer);
-                    surface.damage(&v);
-                    surface.commit();
-                    if let Some(_) = self.core.ctx.time {
-                        self.core.ctx.time = Some(time);
-                        frame_callback::<M, C>(time, surface.surface.clone());
-                    }
-                }
-            }
-        }
-    }
-    pub fn callback(&mut self, ev: Event<M>) {
-        if self.ctx.time.is_none() || ev.is_cb() {
-            if let Ok(render_node) = self.roundtrip(ev) {
-                if let Some(surface) = self.surface.as_ref() {
-                    draw_callback::<M, C>(&surface.surface, render_node);
-                }
-            }
-        } else {
-            let width = self.width();
-            let height = self.height();
-
-            self.sync(ev);
-
-            let current_width = self.width();
-            let current_height = self.height();
-
-            // Resizing the surface in case the widget changed size
-            if width != current_width || height != current_height {
-                let _ = self.set_size(current_width, current_height);
+            }) {
+                application.state.configured = true;
+                todo!()
             }
         }
     }
 }
 
-fn frame_callback<M, C>(time: u32, surface: Main<WlSurface>)
+impl<M, C> Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1> for WaylandClient<M, C>
 where
-    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
-    let h = surface.detach();
-    surface
-        .frame()
-        .quick_assign(move |_, event, mut application| match event {
-            wl_callback::Event::Done { callback_data } => {
-                let timeout = (callback_data - time).min(50);
-                if let Some(application) = application.get::<Application<M, C>>() {
-                    if let Some(inner_application) = application.get_application(&h) {
-                        inner_application.ctx.time = None;
-                        inner_application.callback(Event::Callback(timeout));
-                    }
-                }
-            }
-            _ => {}
-        });
-    surface.commit();
-}
+    type UserData = ();
 
-fn draw_callback<M, C>(surface: &Main<WlSurface>, mut recent_node: RenderNode)
-where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
-{
-    let h = surface.detach();
-    surface
-        .frame()
-        .quick_assign(move |_, event, mut application| match event {
-            wl_callback::Event::Done { callback_data } => {
-                if let Some(application) = application.get::<Application<M, C>>() {
-                    let inner_application = application.get_application(&h).unwrap();
-                    inner_application.render(callback_data, std::mem::take(&mut recent_node));
-                }
-            }
-            _ => {}
-        });
-    surface.commit();
-}
-
-impl From<ModifiersState> for Modifiers {
-    fn from(modifer_state: ModifiersState) -> Modifiers {
-        Modifiers {
-            ctrl: modifer_state.ctrl,
-            alt: modifer_state.alt,
-            shift: modifer_state.shift,
-            caps_lock: modifer_state.caps_lock,
-            logo: modifer_state.logo,
-            num_lock: modifer_state.num_lock,
-        }
+    fn event(
+        &mut self,
+        _: &zwlr_layer_shell_v1::ZwlrLayerShellV1,
+        _: zwlr_layer_shell_v1::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        // wl_shm has no event
     }
 }
 
-fn assign_pointer<M, C>(pointer: &Main<WlPointer>)
+impl<M, C> Dispatch<wl_seat::WlSeat> for WaylandClient<M, C>
 where
     M: 'static,
     C: Controller<M> + Clone + 'static,
 {
-    let mut index = 0;
-    let mut input = Pointer::Enter;
-    let (mut x, mut y) = (0., 0.);
-    pointer.quick_assign(move |_, event, mut inner| match event {
-        wl_pointer::Event::Leave { serial: _, surface } => {
-            input = Pointer::Leave;
-            if let Some(application) = inner.get::<Application<M, C>>() {
-                if let Some(inner_application) = application.get_application(&surface) {
-                    inner_application.callback(Event::Pointer(x as f32, y as f32, input));
-                }
-            }
-        }
-        wl_pointer::Event::Button {
-            serial: _,
-            time,
-            button,
-            state,
-        } => {
-            input = Pointer::MouseClick {
-                time,
-                button: MouseButton::new(button),
-                pressed: state == wl_pointer::ButtonState::Pressed,
-            };
-        }
-        wl_pointer::Event::Frame => {
-            if let Some(application) = inner.get::<Application<M, C>>() {
-                let inner_application = application.inner.get_mut(index).unwrap();
-                inner_application.callback(Event::Pointer(x as f32, y as f32, input));
-            }
-        }
-        wl_pointer::Event::Axis {
-            time: _,
-            axis,
-            value,
-        } => {
-            input = Pointer::Scroll {
-                orientation: match axis {
-                    wl_pointer::Axis::VerticalScroll => Orientation::Vertical,
-                    wl_pointer::Axis::HorizontalScroll => Orientation::Horizontal,
-                    _ => Orientation::Vertical,
-                },
-                value: value as f32,
-            }
-        }
-        wl_pointer::Event::Enter {
-            serial: _,
-            surface,
-            surface_x,
-            surface_y,
-        } => {
-            if let Some(application) = inner.get::<Application<M, C>>() {
-                x = surface_x;
-                y = surface_y;
-                index = application.get_index(&surface);
-            }
-        }
-        wl_pointer::Event::Motion {
-            time: _,
-            surface_x,
-            surface_y,
-        } => {
-            x = surface_x;
-            y = surface_y;
-            input = Pointer::Hover;
-        }
-        _ => {}
-    });
-}
+    type UserData = ();
 
-fn assign_surface<M, C>(shell: &Main<ZwlrLayerSurfaceV1>)
-where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
-{
-    shell.quick_assign(move |shell, event, mut inner| match event {
-        zwlr_layer_surface_v1::Event::Configure {
-            serial,
-            width,
-            height,
-        } => {
-            shell.ack_configure(serial);
-            println!("\nCONFIGURE - {} : {} X {}\n", serial, width, height);
-            if let Some(application) = inner.get::<Application<M, C>>() {
-                for inner_application in &mut application.inner {
-                    if let Some(app_surface) = inner_application.surface.as_mut() {
-                        match &app_surface.shell {
-                            Shell::LayerShell { config: _, surface } => {
-                                if shell.eq(surface) {
-                                    app_surface.destroy_previous();
-                                    let _ = inner_application
-                                        .widget
-                                        .set_size(width as f32, height as f32);
-                                    if inner_application.ctx.pending_cb {
-                                        if let Ok(render_node) =
-                                            inner_application.roundtrip(Event::Frame)
-                                        {
-                                            draw_callback::<M, C>(
-                                                &inner_application
-                                                    .surface
-                                                    .as_ref()
-                                                    .unwrap()
-                                                    .surface,
-                                                render_node,
-                                            );
-                                        }
-                                    } else {
-                                        if let Ok(render_node) =
-                                            inner_application.roundtrip(Event::Frame)
-                                        {
-                                            inner_application.render(0, render_node);
-                                        }
-                                    }
-                                }
-                            }
+    fn event(
+        &mut self,
+        seat: &wl_seat::WlSeat,
+        event: wl_seat::Event,
+        data: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        qh: &wayland_client::QueueHandle<Self>,
+    ) {
+        let res = if let Some(seat) = self
+            .globals
+            .borrow_mut()
+            .seats
+            .iter_mut()
+            .find(|s| s.seat.eq(seat))
+        {
+            match event {
+                wl_seat::Event::Name { ref name } => {
+                    seat.name = name.clone();
+                }
+                wl_seat::Event::Capabilities { capabilities } => {
+                    seat.capabilities = capabilities;
+                    if let WEnum::Value(capabilities) = capabilities {
+                        if capabilities & Capability::Pointer == Capability::Pointer {
+                            seat.seat.get_pointer(conn, qh, ()).unwrap();
                         }
                     }
                 }
+                _ => {}
+            }
+            Some(())
+        } else {
+            self.globals
+                .borrow_mut()
+                .seats
+                .push(Seat::new(seat.clone()));
+            None
+        };
+        if res.is_none() {
+            self.event(seat, event, data, conn, qh);
+        }
+    }
+}
+
+impl<M, C> Dispatch<wl_pointer::WlPointer> for WaylandClient<M, C>
+where
+    M: 'static,
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        pointer: &wl_pointer::WlPointer,
+        event: wl_pointer::Event,
+        data: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        qh: &wayland_client::QueueHandle<Self>,
+    ) {
+        if let Some(i) = self.focus {
+            match event {
+                wl_pointer::Event::Button {
+                    serial: _,
+                    time,
+                    button,
+                    state,
+                } => {
+                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                        *p = Pointer::MouseClick {
+                            time,
+                            button: MouseButton::new(button),
+                            pressed: if let WEnum::Value(state) = state {
+                                state == ButtonState::Pressed
+                            } else {
+                                false
+                            },
+                        };
+                    }
+                }
+                wl_pointer::Event::Axis {
+                    time: _,
+                    axis,
+                    value,
+                } => {
+                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                        if let WEnum::Value(axis) = axis {
+                            *p = Pointer::Scroll {
+                                orientation: match axis {
+                                    Axis::VerticalScroll => Orientation::Vertical,
+                                    Axis::HorizontalScroll => Orientation::Horizontal,
+                                    _ => unreachable!(),
+                                },
+                                value: Move::Value(value as f32),
+                            };
+                        }
+                    }
+                }
+                wl_pointer::Event::AxisDiscrete { axis, discrete } => {
+                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                        if let WEnum::Value(axis) = axis {
+                            *p = Pointer::Scroll {
+                                orientation: match axis {
+                                    Axis::VerticalScroll => Orientation::Vertical,
+                                    Axis::HorizontalScroll => Orientation::Horizontal,
+                                    _ => unreachable!(),
+                                },
+                                value: Move::Step(discrete),
+                            };
+                        }
+                    }
+                }
+                wl_pointer::Event::Motion {
+                    time: _,
+                    surface_x,
+                    surface_y,
+                } => {
+                    self.event_buffer =
+                        Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
+                }
+                wl_pointer::Event::Frame => {
+                    // Call dispatch method of the Application
+                    let _ = &self.applications[i];
+                    self.event_buffer = Event::Prepare;
+                }
+                _ => {}
+            }
+        } else {
+            match event {
+                wl_pointer::Event::Enter { ref surface, .. } => {
+                    self.focus = (0..self.applications.len())
+                        .find(|i| self.applications[*i].eq_surface(surface));
+                    self.event(pointer, event, data, conn, qh);
+                }
+                wl_pointer::Event::Leave { .. } => {
+                    self.focus = None;
+                    // Call dispatch method of the Application
+                    todo!()
+                }
+                _ => {}
             }
         }
-        _ => unreachable!(),
-    });
+    }
+}
+
+impl<M, C> Dispatch<wl_output::WlOutput> for WaylandClient<M, C>
+where
+    M: 'static,
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        output: &wl_output::WlOutput,
+        event: wl_output::Event,
+        data: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        qh: &wayland_client::QueueHandle<Self>,
+    ) {
+        let res = if let Some(output) = self
+            .globals
+            .borrow_mut()
+            .outputs
+            .iter_mut()
+            .find(|o| o.output.eq(output))
+        {
+            match event {
+                wl_output::Event::Mode {
+                    flags: _,
+                    width,
+                    height,
+                    refresh,
+                } => {
+                    output.width = width;
+                    output.height = height;
+                    output.refresh = refresh;
+                }
+                wl_output::Event::Name { ref name } => {
+                    output.name = name.clone();
+                }
+                wl_output::Event::Scale { factor } => {
+                    output.scale = factor;
+                }
+                _ => {}
+            }
+            Some(())
+        } else {
+            self.globals
+                .borrow_mut()
+                .outputs
+                .push(Output::new(output.clone()));
+            None
+        };
+        if res.is_none() {
+            self.event(output, event, data, conn, qh);
+        }
+    }
 }

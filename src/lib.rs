@@ -42,7 +42,7 @@ pub enum Damage {
     // Nothing needs to be damaged
     None,
     // Something needs to be damaged
-    Some,
+    Partial,
     // Damage then request a new frame
     Frame,
 }
@@ -68,9 +68,9 @@ impl PartialOrd for Damage {
                 Self::None => Ordering::Equal,
                 _ => Ordering::Less,
             },
-            Self::Some => match other {
+            Self::Partial => match other {
                 Self::None => Ordering::Greater,
-                Self::Some => Ordering::Equal,
+                Self::Partial => Ordering::Equal,
                 _ => Ordering::Less,
             },
             Self::Frame => match other {
@@ -127,6 +127,12 @@ pub struct Key<'k> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Move {
+    Value(f32),
+    Step(i32),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Pointer {
     MouseClick {
         time: u32,
@@ -135,7 +141,7 @@ pub enum Pointer {
     },
     Scroll {
         orientation: Orientation,
-        value: f32,
+        value: Move,
     },
     Hover,
     Enter,
@@ -182,7 +188,7 @@ impl MouseButton {
 
 #[derive(Debug, PartialEq)]
 pub enum Event<'d, M> {
-    // Send when a Full redraw is neccessary
+    // Sent when a Full redraw is neccessary
     Frame,
     Prepare,
     // Sent on a frame callback with the frame time in ms
@@ -204,6 +210,12 @@ impl<'d, M> Clone for Event<'d, M> {
             Self::Keyboard(key) => Self::Keyboard(*key),
             Self::Pointer(x, y, p) => Self::Pointer(*x, *y, *p),
         }
+    }
+}
+
+impl<'d, M> Default for Event<'d, M> {
+    fn default() -> Self {
+        Self::Prepare
     }
 }
 

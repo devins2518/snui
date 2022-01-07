@@ -146,7 +146,7 @@ impl<M> Widget<M> for Label {
             let layout = ctx.font_cache.layout(self).glyphs().clone();
             self.size = font::get_size(&layout);
             self.layout = Some(layout.into());
-            Damage::Some
+            Damage::Partial
         } else {
             Damage::None
         }
@@ -220,7 +220,7 @@ impl<M> Widget<M> for Text {
             self.label.size = font::get_size(&glyphs);
             self.label.layout = Some(glyphs.into());
             self.buffer = None;
-            Damage::Some
+            Damage::Partial
         } else {
             self.label.sync(ctx, event)
         }

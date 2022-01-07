@@ -4,26 +4,27 @@ use tiny_skia::*;
 
 use super::widgets::Alignment;
 use super::Orientation;
-pub use smithay_client_toolkit;
-pub use smithay_client_toolkit::reexports::client::{
+pub use wayland_client::{
     protocol::wl_buffer::WlBuffer,
     protocol::wl_compositor::WlCompositor,
     protocol::wl_output::WlOutput,
     protocol::wl_region::WlRegion,
     protocol::wl_seat::{Capability, WlSeat},
-    protocol::wl_shm::WlShm,
+    protocol::wl_shm::{Format, WlShm},
+    protocol::wl_shm_pool::WlShmPool,
+    protocol::wl_subcompositor::WlSubcompositor,
     protocol::wl_surface::WlSurface,
-    Main,
+    ConnectionHandle, WEnum,
 };
-pub use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::{
-    zwlr_layer_shell_v1::Layer, zwlr_layer_shell_v1::ZwlrLayerShellV1,
-    zwlr_layer_surface_v1::Anchor, zwlr_layer_surface_v1::KeyboardInteractivity,
-    zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+use wayland_protocols::{
+    wlr::unstable::layer_shell::v1::client::{
+        zwlr_layer_shell_v1::{Layer, ZwlrLayerShellV1},
+        zwlr_layer_surface_v1::{Anchor, KeyboardInteractivity, ZwlrLayerSurfaceV1},
+    },
+    xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
-use smithay_client_toolkit::shm::AutoMemPool;
 
 use crate::context::Backend;
-use smithay_client_toolkit::shm::Format;
 
 const FORMAT: Format = Format::Argb8888;
 
@@ -36,29 +37,33 @@ pub struct Buffer<'b> {
 }
 
 impl<'b> Buffer<'b> {
-    fn new(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Self, WlBuffer), ()> {
-        let stride = width * 4;
-        if mempool.resize((stride * height) as usize).is_ok() {
-            if let Ok((buf, wlbuf)) = mempool.buffer(width, height as i32, stride, FORMAT) {
-                if let Some(pixmap) = PixmapMut::from_bytes(buf, width as u32, height as u32) {
-                    return Ok((
-                        Self {
-                            backend: Backend::Pixmap(pixmap),
-                        },
-                        wlbuf,
-                    ));
-                }
-            }
-        }
-        Err(())
-    }
+    // fn new(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Self, WlBuffer), ()> {
+    //     let stride = width * 4;
+    //     if mempool.resize((stride * height) as usize).is_ok() {
+    //         if let Ok((buf, wlbuf)) = mempool.buffer(width, height as i32, stride, FORMAT) {
+    //             if let Some(pixmap) = PixmapMut::from_bytes(buf, width as u32, height as u32) {
+    //                 return Ok((
+    //                     Self {
+    //                         backend: Backend::Pixmap(pixmap),
+    //                     },
+    //                     wlbuf,
+    //                 ));
+    //             }
+    //         }
+    //     }
+    //     Err(())
+    // }
 }
 
 #[derive(Debug, Clone)]
 pub enum Shell {
     LayerShell {
         config: LayerShellConfig,
-        surface: Main<ZwlrLayerSurfaceV1>,
+        layer_surface: ZwlrLayerSurfaceV1,
+    },
+    Xdg {
+        xdg_surface: xdg_surface::XdgSurface,
+        toplevel: xdg_toplevel::XdgToplevel,
     },
 }
 
@@ -91,122 +96,43 @@ impl Default for LayerShellConfig {
     }
 }
 
-impl LayerShellConfig {
-    pub fn anchor(mut self, x: Alignment, y: Alignment) -> Self {
-        let mut anchor = Anchor::empty();
-        match x {
-            Alignment::Start => anchor.insert(Anchor::Left),
-            Alignment::End => anchor.insert(Anchor::Right),
-            _ => {}
-        }
-        match y {
-            Alignment::Start => anchor.insert(Anchor::Top),
-            Alignment::End => anchor.insert(Anchor::Top),
-            _ => {}
-        }
-        self.anchor = Some(anchor);
-        self
-    }
-    pub fn anchor_side(mut self, alignment: Alignment, orientation: Orientation) -> Self {
-        let mut anchor = Anchor::empty();
-        match orientation {
-            Orientation::Horizontal => match alignment {
-                Alignment::Start => {
-                    anchor.insert(Anchor::Top);
-                    anchor.insert(Anchor::Left);
-                    anchor.insert(Anchor::Bottom);
-                }
-                Alignment::End => {
-                    anchor.insert(Anchor::Top);
-                    anchor.insert(Anchor::Right);
-                    anchor.insert(Anchor::Bottom);
-                }
-                _ => {}
-            },
-            Orientation::Vertical => match alignment {
-                Alignment::Start => {
-                    anchor.insert(Anchor::Top);
-                    anchor.insert(Anchor::Left);
-                    anchor.insert(Anchor::Right);
-                }
-                Alignment::End => {
-                    anchor.insert(Anchor::Bottom);
-                    anchor.insert(Anchor::Left);
-                    anchor.insert(Anchor::Right);
-                }
-                _ => {}
-            },
-        }
-        self.anchor = Some(anchor);
-        self
-    }
-    pub fn output(mut self, output: WlOutput) -> Self {
-        self.output = Some(output);
-        self
-    }
-    pub fn background(mut self) -> Self {
-        self.layer = Layer::Background;
-        self
-    }
-    pub fn bottom(mut self) -> Self {
-        self.layer = Layer::Bottom;
-        self
-    }
-    pub fn overlay(mut self) -> Self {
-        self.layer = Layer::Overlay;
-        self
-    }
-    pub fn margin(mut self, top: i32, right: i32, bottom: i32, left: i32) -> Self {
-        self.margin = [top, right, bottom, left];
-        self
-    }
-    pub fn namespace(mut self, namespace: &str) -> Self {
-        self.namespace = namespace.to_string();
-        self
-    }
-    pub fn layer_shell(
-        layer: Layer,
-        anchor: Option<Anchor>,
-        output: Option<WlOutput>,
-        namespace: &str,
-        margin: [i32; 4],
-    ) -> Self {
-        Self {
-            layer,
-            anchor,
-            output,
-            exclusive: 0,
-            interactivity: KeyboardInteractivity::None,
-            namespace: namespace.to_string(),
-            margin,
-        }
-    }
-}
-
 impl Shell {
-    pub fn destroy(&self) {
+    pub fn destroy(&self, conn: &mut ConnectionHandle) {
         match self {
-            Shell::LayerShell { config: _, surface } => {
-                surface.destroy();
+            Shell::LayerShell {
+                config: _,
+                layer_surface,
+            } => {
+                layer_surface.destroy(conn);
+            }
+            Self::Xdg {
+                xdg_surface,
+                toplevel,
+            } => {
+                xdg_surface.destroy(conn);
+                toplevel.destroy(conn);
             }
         }
     }
-    pub fn set_size(&self, width: u32, height: u32) {
+    pub fn set_size(&self, conn: &mut ConnectionHandle, width: u32, height: u32) {
         match self {
-            Shell::LayerShell { config: _, surface } => {
-                surface.set_size(width, height);
+            Shell::LayerShell {
+                config: _,
+                layer_surface,
+            } => {
+                layer_surface.set_size(conn, width, height);
             }
+            _ => {}
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Surface {
-    alive: bool,
     shell: Shell,
-    region: Main<WlRegion>,
-    surface: Main<WlSurface>,
-    buffer: Option<WlBuffer>,
+    wl_region: WlRegion,
+    wl_surface: WlSurface,
+    wl_buffer: Option<WlBuffer>,
     previous: Option<Box<Self>>,
 }
 
@@ -216,23 +142,46 @@ pub struct Output {
     pub height: i32,
     pub scale: i32,
     pub name: String,
-    pub output: Main<WlOutput>,
+    pub output: WlOutput,
+    pub refresh: i32,
+}
+
+impl Output {
+    pub fn new(output: WlOutput) -> Self {
+        Output {
+            output,
+            name: String::new(),
+            refresh: 60,
+            scale: 1,
+            height: 1080,
+            width: 1920,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Seat {
-    pub seat: Main<WlSeat>,
-    pub capabilities: Capability,
+    pub seat: WlSeat,
+    pub name: String,
+    pub capabilities: WEnum<Capability>,
 }
 
-pub enum MultiGlobal {
-    Output(Output),
+impl Seat {
+    fn new(seat: WlSeat) -> Self {
+        Self {
+            seat,
+            name: String::new(),
+            capabilities: WEnum::Unknown(0),
+        }
+    }
 }
 
 pub struct Globals {
     pub outputs: Vec<Output>,
     pub seats: Vec<Seat>,
-    pub shm: Option<Main<WlShm>>,
-    pub compositor: Option<Main<WlCompositor>>,
-    pub shell: Option<Main<ZwlrLayerShellV1>>,
+    pub shm: Option<WlShm>,
+    pub compositor: Option<WlCompositor>,
+    pub subcompositor: Option<WlSubcompositor>,
+    pub wm_base: Option<xdg_wm_base::XdgWmBase>,
+    pub layer_shell: Option<ZwlrLayerShellV1>,
 }
