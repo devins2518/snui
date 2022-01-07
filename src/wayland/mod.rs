@@ -6,6 +6,7 @@ use super::widgets::Alignment;
 use super::Orientation;
 pub use wayland_client::{
     protocol::wl_buffer::WlBuffer,
+    protocol::wl_registry::WlRegistry,
     protocol::wl_compositor::WlCompositor,
     protocol::wl_output::WlOutput,
     protocol::wl_region::WlRegion,
@@ -75,7 +76,6 @@ pub enum ShellConfig {
 pub struct LayerShellConfig {
     pub layer: Layer,
     pub anchor: Option<Anchor>,
-    pub output: Option<WlOutput>,
     pub namespace: String,
     pub exclusive: i32,
     pub interactivity: KeyboardInteractivity,
@@ -87,7 +87,6 @@ impl Default for LayerShellConfig {
         Self {
             layer: Layer::Top,
             anchor: None,
-            output: None,
             exclusive: 0,
             interactivity: KeyboardInteractivity::None,
             namespace: "".to_string(),
@@ -132,6 +131,7 @@ pub struct Surface {
     shell: Shell,
     wl_region: WlRegion,
     wl_surface: WlSurface,
+    wl_output: Option<WlOutput>,
     wl_buffer: Option<WlBuffer>,
     previous: Option<Box<Self>>,
 }
@@ -176,10 +176,11 @@ impl Seat {
     }
 }
 
-pub struct Globals {
+pub struct GlobalManager {
     pub outputs: Vec<Output>,
     pub seats: Vec<Seat>,
     pub shm: Option<WlShm>,
+    pub registry: WlRegistry,
     pub compositor: Option<WlCompositor>,
     pub subcompositor: Option<WlSubcompositor>,
     pub wm_base: Option<xdg_wm_base::XdgWmBase>,

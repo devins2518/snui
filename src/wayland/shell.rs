@@ -2,13 +2,14 @@ use crate::context::DrawContext;
 use crate::controller::Controller;
 use crate::font::FontCache;
 use crate::scene::*;
-use crate::wayland::{Globals, Output, Seat, Shell, Surface};
+use crate::wayland::{GlobalManager, Output, Seat, Shell, Surface};
 use crate::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 // use smithay_client_toolkit::seat::keyboard::ModifiersState;
 // use smithay_client_toolkit::shm::AutoMemPool;
 // use smithay_client_toolkit::WaylandSource;
 
+use std::mem::take;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
@@ -41,7 +42,7 @@ where
     focus: Option<usize>,
     font_cache: FontCache,
     connection: Connection,
-    globals: Rc<RefCell<Globals>>,
+    globals: Rc<RefCell<GlobalManager>>,
     event_buffer: Event<'static, M>,
     applications: Vec<Application<M, C>>,
 }
@@ -52,10 +53,10 @@ where
 {
     state: State,
     controller: C,
-    globals: Rc<RefCell<Globals>>,
     // mempool: AutoMemPool,
     widget: Box<dyn Widget<M>>,
     surface: Option<Surface>,
+    globals: Rc<RefCell<GlobalManager>>,
 }
 
 struct State {
@@ -69,7 +70,7 @@ impl<M, C> Application<M, C>
 where
     C: Controller<M>,
 {
-    fn eq_surface(&mut self, surface: &wl_surface::WlSurface) -> bool {
+    fn eq_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         match self.surface.as_ref() {
             Some(s) => s.wl_surface.eq(surface),
             _ => false,
@@ -104,7 +105,7 @@ where
     }
 }
 
-impl Globals {
+impl GlobalManager {
     fn create_xdg_surface<M, C>(
         &self,
         conn: &mut ConnectionHandle,
@@ -128,6 +129,7 @@ impl Globals {
             wl_region,
             wl_buffer: None,
             previous: None,
+            wl_output: None,
             shell: Shell::Xdg {
                 xdg_surface,
                 toplevel,
@@ -147,6 +149,7 @@ impl Surface {
             wl_surface,
             shell,
             wl_region,
+            wl_output: None,
             previous: if let Some(surface) = previous {
                 Some(Box::new(surface))
             } else {
@@ -170,10 +173,9 @@ impl Surface {
         self.wl_buffer = None;
     }
     fn destroy_previous(&mut self, ch: &mut ConnectionHandle) {
-        if let Some(surface) = self.previous.as_mut() {
+        if let Some(mut surface) = take(&mut self.previous) {
             surface.destroy(ch);
         }
-        self.previous = None;
     }
     fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
         self.shell.set_size(ch, width, height);
@@ -192,7 +194,6 @@ impl Surface {
 
 impl<M, C> Dispatch<wl_registry::WlRegistry> for WaylandClient<M, C>
 where
-    M: 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -295,13 +296,22 @@ where
 
     fn event(
         &mut self,
-        _: &wl_surface::WlSurface,
-        _: wl_surface::Event,
+        surface: &wl_surface::WlSurface,
+        event: wl_surface::Event,
         _: &Self::UserData,
-        _: &mut ConnectionHandle,
-        _: &wayland_client::QueueHandle<Self>,
+        conn: &mut ConnectionHandle,
+        qh: &wayland_client::QueueHandle<Self>,
     ) {
-        todo!()
+        if let wl_surface::Event::Enter { output } = event {
+            if let Some(o) =
+            	self.globals.borrow().outputs.iter().find(|o| o.output == output) {
+                surface.set_buffer_scale(conn, o.scale);
+                if let Some(application) =
+                    self.applications.iter_mut().find(|a| a.eq_surface(&surface)) {
+                    application.surface.as_mut().unwrap().wl_output = Some(output);
+                }
+        	}
+        }
     }
 }
 
@@ -466,7 +476,7 @@ where
         _: &mut ConnectionHandle,
         _: &wayland_client::QueueHandle<Self>,
     ) {
-        // wl_shm has no event
+        // layer_shell has no event
     }
 }
 
