@@ -1,5 +1,5 @@
 use crate::context::DrawContext;
-use crate::controller::Controller;
+use crate::controller::{Controller, TryIntoMessage};
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::{GlobalManager, Output, Seat, Shell, Surface};
@@ -47,20 +47,36 @@ where
     applications: Vec<Application<M, C>>,
 }
 
+pub enum WindowMessage {
+    Close,
+    Maximize,
+    Minimize,
+    Title(String)
+}
 
 impl<M, C> WaylandClient<M, C>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    C: Controller<M> + Clone,
 {
     fn flush_ev_buffer(&mut self) {
         if let Some(i) = self.focus {
             let ev = take(&mut self.event_buffer);
-            todo!()
+            // Forward the event to the Application
+            todo!();
+            if !self.applications[i].state.configured {
+                self.applications.remove(i);
+            }
+        }
+    }
+    fn fwd_event(&mut self, event: Event<M>) {
+        if let Some(i) = self.focus {
+            todo!();
+            if !self.applications[i].state.configured {
+                self.applications.remove(i);
+            }
         }
     }
 }
-
 
 pub struct Application<M, C>
 where
@@ -87,7 +103,7 @@ impl Default for State {
             configured: false,
             pending_cb: false,
             time: None,
-            render_node: RenderNode::None
+            render_node: RenderNode::None,
         }
     }
 }
@@ -115,6 +131,66 @@ where
         let ptr = self.globals.as_ref().as_ptr();
         Rc::increment_strong_count(ptr);
         Rc::from_raw(ptr)
+    }
+}
+
+impl<M, C> Application<M, C>
+where
+    M: TryInto<WindowMessage>,
+    C: Controller<M>,
+{
+    fn sync(&mut self, conn: &mut ConnectionHandle, fc: &mut FontCache, event: Event<M>) -> Damage {
+        let mut damage = Damage::None;
+        let mut ctx = SyncContext::new(&mut self.controller, fc);
+        damage = damage.max(self.widget.sync(&mut ctx, event));
+
+        while let Ok(msg) = ctx.sync() {
+            damage = damage.max(self.widget.sync(&mut ctx, Event::Message(&msg)));
+            if let Some(s) = self.surface.as_mut() {
+                if let Ok(wm) = msg.try_into() {
+                    match wm {
+                        WindowMessage::Close => {
+                            // The WaylandClient will check if it's configured
+                            // and remove the Application if it's not.
+                            self.state.configured = false;
+                            s.destroy(conn);
+                            self.surface = None;
+                        }
+                        WindowMessage::Minimize => {
+                            match &s.shell {
+                                Shell::Xdg { toplevel, .. } => {
+                                    toplevel.set_minimized(conn);
+                                }
+                                _ => {}
+                            }
+                        }
+                        WindowMessage::Maximize => {
+                            match &s.shell {
+                                Shell::Xdg { toplevel, .. } => {
+                                    toplevel.set_maximized(conn);
+                                }
+                                Shell::LayerShell { layer_surface, .. } => {
+                                    // The following Configure event should be adjusted to
+                                    // the size of the output
+                                    layer_surface.set_size(conn, 1 << 31, 1 << 31);
+                                }
+                            }
+                        },
+                        WindowMessage::Title(title) => {
+                            match &s.shell {
+                                Shell::Xdg { toplevel, .. } => {
+                                    toplevel.set_title(conn, title);
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    return Damage::None;
+                }
+            }
+        }
+
+        damage
     }
 }
 
@@ -717,7 +793,11 @@ where
             .find(|o| o.output.eq(output))
         {
             match event {
-                wl_output::Event::Geometry { physical_width, physical_height, ..} => {
+                wl_output::Event::Geometry {
+                    physical_width,
+                    physical_height,
+                    ..
+                } => {
                     output.physical_width = physical_width;
                     output.physical_height = physical_height;
                 }

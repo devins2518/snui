@@ -1,9 +1,5 @@
 pub mod shell;
 
-use tiny_skia::*;
-
-use super::widgets::Alignment;
-use super::Orientation;
 pub use wayland_client::{
     protocol::wl_buffer::WlBuffer,
     protocol::wl_compositor::WlCompositor,
@@ -28,7 +24,7 @@ use wayland_protocols::{
 use crate::context::Backend;
 
 const FORMAT: Format = Format::Argb8888;
-// fn buffer<'b>(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Backend, WlBuffer), ()> {
+// fn buffer<'b>(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Backend<'b>, WlBuffer), ()> {
 //     let stride = width * 4;
 //     if mempool.resize((stride * height) as usize).is_ok() {
 //         if let Ok((buf, wlbuf)) = mempool.buffer(width, height as i32, stride, FORMAT) {
