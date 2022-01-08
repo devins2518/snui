@@ -6,10 +6,10 @@ use super::widgets::Alignment;
 use super::Orientation;
 pub use wayland_client::{
     protocol::wl_buffer::WlBuffer,
-    protocol::wl_registry::WlRegistry,
     protocol::wl_compositor::WlCompositor,
     protocol::wl_output::WlOutput,
     protocol::wl_region::WlRegion,
+    protocol::wl_registry::WlRegistry,
     protocol::wl_seat::{Capability, WlSeat},
     protocol::wl_shm::{Format, WlShm},
     protocol::wl_shm_pool::WlShmPool,
@@ -28,33 +28,22 @@ use wayland_protocols::{
 use crate::context::Backend;
 
 const FORMAT: Format = Format::Argb8888;
-
-pub enum DisplayEvent {
-    Output,
-}
-
-pub struct Buffer<'b> {
-    pub backend: Backend<'b>,
-}
-
-impl<'b> Buffer<'b> {
-    // fn new(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Self, WlBuffer), ()> {
-    //     let stride = width * 4;
-    //     if mempool.resize((stride * height) as usize).is_ok() {
-    //         if let Ok((buf, wlbuf)) = mempool.buffer(width, height as i32, stride, FORMAT) {
-    //             if let Some(pixmap) = PixmapMut::from_bytes(buf, width as u32, height as u32) {
-    //                 return Ok((
-    //                     Self {
-    //                         backend: Backend::Pixmap(pixmap),
-    //                     },
-    //                     wlbuf,
-    //                 ));
-    //             }
-    //         }
-    //     }
-    //     Err(())
-    // }
-}
+// fn buffer<'b>(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Backend, WlBuffer), ()> {
+//     let stride = width * 4;
+//     if mempool.resize((stride * height) as usize).is_ok() {
+//         if let Ok((buf, wlbuf)) = mempool.buffer(width, height as i32, stride, FORMAT) {
+//             if let Some(pixmap) = PixmapMut::from_bytes(buf, width as u32, height as u32) {
+//                 return Ok((
+//                     Self {
+//                         backend: Backend::Pixmap(pixmap),
+//                     },
+//                     wlbuf,
+//                 ));
+//             }
+//         }
+//     }
+//     Err(())
+// }
 
 #[derive(Debug, Clone)]
 pub enum Shell {
@@ -141,6 +130,8 @@ pub struct Output {
     pub width: i32,
     pub height: i32,
     pub scale: i32,
+    pub physical_width: i32,
+    pub physical_height: i32,
     pub name: String,
     pub output: WlOutput,
     pub refresh: i32,
@@ -155,6 +146,8 @@ impl Output {
             scale: 1,
             height: 1080,
             width: 1920,
+            physical_height: 1080,
+            physical_width: 1920,
         }
     }
 }

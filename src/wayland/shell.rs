@@ -9,8 +9,8 @@ use crate::*;
 // use smithay_client_toolkit::shm::AutoMemPool;
 // use smithay_client_toolkit::WaylandSource;
 
-use std::mem::take;
 use std::cell::RefCell;
+use std::mem::take;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
@@ -42,10 +42,25 @@ where
     focus: Option<usize>,
     font_cache: FontCache,
     connection: Connection,
-    globals: Rc<RefCell<GlobalManager>>,
     event_buffer: Event<'static, M>,
+    globals: Rc<RefCell<GlobalManager>>,
     applications: Vec<Application<M, C>>,
 }
+
+
+impl<M, C> WaylandClient<M, C>
+where
+    M: 'static,
+    C: Controller<M> + Clone + 'static,
+{
+    fn flush_ev_buffer(&mut self) {
+        if let Some(i) = self.focus {
+            let ev = take(&mut self.event_buffer);
+            todo!()
+        }
+    }
+}
+
 
 pub struct Application<M, C>
 where
@@ -54,8 +69,8 @@ where
     state: State,
     controller: C,
     // mempool: AutoMemPool,
-    widget: Box<dyn Widget<M>>,
     surface: Option<Surface>,
+    widget: Box<dyn Widget<M>>,
     globals: Rc<RefCell<GlobalManager>>,
 }
 
@@ -64,6 +79,17 @@ struct State {
     pending_cb: bool,
     time: Option<u32>,
     render_node: RenderNode,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            configured: false,
+            pending_cb: false,
+            time: None,
+            render_node: RenderNode::None
+        }
+    }
 }
 
 impl<M, C> Application<M, C>
@@ -84,6 +110,11 @@ where
         if let Some(s) = self.surface.as_ref() {
             s.set_size(conn, width as u32, height as u32)
         }
+    }
+    unsafe fn globals(&self) -> Rc<GlobalManager> {
+        let ptr = self.globals.as_ref().as_ptr();
+        Rc::increment_strong_count(ptr);
+        Rc::from_raw(ptr)
     }
 }
 
@@ -171,24 +202,26 @@ impl Surface {
             buffer.destroy(ch);
         }
         self.wl_buffer = None;
+        self.destroy_previous(ch);
     }
     fn destroy_previous(&mut self, ch: &mut ConnectionHandle) {
         if let Some(mut surface) = take(&mut self.previous) {
             surface.destroy(ch);
         }
+        self.previous = None;
     }
     fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
         self.shell.set_size(ch, width, height);
     }
     fn damage(&self, ch: &mut ConnectionHandle, report: &[Region]) {
-        self.wl_surface.attach(ch, self.wl_buffer.as_ref(), 0, 0);
         for d in report {
             self.wl_surface
                 .damage(ch, d.x as i32, d.y as i32, d.width as i32, d.height as i32);
         }
     }
-    fn attach_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer) {
+    fn attach_buffer(&mut self, ch: &mut ConnectionHandle, wl_buffer: wl_buffer::WlBuffer) {
         self.wl_buffer = Some(wl_buffer);
+        self.wl_surface.attach(ch, self.wl_buffer.as_ref(), 0, 0);
     }
 }
 
@@ -300,17 +333,52 @@ where
         event: wl_surface::Event,
         _: &Self::UserData,
         conn: &mut ConnectionHandle,
-        qh: &wayland_client::QueueHandle<Self>,
+        _: &wayland_client::QueueHandle<Self>,
     ) {
         if let wl_surface::Event::Enter { output } = event {
-            if let Some(o) =
-            	self.globals.borrow().outputs.iter().find(|o| o.output == output) {
+            if let Some(o) = self
+                .globals
+                .borrow()
+                .outputs
+                .iter()
+                .find(|o| o.output == output)
+            {
                 surface.set_buffer_scale(conn, o.scale);
-                if let Some(application) =
-                    self.applications.iter_mut().find(|a| a.eq_surface(&surface)) {
+                if let Some(application) = self
+                    .applications
+                    .iter_mut()
+                    .find(|a| a.eq_surface(&surface))
+                {
                     application.surface.as_mut().unwrap().wl_output = Some(output);
                 }
-        	}
+            }
+        }
+    }
+}
+
+impl<M, C> Dispatch<wl_callback::WlCallback> for WaylandClient<M, C>
+where
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        callback: &wl_callback::WlCallback,
+        event: wl_callback::Event,
+        _: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        if let wl_callback::Event::Done { callback_data } = event {
+            for application in self.applications.iter_mut() {
+                if let Some(time) = application.state.time {
+                    application.state.time = None;
+                    let timeout = (callback_data - time).min(60);
+                    // Send a callback event with the timeout the application
+                    todo!();
+                }
+            }
         }
     }
 }
@@ -363,7 +431,7 @@ where
         event: xdg_toplevel::Event,
         _: &Self::UserData,
         conn: &mut ConnectionHandle,
-        qh: &wayland_client::QueueHandle<Self>,
+        _: &wayland_client::QueueHandle<Self>,
     ) {
         if let Some(application) = self.applications.iter_mut().find(|a| {
             if let Some(s) = a.surface.as_ref() {
@@ -378,6 +446,7 @@ where
         }) {
             match event {
                 xdg_toplevel::Event::Configure { width, height, .. } => {
+                    application.set_size(conn, width as f32, height as f32);
                     todo!()
                 }
                 xdg_toplevel::Event::Close => {
@@ -495,7 +564,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &wayland_client::QueueHandle<Self>,
     ) {
-        let res = if let Some(seat) = self
+        if let Some(seat) = self
             .globals
             .borrow_mut()
             .seats
@@ -516,17 +585,13 @@ where
                 }
                 _ => {}
             }
-            Some(())
-        } else {
-            self.globals
-                .borrow_mut()
-                .seats
-                .push(Seat::new(seat.clone()));
-            None
-        };
-        if res.is_none() {
-            self.event(seat, event, data, conn, qh);
+            return;
         }
+        self.globals
+            .borrow_mut()
+            .seats
+            .push(Seat::new(seat.clone()));
+        self.event(seat, event, data, conn, qh);
     }
 }
 
@@ -545,7 +610,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &wayland_client::QueueHandle<Self>,
     ) {
-        if let Some(i) = self.focus {
+        if self.focus.is_some() {
             match event {
                 wl_pointer::Event::Button {
                     serial: _,
@@ -607,8 +672,7 @@ where
                 }
                 wl_pointer::Event::Frame => {
                     // Call dispatch method of the Application
-                    let _ = &self.applications[i];
-                    self.event_buffer = Event::Prepare;
+                    self.flush_ev_buffer();
                 }
                 _ => {}
             }
@@ -645,7 +709,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &wayland_client::QueueHandle<Self>,
     ) {
-        let res = if let Some(output) = self
+        if let Some(output) = self
             .globals
             .borrow_mut()
             .outputs
@@ -653,6 +717,10 @@ where
             .find(|o| o.output.eq(output))
         {
             match event {
+                wl_output::Event::Geometry { physical_width, physical_height, ..} => {
+                    output.physical_width = physical_width;
+                    output.physical_height = physical_height;
+                }
                 wl_output::Event::Mode {
                     flags: _,
                     width,
@@ -671,16 +739,12 @@ where
                 }
                 _ => {}
             }
-            Some(())
-        } else {
-            self.globals
-                .borrow_mut()
-                .outputs
-                .push(Output::new(output.clone()));
-            None
-        };
-        if res.is_none() {
-            self.event(output, event, data, conn, qh);
+            return;
         }
+        self.globals
+            .borrow_mut()
+            .outputs
+            .push(Output::new(output.clone()));
+        self.event(output, event, data, conn, qh);
     }
 }
