@@ -1,8 +1,9 @@
 use crate::context::DrawContext;
-use crate::controller::{Controller, TryIntoMessage};
+use crate::controller::{Controller, TryFromArg};
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::{GlobalManager, Output, Seat, Shell, Surface};
+use crate::widgets::window::WindowMessage;
 use crate::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 // use smithay_client_toolkit::seat::keyboard::ModifiersState;
@@ -36,7 +37,7 @@ use wayland_protocols::{
 
 pub struct WaylandClient<M, C>
 where
-    M: 'static,
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     focus: Option<usize>,
@@ -47,15 +48,9 @@ where
     applications: Vec<Application<M, C>>,
 }
 
-pub enum WindowMessage {
-    Close,
-    Maximize,
-    Minimize,
-    Title(String)
-}
-
 impl<M, C> WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone,
 {
     fn flush_ev_buffer(&mut self) {
@@ -91,18 +86,18 @@ where
 }
 
 struct State {
+    time: u32,
     configured: bool,
     pending_cb: bool,
-    time: Option<u32>,
     render_node: RenderNode,
 }
 
 impl Default for State {
     fn default() -> Self {
         Self {
+            time: 0,
             configured: false,
             pending_cb: false,
-            time: None,
             render_node: RenderNode::None,
         }
     }
@@ -137,7 +132,7 @@ where
 impl<M, C> Application<M, C>
 where
     M: TryInto<WindowMessage>,
-    C: Controller<M>,
+    C: Controller<M> + std::clone::Clone,
 {
     fn sync(&mut self, conn: &mut ConnectionHandle, fc: &mut FontCache, event: Event<M>) -> Damage {
         let mut damage = Damage::None;
@@ -156,14 +151,18 @@ where
                             s.destroy(conn);
                             self.surface = None;
                         }
-                        WindowMessage::Minimize => {
-                            match &s.shell {
-                                Shell::Xdg { toplevel, .. } => {
-                                    toplevel.set_minimized(conn);
-                                }
-                                _ => {}
+                        WindowMessage::Move => match &s.shell {
+                            Shell::Xdg { toplevel, .. } => {
+                                todo!()
                             }
-                        }
+                            _ => {}
+                        },
+                        WindowMessage::Minimize => match &s.shell {
+                            Shell::Xdg { toplevel, .. } => {
+                                toplevel.set_minimized(conn);
+                            }
+                            _ => {}
+                        },
                         WindowMessage::Maximize => {
                             match &s.shell {
                                 Shell::Xdg { toplevel, .. } => {
@@ -175,15 +174,13 @@ where
                                     layer_surface.set_size(conn, 1 << 31, 1 << 31);
                                 }
                             }
-                        },
-                        WindowMessage::Title(title) => {
-                            match &s.shell {
-                                Shell::Xdg { toplevel, .. } => {
-                                    toplevel.set_title(conn, title);
-                                }
-                                _ => {}
-                            }
                         }
+                        WindowMessage::Title(title) => match &s.shell {
+                            Shell::Xdg { toplevel, .. } => {
+                                toplevel.set_title(conn, title);
+                            }
+                            _ => {}
+                        },
                     }
                     return Damage::None;
                 }
@@ -191,6 +188,27 @@ where
         }
 
         damage
+    }
+    fn update_scene(
+        &mut self,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<WaylandClient<M, C>>,
+        fc: &mut FontCache,
+        event: Event<M>,
+    ) {
+        if !self.state.pending_cb {
+            match self.sync(conn, fc, event) {
+                Damage::Partial => todo!(),
+                Damage::Frame => {
+                    if let Some(s) = self.surface.as_ref() {
+                        if s.wl_surface.frame(conn, qh, ()).is_ok() {
+                            self.state.pending_cb = true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 }
 
@@ -219,6 +237,7 @@ impl GlobalManager {
         qh: &QueueHandle<WaylandClient<M, C>>,
     ) -> Option<Surface>
     where
+        M: TryInto<WindowMessage>,
         C: Controller<M> + Clone,
     {
         let wm_base = self.wm_base.as_ref()?;
@@ -284,7 +303,6 @@ impl Surface {
         if let Some(mut surface) = take(&mut self.previous) {
             surface.destroy(ch);
         }
-        self.previous = None;
     }
     fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
         self.shell.set_size(ch, width, height);
@@ -303,6 +321,7 @@ impl Surface {
 
 impl<M, C> Dispatch<wl_registry::WlRegistry> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -363,6 +382,7 @@ where
 
 impl<M, C> Dispatch<wl_compositor::WlCompositor> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -381,6 +401,7 @@ where
 
 impl<M, C> Dispatch<wl_subcompositor::WlSubcompositor> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -399,6 +420,7 @@ where
 
 impl<M, C> Dispatch<wl_surface::WlSurface> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -434,6 +456,7 @@ where
 
 impl<M, C> Dispatch<wl_callback::WlCallback> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -444,15 +467,22 @@ where
         event: wl_callback::Event,
         _: &Self::UserData,
         conn: &mut ConnectionHandle,
-        _: &wayland_client::QueueHandle<Self>,
+        qh: &wayland_client::QueueHandle<Self>,
     ) {
         if let wl_callback::Event::Done { callback_data } = event {
             for application in self.applications.iter_mut() {
-                if let Some(time) = application.state.time {
-                    application.state.time = None;
-                    let timeout = (callback_data - time).min(60);
+                if application.state.pending_cb {
+                    application.state.pending_cb = false;
+                    // The application is rendered prior and the changes are commited here
+                    application.surface.as_mut().unwrap().commit(conn);
+                    let frame_time = (callback_data - application.state.time).min(60);
                     // Send a callback event with the timeout the application
-                    todo!();
+                    application.update_scene(
+                        conn,
+                        qh,
+                        &mut self.font_cache,
+                        Event::Callback(frame_time),
+                    );
                 }
             }
         }
@@ -461,6 +491,7 @@ where
 
 impl<M, C> Dispatch<wl_subsurface::WlSubsurface> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -479,6 +510,7 @@ where
 
 impl<M, C> Dispatch<wl_region::WlRegion> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -497,6 +529,7 @@ where
 
 impl<M, C> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -537,6 +570,7 @@ where
 
 impl<M, C> Dispatch<wl_shm::WlShm> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -555,6 +589,7 @@ where
 
 impl<M, C> Dispatch<xdg_wm_base::XdgWmBase> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -575,6 +610,7 @@ where
 
 impl<M, C> Dispatch<xdg_surface::XdgSurface> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -609,6 +645,7 @@ where
 
 impl<M, C> Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1> for WaylandClient<M, C>
 where
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -627,7 +664,7 @@ where
 
 impl<M, C> Dispatch<wl_seat::WlSeat> for WaylandClient<M, C>
 where
-    M: 'static,
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -673,7 +710,7 @@ where
 
 impl<M, C> Dispatch<wl_pointer::WlPointer> for WaylandClient<M, C>
 where
-    M: 'static,
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();
@@ -772,7 +809,7 @@ where
 
 impl<M, C> Dispatch<wl_output::WlOutput> for WaylandClient<M, C>
 where
-    M: 'static,
+    M: TryInto<WindowMessage> + 'static,
     C: Controller<M> + Clone + 'static,
 {
     type UserData = ();

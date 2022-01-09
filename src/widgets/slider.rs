@@ -4,7 +4,7 @@ use scene::Instruction;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::{ShapeStyle, Style};
 
-pub struct Slider<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> {
+pub struct Slider<M: PartialEq + TryFromArg<f32> + TryInto<f32>> {
     step: f32,
     message: Option<M>,
     flip: bool,
@@ -14,7 +14,7 @@ pub struct Slider<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> {
     orientation: Orientation,
 }
 
-impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Slider<M> {
+impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Slider<M> {
     pub fn new(width: u32, height: u32) -> Self {
         let orientation = if height > width {
             Orientation::Vertical
@@ -59,7 +59,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Slider<M> {
     }
 }
 
-impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Geometry for Slider<M> {
+impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Geometry for Slider<M> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = &self.orientation {
             self.size
@@ -98,7 +98,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Geometry for Slider<M> {
     }
 }
 
-impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> {
+impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if self.flip {
             match self.orientation {
@@ -298,7 +298,7 @@ impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Widget<M> for Slider<M> 
     }
 }
 
-impl<M: PartialEq + TryIntoMessage<f32> + TryInto<f32>> Style for Slider<M> {
+impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Style for Slider<M> {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.slider.set_background(background);
     }

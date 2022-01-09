@@ -1,4 +1,4 @@
-use crate::controller::TryIntoMessage;
+use crate::controller::TryFromArg;
 use crate::controller::*;
 use crate::scene::Instruction;
 use crate::widgets::extra::*;
@@ -11,7 +11,7 @@ pub enum SwitchState {
     Deactivated,
 }
 
-pub struct Switch<M: TryIntoMessage<SwitchState>> {
+pub struct Switch<M: TryFromArg<SwitchState>> {
     toggle: Rectangle,
     orientation: Orientation,
     state: SwitchState,
@@ -21,7 +21,7 @@ pub struct Switch<M: TryIntoMessage<SwitchState>> {
     message: Option<M>,
 }
 
-impl<M: TryIntoMessage<SwitchState>> Geometry for Switch<M> {
+impl<M: TryFromArg<SwitchState>> Geometry for Switch<M> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = self.orientation {
             self.toggle.width() * 2.
@@ -52,7 +52,7 @@ impl<M: TryIntoMessage<SwitchState>> Geometry for Switch<M> {
     }
 }
 
-impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
+impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         match self.orientation {
             Orientation::Horizontal => {
@@ -79,7 +79,7 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
                                     SwitchState::Deactivated => SwitchState::Activated,
                                 };
                                 if let Some(msg) = self.message.as_ref() {
-                                    if let Ok(msg) = TryIntoMessage::try_into(msg, state) {
+                                    if let Ok(msg) = TryFromArg::try_into(msg, state) {
                                         if ctx.send(msg).is_ok() {
                                             self.state = state;
                                             return Damage::Frame;
@@ -122,7 +122,7 @@ impl<M: TryIntoMessage<SwitchState>> Widget<M> for Switch<M> {
     }
 }
 
-impl<M: TryIntoMessage<SwitchState>> Default for Switch<M> {
+impl<M: TryFromArg<SwitchState>> Default for Switch<M> {
     fn default() -> Self {
         Self {
             toggle: Rectangle::empty(20., 20.).background(style::BG2),
@@ -136,7 +136,7 @@ impl<M: TryIntoMessage<SwitchState>> Default for Switch<M> {
     }
 }
 
-impl<M: TryIntoMessage<SwitchState>> Switch<M> {
+impl<M: TryFromArg<SwitchState>> Switch<M> {
     // Time in ms
     pub fn duration(mut self, duration: u32) -> Self {
         self.duration = duration / 2;
@@ -152,7 +152,7 @@ impl<M: TryIntoMessage<SwitchState>> Switch<M> {
     }
 }
 
-impl<M: TryIntoMessage<SwitchState>> Style for Switch<M> {
+impl<M: TryFromArg<SwitchState>> Style for Switch<M> {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
         self.toggle.set_background(background);
     }

@@ -102,6 +102,9 @@ impl<M> Geometry for Child<M> {
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.widget.set_height(height)
     }
+    fn contains(&self, x: f32, y: f32) -> bool {
+        self.widget.contains(x + self.coords.x, y + self.coords.y)
+    }
 }
 
 impl<M> From<Box<dyn Widget<M>>> for Child<M> {
@@ -138,8 +141,5 @@ impl<M> Widget<M> for Child<M> {
         });
         self.queue_draw = self.damage.is_some() || event.is_frame();
         self.damage
-    }
-    fn contains(&self, x: f32, y: f32) -> bool {
-        self.widget.contains(x + self.coords.x, y + self.coords.y)
     }
 }

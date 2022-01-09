@@ -263,6 +263,12 @@ pub trait Geometry {
             }
         }
     }
+    fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
+        context::canvas::Canvas::new(scene::Region::new(x, y, self.width(), self.height()))
+    }
+    fn contains(&self, x: f32, y: f32) -> bool {
+        scene::Region::new(0., 0., self.width(), self.height()).contains(x, y)
+    }
 }
 
 pub trait Primitive: Geometry + std::fmt::Debug {
@@ -308,12 +314,6 @@ pub trait Widget<M>: Geometry {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
     // Interface to communicate with the application and retained mode draw operation
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage;
-    fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
-        context::canvas::Canvas::new(scene::Region::new(x, y, self.width(), self.height()))
-    }
-    fn contains(&self, x: f32, y: f32) -> bool {
-        scene::Region::new(0., 0., self.width(), self.height()).contains(x, y)
-    }
 }
 
 pub trait Flex<G>: Geometry + Sized {

@@ -13,7 +13,7 @@ enum AnimationState {
     Pause,
 }
 
-impl IntoMessage<SwitchState> for AnimationState {
+impl FromArg<SwitchState> for AnimationState {
     fn into(&self, t: SwitchState) -> Self {
         match t {
             SwitchState::Activated => AnimationState::Start,

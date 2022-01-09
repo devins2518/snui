@@ -5,6 +5,7 @@ pub mod image;
 pub mod shapes;
 pub mod slider;
 pub mod text;
+pub mod window;
 
 use crate::scene::Coords;
 pub use crate::widgets::image::Image;

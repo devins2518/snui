@@ -1,4 +1,4 @@
-pub trait TryIntoMessage<T>
+pub trait TryFromArg<T>
 where
     Self: Sized,
 {
@@ -6,23 +6,23 @@ where
     fn try_into(&self, _: T) -> Result<Self, Self::Error>;
 }
 
-pub trait IntoMessage<T>
+pub trait FromArg<T>
 where
     Self: Sized,
 {
     fn into(&self, _: T) -> Self;
 }
 
-impl<I, T> TryIntoMessage<T> for I
+impl<I, T> TryFromArg<T> for I
 where
-    Self: IntoMessage<T>,
+    Self: FromArg<T>,
 {
     type Error = ();
     fn try_into(&self, t: T) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
-        Ok(IntoMessage::into(self, t))
+        Ok(FromArg::into(self, t))
     }
 }
 
