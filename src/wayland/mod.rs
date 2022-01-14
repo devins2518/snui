@@ -1,6 +1,6 @@
 pub mod shell;
 
-pub use wayland_client::{
+pub use smithay_client_toolkit::reexports::client::{
     protocol::wl_buffer::WlBuffer,
     protocol::wl_compositor::WlCompositor,
     protocol::wl_output::WlOutput,
@@ -11,9 +11,9 @@ pub use wayland_client::{
     protocol::wl_shm_pool::WlShmPool,
     protocol::wl_subcompositor::WlSubcompositor,
     protocol::wl_surface::WlSurface,
-    ConnectionHandle, WEnum,
+    ConnectionHandle, WEnum, QueueHandle, Dispatch
 };
-use wayland_protocols::{
+use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{
         zwlr_layer_shell_v1::{Layer, ZwlrLayerShellV1},
         zwlr_layer_surface_v1::{Anchor, KeyboardInteractivity, ZwlrLayerSurfaceV1},
@@ -21,25 +21,48 @@ use wayland_protocols::{
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 
+use crate::PixmapMut;
 use crate::context::Backend;
+use smithay_client_toolkit::shm::pool::multi::MultiPool;
 
 const FORMAT: Format = Format::Argb8888;
-// fn buffer<'b>(mempool: &'b mut AutoMemPool, width: i32, height: i32) -> Result<(Backend<'b>, WlBuffer), ()> {
-//     let stride = width * 4;
-//     if mempool.resize((stride * height) as usize).is_ok() {
-//         if let Ok((buf, wlbuf)) = mempool.buffer(width, height as i32, stride, FORMAT) {
-//             if let Some(pixmap) = PixmapMut::from_bytes(buf, width as u32, height as u32) {
-//                 return Ok((
-//                     Self {
-//                         backend: Backend::Pixmap(pixmap),
-//                     },
-//                     wlbuf,
-//                 ));
-//             }
-//         }
-//     }
-//     Err(())
-// }
+
+fn buffer<'b, D, U>(
+    pool: &'b mut MultiPool,
+    width: u32,
+    height: u32,
+    surface: &WlSurface,
+    udata: U,
+    conn: &mut ConnectionHandle,
+    qh: &QueueHandle<D>
+) -> Option<(Backend<'b>, WlBuffer)>
+where
+    D: Dispatch<WlBuffer, UserData = U> + 'static,
+    U: Send + Sync + 'static,
+{
+    let stride = width * 4;
+    let size = stride * height;
+    if pool.resize(size as usize, conn).is_ok() {
+        if let Some((buffer, slice)) = pool.create_buffer(
+            width as i32,
+            stride as i32,
+            height as i32,
+            surface,
+            FORMAT,
+            udata,
+            conn,
+            qh
+        ) {
+            if let Some(pixmap) = PixmapMut::from_bytes(slice, width, height) {
+                return Some((
+                    Backend::Pixmap(pixmap),
+                    buffer,
+                ));
+            }
+        }
+    }
+    None
+}
 
 #[derive(Debug, Clone)]
 pub enum Shell {
@@ -166,12 +189,27 @@ impl Seat {
 }
 
 pub struct GlobalManager {
-    pub outputs: Vec<Output>,
-    pub seats: Vec<Seat>,
-    pub shm: Option<WlShm>,
-    pub registry: WlRegistry,
-    pub compositor: Option<WlCompositor>,
-    pub subcompositor: Option<WlSubcompositor>,
-    pub wm_base: Option<xdg_wm_base::XdgWmBase>,
-    pub layer_shell: Option<ZwlrLayerShellV1>,
+    outputs: Vec<Output>,
+    seats: Vec<Seat>,
+    shm: Option<WlShm>,
+    registry: WlRegistry,
+    compositor: Option<WlCompositor>,
+    subcompositor: Option<WlSubcompositor>,
+    wm_base: Option<xdg_wm_base::XdgWmBase>,
+    layer_shell: Option<ZwlrLayerShellV1>,
+}
+
+impl GlobalManager {
+    pub fn new(registry: WlRegistry) -> Self {
+        Self {
+            outputs: Vec::new(),
+            seats: Vec::new(),
+            shm: None,
+            registry,
+            compositor: None,
+            subcompositor: None,
+            wm_base: None,
+            layer_shell: None
+        }
+    }
 }

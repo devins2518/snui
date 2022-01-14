@@ -1,10 +1,11 @@
 use scene::Instruction;
-use snui::controller::*;
 use snui::wayland::shell::*;
+use snui::controller::*;
+use snui::widgets::window::*;
 use snui::widgets::container::*;
-use snui::widgets::extra::{switch::*, Curve, Easer, Start};
+use snui::widgets::extra::{switch::*, Quadratic, Sinus};
 use snui::widgets::shapes::*;
-use snui::{widgets::*, *};
+use snui::{widgets::{*, text::*}, *};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AnimationState {
@@ -14,11 +15,18 @@ enum AnimationState {
 }
 
 impl FromArg<SwitchState> for AnimationState {
-    fn into(&self, t: SwitchState) -> Self {
+    fn from_arg(&self, t: SwitchState) -> Self {
         match t {
             SwitchState::Activated => AnimationState::Start,
             SwitchState::Deactivated => AnimationState::Pause,
         }
+    }
+}
+
+impl TryInto<String> for AnimationState {
+    type Error = ();
+    fn try_into(self) -> Result<String, Self::Error> {
+        Err(())
     }
 }
 
@@ -70,7 +78,7 @@ impl Controller<AnimationState> for EaserCtl {
 struct Animate {
     start: bool,
     cursor: f32,
-    easer: Easer,
+    easer: Quadratic,
 }
 
 impl Geometry for Animate {
@@ -94,7 +102,6 @@ impl Widget<AnimationState> for Animate {
                 .into();
             } else {
                 self.start = false;
-                self.easer.reset(1000);
             }
         }
         scene::RenderNode::None
@@ -106,8 +113,13 @@ impl Widget<AnimationState> for Animate {
     ) -> Damage {
         match event {
             Event::Callback(frame_time) => {
+                let steps = (frame_time as usize * self.easer.steps()) / 7000;
                 if self.start {
-                    self.easer.frame_time(frame_time);
+                    for _ in 1..steps {
+                        if let None = self.easer.next() {
+                            return Damage::None;
+                        }
+                    }
                     return Damage::Frame;
                 } else {
                     ctx.send(AnimationState::Stop);
@@ -116,7 +128,6 @@ impl Widget<AnimationState> for Animate {
             Event::Message(msg) => match msg {
                 AnimationState::Start => {
                     self.start = true;
-                    self.easer.set_max(self.width() - self.cursor);
                     return Damage::Frame;
                 }
                 AnimationState::Pause => {
@@ -124,7 +135,6 @@ impl Widget<AnimationState> for Animate {
                 }
                 AnimationState::Stop => {
                     self.start = false;
-                    self.easer.reset(1000);
                 }
             },
             _ => {}
@@ -134,25 +144,24 @@ impl Widget<AnimationState> for Animate {
 }
 
 impl Animate {
-    fn new(curve: Curve) -> Self {
+    fn new() -> Self {
         Animate {
             start: false,
             cursor: 20.,
-            easer: Easer::new(Start::Min, 0., 1000, curve),
+            easer: Quadratic::new(0., 0.5, 400. - 20.),
         }
     }
 }
 
 fn ui() -> impl Widget<AnimationState> {
     let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
-    ui.add(Animate::new(Curve::Linear));
-    ui.add(Animate::new(Curve::Sinus));
-    ui.add(Animate::new(Curve::Quadratic));
+    ui.add(Animate::new());
+    ui.add(Animate::new());
 
     ui.add(
         Switch::default()
             .message(AnimationState::Pause)
-            .duration(200)
+            .duration(600)
             .ext()
             .background(style::BG1)
             .even_radius(3.)
@@ -186,18 +195,33 @@ fn ui() -> impl Widget<AnimationState> {
     ui
 }
 
-fn main() {
-    let (mut snui, mut event_loop) = Application::new(true);
 
-    snui.create_inner_application(
-        EaserCtl::default(),
-        ui().ext()
-            .background(style::BG0)
-            .even_radius(4.)
-            .border(style::BG2, 5.),
-        event_loop.handle(),
-        |_, _| {},
+fn main() {
+    let (mut client, mut event_queue) = WaylandClient::new().unwrap();
+
+    let window = window::default_window(
+        Label::default("Animation", 15.).into(),
+        ui().clamp().ext().background(style::BG0),
     );
 
-    snui.run(&mut event_loop);
+    client.new_window(
+        EaserCtl::default(),
+        window.background(style::BG2),
+        &event_queue.handle()
+    );
+
+    let window = window::default_window(
+        Label::default("Animation", 15.).into(),
+        ui().clamp().ext().background(style::BG0),
+    );
+
+    client.new_window(
+        EaserCtl::default(),
+        window.background(style::BG2),
+        &event_queue.handle()
+    );
+
+	loop {
+        event_queue.blocking_dispatch(&mut client).unwrap();
+	}
 }

@@ -1000,7 +1000,7 @@ impl RenderNode {
                             *self = RenderNode::Draw { region, steps };
                             return Err(region);
                         } else {
-                            if steps.eq(this_steps) {
+                            if steps.ne(this_steps) {
                                 self.clear(ctx, &Background::from(shape), Some(&region));
                                 *self = RenderNode::Draw { region, steps };
                                 self.render(ctx, clip);

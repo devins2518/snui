@@ -9,14 +9,6 @@ use std::ops::{Deref, DerefMut};
 use widgets::Padding;
 
 pub trait Style: Sized {
-    fn radius(self, tl: f32, tr: f32, br: f32, bl: f32) -> Self;
-    fn even_radius(self, radius: f32) -> Self {
-        self.radius(radius, radius, radius, radius)
-    }
-    fn background<B: Into<Background>>(self, background: B) -> Self;
-    fn border_size(self, size: f32) -> Self;
-    fn border_color(self, color: u32) -> Self;
-    fn border(self, color: u32, width: f32) -> Self;
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32);
     fn set_even_radius(&mut self, radius: f32) {
         self.set_radius(radius, radius, radius, radius);
@@ -25,6 +17,29 @@ pub trait Style: Sized {
     fn set_border_size(&mut self, size: f32);
     fn set_border_color(&mut self, color: u32);
     fn set_border(&mut self, color: u32, width: f32);
+    fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
+        self.set_radius(tl, tr, br, bl);
+        self
+    }
+    fn even_radius(self, radius: f32) -> Self {
+        self.radius(radius, radius, radius, radius)
+    }
+    fn background<B: Into<Background>>(mut self, background: B) -> Self {
+        self.set_background(background);
+        self
+    }
+    fn border_size(mut self, size: f32) -> Self {
+        self.set_border_size(size);
+        self
+    }
+    fn border_color(mut self, color: u32) -> Self {
+        self.set_border_color(color);
+        self
+    }
+    fn border(mut self, color: u32, width: f32) -> Self {
+        self.set_border(color, width);
+        self
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]

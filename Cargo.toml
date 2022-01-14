@@ -11,9 +11,8 @@ fontdue = "0.6.2"
 tiny-skia = "0.6.1"
 fontconfig = "0.2.1"
 image = { version="0.23.14", features=["jpeg", "png"] }
-wayland-client = { version="0.30.0-alpha2", optional= true }
-wayland-protocols = { version="0.30.0-alpha1", optional= true, features=["unstable_protocols", "client"] }
+smithay-client-toolkit = { path="../client-toolkit/", optional= true }
 
 [features]
 default = ["wayland"]
-wayland=["wayland-protocols", "wayland-client"]
+wayland=["smithay-client-toolkit"]

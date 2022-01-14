@@ -1,6 +1,7 @@
 use snui::context::*;
-use snui::controller::{Controller, ControllerError, TryIntoMessage};
+use snui::controller::{Controller, ControllerError, TryFromArg};
 use snui::scene::*;
+use snui::widgets::window::WindowMessage;
 use snui::wayland::shell::*;
 use snui::widgets::{shapes::*, text::*, *};
 use snui::{style::*, *};
@@ -45,18 +46,35 @@ impl TryInto<f32> for ColorMsg {
     }
 }
 
-impl TryIntoMessage<f32> for ColorMsg {
+impl TryFromArg<f32> for ColorMsg {
     type Error = ();
-    fn try_into(&self, f: f32) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
+    fn try_from_arg(&self, f: f32) -> Result<Self, Self::Error> {
         match self {
             Self::Red(_) => Ok(Self::Red(f)),
             Self::Green(_) => Ok(Self::Green(f)),
             Self::Blue(_) => Ok(Self::Blue(f)),
             Self::Alpha(_) => Ok(Self::Alpha(f)),
             _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<WindowMessage> for ColorMsg {
+    type Error = ();
+    fn try_from(value: WindowMessage) -> Result<Self, Self::Error> {
+        match value {
+            WindowMessage::Close => Ok(Self::Close),
+            _ => Err(())
+        }
+    }
+}
+
+impl TryInto<WindowMessage> for ColorMsg {
+    type Error = ();
+    fn try_into(self) -> Result<WindowMessage, Self::Error> {
+        match self {
+            Self::Close => Ok(WindowMessage::Close),
+            _ => Err(())
         }
     }
 }
@@ -88,10 +106,10 @@ impl Controller<ColorMsg> for ColorControl {
         Ok(ColorMsg::Null)
     }
     fn sync(&mut self) -> Result<ColorMsg, ControllerError> {
-        if let Some(signal) = &self.signal {
-            if ColorMsg::Close.ne(signal) {
-                self.signal = None;
-                return Ok(ColorMsg::Source(self.color.to_color_u8().get()));
+        if let Some(signal) = self.signal.take() {
+            match signal {
+                ColorMsg::Close => return Ok(ColorMsg::Close),
+                _ => return Ok(ColorMsg::Source(self.color.to_color_u8().get()))
             }
         }
         Err(ControllerError::Waiting)
@@ -139,8 +157,9 @@ impl Widget<ColorMsg> for ColorBlock {
         event: Event<'d, ColorMsg>,
     ) -> Damage {
         if let Event::Message(_) = event {
-            let color = ctx.get(&ColorMsg::Source(0)).unwrap();
-            if let ColorMsg::Source(color) = color {
+            let msg = ctx.get(&ColorMsg::Source(0)).unwrap();
+            if let ColorMsg::Source(color) = msg {
+                ctx.window_state(WindowMessage::Title(msg.try_into().unwrap()));
                 self.color = u32_to_source(color).to_color_u8();
             }
             return Damage::Partial;
@@ -210,38 +229,33 @@ impl Widget<ColorMsg> for Cross {
     }
 }
 
+
 fn main() {
-    let (mut snui, mut event_loop) = Application::new(true);
+    let (mut client, mut event_queue) = WaylandClient::new().unwrap();
+    let listener = Listener::from(Label::default("", 18.))
+        .message(ColorMsg::Source(0));
 
-    let mut color = WidgetLayout::new(5.).orientation(Orientation::Vertical);
+	let window = window::default_window(
+    	listener,
+    	body().clamp().ext().background(BG0)
+	);
 
-    color.add(header());
-    color.add(body().pad(20.));
-    color.justify(CENTER);
-
-    snui.create_inner_application(
+    client.new_window(
         ColorControl {
             signal: None,
             color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
         },
-        color
-            .ext()
-            .background(BG0)
-            .even_padding(15.)
+        window
+            .background(BG2)
             .border(BG2, 2.)
-            .even_radius(5.),
-        event_loop.handle(),
-        |core, _| {
-            if let Some(signal) = &core.controller.signal {
-                if ColorMsg::Close.eq(signal) {
-                    core.destroy();
-                    std::process::exit(0);
-                }
-            }
-        },
+            .even_radius(5.)
+            .with_width(300.),
+        &event_queue.handle()
     );
 
-    snui.run(&mut event_loop);
+	loop {
+        event_queue.blocking_dispatch(&mut client).unwrap();
+	}
 }
 
 fn sliders() -> WidgetLayout<ColorMsg> {
@@ -268,81 +282,11 @@ fn sliders() -> WidgetLayout<ColorMsg> {
         .orientation(Orientation::Vertical)
 }
 
-fn header() -> impl Widget<ColorMsg> {
-    let mut buttons = WidgetLayout::new(5.);
-    let text: Text = Label::default("Copy", 15.).into();
-    let icon = Label::new("", 21.)
-        .color(YEL)
-        .font(FontProperty::new("CaskaydiaCove Nerd Font Mono"));
-    buttons.add(
-        icon.clamp()
-            .constraint(Constraint::Downward)
-            .with_size(25., 25.)
-            .ext()
-            .background(BG2)
-            .even_radius(3.)
-            .border(BG2, 2.)
-            .button(|this, _, p| match p {
-                Pointer::MouseClick {
-                    time: _,
-                    pressed,
-                    button,
-                } => {
-                    if button == MouseButton::Left && pressed {
-                        eprintln!("color picker missing");
-                    }
-                }
-                Pointer::Enter => this.set_background(BG0),
-                Pointer::Leave => {
-                    this.set_background(BG2);
-                }
-                _ => {}
-            }),
-    );
-
-    buttons.add(
-        text.clamp()
-            .constraint(Constraint::Downward)
-            .with_size(40., 25.)
-            .ext()
-            .background(BG2)
-            .even_radius(3.)
-            .even_padding(2.)
-            .border(BG2, 2.)
-            .button(|this, _, p| match p {
-                Pointer::MouseClick {
-                    time: _,
-                    pressed,
-                    button,
-                } => {
-                    if button.is_left() && pressed {
-                        this.edit("Copied");
-                        this.set_background(Background::solid(BG1));
-                    } else if button == MouseButton::Left {
-                        this.edit("Copy");
-                    }
-                }
-                Pointer::Enter => this.set_background(Background::solid(BG0)),
-                Pointer::Leave => {
-                    this.edit("Copy");
-                    this.set_background(Background::solid(BG2));
-                }
-                _ => {}
-            }),
-    );
-
-    let header =
-        CenterBox::from(buttons, Label::default("app_name", 15.), Cross {}).with_width(305.);
-
-    header
-}
-
 fn body() -> WidgetLayout<ColorMsg> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
     let listener = Listener::from(Label::default("", 18.))
         .message(ColorMsg::Source(0))
-        .poll()
         .clamp()
         .with_size(200., 22.)
         .anchor(CENTER, START)

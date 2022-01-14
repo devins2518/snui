@@ -244,14 +244,13 @@ use crate::controller::Controller;
 
 // Updates text on messages with a matching id or on Frame.
 // The retreived Data will replace all occurences of `{}` in the format.
-pub struct Listener<M: PartialEq + TryInto<String>> {
+pub struct Listener<M: TryInto<String>> {
     message: Option<M>,
-    poll: bool,
     format: Option<String>,
     text: Text,
 }
 
-impl<M: PartialEq + TryInto<String>> Geometry for Listener<M> {
+impl<M: TryInto<String>> Geometry for Listener<M> {
     fn width(&self) -> f32 {
         self.text.width()
     }
@@ -266,79 +265,52 @@ impl<M: PartialEq + TryInto<String>> Geometry for Listener<M> {
     }
 }
 
-impl<M: PartialEq + TryInto<String>> Widget<M> for Listener<M> {
+impl<M: TryInto<String>> Widget<M> for Listener<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.text.label.clone()))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
-        if let Some(message) = self.message.as_ref() {
-            if self.poll {
-                if let Ok(msg) = ctx.get(message) {
-                    if let Ok(string) = msg.try_into() {
-                        if let Some(format) = self.format.as_ref() {
-                            self.text.edit(format.replace("{}", &string).as_str());
-                        } else {
-                            self.text.edit(format!("{}", string).as_str());
-                        }
-                    }
-                }
-            } else {
-                match event {
-                    Event::Message(msg) => {
-                        if self.message.as_ref() == Some(msg) {
-                            if let Ok(msg) = ctx.get(message) {
-                                if let Ok(string) = msg.try_into() {
-                                    if let Some(format) = self.format.as_ref() {
-                                        self.text.edit(format.replace("{}", &string).as_str());
-                                    } else {
-                                        self.text.edit(format!("{}", string).as_str());
-                                    }
-                                }
+        match event {
+            Event::Message(_) => {
+                if let Some(message) = self.message.as_ref() {
+                    if let Ok(msg) = ctx.get(message) {
+                        if let Ok(string) = msg.try_into() {
+                            if let Some(format) = self.format.as_ref() {
+                                self.text.edit(format.replace("{}", &string).as_str());
+                            } else {
+                                self.text.edit(format!("{}", string).as_str());
                             }
                         }
                     }
-                    Event::Frame => {
-                        if let Ok(msg) = ctx.get(message) {
-                            if let Ok(string) = msg.try_into() {
-                                if let Some(format) = self.format.as_ref() {
-                                    self.text.edit(format.replace("{}", &string).as_str());
-                                } else {
-                                    self.text.edit(format!("{}", string).as_str());
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
                 }
             }
+            _ => {}
         }
         self.text.sync(ctx, event)
     }
 }
 
-impl<M: PartialEq + TryInto<String>> From<Text> for Listener<M> {
+impl<M: TryInto<String>> From<Text> for Listener<M> {
     fn from(text: Text) -> Self {
         Self {
             message: None,
             text,
-            poll: false,
             format: None,
         }
     }
 }
 
-impl<M: PartialEq + TryInto<String>> From<Label> for Listener<M> {
+impl<M: TryInto<String>> From<Label> for Listener<M> {
     fn from(label: Label) -> Self {
         Self {
             message: None,
             text: label.into(),
-            poll: false,
             format: None,
         }
     }
 }
 
-impl<M: PartialEq + TryInto<String>> Listener<M> {
+impl<M: TryInto<String>> Listener<M> {
     pub fn message(mut self, message: M) -> Self {
         self.message = Some(message);
         self
@@ -347,20 +319,16 @@ impl<M: PartialEq + TryInto<String>> Listener<M> {
         self.format = Some(format.to_string());
         self
     }
-    pub fn poll(mut self) -> Self {
-        self.poll = true;
-        self
-    }
 }
 
-impl<M: PartialEq + TryInto<String>> Deref for Listener<M> {
+impl<M: TryInto<String>> Deref for Listener<M> {
     type Target = Text;
     fn deref(&self) -> &Self::Target {
         &self.text
     }
 }
 
-impl<M: PartialEq + TryInto<String>> DerefMut for Listener<M> {
+impl<M: TryInto<String>> DerefMut for Listener<M> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.text
     }

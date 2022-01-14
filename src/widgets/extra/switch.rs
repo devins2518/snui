@@ -3,6 +3,7 @@ use crate::controller::*;
 use crate::scene::Instruction;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::{Rectangle, Style};
+use std::f32::consts::{FRAC_PI_2, PI};
 use crate::*;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
@@ -12,10 +13,11 @@ pub enum SwitchState {
 }
 
 pub struct Switch<M: TryFromArg<SwitchState>> {
+    start: bool,
     toggle: Rectangle,
     orientation: Orientation,
     state: SwitchState,
-    easer: Easer,
+    easer: Sinus,
     position: f32,
     duration: u32,
     message: Option<M>,
@@ -39,14 +41,14 @@ impl<M: TryFromArg<SwitchState>> Geometry for Switch<M> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         self.toggle.set_width(width / 2.)?;
         if let Orientation::Horizontal = self.orientation {
-            self.easer.set_max(width / self.toggle.width())
+            self.easer.set_amplitude(width - self.toggle.width())
         }
         Ok(())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.toggle.set_height(height / 2.)?;
         if let Orientation::Vertical = self.orientation {
-            self.easer.set_max(height / self.toggle.height())
+            self.easer.set_amplitude(height - self.toggle.height())
         }
         Ok(())
     }
@@ -74,12 +76,19 @@ impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
                             pressed,
                         } => {
                             if button.is_left() && pressed {
+                                self.start = true;
                                 let state = match self.state {
-                                    SwitchState::Activated => SwitchState::Deactivated,
-                                    SwitchState::Deactivated => SwitchState::Activated,
+                                    SwitchState::Activated => {
+                                        self.easer = Sinus::new(FRAC_PI_2, PI,  self.width() - self.toggle.width());
+                                        SwitchState::Deactivated
+                                    }
+                                    SwitchState::Deactivated => {
+                                        self.easer = Sinus::new(0., FRAC_PI_2, self.width() - self.toggle.width());
+                                        SwitchState::Activated
+                                    }
                                 };
                                 if let Some(msg) = self.message.as_ref() {
-                                    if let Ok(msg) = TryFromArg::try_into(msg, state) {
+                                    if let Ok(msg) = msg.try_from_arg(state) {
                                         if ctx.send(msg).is_ok() {
                                             self.state = state;
                                             return Damage::Frame;
@@ -92,29 +101,17 @@ impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
                     }
                 }
             }
-            Event::Callback(frame_time) => {
-                self.easer.frame_time(frame_time);
-                match self.state {
-                    SwitchState::Activated => match self.easer.trend() {
-                        Trend::Neutral | Trend::Positive => {
-                            if let Some(position) = self.easer.next() {
-                                self.position = position;
-                                return Damage::Frame;
-                            }
-                        }
-                        _ => {}
-                    },
-                    SwitchState::Deactivated => match self.easer.trend() {
-                        Trend::Negative => {
-                            if let Some(position) = self.easer.next() {
-                                self.position = position;
-                                return Damage::Frame;
-                            }
-                        }
-                        Trend::Neutral => self.easer.reset(self.duration),
-                        _ => {}
-                    },
+            Event::Callback(frame_time) => if self.start {
+                let steps = (frame_time * self.easer.steps() as u32) as usize / self.duration as usize;
+                for i in 0..steps {
+                    if let Some(position) = self.easer.next() {
+                        self.position = position;
+                    } else {
+                        self.start = false;
+                        return Damage::None;
+                    }
                 }
+                return Damage::Frame;
             }
             _ => {}
         }
@@ -125,9 +122,10 @@ impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
 impl<M: TryFromArg<SwitchState>> Default for Switch<M> {
     fn default() -> Self {
         Self {
+            start: false,
             toggle: Rectangle::empty(20., 20.).background(style::BG2),
             position: 0.,
-            easer: Easer::new(Start::Min, 20., 500, Curve::Sinus),
+            easer: Sinus::new(0., 20., 20.),
             orientation: Orientation::Horizontal,
             message: None,
             duration: 500,
@@ -139,8 +137,7 @@ impl<M: TryFromArg<SwitchState>> Default for Switch<M> {
 impl<M: TryFromArg<SwitchState>> Switch<M> {
     // Time in ms
     pub fn duration(mut self, duration: u32) -> Self {
-        self.duration = duration / 2;
-        self.easer.reset(self.duration);
+        self.duration = duration;
         self
     }
     pub fn message(mut self, message: M) -> Self {

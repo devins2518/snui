@@ -3,14 +3,14 @@ where
     Self: Sized,
 {
     type Error;
-    fn try_into(&self, _: T) -> Result<Self, Self::Error>;
+    fn try_from_arg(&self, _: T) -> Result<Self, Self::Error>;
 }
 
 pub trait FromArg<T>
 where
     Self: Sized,
 {
-    fn into(&self, _: T) -> Self;
+    fn from_arg(&self, _: T) -> Self;
 }
 
 impl<I, T> TryFromArg<T> for I
@@ -18,11 +18,11 @@ where
     Self: FromArg<T>,
 {
     type Error = ();
-    fn try_into(&self, t: T) -> Result<Self, Self::Error>
+    fn try_from_arg(&self, t: T) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
-        Ok(FromArg::into(self, t))
+        Ok(FromArg::from_arg(self, t))
     }
 }
 

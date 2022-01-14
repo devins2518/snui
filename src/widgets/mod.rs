@@ -137,13 +137,11 @@ impl<M, W: Widget<M>> Geometry for Padding<M, W> {
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let (_, right, _, left) = self.padding;
-        self.widget.set_width(width - right - left)?;
-        Ok(())
+        self.widget.set_width(width - right - left)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let (top, _, bottom, _) = self.padding;
-        self.widget.set_height(height - top - bottom)?;
-        Ok(())
+        self.widget.set_height(height - top - bottom)
     }
 }
 
@@ -239,7 +237,6 @@ impl<M, W: Widget<M>> Geometry for WidgetBox<M, W> {
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width > 0. {
-            self.width = Some(width);
             match &self.constraint {
                 Constraint::Fixed | Constraint::Upward => {
                     if width < self.widget.width() {
@@ -248,7 +245,15 @@ impl<M, W: Widget<M>> Geometry for WidgetBox<M, W> {
                         }
                     }
                 }
-                _ => {}
+                Constraint::Downward => {
+                    let ww = self.widget.width();
+                    if width < ww {
+                        self.width = None;
+                        return Err(ww);
+                    } else {
+                        self.width = Some(width);
+                    }
+                }
             }
             return Ok(());
         }
@@ -256,7 +261,6 @@ impl<M, W: Widget<M>> Geometry for WidgetBox<M, W> {
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height > 0. {
-            self.height = Some(height);
             match &self.constraint {
                 Constraint::Fixed | Constraint::Upward => {
                     if height < self.widget.height() {
@@ -265,7 +269,15 @@ impl<M, W: Widget<M>> Geometry for WidgetBox<M, W> {
                         }
                     }
                 }
-                _ => {}
+                Constraint::Downward => {
+                    let wh = self.widget.height();
+                    if height < wh {
+                        self.height = None;
+                        return Err(wh);
+                    } else {
+                        self.height = Some(height);
+                    }
+                }
             }
             return Ok(());
         }
@@ -340,48 +352,6 @@ impl<M, W: Widget<M>> WidgetBox<M, W> {
     }
     pub fn set_anchor(&mut self, x: Alignment, y: Alignment) {
         self.anchor = (x, y);
-    }
-}
-
-impl<M> WidgetBox<M, Child<M>> {
-    pub fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        if (self.constraint == Constraint::Fixed || self.constraint == Constraint::Upward)
-            && (self.widget.width() > self.width() || self.widget.height() > self.height())
-        {
-            eprintln!(
-                "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
-                x,
-                y,
-                self.width(),
-                self.height()
-            );
-            return RenderNode::None;
-        }
-        let (horizontal, vertical) = &self.anchor;
-        let dx = match horizontal {
-            Alignment::Start => 0.,
-            Alignment::Center => ((self.width() - self.widget.width()) / 2.).floor(),
-            Alignment::End => (self.width() - self.widget.width()).floor(),
-        };
-        let dy = match vertical {
-            Alignment::Start => 0.,
-            Alignment::Center => ((self.height() - self.widget.height()) / 2.).floor(),
-            Alignment::End => (self.height() - self.widget.height()).floor(),
-        };
-        self.coords = Coords::new(dx, dy);
-        let node = self.widget.create_node(x + dx, y + dy);
-        if node.is_none() {
-            return node;
-        }
-        RenderNode::Extension {
-            background: scene::Instruction::new(
-                x,
-                y,
-                shapes::Rectangle::empty(self.width(), self.height()),
-            ),
-            border: None,
-            node: Box::new(node),
-        }
     }
 }
 

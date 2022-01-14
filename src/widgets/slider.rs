@@ -141,7 +141,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                                 Orientation::Vertical => self.slider.height() / self.size,
                             };
                             if let Some(message) = self.message.as_ref() {
-                                if let Ok(msg) = message.try_into(ratio) {
+                                if let Ok(msg) = message.try_from_arg(ratio) {
                                     let _ = ctx.send(msg);
                                 }
                             }
@@ -176,7 +176,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                                 }
                             };
                             if let Some(message) = self.message.as_ref() {
-                                if let Ok(msg) = message.try_into(ratio) {
+                                if let Ok(msg) = message.try_from_arg(ratio) {
                                     let _ = ctx.send(msg);
                                 }
                             }
@@ -189,7 +189,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
                                             if let Some(message) = self.message.as_ref() {
                                                 if let Ok(msg) = message
-                                                    .try_into(self.slider.width() / self.size)
+                                                    .try_from_arg(self.slider.width() / self.size)
                                                 {
                                                     let _ = ctx.send(msg);
                                                 }
@@ -200,7 +200,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
                                             if let Some(message) = self.message.as_ref() {
                                                 if let Ok(msg) = message
-                                                    .try_into(self.slider.height() / self.size)
+                                                    .try_from_arg(self.slider.height() / self.size)
                                                 {
                                                     let _ = ctx.send(msg);
                                                 }
@@ -230,7 +230,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                                 if let Ok(_) = self.slider.set_width(x.min(self.size)) {
                                     if let Some(message) = self.message.as_ref() {
                                         if let Ok(msg) =
-                                            message.try_into(self.slider.width() / self.size)
+                                            message.try_from_arg(self.slider.width() / self.size)
                                         {
                                             let _ = ctx.send(msg);
                                         }
@@ -242,7 +242,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                                 if let Ok(_) = self.slider.set_height(y.min(self.size)) {
                                     if let Some(message) = self.message.as_ref() {
                                         if let Ok(msg) =
-                                            message.try_into(self.slider.height() / self.size)
+                                            message.try_from_arg(self.slider.height() / self.size)
                                         {
                                             let _ = ctx.send(msg);
                                         }
@@ -313,25 +313,5 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Style for Slider<M> {
     }
     fn set_border_size(&mut self, size: f32) {
         self.slider.set_border_size(size);
-    }
-    fn background<B: Into<scene::Background>>(mut self, background: B) -> Self {
-        self.set_background(background);
-        self
-    }
-    fn border(mut self, color: u32, size: f32) -> Self {
-        self.set_border(color, size);
-        self
-    }
-    fn border_color(mut self, color: u32) -> Self {
-        self.set_border_color(color);
-        self
-    }
-    fn border_size(mut self, size: f32) -> Self {
-        self.set_border_size(size);
-        self
-    }
-    fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
-        self.set_radius(tl, tr, br, bl);
-        self
     }
 }

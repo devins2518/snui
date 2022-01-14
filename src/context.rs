@@ -2,6 +2,7 @@ use crate::font::FontCache;
 use crate::*;
 use controller::*;
 use scene::*;
+use widgets::window::WindowMessage;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 use widgets::text::Label;
@@ -93,6 +94,7 @@ pub enum Backend<'b> {
 }
 
 pub struct SyncContext<'c, M> {
+    pub(crate) window_state: Option<WindowMessage>,
     controller: &'c mut dyn Controller<M>,
     pub(crate) font_cache: &'c mut FontCache,
 }
@@ -140,9 +142,13 @@ impl<'c> DerefMut for Backend<'c> {
 impl<'c, M> SyncContext<'c, M> {
     pub fn new(controller: &'c mut impl Controller<M>, font_cache: &'c mut FontCache) -> Self {
         Self {
+            window_state: None,
             controller,
             font_cache,
         }
+    }
+    pub fn window_state(&mut self, wm: WindowMessage) {
+        self.window_state = Some(wm);
     }
 }
 
@@ -211,8 +217,7 @@ impl<'c> DrawContext<'c> {
                         },
                         Transform::identity(),
                         None,
-                    )
-                    .unwrap();
+                    );
                 }
                 _ => {}
             },
@@ -287,8 +292,7 @@ impl<'c> DrawContext<'c> {
                         },
                         Transform::identity(),
                         None,
-                    )
-                    .unwrap();
+                    );
                 }
                 _ => {}
             },
