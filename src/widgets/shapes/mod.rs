@@ -103,11 +103,19 @@ fn minimum_padding(tl: f32, tr: f32, br: f32, bl: f32) -> f32 {
 impl<M, W: Widget<M>> Geometry for WidgetExt<M, W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let border = self.border.0;
-        self.widget.set_width(width - 2. * border)
+        if let Err(width) = self.widget.set_width(width - 2. * border) {
+            Err(width + 2. * border)
+        } else {
+            Ok(())
+        }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let border = self.border.0;
-        self.widget.set_height(height - 2. * border)
+        if let Err(height) = self.widget.set_height(height - 2. * border) {
+            Err(height + 2. * border)
+        } else {
+            Ok(())
+        }
     }
     fn width(&self) -> f32 {
         self.inner_width() + 2. * self.border.0

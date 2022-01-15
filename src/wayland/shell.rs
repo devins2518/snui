@@ -2,7 +2,7 @@ use crate::context::DrawContext;
 use crate::controller::{Controller, TryFromArg};
 use crate::font::FontCache;
 use crate::scene::*;
-use crate::wayland::{GlobalManager, Output, Seat, Shell, Surface, buffer};
+use crate::wayland::{buffer, GlobalManager, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowMessage;
 use crate::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
@@ -16,30 +16,29 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 use smithay_client_toolkit::reexports::client::{
+    delegate_dispatch,
     protocol::wl_buffer,
     protocol::wl_callback,
     protocol::wl_compositor,
-    protocol::wl_shm_pool,
     protocol::wl_output,
     protocol::wl_pointer::{self, Axis, ButtonState},
     protocol::wl_region,
     protocol::wl_registry,
     protocol::wl_seat::{self, Capability},
     protocol::wl_shm,
+    protocol::wl_shm_pool,
     protocol::wl_subcompositor,
     protocol::wl_subsurface,
     protocol::wl_surface,
-    delegate_dispatch,
-    DelegateDispatch,
-    DelegateDispatchBase,
-    Connection, ConnectionHandle, Dispatch, QueueHandle, WEnum, EventQueue
+    Connection, ConnectionHandle, DelegateDispatch, DelegateDispatchBase, Dispatch, EventQueue,
+    QueueHandle, WEnum,
 };
-use smithay_client_toolkit::shm::pool::raw::RawPool;
-use smithay_client_toolkit::shm::pool::multi::MultiPool;
 use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1},
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
+use smithay_client_toolkit::shm::pool::multi::MultiPool;
+use smithay_client_toolkit::shm::pool::raw::RawPool;
 
 pub struct WaylandClient<M, C>
 where
@@ -62,7 +61,7 @@ fn convert_event<'d, M>(event: Event<'static, ()>) -> Option<Event<'d, M>> {
         Event::Prepare => Some(Event::Prepare),
         Event::Pointer(x, y, p) => Some(Event::Pointer(x, y, p)),
         Event::Keyboard(k) => Some(Event::Keyboard(k)),
-        Event::Message(_) => None
+        Event::Message(_) => None,
     }
 }
 
@@ -78,7 +77,9 @@ where
         let qhandle = event_queue.handle();
 
         let display = conn.handle().display();
-        let registry = display.get_registry(&mut conn.handle(), &qhandle, ()).ok()?;
+        let registry = display
+            .get_registry(&mut conn.handle(), &qhandle, ())
+            .ok()?;
 
         let mut wl_client = Self {
             focus: None,
@@ -87,7 +88,7 @@ where
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
             connection: conn,
             event_buffer: Event::default(),
-            applications: Vec::new()
+            applications: Vec::new(),
         };
 
         for _ in 0..2 {
@@ -131,19 +132,16 @@ where
         &mut self,
         controller: C,
         widget: impl Widget<M> + 'static,
-        qh: &QueueHandle<Self>
+        qh: &QueueHandle<Self>,
     ) {
         let mut conn = self.connection.handle();
-        let surface= self.globals.borrow().create_xdg_surface(
-            &mut conn,
-            qh
-        );
+        let surface = self.globals.borrow().create_xdg_surface(&mut conn, qh);
         let mut application = Application {
             state: State::default(),
             controller,
             globals: self.globals.clone(),
             widget: Box::new(widget),
-            surface
+            surface,
         };
 
         application.sync(&mut conn, &mut self.font_cache, Event::Prepare);
@@ -167,7 +165,6 @@ struct State {
     time: u32,
     configured: bool,
     pending_cb: bool,
-    direct_render: bool,
     render_node: RenderNode,
 }
 
@@ -177,7 +174,6 @@ impl Default for State {
             time: 0,
             configured: false,
             pending_cb: false,
-            direct_render: false,
             render_node: RenderNode::None,
         }
     }
@@ -286,35 +282,21 @@ where
             let height = self.height();
             match self.sync(conn, fc, event) {
                 Damage::Partial => {
-                    if width != self.width()
-                    || height != self.height() {
+                    if width != self.width() || height != self.height() {
                         self.sync(conn, fc, Event::Frame);
                     }
                     let render_node = self.widget.create_node(0., 0.);
-                    self.render(
-                        pool,
-                        fc,
-                        render_node,
-                        conn,
-                        qh
-                    );
+                    self.render(pool, fc, render_node, conn, qh);
                 }
                 Damage::Frame => {
                     if let Some(s) = self.surface.as_ref() {
                         if s.wl_surface.frame(conn, qh, ()).is_ok() {
-                            if width != self.width()
-                            || height != self.height() {
+                            if width != self.width() || height != self.height() {
                                 self.sync(conn, fc, Event::Frame);
                             }
                             let render_node = self.widget.create_node(0., 0.);
                             self.state.pending_cb = true;
-                            self.render(
-                                pool,
-                                fc,
-                                render_node,
-                                conn,
-                                qh
-                            );
+                            self.render(pool, fc, render_node, conn, qh);
                         }
                     }
                 }
@@ -340,7 +322,7 @@ where
             &self.surface.as_ref().unwrap().wl_surface,
             (),
             conn,
-            qh
+            qh,
         ) {
             if let Some(s) = self.surface.as_mut() {
                 s.replace_buffer(wl_buffer);
@@ -350,7 +332,7 @@ where
                     render_node,
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
-                    None
+                    None,
                 ) {
                     ctx.damage_region(&Background::Transparent, region, false);
                     self.state.render_node.render(&mut ctx, None);
@@ -381,7 +363,7 @@ where
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height > 0. {
-            return self.widget.set_height(height)
+            return self.widget.set_height(height);
         } else {
             Err(self.width())
         }
@@ -517,13 +499,7 @@ where
                         .bind::<wl_shm::WlShm, _>(conn, name, 1, qh, ())
                         .ok();
                     if let Some(ref shm) = self.globals.borrow().shm {
-                        self.pool = Some(RawPool::new(
-                            1 << 10,
-                            shm,
-                            conn,
-                            qh,
-                            ()
-                        ).unwrap().into());
+                        self.pool = Some(RawPool::new(1 << 10, shm, conn, qh, ()).unwrap().into());
                     }
                 }
                 "wl_seat" => {
@@ -575,9 +551,11 @@ where
         event: wl_buffer::Event,
         data: &Self::UserData,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<Self>
+        qh: &QueueHandle<Self>,
     ) {
-        <MultiPool as DelegateDispatch<wl_buffer::WlBuffer, Self>>::event(self, proxy, event, data, conn, qh);
+        <MultiPool as DelegateDispatch<wl_buffer::WlBuffer, Self>>::event(
+            self, proxy, event, data, conn, qh,
+        );
     }
 }
 
@@ -779,7 +757,9 @@ where
             match event {
                 xdg_toplevel::Event::Configure { width, height, .. } => {
                     application.set_size(conn, width as f32, height as f32);
-                    application.state.direct_render = true;
+                    let mut ctx =
+                        SyncContext::new(&mut application.controller, &mut self.font_cache);
+                    application.widget.sync(&mut ctx, Event::Frame);
                     // todo!()
                 }
                 xdg_toplevel::Event::Close => {
@@ -866,7 +846,7 @@ where
                     conn,
                     qh,
                     &mut self.font_cache,
-                    Event::Frame
+                    Event::Frame,
                 )
             }
         }
@@ -990,6 +970,7 @@ where
                                 value: Move::Value(value as f32),
                             };
                         }
+                        self.flush_ev_buffer(conn, qh);
                     }
                 }
                 wl_pointer::Event::AxisDiscrete { axis, discrete } => {
@@ -1004,6 +985,7 @@ where
                                 value: Move::Step(discrete),
                             };
                         }
+                        self.flush_ev_buffer(conn, qh);
                     }
                 }
                 wl_pointer::Event::Motion {

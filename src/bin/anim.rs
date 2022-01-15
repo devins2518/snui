@@ -1,11 +1,14 @@
 use scene::Instruction;
-use snui::wayland::shell::*;
 use snui::controller::*;
-use snui::widgets::window::*;
+use snui::wayland::shell::*;
 use snui::widgets::container::*;
-use snui::widgets::extra::{switch::*, Quadratic, Sinus};
+use snui::widgets::extra::{switch::*, Quadratic, Sinus, Easer};
 use snui::widgets::shapes::*;
-use snui::{widgets::{*, text::*}, *};
+use snui::widgets::window::*;
+use snui::{
+    widgets::{text::*, *},
+    *,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AnimationState {
@@ -75,13 +78,13 @@ impl Controller<AnimationState> for EaserCtl {
     }
 }
 
-struct Animate {
+struct Animate<E: Easer> {
     start: bool,
     cursor: f32,
-    easer: Quadratic,
+    easer: E,
 }
 
-impl Geometry for Animate {
+impl<E: Easer> Geometry for Animate<E> {
     fn width(&self) -> f32 {
         400.
     }
@@ -90,7 +93,7 @@ impl Geometry for Animate {
     }
 }
 
-impl Widget<AnimationState> for Animate {
+impl<E: Easer> Widget<AnimationState> for Animate<E> {
     fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
         if self.start {
             if let Some(delta) = self.easer.next() {
@@ -143,8 +146,8 @@ impl Widget<AnimationState> for Animate {
     }
 }
 
-impl Animate {
-    fn new() -> Self {
+impl Animate<Quadratic> {
+    fn quadratic() -> Self {
         Animate {
             start: false,
             cursor: 20.,
@@ -153,10 +156,20 @@ impl Animate {
     }
 }
 
+impl Animate<Sinus> {
+    fn sinus() -> Self {
+        Animate {
+            start: false,
+            cursor: 20.,
+            easer: Sinus::new(0., 0.5, 400. - 20.),
+        }
+    }
+}
+
 fn ui() -> impl Widget<AnimationState> {
     let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
-    ui.add(Animate::new());
-    ui.add(Animate::new());
+    ui.add(Animate::quadratic());
+    ui.add(Animate::sinus());
 
     ui.add(
         Switch::default()
@@ -195,33 +208,21 @@ fn ui() -> impl Widget<AnimationState> {
     ui
 }
 
-
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
     let window = window::default_window(
-        Label::default("Animation", 15.).into(),
+        Label::default("Animation").into(),
         ui().clamp().ext().background(style::BG0),
     );
 
     client.new_window(
         EaserCtl::default(),
         window.background(style::BG2),
-        &event_queue.handle()
+        &event_queue.handle(),
     );
 
-    let window = window::default_window(
-        Label::default("Animation", 15.).into(),
-        ui().clamp().ext().background(style::BG0),
-    );
-
-    client.new_window(
-        EaserCtl::default(),
-        window.background(style::BG2),
-        &event_queue.handle()
-    );
-
-	loop {
+    loop {
         event_queue.blocking_dispatch(&mut client).unwrap();
-	}
+    }
 }

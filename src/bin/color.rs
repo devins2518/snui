@@ -1,8 +1,8 @@
 use snui::context::*;
 use snui::controller::{Controller, ControllerError, TryFromArg};
 use snui::scene::*;
-use snui::widgets::window::WindowMessage;
 use snui::wayland::shell::*;
+use snui::widgets::window::WindowMessage;
 use snui::widgets::{shapes::*, text::*, *};
 use snui::{style::*, *};
 
@@ -59,22 +59,12 @@ impl TryFromArg<f32> for ColorMsg {
     }
 }
 
-impl TryFrom<WindowMessage> for ColorMsg {
-    type Error = ();
-    fn try_from(value: WindowMessage) -> Result<Self, Self::Error> {
-        match value {
-            WindowMessage::Close => Ok(Self::Close),
-            _ => Err(())
-        }
-    }
-}
-
 impl TryInto<WindowMessage> for ColorMsg {
     type Error = ();
     fn try_into(self) -> Result<WindowMessage, Self::Error> {
         match self {
             Self::Close => Ok(WindowMessage::Close),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -109,7 +99,7 @@ impl Controller<ColorMsg> for ColorControl {
         if let Some(signal) = self.signal.take() {
             match signal {
                 ColorMsg::Close => return Ok(ColorMsg::Close),
-                _ => return Ok(ColorMsg::Source(self.color.to_color_u8().get()))
+                _ => return Ok(ColorMsg::Source(self.color.to_color_u8().get())),
             }
         }
         Err(ControllerError::Waiting)
@@ -168,77 +158,14 @@ impl Widget<ColorMsg> for ColorBlock {
     }
 }
 
-// This is essentially the close button
-struct Cross {}
-
-impl Geometry for Cross {
-    fn height(&self) -> f32 {
-        25.
-    }
-    fn width(&self) -> f32 {
-        25.
-    }
-    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
-        Err(self.width())
-    }
-    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
-        Err(self.height())
-    }
-}
-
-impl Widget<ColorMsg> for Cross {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let mut canvas = self.create_canvas(x, y);
-
-        let (w, h) = (2., 16.);
-
-        let b = Rectangle::empty(self.width(), self.height())
-            .background(BG1)
-            .even_radius(3.);
-
-        let r = Rectangle::empty(w, h).background(RED);
-
-        let (x, y) = ((self.width() - w) / 2., (self.height() - h) / 2.);
-
-        canvas.draw(0., 0., b);
-        canvas.draw_at_angle(x, y, r.clone(), 45.);
-        canvas.draw_at_angle(x, y, r, -45.);
-
-        canvas.finish()
-    }
-    fn sync<'d>(
-        &'d mut self,
-        ctx: &mut SyncContext<ColorMsg>,
-        event: Event<'d, ColorMsg>,
-    ) -> Damage {
-        if let Event::Pointer(x, y, p) = event {
-            if let Pointer::MouseClick {
-                time: _,
-                button,
-                pressed,
-            } = p
-            {
-                if self.contains(x, y) {
-                    if button.is_left() && pressed {
-                        let _ = ctx.send(ColorMsg::Close);
-                    }
-                }
-            }
-        }
-        Damage::None
-    }
-}
-
-
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
-    let listener = Listener::from(Label::default("", 18.))
-        .message(ColorMsg::Source(0));
+    let listener = Listener::from(Label::default("")).message(ColorMsg::Source(0));
 
-	let window = window::default_window(
-    	listener,
-    	body().clamp().ext().background(BG0)
-	);
+    let window = window::default_window(
+        listener,
+        body().clamp().ext().even_padding(10.).background(BG0),
+    );
 
     client.new_window(
         ColorControl {
@@ -250,12 +177,13 @@ fn main() {
             .border(BG2, 2.)
             .even_radius(5.)
             .with_width(300.),
-        &event_queue.handle()
+        &event_queue.handle(),
     );
 
-	loop {
-        event_queue.blocking_dispatch(&mut client).unwrap();
-	}
+    while let Ok(_) =
+        event_queue.blocking_dispatch(&mut client)
+    {
+    }
 }
 
 fn sliders() -> WidgetLayout<ColorMsg> {
@@ -285,10 +213,10 @@ fn sliders() -> WidgetLayout<ColorMsg> {
 fn body() -> WidgetLayout<ColorMsg> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
-    let listener = Listener::from(Label::default("", 18.))
+    let listener = Listener::from(Label::default(""))
         .message(ColorMsg::Source(0))
         .clamp()
-        .with_size(200., 22.)
+        .with_size(200., 20.)
         .anchor(CENTER, START)
         .constraint(Constraint::Downward);
 

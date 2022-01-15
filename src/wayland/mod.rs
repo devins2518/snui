@@ -11,7 +11,7 @@ pub use smithay_client_toolkit::reexports::client::{
     protocol::wl_shm_pool::WlShmPool,
     protocol::wl_subcompositor::WlSubcompositor,
     protocol::wl_surface::WlSurface,
-    ConnectionHandle, WEnum, QueueHandle, Dispatch
+    ConnectionHandle, Dispatch, QueueHandle, WEnum,
 };
 use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{
@@ -21,8 +21,8 @@ use smithay_client_toolkit::reexports::protocols::{
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 
-use crate::PixmapMut;
 use crate::context::Backend;
+use crate::PixmapMut;
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
 
 const FORMAT: Format = Format::Argb8888;
@@ -34,7 +34,7 @@ fn buffer<'b, D, U>(
     surface: &WlSurface,
     udata: U,
     conn: &mut ConnectionHandle,
-    qh: &QueueHandle<D>
+    qh: &QueueHandle<D>,
 ) -> Option<(Backend<'b>, WlBuffer)>
 where
     D: Dispatch<WlBuffer, UserData = U> + 'static,
@@ -51,13 +51,10 @@ where
             FORMAT,
             udata,
             conn,
-            qh
+            qh,
         ) {
             if let Some(pixmap) = PixmapMut::from_bytes(slice, width, height) {
-                return Some((
-                    Backend::Pixmap(pixmap),
-                    buffer,
-                ));
+                return Some((Backend::Pixmap(pixmap), buffer));
             }
         }
     }
@@ -209,7 +206,7 @@ impl GlobalManager {
             compositor: None,
             subcompositor: None,
             wm_base: None,
-            layer_shell: None
+            layer_shell: None,
         }
     }
 }

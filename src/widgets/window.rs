@@ -35,11 +35,14 @@ impl<M> Widget<M> for Close {
         let width = self.width() * FRAC_1_SQRT_2;
         let height = self.height() * FRAC_1_SQRT_2;
 
-        let r = Rectangle::empty(
-            width, height
-        ).background(style::RED);
+        let r = Rectangle::empty(width, height).background(style::RED);
 
-        canvas.draw_at_angle((self.width() - width) / 2., (self.height() - height) / 2., r, -45.);
+        canvas.draw_at_angle(
+            (self.width() - width) / 2.,
+            (self.height() - height) / 2.,
+            r,
+            -45.,
+        );
 
         canvas.finish()
     }
@@ -121,13 +124,23 @@ impl Geometry for Minimize {
 
 impl<M> Widget<M> for Minimize {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let thickness = 3.;
-        Instruction::new(
-            x,
-            y + (self.height() - thickness) / 2.,
-            Rectangle::empty(self.width(), thickness).background(style::YEL),
-        )
-        .into()
+        let mut canvas = self.create_canvas(x, y);
+
+        use std::f32::consts::FRAC_1_SQRT_2;
+
+        let width = self.width() * FRAC_1_SQRT_2;
+        let height = self.height() * FRAC_1_SQRT_2;
+
+        let r = Rectangle::empty(width, height).background(style::YEL);
+
+        canvas.draw_at_angle(
+            (self.width() - width) / 2.,
+            (self.height() - height) / 2.,
+            r,
+            -45.,
+        );
+
+        canvas.finish()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
@@ -222,8 +235,8 @@ where
     W: Widget<M>,
 {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.set_width(self.width());
         let h = self.header.create_node(x, y);
+        self.set_width(h.width());
         if !h.is_none() {
             self.coords.y = h.height();
         }

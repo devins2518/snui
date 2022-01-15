@@ -2,10 +2,10 @@ use crate::font::FontCache;
 use crate::*;
 use controller::*;
 use scene::*;
-use widgets::window::WindowMessage;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 use widgets::text::Label;
+use widgets::window::WindowMessage;
 
 pub(crate) mod canvas {
     use crate::scene::*;
@@ -304,16 +304,19 @@ impl<'c> DrawContext<'c> {
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
         let mut layout;
         for gp in {
-            if let Some(layout) = label.get_layout() {
+            if let Some(layout) = &label.layout {
                 layout.as_ref()
             } else {
                 layout = self.font_cache.layout(label);
                 layout.glyphs()
             }
         } {
-            if let Some(glyph_cache) = self.font_cache.fonts.get_mut(&label.fonts()[gp.font_index])
+            if let Some(glyph_cache) = self
+                .font_cache
+                .fonts
+                .get_mut(&label.fonts.as_slice()[gp.font_index])
             {
-                if let Some(pixmap) = glyph_cache.render_glyph(gp, label.get_color()) {
+                if let Some(pixmap) = glyph_cache.render_glyph(gp, label.color) {
                     if let Some(pixmap) = PixmapRef::from_bytes(
                         unsafe {
                             std::slice::from_raw_parts(

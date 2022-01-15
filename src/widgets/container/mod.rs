@@ -97,11 +97,9 @@ impl<M> Geometry for Child<M> {
         self.widget.height()
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.queue_draw = true;
         self.widget.set_width(width)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.queue_draw = true;
         self.widget.set_height(height)
     }
     fn contains(&self, x: f32, y: f32) -> bool {

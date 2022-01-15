@@ -2,13 +2,21 @@ pub mod switch;
 
 use std::f32::consts::{FRAC_PI_2, PI};
 
+pub trait Easer: Iterator<Item = f32> {
+    fn steps(&self) -> usize;
+    /// Start and coordinates is the position in the animation from 0 to 1
+    fn new(start: f32, end: f32, amplitude: f32) -> Self;
+    fn set_amplitude(&mut self, amplitude: f32);
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Sinus {
     steps: f32,
     amplitude: f32,
     // On the X axis
     start: f32,
     end: f32,
-    position: f32
+    position: f32,
 }
 
 impl Iterator for Sinus {
@@ -20,36 +28,36 @@ impl Iterator for Sinus {
             Some(v)
         } else {
             self.position = self.start;
-            return None
+            return None;
         }
     }
 }
 
-impl Sinus {
-    /// Start and end in radian
-    pub fn new(start: f32, end: f32, amplitude: f32) -> Self {
-        Self {
-            amplitude,
-            steps: 1000.,
-            start,
-            end,
-            position: start
-        }
-    }
-    pub fn steps(&self) -> usize {
+impl Easer for Sinus {
+    fn steps(&self) -> usize {
         self.steps as usize
     }
     fn set_amplitude(&mut self, amplitude: f32) {
         self.amplitude = amplitude;
     }
+    fn new(start: f32, end: f32, amplitude: f32) -> Self {
+        Self {
+            amplitude,
+            steps: 1000.,
+            start: start * PI,
+            end: end * PI,
+            position: start * PI,
+        }
+    }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Quadratic {
     steps: f32,
     amplitude: f32,
     end: f32,
     start: f32,
-    position: f32
+    position: f32,
 }
 
 impl Iterator for Quadratic {
@@ -67,18 +75,17 @@ impl Iterator for Quadratic {
     }
 }
 
-impl Quadratic {
-    /// Start and coordinates is the position in the animation from 0 to 1
-    pub fn new(start: f32, end: f32, amplitude: f32) -> Self {
+impl Easer for Quadratic {
+    fn new(start: f32, end: f32, amplitude: f32) -> Self {
         Self {
             amplitude,
             steps: 1000.,
             start,
             end,
-            position: start
+            position: start,
         }
     }
-    pub fn steps(&self) -> usize {
+    fn steps(&self) -> usize {
         self.steps as usize
     }
     fn set_amplitude(&mut self, amplitude: f32) {

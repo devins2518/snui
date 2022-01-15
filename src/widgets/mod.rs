@@ -137,11 +137,19 @@ impl<M, W: Widget<M>> Geometry for Padding<M, W> {
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         let (_, right, _, left) = self.padding;
-        self.widget.set_width(width - right - left)
+        if let Err(width) = self.widget.set_width(width - right - left) {
+            Err(width + right + left)
+        } else {
+            Ok(())
+        }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         let (top, _, bottom, _) = self.padding;
-        self.widget.set_height(height - top - bottom)
+        if let Err(height) = self.widget.set_height(height - top - bottom) {
+            Err(height + top + bottom)
+        } else {
+            Ok(())
+        }
     }
 }
 

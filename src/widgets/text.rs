@@ -12,15 +12,17 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use tiny_skia::*;
 
+const DEFAULT_FONT_SIZE: f32 = 15.;
+
 #[derive(Clone)]
 pub struct Label {
-    text: String,
-    font_size: f32,
-    color: Color,
-    settings: LayoutSettings,
-    fonts: Vec<FontProperty>,
-    layout: Option<Rc<[GlyphPosition]>>,
-    size: (f32, f32),
+    pub(crate) text: String,
+    pub(crate) font_size: f32,
+    pub(crate) color: Color,
+    pub(crate) settings: LayoutSettings,
+    pub(crate) fonts: Vec<FontProperty>,
+    pub(crate) layout: Option<Rc<[GlyphPosition]>>,
+    pub(crate) size: (f32, f32),
 }
 
 impl Label {
@@ -30,9 +32,6 @@ impl Label {
     pub fn get_font_size(&self) -> f32 {
         self.font_size
     }
-    pub fn fonts(&self) -> &[FontProperty] {
-        &self.fonts
-    }
     pub fn max_width(&self) -> f32 {
         self.settings.max_width.unwrap_or(self.size.0)
     }
@@ -41,15 +40,6 @@ impl Label {
     }
     pub fn set_color(&mut self, color: u32) {
         self.color = u32_to_source(color);
-    }
-    pub fn get_color(&self) -> Color {
-        self.color
-    }
-    pub fn get_settings(&self) -> &LayoutSettings {
-        &self.settings
-    }
-    pub fn get_layout(&self) -> Option<&Rc<[GlyphPosition]>> {
-        self.layout.as_ref()
     }
 }
 
@@ -79,15 +69,15 @@ impl std::fmt::Debug for Label {
 
 impl From<&str> for Label {
     fn from(text: &str) -> Self {
-        Label::default(text, 20.)
+        Label::default(text)
     }
 }
 
 impl Label {
-    pub fn new(text: &str, font_size: f32) -> Label {
+    pub fn new(text: &str) -> Label {
         Label {
             text: String::from(text),
-            font_size,
+            font_size: DEFAULT_FONT_SIZE,
             fonts: Vec::new(),
             settings: LayoutSettings::default(),
             color: u32_to_source(FG0),
@@ -103,14 +93,18 @@ impl Label {
         self.color = u32_to_source(color);
         self
     }
+    pub fn font_size(mut self, font_size: f32) -> Self {
+        self.font_size = font_size;
+        self
+    }
     pub fn settings(mut self, settings: LayoutSettings) -> Self {
         self.settings = settings;
         self
     }
-    pub fn default(text: &str, font_size: f32) -> Label {
+    pub fn default(text: &str) -> Label {
         Label {
             text: String::from(text),
-            font_size,
+            font_size: DEFAULT_FONT_SIZE,
             settings: LayoutSettings::default(),
             fonts: vec![FontProperty::new("sans serif")],
             color: u32_to_source(FG0),
@@ -290,21 +284,15 @@ impl<M: TryInto<String>> Widget<M> for Listener<M> {
     }
 }
 
-impl<M: TryInto<String>> From<Text> for Listener<M> {
-    fn from(text: Text) -> Self {
+impl<M, T> From<T> for Listener<M>
+where
+    M: TryInto<String>,
+    T: Into<Text>,
+{
+    fn from(text: T) -> Self {
         Self {
             message: None,
-            text,
-            format: None,
-        }
-    }
-}
-
-impl<M: TryInto<String>> From<Label> for Listener<M> {
-    fn from(label: Label) -> Self {
-        Self {
-            message: None,
-            text: label.into(),
+            text: text.into(),
             format: None,
         }
     }

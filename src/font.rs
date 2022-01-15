@@ -104,10 +104,10 @@ impl FontCache {
         }
     }
     pub fn write(&mut self, layout: &mut Layout, label: &Label, string: &str) {
-        for font in label.fonts() {
+        for font in &label.fonts {
             self.load_font(font);
         }
-        let fonts = self.get_fonts(label.fonts());
+        let fonts = self.get_fonts(&label.fonts);
         for c in string.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
@@ -121,12 +121,12 @@ impl FontCache {
         }
     }
     pub fn layout(&mut self, label: &Label) -> Layout {
-        for font in label.fonts() {
+        for font in &label.fonts {
             self.load_font(font);
         }
-        let fonts = self.get_fonts(label.fonts());
+        let fonts = self.get_fonts(&label.fonts);
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
-        layout.reset(label.get_settings());
+        layout.reset(&label.settings);
         for c in label.get_text().chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
