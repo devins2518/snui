@@ -201,7 +201,7 @@ where
     header: WidgetExt<M, H>,
     // The position of the window
     coords: Coords,
-    main: W,
+    body: W,
 }
 
 impl<M, H, W> Geometry for Window<M, H, W>
@@ -214,17 +214,21 @@ where
         self.header.width()
     }
     fn height(&self) -> f32 {
-        self.main.height() + self.header.height()
+        self.body.height() + self.header.height()
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if let Err(width) = self.main.set_width(width) {
+        if let Err(width) = self.body.set_width(width) {
             self.header.set_width(width)
         } else {
-            self.header.set_width(width)
+            if let Err(width) = self.header.set_width(width) {
+                self.body.set_width(width)
+            } else {
+                Ok(())
+            }
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.main.set_height(height - self.header.height())
+        self.body.set_height(height - self.header.height())
     }
 }
 
@@ -235,12 +239,12 @@ where
     W: Widget<M>,
 {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        self.set_width(self.width());
         let h = self.header.create_node(x, y);
-        self.set_width(h.width());
         if !h.is_none() {
             self.coords.y = h.height();
         }
-        let c = self.main.create_node(x, y + self.coords.y);
+        let c = self.body.create_node(x, y + self.coords.y);
         if c.is_none() && h.is_none() {
             return c;
         }
@@ -254,8 +258,8 @@ where
             Event::Pointer(x, y, p) => self
                 .header
                 .sync(ctx, event)
-                .max(self.main.sync(ctx, Event::Pointer(x, y - self.coords.y, p))),
-            _ => self.header.sync(ctx, event).max(self.main.sync(ctx, event)),
+                .max(self.body.sync(ctx, Event::Pointer(x, y - self.coords.y, p))),
+            _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
         }
     }
 }
@@ -270,20 +274,20 @@ where
         self.header.set_background(background);
     }
     fn set_border(&mut self, color: u32, width: f32) {
-        self.main.set_border(color, width);
+        self.body.set_border(color, width);
     }
     fn set_border_color(&mut self, color: u32) {
-        self.main.set_border_color(color);
+        self.body.set_border_color(color);
     }
     fn set_border_size(&mut self, size: f32) {
-        self.main.set_border_size(size);
+        self.body.set_border_size(size);
     }
     fn set_even_radius(&mut self, radius: f32) {
-        self.main.set_radius(0., 0., radius, radius);
+        self.body.set_radius(0., 0., radius, radius);
         self.header.set_radius(radius, radius, 0., 0.);
     }
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.main.set_radius(0., 0., br, bl);
+        self.body.set_radius(0., 0., br, bl);
         self.header.set_radius(tl, tr, 0., 0.);
     }
 }
@@ -301,6 +305,6 @@ where
     Window {
         header,
         coords: Coords::default(),
-        main: widget,
+        body: widget,
     }
 }

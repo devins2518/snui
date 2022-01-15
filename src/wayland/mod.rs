@@ -82,7 +82,7 @@ pub struct LayerShellConfig {
     pub layer: Layer,
     pub anchor: Option<Anchor>,
     pub namespace: String,
-    pub exclusive: i32,
+    pub exclusive: bool,
     pub interactivity: KeyboardInteractivity,
     pub margin: [i32; 4],
 }
@@ -91,8 +91,8 @@ impl Default for LayerShellConfig {
     fn default() -> Self {
         Self {
             layer: Layer::Top,
-            anchor: None,
-            exclusive: 0,
+            anchor: Some(Anchor::all()),
+            exclusive: false,
             interactivity: KeyboardInteractivity::None,
             namespace: "".to_string(),
             margin: [0; 4],

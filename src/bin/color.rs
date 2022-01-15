@@ -160,8 +160,27 @@ impl Widget<ColorMsg> for ColorBlock {
 
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
-    let listener = Listener::from(Label::default("")).message(ColorMsg::Source(0));
 
+    let listener = Listener::from(Label::default("").font_size(20.)).message(ColorMsg::Source(0));
+    let window = window::default_window(
+        listener,
+        body().clamp().ext().even_padding(10.).background(BG0),
+    );
+
+    client.new_window(
+        ColorControl {
+            signal: None,
+            color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
+        },
+        window
+            .background(BG2)
+            .border(BG2, 2.)
+            .even_radius(5.)
+            .with_width(300.),
+        &event_queue.handle(),
+    );
+
+    let listener = Listener::from(Label::default("").font_size(20.)).message(ColorMsg::Source(0));
     let window = window::default_window(
         listener,
         body().clamp().ext().even_padding(10.).background(BG0),
@@ -213,7 +232,7 @@ fn sliders() -> WidgetLayout<ColorMsg> {
 fn body() -> WidgetLayout<ColorMsg> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
-    let listener = Listener::from(Label::default(""))
+    let listener = Listener::from(Label::default("").font_size(20.))
         .message(ColorMsg::Source(0))
         .clamp()
         .with_size(200., 20.)

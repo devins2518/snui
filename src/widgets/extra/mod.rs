@@ -23,9 +23,9 @@ impl Iterator for Sinus {
     type Item = f32;
     fn next(&mut self) -> Option<Self::Item> {
         let v = self.amplitude * (self.position).sin().abs();
-        if self.position < self.end {
+        if self.position <= self.end {
             self.position += PI / self.steps;
-            Some(v)
+            Some(v.floor())
         } else {
             self.position = self.start;
             return None;
@@ -64,10 +64,10 @@ impl Iterator for Quadratic {
     type Item = f32;
     fn next(&mut self) -> Option<Self::Item> {
         let h = self.amplitude.sqrt();
-        let v = self.amplitude - (self.position - h).powi(2).round();
-        if (self.position / h / 2.) < self.end {
+        let v = self.amplitude - (self.position - h).powi(2);
+        if self.position < self.end {
             self.position += h * 2. / self.steps;
-            Some(v)
+            Some(v.floor())
         } else {
             self.position = self.start;
             None
@@ -77,11 +77,12 @@ impl Iterator for Quadratic {
 
 impl Easer for Quadratic {
     fn new(start: f32, end: f32, amplitude: f32) -> Self {
+        let h = 2. * amplitude.sqrt();
         Self {
             amplitude,
             steps: 1000.,
-            start,
-            end,
+            start: start * h,
+            end: end * h,
             position: start,
         }
     }

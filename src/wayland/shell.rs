@@ -2,7 +2,7 @@ use crate::context::DrawContext;
 use crate::controller::{Controller, TryFromArg};
 use crate::font::FontCache;
 use crate::scene::*;
-use crate::wayland::{buffer, GlobalManager, Output, Seat, Shell, Surface};
+use crate::wayland::{buffer, GlobalManager, Output, Seat, Shell, Surface, LayerShellConfig};
 use crate::widgets::window::WindowMessage;
 use crate::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
@@ -30,7 +30,7 @@ use smithay_client_toolkit::reexports::client::{
     protocol::wl_subcompositor,
     protocol::wl_subsurface,
     protocol::wl_surface,
-    Connection, ConnectionHandle, DelegateDispatch, DelegateDispatchBase, Dispatch, EventQueue,
+    Connection, ConnectionHandle, DelegateDispatch, Dispatch, EventQueue,
     QueueHandle, WEnum,
 };
 use smithay_client_toolkit::reexports::protocols::{
@@ -136,6 +136,27 @@ where
     ) {
         let mut conn = self.connection.handle();
         let surface = self.globals.borrow().create_xdg_surface(&mut conn, qh);
+        let mut application = Application {
+            state: State::default(),
+            controller,
+            globals: self.globals.clone(),
+            widget: Box::new(widget),
+            surface,
+        };
+
+        application.sync(&mut conn, &mut self.font_cache, Event::Prepare);
+
+        self.applications.push(application);
+    }
+    pub fn new_widget(
+        &mut self,
+        controller: C,
+        widget: impl Widget<M> + 'static,
+        config: LayerShellConfig,
+        qh: &QueueHandle<Self>,
+    ) {
+        let mut conn = self.connection.handle();
+        let surface = self.globals.borrow().create_layer_surface(&mut conn, config, qh);
         let mut application = Application {
             state: State::default(),
             controller,
@@ -278,8 +299,8 @@ where
         event: Event<M>,
     ) {
         if !self.state.pending_cb {
-            let width = self.width();
-            let height = self.height();
+            let width = self.state.render_node.width();
+            let height = self.state.render_node.height();
             match self.sync(conn, fc, event) {
                 Damage::Partial => {
                     if width != self.width() || height != self.height() {
@@ -339,6 +360,11 @@ where
                 }
                 s.damage(conn, &v);
                 s.commit(conn);
+            }
+        } else if let Some(s) = self.surface.as_ref() {
+            if !self.state.pending_cb && s.wl_surface.frame(conn, qh, ()).is_ok() {
+                s.wl_surface.commit(conn);
+                self.state.pending_cb = true;
             }
         }
     }
@@ -405,6 +431,38 @@ impl GlobalManager {
             },
         })
     }
+    fn create_layer_surface<M, C>(
+        &self,
+        conn: &mut ConnectionHandle,
+        config: LayerShellConfig,
+        qh: &QueueHandle<WaylandClient<M, C>>,
+    ) -> Option<Surface>
+    where
+        M: 'static,
+        C: Controller<M> + Clone,
+    {
+        let layer_shell = self.layer_shell.as_ref()?;
+        let compositor = self.compositor.as_ref()?;
+
+        let wl_surface = compositor.create_surface(conn, qh, ()).ok()?;
+        let wl_region = compositor.create_region(conn, qh, ()).ok()?;
+        let layer_surface = layer_shell.get_layer_surface(
+            conn,
+            &wl_surface,
+            None,
+            config.layer,
+            config.namespace.clone(),
+            qh,
+            ()
+        ).ok()?;
+        if let Some(anchor) = config.anchor {
+            layer_surface.set_anchor(conn, anchor);
+        }
+        wl_surface.commit(conn);
+        layer_surface.set_margin(conn, config.margin[0], config.margin[1], config.margin[2], config.margin[3]);
+        layer_surface.set_keyboard_interactivity(conn, config.interactivity);
+        Some(Surface::new(wl_surface, wl_region, Shell::LayerShell { config, layer_surface }, None))
+    }
 }
 
 impl Surface {
@@ -438,10 +496,7 @@ impl Surface {
         self.wl_surface.destroy(ch);
         self.wl_region.destroy(ch);
         self.shell.destroy(ch);
-        if let Some(buffer) = self.wl_buffer.as_ref() {
-            buffer.destroy(ch);
-            self.wl_buffer = None;
-        }
+        self.wl_buffer = None;
         self.destroy_previous(ch);
     }
     fn destroy_previous(&mut self, ch: &mut ConnectionHandle) {
@@ -486,7 +541,7 @@ where
             match &interface[..] {
                 "wl_compositor" => {
                     self.globals.borrow_mut().compositor = registry
-                        .bind::<wl_compositor::WlCompositor, _>(conn, name, 1, qh, ())
+                        .bind::<wl_compositor::WlCompositor, _>(conn, name, 4, qh, ())
                         .ok();
                 }
                 "wl_subcompositor" => {
@@ -504,17 +559,17 @@ where
                 }
                 "wl_seat" => {
                     registry
-                        .bind::<wl_seat::WlSeat, _>(conn, name, 1, qh, ())
+                        .bind::<wl_seat::WlSeat, _>(conn, name, 5, qh, ())
                         .unwrap();
                 }
                 "wl_output" => {
                     registry
-                        .bind::<wl_output::WlOutput, _>(conn, name, 1, qh, ())
+                        .bind::<wl_output::WlOutput, _>(conn, name, 2, qh, ())
                         .unwrap();
                 }
-                "zwlr_layer_shell" => {
+                "zwlr_layer_shell_v1" => {
                     self.globals.borrow_mut().layer_shell = registry
-                        .bind::<zwlr_layer_shell_v1::ZwlrLayerShellV1, _>(conn, name, 1, qh, ())
+                        .bind::<zwlr_layer_shell_v1::ZwlrLayerShellV1, _>(conn, name, 4, qh, ())
                         .ok();
                 }
                 "xdg_wm_base" => {
@@ -684,6 +739,7 @@ where
                         &mut self.font_cache,
                         Event::Callback(frame_time),
                     );
+                    return;
                 }
             }
         }
@@ -756,7 +812,15 @@ where
         }) {
             match event {
                 xdg_toplevel::Event::Configure { width, height, .. } => {
-                    application.set_size(conn, width as f32, height as f32);
+                    if let Err((r_width, r_height)) = application.widget.set_size(width as f32, height as f32) {
+                        if let Shell::Xdg{ toplevel, .. } = &application.surface.as_ref().unwrap().shell {
+                            if width < r_width as i32 && height < r_height as i32 {
+                                toplevel.set_min_size(conn, r_width as i32, r_height as i32);
+                            } else if width > r_width as i32 && height > r_height as i32 {
+                                toplevel.set_max_size(conn, r_width as i32, r_height as i32);
+                            }
+                        }
+                    }
                     let mut ctx =
                         SyncContext::new(&mut application.controller, &mut self.font_cache);
                     application.widget.sync(&mut ctx, Event::Frame);
@@ -840,6 +904,48 @@ where
                     false
                 }
             }) {
+                application.state.configured = true;
+                application.update_scene(
+                    self.pool.as_mut().unwrap(),
+                    conn,
+                    qh,
+                    &mut self.font_cache,
+                    Event::Frame,
+                )
+            }
+        }
+    }
+}
+
+impl<M, C> Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1> for WaylandClient<M, C>
+where
+    M: 'static,
+    C: Controller<M> + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        layer_surface: &zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+        event: zwlr_layer_surface_v1::Event,
+        _: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<Self>
+    ) {
+        if let zwlr_layer_surface_v1::Event::Configure { serial, width, height } = event {
+            layer_surface.ack_configure(conn, serial);
+            if let Some(application) = self.applications.iter_mut().find(|a| {
+                if let Some(s) = a.surface.as_ref() {
+                    let t_layer_surface= layer_surface;
+                    match &s.shell {
+                        wayland::Shell::LayerShell { layer_surface, .. } => layer_surface.eq(t_layer_surface),
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            }) {
+                application.set_size(conn, width as f32, height as f32);
                 application.state.configured = true;
                 application.update_scene(
                     self.pool.as_mut().unwrap(),

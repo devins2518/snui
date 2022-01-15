@@ -2,6 +2,7 @@ use scene::Instruction;
 use snui::controller::*;
 use snui::wayland::shell::*;
 use snui::widgets::container::*;
+use snui::wayland::LayerShellConfig;
 use snui::widgets::extra::{switch::*, Quadratic, Sinus, Easer};
 use snui::widgets::shapes::*;
 use snui::widgets::window::*;
@@ -53,10 +54,7 @@ impl Controller<AnimationState> for EaserCtl {
         return Ok(self.state);
     }
     fn send(&mut self, msg: AnimationState) -> Result<AnimationState, ControllerError> {
-        match msg {
-            AnimationState::Stop | AnimationState::Pause => self.block = false,
-            _ => {}
-        }
+        self.block = false;
         self.state = msg;
         Ok(self.state)
     }
@@ -81,6 +79,7 @@ impl Controller<AnimationState> for EaserCtl {
 struct Animate<E: Easer> {
     start: bool,
     cursor: f32,
+    position: f32,
     easer: E,
 }
 
@@ -95,19 +94,12 @@ impl<E: Easer> Geometry for Animate<E> {
 
 impl<E: Easer> Widget<AnimationState> for Animate<E> {
     fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
-        if self.start {
-            if let Some(delta) = self.easer.next() {
-                return Instruction::new(
-                    x + delta,
-                    y,
-                    Rectangle::empty(self.cursor, 30.).background(style::RED),
-                )
-                .into();
-            } else {
-                self.start = false;
-            }
-        }
-        scene::RenderNode::None
+        return Instruction::new(
+            x + self.position,
+            y,
+            Rectangle::empty(self.cursor, 30.).background(style::RED),
+        )
+        .into();
     }
     fn sync<'d>(
         &'d mut self,
@@ -116,30 +108,36 @@ impl<E: Easer> Widget<AnimationState> for Animate<E> {
     ) -> Damage {
         match event {
             Event::Callback(frame_time) => {
-                let steps = (frame_time as usize * self.easer.steps()) / 7000;
                 if self.start {
-                    for _ in 1..steps {
-                        if let None = self.easer.next() {
-                            return Damage::None;
+                    let steps =
+                        (frame_time * self.easer.steps() as u32) as usize / 5000;
+                    for _ in 0..steps {
+                        match self.easer.next() {
+                            Some(position) => self.position = position,
+                            None => {
+                                ctx.send(AnimationState::Stop).unwrap();
+                                self.start = false;
+                                return Damage::None;
+                            }
                         }
                     }
                     return Damage::Frame;
-                } else {
-                    ctx.send(AnimationState::Stop);
                 }
             }
-            Event::Message(msg) => match msg {
-                AnimationState::Start => {
-                    self.start = true;
-                    return Damage::Frame;
+            Event::Message(msg) => {
+                match msg {
+                    AnimationState::Start => {
+                        self.start = true;
+                        return Damage::Frame;
+                    }
+                    AnimationState::Pause => {
+                        self.start = false;
+                    }
+                    AnimationState::Stop => {
+                        self.start = false;
+                    }
                 }
-                AnimationState::Pause => {
-                    self.start = false;
-                }
-                AnimationState::Stop => {
-                    self.start = false;
-                }
-            },
+            }
             _ => {}
         }
         Damage::None
@@ -149,9 +147,10 @@ impl<E: Easer> Widget<AnimationState> for Animate<E> {
 impl Animate<Quadratic> {
     fn quadratic() -> Self {
         Animate {
+            position: 0.,
             start: false,
             cursor: 20.,
-            easer: Quadratic::new(0., 0.5, 400. - 20.),
+            easer: Quadratic::new(0., 1., 400. - 20.),
         }
     }
 }
@@ -159,9 +158,10 @@ impl Animate<Quadratic> {
 impl Animate<Sinus> {
     fn sinus() -> Self {
         Animate {
+            position: 0.,
             start: false,
             cursor: 20.,
-            easer: Sinus::new(0., 0.5, 400. - 20.),
+            easer: Sinus::new(0., 1., 400. - 20.),
         }
     }
 }
@@ -210,6 +210,17 @@ fn ui() -> impl Widget<AnimationState> {
 
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
+
+    let window = window::default_window(
+        Label::default("Animation").into(),
+        ui().clamp().ext().background(style::BG0),
+    );
+
+    client.new_window(
+        EaserCtl::default(),
+        window.background(style::BG2),
+        &event_queue.handle(),
+    );
 
     let window = window::default_window(
         Label::default("Animation").into(),
