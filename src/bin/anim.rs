@@ -189,14 +189,11 @@ fn ui() -> impl Widget<AnimationState> {
                             match state {
                                 AnimationState::Start => {
                                     this.set_background(style::BG1);
-                                    ctx.send(AnimationState::Pause)
                                 }
                                 AnimationState::Pause | AnimationState::Stop => {
                                     this.set_background(style::RED);
-                                    ctx.send(AnimationState::Start)
                                 }
                             }
-                            .unwrap();
                         }
                     }
                 }

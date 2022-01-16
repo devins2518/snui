@@ -298,31 +298,29 @@ where
         fc: &mut FontCache,
         event: Event<M>,
     ) {
-        if !self.state.pending_cb {
-            let width = self.state.render_node.width();
-            let height = self.state.render_node.height();
-            match self.sync(conn, fc, event) {
-                Damage::Partial => {
-                    if width != self.width() || height != self.height() {
-                        self.sync(conn, fc, Event::Frame);
-                    }
-                    let render_node = self.widget.create_node(0., 0.);
-                    self.render(pool, fc, render_node, conn, qh);
+        let width = self.state.render_node.width();
+        let height = self.state.render_node.height();
+        match self.sync(conn, fc, event) {
+            Damage::Partial => if !self.state.pending_cb {
+                if width != self.width() || height != self.height() {
+                    self.sync(conn, fc, Event::Frame);
                 }
-                Damage::Frame => {
-                    if let Some(s) = self.surface.as_ref() {
-                        if s.wl_surface.frame(conn, qh, ()).is_ok() {
-                            if width != self.width() || height != self.height() {
-                                self.sync(conn, fc, Event::Frame);
-                            }
-                            let render_node = self.widget.create_node(0., 0.);
-                            self.state.pending_cb = true;
-                            self.render(pool, fc, render_node, conn, qh);
-                        }
-                    }
-                }
-                _ => {}
+                let render_node = self.widget.create_node(0., 0.);
+                self.render(pool, fc, render_node, Damage::Partial, conn, qh);
             }
+            Damage::Frame => if !self.state.pending_cb {
+                if let Some(s) = self.surface.as_ref() {
+                    if s.wl_surface.frame(conn, qh, ()).is_ok() {
+                        if width != self.width() || height != self.height() {
+                            self.sync(conn, fc, Event::Frame);
+                        }
+                        let render_node = self.widget.create_node(0., 0.);
+                        self.state.pending_cb = true;
+                        self.render(pool, fc, render_node, Damage::Frame, conn, qh);
+                    }
+                }
+            }
+            _ => {}
         }
     }
     fn render(
@@ -330,6 +328,7 @@ where
         pool: &mut MultiPool,
         fc: &mut FontCache,
         render_node: RenderNode,
+        damage: Damage,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<M, C>>,
     ) {
@@ -365,6 +364,8 @@ where
             if !self.state.pending_cb && s.wl_surface.frame(conn, qh, ()).is_ok() {
                 s.wl_surface.commit(conn);
                 self.state.pending_cb = true;
+            } else if let Damage::Frame = damage {
+                self.state.pending_cb = false;
             }
         }
     }
@@ -725,21 +726,44 @@ where
         qh: &QueueHandle<Self>,
     ) {
         if let wl_callback::Event::Done { callback_data } = event {
-            for application in self.applications.iter_mut() {
+            let mut cb = None;
+            let fc = &mut self.font_cache;
+            let pool = self.pool.as_mut().unwrap();
+            for (i, application) in self.applications.iter_mut().enumerate() {
                 if application.state.pending_cb {
                     application.state.pending_cb = false;
                     // The application is rendered prior and the changes are commited here
                     let frame_time = (callback_data - application.state.time).min(100);
                     application.state.time = callback_data;
                     // Send a callback event with the timeout the application
-                    application.update_scene(
-                        self.pool.as_mut().unwrap(),
-                        conn,
-                        qh,
-                        &mut self.font_cache,
-                        Event::Callback(frame_time),
-                    );
-                    return;
+                    let width = application.state.render_node.width();
+                    let height = application.state.render_node.height();
+                    match application.sync(conn, fc, Event::Callback(frame_time)) {
+                        Damage::Partial => {
+                            if width != application.width() || height != application.height() {
+                                application.sync(conn, fc, Event::Frame);
+                            }
+                            let render_node = application.widget.create_node(0., 0.);
+                            application.render(pool, fc, render_node, Damage::Partial, conn, qh);
+                        }
+                        Damage::Frame => {
+                            cb = Some(i);
+                            if width != application.width() || height != application.height() {
+                                application.sync(conn, fc, Event::Frame);
+                            }
+                            let render_node = application.widget.create_node(0., 0.);
+                            application.state.pending_cb = true;
+                            application.render(pool, fc, render_node, Damage::Partial, conn, qh);
+                        }
+                        Damage::None => {}
+                    }
+                }
+            }
+            if let Some(i) = cb {
+                if let Some(s) = self.applications[i].surface.as_ref() {
+                    if s.wl_surface.frame(conn, qh, ()).is_ok() {
+                        s.wl_surface.commit(conn);
+                    }
                 }
             }
         }
@@ -1105,7 +1129,7 @@ where
                 }
                 wl_pointer::Event::Frame => {
                     // Call dispatch method of the Application
-                    self.flush_ev_buffer(conn, qh);
+                    // self.flush_ev_buffer(conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {
                     self.focus = None;
