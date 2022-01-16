@@ -2,7 +2,7 @@ use snui::context::*;
 use snui::controller::{Controller, ControllerError, TryFromArg};
 use snui::scene::*;
 use snui::wayland::shell::*;
-use snui::widgets::window::WindowMessage;
+use snui::widgets::window::WindowState;
 use snui::widgets::{shapes::*, text::*, *};
 use snui::{style::*, *};
 
@@ -59,11 +59,11 @@ impl TryFromArg<f32> for ColorMsg {
     }
 }
 
-impl TryInto<WindowMessage> for ColorMsg {
+impl TryInto<WindowState> for ColorMsg {
     type Error = ();
-    fn try_into(self) -> Result<WindowMessage, Self::Error> {
+    fn try_into(self) -> Result<WindowState, Self::Error> {
         match self {
-            Self::Close => Ok(WindowMessage::Close),
+            Self::Close => Ok(WindowState::Close),
             _ => Err(()),
         }
     }
@@ -149,7 +149,7 @@ impl Widget<ColorMsg> for ColorBlock {
         if let Event::Message(_) = event {
             let msg = ctx.get(&ColorMsg::Source(0)).unwrap();
             if let ColorMsg::Source(color) = msg {
-                ctx.window_state(WindowMessage::Title(msg.try_into().unwrap()));
+                ctx.window_state(WindowState::Title(msg.try_into().unwrap()));
                 self.color = u32_to_source(color).to_color_u8();
             }
             return Damage::Partial;
@@ -202,6 +202,9 @@ fn main() {
     while let Ok(_) =
         event_queue.blocking_dispatch(&mut client)
     {
+        if !client.has_client() {
+            break;
+        }
     }
 }
 

@@ -26,9 +26,9 @@ To keep the following section simpler, I have omitted a few methods. We'll come 
 A companion of your **message** is `TryIntoMessage` and it's big brother `IntoMessage`.
 
 ```rust
-pub trait TryIntoMessage<T> {
+pub trait TryFromArg<T> {
     type Error;
-    fn try_into(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
+    fn try_from_arg(&self, _: T) -> Result<Self, Self::Error> where Self : Sized;
 }
 ```
 
@@ -71,9 +71,9 @@ As volume, I gave a symbolic value `-1.` but obviously I don't want the slider t
 This is when `TryIntoMessage<f32>` comes into play.
 
 ```rust
-impl TryIntoMessage<f32> for System {
+impl TryFromArg<f32> for System {
 	type Error = ();
-	fn into(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
+	fn try_from_arg(&self, f: f32) -> Result<Self, Self::Error> where Self : Sized {
 		match self {
 			System::Volume(_) => Ok(System::Volume(f)),
 			System::Brightness(_) => Ok(System::Brightness(f))
@@ -91,7 +91,7 @@ Our slider can then do this :
 ```rust
 let ratio: f32 = todo!();
 if let Some(message) = self.message.as_ref() {
-	if let Ok(msg) = message.try_into(ratio) {
+	if let Ok(msg) = message.try_from_arg(ratio) {
 		let _ = ctx.send(msg)
 	}
 }
@@ -104,7 +104,7 @@ When you click or scroll on the [slider](../src/widgets/slider.rs), it calculate
 ### Summary
 
 Messages are used to communicate Data to your `Controller`.
-Your `M`essages can implement `TryIntoMessage<T>` so widgets can build new ones from a given template.
+Your `M`essages can implement `TryFromArg<T>` so widgets can build new ones from a given template.
 
 ## Serialization
 

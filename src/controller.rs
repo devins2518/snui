@@ -38,22 +38,25 @@ pub enum ControllerError {
 }
 
 pub trait Controller<M> {
-    // Tells the model all incomming messages are linked
-    // The Controller returns a token that can be used to deserialize
+    /// Tells the model all incomming messages are linked
+    /// The Controller returns a token that can be used to deserialize
     fn serialize(&mut self) -> Result<u32, ControllerError> {
         Err(ControllerError::NonSerialized)
     }
-    // Ends the serialization
+    /// Ends the serialization.
     fn deserialize(&mut self, _serial: u32) -> Result<(), ControllerError> {
         Err(ControllerError::NonSerialized)
     }
-    // These interface are from the pov of the widgets
+    /// Retreive data from the Controller
     fn get(&self, msg: &M) -> Result<M, ControllerError>;
+    /// Share data from the Controller
     fn send(&mut self, msg: M) -> Result<M, ControllerError>;
+    /// Share a serialized message to the Controller. All messages with the same serial
+    /// will be atomically handled on deserialize.
     fn send_serialize(&mut self, _serial: u32, _msg: M) -> Result<M, ControllerError> {
         Err(ControllerError::NonSerialized)
     }
-    // Returns an Ok(Message) if the application needs to be synced
+    // Returns a message if the application needs to be synced
     fn sync<'s>(&mut self) -> Result<M, ControllerError>;
 }
 

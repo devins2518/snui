@@ -186,6 +186,9 @@ impl Text {
         self.buffer = None;
         self.label.text = s.to_string();
     }
+    pub fn create_node(&self, x: f32, y: f32) -> RenderNode {
+        RenderNode::Instruction(Instruction::new(x, y, self.label.clone()))
+    }
 }
 
 impl Geometry for Text {

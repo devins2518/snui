@@ -166,8 +166,38 @@ impl Animate<Sinus> {
     }
 }
 
+struct FrameRate {
+    text: Text
+}
+
+impl Geometry for FrameRate {
+    fn width(&self) -> f32 {
+        self.text.width()
+    }
+    fn height(&self) -> f32 {
+        self.text.height()
+    }
+}
+
+impl<M> Widget<M> for FrameRate {
+    fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
+        self.text.create_node(x, y)
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<M>, event: Event<'d, M>) -> Damage {
+        match event {
+            Event::Callback(frame_time) => {
+                let frame_rate = 1000 / frame_time;
+                self.text.edit(&format!("{} fps", frame_rate));
+                self.text.sync(ctx, event)
+            }
+            _ => self.text.sync(ctx, event)
+        }
+    }
+}
+
 fn ui() -> impl Widget<AnimationState> {
     let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
+    ui.add(FrameRate { text: "frame rate".into() });
     ui.add(Animate::quadratic());
     ui.add(Animate::sinus());
 
@@ -209,18 +239,7 @@ fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
     let window = window::default_window(
-        Label::default("Animation").into(),
-        ui().clamp().ext().background(style::BG0),
-    );
-
-    client.new_window(
-        EaserCtl::default(),
-        window.background(style::BG2),
-        &event_queue.handle(),
-    );
-
-    let window = window::default_window(
-        Label::default("Animation").into(),
+        "Animation".into(),
         ui().clamp().ext().background(style::BG0),
     );
 

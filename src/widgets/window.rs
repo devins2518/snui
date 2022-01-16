@@ -1,4 +1,3 @@
-use crate::controller::*;
 use crate::*;
 use crate::{
     scene::{Coords, Instruction, Region},
@@ -6,7 +5,7 @@ use crate::{
 };
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum WindowMessage {
+pub enum WindowState {
     Move,
     Close,
     Maximize,
@@ -56,7 +55,7 @@ impl<M> Widget<M> for Close {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        ctx.window_state(WindowMessage::Close);
+                        ctx.window_state(WindowState::Close);
                     }
                 }
             }
@@ -66,7 +65,9 @@ impl<M> Widget<M> for Close {
 }
 
 // This is essentially the close button
-struct Maximize {}
+struct Maximize {
+    maximized: bool
+}
 
 impl Geometry for Maximize {
     fn height(&self) -> f32 {
@@ -79,17 +80,30 @@ impl Geometry for Maximize {
 
 impl<M> Widget<M> for Maximize {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let thickness = 2.;
-        Instruction::new(
-            x,
-            y,
-            Rectangle::new(
-                self.width() - 2. * thickness,
-                self.height() - 2. * thickness,
-                ShapeStyle::Border(u32_to_source(style::BLU), thickness),
-            ),
-        )
-        .into()
+        if self.maximized {
+            Instruction::new(
+                x,
+                y,
+                Rectangle::new(
+                    self.width(),
+                    self.height(),
+                    ShapeStyle::solid(style::BLU),
+                ),
+            )
+            .into()
+        } else {
+            let thickness = 2.;
+            Instruction::new(
+                x,
+                y,
+                Rectangle::new(
+                    self.width() - 2. * thickness,
+                    self.height() - 2. * thickness,
+                    ShapeStyle::Border(u32_to_source(style::BLU), thickness),
+                ),
+            )
+            .into()
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
@@ -101,7 +115,8 @@ impl<M> Widget<M> for Maximize {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        ctx.window_state(WindowMessage::Maximize);
+                        self.maximized = self.maximized == false;
+                        ctx.window_state(WindowState::Maximize);
                     }
                 }
             }
@@ -152,7 +167,7 @@ impl<M> Widget<M> for Minimize {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        ctx.window_state(WindowMessage::Minimize);
+                        ctx.window_state(WindowState::Minimize);
                     }
                 }
             }
@@ -167,7 +182,7 @@ where
 {
     let mut l = WidgetLayout::new(15.);
     l.add(Minimize {});
-    l.add(Maximize {});
+    l.add(Maximize { maximized: false });
     l.add(Close {});
     l.justify(CENTER);
     l
@@ -185,7 +200,7 @@ where
             button, pressed, ..
         } => {
             if button.is_left() && pressed {
-                ctx.window_state(WindowMessage::Move);
+                ctx.window_state(WindowState::Move);
             }
         }
         _ => {}

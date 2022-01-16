@@ -28,14 +28,14 @@ use smithay_client_toolkit::shm::pool::multi::MultiPool;
 const FORMAT: Format = Format::Argb8888;
 
 fn buffer<'b, D, U>(
-    pool: &'b mut MultiPool,
+    pool: &'b mut MultiPool<WlSurface>,
     width: u32,
     height: u32,
     surface: &WlSurface,
     udata: U,
     conn: &mut ConnectionHandle,
     qh: &QueueHandle<D>,
-) -> Option<(Backend<'b>, WlBuffer)>
+) -> Option<(usize, WlBuffer, Backend<'b>)>
 where
     D: Dispatch<WlBuffer, UserData = U> + 'static,
     U: Send + Sync + 'static,
@@ -43,7 +43,7 @@ where
     let stride = width * 4;
     let size = stride * height;
     if pool.resize(size as usize, conn).is_ok() {
-        if let Some((buffer, slice)) = pool.create_buffer(
+        if let Some((offset, buffer, slice)) = pool.create_buffer(
             width as i32,
             stride as i32,
             height as i32,
@@ -54,7 +54,7 @@ where
             qh,
         ) {
             if let Some(pixmap) = PixmapMut::from_bytes(slice, width, height) {
-                return Some((Backend::Pixmap(pixmap), buffer));
+                return Some((offset, buffer, Backend::Pixmap(pixmap)));
             }
         }
     }
@@ -207,6 +207,23 @@ impl GlobalManager {
             subcompositor: None,
             wm_base: None,
             layer_shell: None,
+        }
+    }
+    pub fn destroy(&self, conn: &mut ConnectionHandle) {
+        if let Some(subcompositor) = &self.subcompositor {
+            subcompositor.destroy(conn);
+        }
+        if let Some(wm_base) = &self.wm_base {
+            wm_base.destroy(conn);
+        }
+        if let Some(layer_shell) = &self.layer_shell {
+            layer_shell.destroy(conn);
+        }
+        for output in &self.outputs {
+            output.output.release(conn);
+        }
+        for seat in &self.seats {
+            seat.seat.release(conn);
         }
     }
 }

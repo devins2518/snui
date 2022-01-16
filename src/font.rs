@@ -64,6 +64,8 @@ impl FontProperty {
     }
 }
 
+/// A fontconfig backed FontCache.
+/// If a font cannot be found it will load it if possible.
 pub struct FontCache {
     fc: Option<Fontconfig>,
     pub fonts: HashMap<FontProperty, GlyphCache>,

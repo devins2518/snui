@@ -5,7 +5,7 @@ use scene::*;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 use widgets::text::Label;
-use widgets::window::WindowMessage;
+use widgets::window::WindowState;
 
 pub(crate) mod canvas {
     use crate::scene::*;
@@ -87,15 +87,17 @@ pub const TEXT: PixmapPaint = PixmapPaint {
     quality: FilterQuality::Bilinear,
 };
 
-// Available rendering Backends
+/// Available rendering Backends
 pub enum Backend<'b> {
+    /// A wrapper around a buffer from TinySkia
     Pixmap(PixmapMut<'b>),
+    /// Doesn't do anything. Meant for testing
     Dummy,
 }
 
 pub struct SyncContext<'c, M> {
-    pub(crate) window_state: Option<WindowMessage>,
     controller: &'c mut dyn Controller<M>,
+    pub(crate) window_state: Option<WindowState>,
     pub(crate) font_cache: &'c mut FontCache,
 }
 
@@ -147,8 +149,8 @@ impl<'c, M> SyncContext<'c, M> {
             font_cache,
         }
     }
-    pub fn window_state(&mut self, wm: WindowMessage) {
-        self.window_state = Some(wm);
+    pub fn window_state(&mut self, window_state: WindowState) {
+        self.window_state = Some(window_state);
     }
 }
 
@@ -194,6 +196,7 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
+    /// Dmaages a region of the buffer in preparation of a draw.
     pub fn damage_region(&mut self, bg: &Background, mut region: Region, composite: bool) {
         if !composite {
             if let Some(last) = self.pending_damage.last() {

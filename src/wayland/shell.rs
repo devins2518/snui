@@ -3,7 +3,7 @@ use crate::controller::{Controller, TryFromArg};
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, Output, Seat, Shell, Surface, LayerShellConfig};
-use crate::widgets::window::WindowMessage;
+use crate::widgets::window::WindowState;
 use crate::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 // use smithay_client_toolkit::seat::keyboard::ModifiersState;
@@ -46,7 +46,7 @@ where
     C: Controller<M> + Clone + 'static,
 {
     focus: Option<usize>,
-    pool: Option<MultiPool>,
+    pool: Option<MultiPool<wl_surface::WlSurface>>,
     font_cache: FontCache,
     connection: Connection,
     event_buffer: Event<'static, ()>,
@@ -109,6 +109,8 @@ where
                     event,
                 );
                 if !self.applications[i].state.configured {
+                    self.focus = None;
+                    self.event_buffer = Event::default();
                     self.applications.remove(i);
                 }
             }
@@ -124,6 +126,7 @@ where
                 event,
             );
             if !self.applications[i].state.configured {
+                self.focus = None;
                 self.applications.remove(i);
             }
         }
@@ -169,6 +172,19 @@ where
 
         self.applications.push(application);
     }
+    pub fn has_client(&self) -> bool {
+        !self.applications.is_empty()
+    }
+}
+
+impl<M, C> Drop for WaylandClient<M, C>
+where
+    M: 'static,
+    C: Controller<M> + Clone,
+{
+    fn drop(&mut self) {
+        self.globals.borrow().destroy(&mut self.connection.handle())
+    }
 }
 
 pub struct Application<M, C>
@@ -184,8 +200,10 @@ where
 
 struct State {
     time: u32,
+    offset: usize,
     configured: bool,
     pending_cb: bool,
+    maximized: bool,
     render_node: RenderNode,
 }
 
@@ -193,8 +211,10 @@ impl Default for State {
     fn default() -> Self {
         Self {
             time: 0,
+            offset: 0,
             configured: false,
             pending_cb: false,
+            maximized: false,
             render_node: RenderNode::None,
         }
     }
@@ -246,7 +266,7 @@ where
         if let Some(s) = self.surface.as_mut() {
             if let Some(wm) = take(&mut ctx.window_state) {
                 match wm {
-                    WindowMessage::Close => {
+                    WindowState::Close => {
                         // The WaylandClient will check if it's configured
                         // and remove the Application if it's not.
                         self.state.configured = false;
@@ -254,22 +274,27 @@ where
                         self.surface = None;
                         return Damage::None;
                     }
-                    WindowMessage::Move => match &s.shell {
+                    WindowState::Move => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             // todo!()
                         }
                         _ => {}
                     },
-                    WindowMessage::Minimize => match &s.shell {
+                    WindowState::Minimize => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             toplevel.set_minimized(conn);
                         }
                         _ => {}
                     },
-                    WindowMessage::Maximize => {
+                    WindowState::Maximize => {
                         match &s.shell {
                             Shell::Xdg { toplevel, .. } => {
-                                toplevel.set_maximized(conn);
+                                self.state.maximized = self.state.maximized == false;
+                                if self.state.maximized {
+                                    toplevel.set_maximized(conn);
+                                } else {
+                                    toplevel.unset_maximized(conn);
+                                }
                             }
                             Shell::LayerShell { layer_surface, .. } => {
                                 // The following Configure event should be adjusted to
@@ -278,7 +303,7 @@ where
                             }
                         }
                     }
-                    WindowMessage::Title(title) => match &s.shell {
+                    WindowState::Title(title) => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             toplevel.set_title(conn, title);
                         }
@@ -292,7 +317,7 @@ where
     }
     fn update_scene(
         &mut self,
-        pool: &mut MultiPool,
+        pool: &mut MultiPool<wl_surface::WlSurface>,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<M, C>>,
         fc: &mut FontCache,
@@ -325,7 +350,7 @@ where
     }
     fn render(
         &mut self,
-        pool: &mut MultiPool,
+        pool: &mut MultiPool<wl_surface::WlSurface>,
         fc: &mut FontCache,
         render_node: RenderNode,
         damage: Damage,
@@ -335,7 +360,7 @@ where
         let width = render_node.width();
         let height = render_node.height();
 
-        if let Some((backend, wl_buffer)) = buffer(
+        if let Some((offset, wl_buffer, backend)) = buffer(
             pool,
             width as u32,
             height as u32,
@@ -348,14 +373,20 @@ where
                 s.replace_buffer(wl_buffer);
                 let mut v = Vec::new();
                 let mut ctx = DrawContext::new(backend, fc, &mut v);
-                if let Err(region) = self.state.render_node.draw_merge(
-                    render_node,
-                    &mut ctx,
-                    &Instruction::empty(0., 0., width, height),
-                    None,
-                ) {
-                    ctx.damage_region(&Background::Transparent, region, false);
+                if offset != self.state.offset {
+                    self.state.offset = offset;
+                    self.state.render_node.merge(render_node);
                     self.state.render_node.render(&mut ctx, None);
+                } else {
+                    if let Err(region) = self.state.render_node.draw_merge(
+                        render_node,
+                        &mut ctx,
+                        &Instruction::empty(0., 0., width, height),
+                        None,
+                    ) {
+                        ctx.damage_region(&Background::Transparent, region, false);
+                        self.state.render_node.render(&mut ctx, None);
+                    }
                 }
                 s.damage(conn, &v);
                 s.commit(conn);
@@ -584,12 +615,12 @@ where
     }
 }
 
-impl<M, C> AsMut<MultiPool> for WaylandClient<M, C>
+impl<M, C> AsMut<MultiPool<wl_surface::WlSurface>> for WaylandClient<M, C>
 where
     M: 'static,
     C: Controller<M> + Clone + 'static,
 {
-    fn as_mut(&mut self) -> &mut MultiPool {
+    fn as_mut(&mut self) -> &mut MultiPool<wl_surface::WlSurface> {
         self.pool.as_mut().unwrap()
     }
 }
@@ -609,7 +640,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<Self>,
     ) {
-        <MultiPool as DelegateDispatch<wl_buffer::WlBuffer, Self>>::event(
+        <MultiPool<wl_surface::WlSurface> as DelegateDispatch<wl_buffer::WlBuffer, Self>>::event(
             self, proxy, event, data, conn, qh,
         );
     }
@@ -848,7 +879,6 @@ where
                     let mut ctx =
                         SyncContext::new(&mut application.controller, &mut self.font_cache);
                     application.widget.sync(&mut ctx, Event::Frame);
-                    // todo!()
                 }
                 xdg_toplevel::Event::Close => {
                     application.surface.as_mut().unwrap().destroy(conn);
@@ -1081,7 +1111,6 @@ where
                                 false
                             },
                         };
-                        self.flush_ev_buffer(conn, qh);
                     }
                 }
                 wl_pointer::Event::Axis {
@@ -1100,7 +1129,6 @@ where
                                 value: Move::Value(value as f32),
                             };
                         }
-                        self.flush_ev_buffer(conn, qh);
                     }
                 }
                 wl_pointer::Event::AxisDiscrete { axis, discrete } => {
@@ -1115,7 +1143,6 @@ where
                                 value: Move::Step(discrete),
                             };
                         }
-                        self.flush_ev_buffer(conn, qh);
                     }
                 }
                 wl_pointer::Event::Motion {
@@ -1125,13 +1152,16 @@ where
                 } => {
                     self.event_buffer =
                         Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
-                    self.flush_ev_buffer(conn, qh);
                 }
                 wl_pointer::Event::Frame => {
                     // Call dispatch method of the Application
-                    // self.flush_ev_buffer(conn, qh);
+                    self.flush_ev_buffer(conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {
+                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                        *p = Pointer::Leave;
+                    }
+                    self.flush_ev_buffer(conn, qh);
                     self.focus = None;
                 }
                 _ => {}
@@ -1145,8 +1175,6 @@ where
                 }
                 wl_pointer::Event::Leave { .. } => {
                     self.focus = None;
-                    // Call dispatch method of the Application
-                    todo!()
                 }
                 _ => {}
             }

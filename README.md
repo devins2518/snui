@@ -4,7 +4,7 @@
 
 ## Supported backends
 
-- [ ] xdg-shell
+- [x] xdg-shell
 - [x] layershell
 
 ## Documentation
