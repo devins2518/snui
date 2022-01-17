@@ -6,7 +6,7 @@ use crate::{
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum WindowState {
-    Move,
+    Move(u32),
     Close,
     Maximize,
     Minimize,
@@ -48,7 +48,7 @@ impl<M> Widget<M> for Close {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if let Pointer::MouseClick {
-                time: _,
+                serial: _,
                 button,
                 pressed,
             } = p
@@ -66,7 +66,7 @@ impl<M> Widget<M> for Close {
 
 // This is essentially the close button
 struct Maximize {
-    maximized: bool
+    maximized: bool,
 }
 
 impl Geometry for Maximize {
@@ -84,11 +84,7 @@ impl<M> Widget<M> for Maximize {
             Instruction::new(
                 x,
                 y,
-                Rectangle::new(
-                    self.width(),
-                    self.height(),
-                    ShapeStyle::solid(style::BLU),
-                ),
+                Rectangle::new(self.width(), self.height(), ShapeStyle::solid(style::BLU)),
             )
             .into()
         } else {
@@ -108,7 +104,7 @@ impl<M> Widget<M> for Maximize {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if let Pointer::MouseClick {
-                time: _,
+                serial: _,
                 button,
                 pressed,
             } = p
@@ -160,7 +156,7 @@ impl<M> Widget<M> for Minimize {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if let Pointer::MouseClick {
-                time: _,
+                serial: _,
                 button,
                 pressed,
             } = p
@@ -197,10 +193,12 @@ where
     l.add(wm_button().clamp().anchor(END, CENTER));
     l.button(|_, ctx, p| match p {
         Pointer::MouseClick {
-            button, pressed, ..
+            button,
+            pressed,
+            serial,
         } => {
             if button.is_left() && pressed {
-                ctx.window_state(WindowState::Move);
+                ctx.window_state(WindowState::Move(serial));
             }
         }
         _ => {}

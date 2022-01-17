@@ -180,31 +180,8 @@ fn main() {
         &event_queue.handle(),
     );
 
-    let listener = Listener::from(Label::default("").font_size(20.)).message(ColorMsg::Source(0));
-    let window = window::default_window(
-        listener,
-        body().clamp().ext().even_padding(10.).background(BG0),
-    );
-
-    client.new_window(
-        ColorControl {
-            signal: None,
-            color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
-        },
-        window
-            .background(BG2)
-            .border(BG2, 2.)
-            .even_radius(5.)
-            .with_width(300.),
-        &event_queue.handle(),
-    );
-
-    while let Ok(_) =
-        event_queue.blocking_dispatch(&mut client)
-    {
-        if !client.has_client() {
-            break;
-        }
+    while client.has_client() {
+        event_queue.blocking_dispatch(&mut client).unwrap();
     }
 }
 

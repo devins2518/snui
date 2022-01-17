@@ -21,9 +21,9 @@ To keep the following section simpler, I have omitted a few methods. We'll come 
 
 `send` and `get` are relatively similar. The major differences being that `send` mutably borrows the `Controller` and takes an owned value whereas `get` take an immutable reference to your `Message` and `Controller`. This means `get` is meant to query data from your `Controller` and `send` transfer data to it.
 
-### `TryIntoMessage` and `IntoMessage` trait
+### `TryFromArg` and `IntoMessage` trait
 
-A companion of your **message** is `TryIntoMessage` and it's big brother `IntoMessage`.
+A companion of your **message** is `TryFromArg` and it's big brother `IntoMessage`.
 
 ```rust
 pub trait TryFromArg<T> {
@@ -34,14 +34,14 @@ pub trait TryFromArg<T> {
 
 > `IntoMessage` is identical except it returns `Self`.
 
-> All types implementing `IntoMessage<T>` automatically have an implementation of `TryIntoMessage<T>`
+> All types implementing `IntoMessage<T>` automatically have an implementation of `TryFromArg<T>`
 
-What `TryIntoMessage<T>` allows you to do is build a new message from a template and a given `T`.
+What `TryFromArg<T>` allows you to do is build a new message from a template and a given `T`.
 
 How it supposed to be used isn't really straightforward so I'll give an example from [snui]().
 
 ```rust
-pub struct Slider<M: PartialEq + TryIntoMessage<f32>> {
+pub struct Slider<M: TryFromArg<f32>> {
     message: Option<M>,
     size: f32,
     pressed: bool,
@@ -50,7 +50,7 @@ pub struct Slider<M: PartialEq + TryIntoMessage<f32>> {
 }
 ```
 
-This is snui's [slider](../src/widgets/slider.rs) implementation. As you can see it requires that the `M` implements `TryIntoMessage<f32>` but more importantly that it stores a message.
+This is snui's [slider](../src/widgets/slider.rs) implementation. As you can see it requires that the `M` implements `TryFromArg<f32>` but more importantly that it stores a message.
 
 Let's define our **message** :
 ```rust
@@ -68,7 +68,7 @@ let slider = Slider::new(400, 10).message(System::Volume(-1.));
 
 As volume, I gave a symbolic value `-1.` but obviously I don't want the slider to send continuously `-1.` to my controller, I want it to send its ratio.
 
-This is when `TryIntoMessage<f32>` comes into play.
+This is when `TryFromArg<f32>` comes into play.
 
 ```rust
 impl TryFromArg<f32> for System {

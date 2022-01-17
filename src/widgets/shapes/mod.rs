@@ -54,6 +54,8 @@ impl From<u32> for ShapeStyle {
     }
 }
 
+/// Main type used for styling.
+/// Any widget can be wrapped in a WidgetExt and take advantage of the Style trait.
 pub struct WidgetExt<M, W: Widget<M>> {
     widget: Padding<M, W>,
     radius: (f32, f32, f32, f32),

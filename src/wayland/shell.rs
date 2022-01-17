@@ -1,8 +1,8 @@
 use crate::context::DrawContext;
-use crate::controller::{Controller, TryFromArg};
+use crate::controller::Controller;
 use crate::font::FontCache;
 use crate::scene::*;
-use crate::wayland::{buffer, GlobalManager, Output, Seat, Shell, Surface, LayerShellConfig};
+use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowState;
 use crate::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
@@ -16,7 +16,6 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 use smithay_client_toolkit::reexports::client::{
-    delegate_dispatch,
     protocol::wl_buffer,
     protocol::wl_callback,
     protocol::wl_compositor,
@@ -30,14 +29,14 @@ use smithay_client_toolkit::reexports::client::{
     protocol::wl_subcompositor,
     protocol::wl_subsurface,
     protocol::wl_surface,
-    Connection, ConnectionHandle, DelegateDispatch, Dispatch, EventQueue,
-    QueueHandle, WEnum,
+    Connection, ConnectionHandle, DelegateDispatch, Dispatch, EventQueue, QueueHandle, WEnum,
 };
 use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1},
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
+use smithay_client_toolkit::shm::pool::{AsPool, PoolHandle};
 use smithay_client_toolkit::shm::pool::raw::RawPool;
 
 pub struct WaylandClient<M, C>
@@ -111,7 +110,10 @@ where
                 if !self.applications[i].state.configured {
                     self.focus = None;
                     self.event_buffer = Event::default();
-                    self.applications.remove(i);
+                    let application = self.applications.remove(i);
+                    if let Some(s) = application.surface {
+                        self.pool.as_mut().unwrap().remove(&s.wl_surface);
+                    }
                 }
             }
         }
@@ -127,7 +129,10 @@ where
             );
             if !self.applications[i].state.configured {
                 self.focus = None;
-                self.applications.remove(i);
+                let application = self.applications.remove(i);
+                if let Some(s) = application.surface {
+                    self.pool.as_mut().unwrap().remove(&s.wl_surface);
+                }
             }
         }
     }
@@ -159,7 +164,10 @@ where
         qh: &QueueHandle<Self>,
     ) {
         let mut conn = self.connection.handle();
-        let surface = self.globals.borrow().create_layer_surface(&mut conn, config, qh);
+        let surface = self
+            .globals
+            .borrow()
+            .create_layer_surface(&mut conn, config, qh);
         let mut application = Application {
             state: State::default(),
             controller,
@@ -274,9 +282,11 @@ where
                         self.surface = None;
                         return Damage::None;
                     }
-                    WindowState::Move => match &s.shell {
+                    WindowState::Move(serial) => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
-                            // todo!()
+                            for seat in &self.globals.borrow().seats {
+                                toplevel._move(conn, &seat.seat, serial);
+                            }
                         }
                         _ => {}
                     },
@@ -326,22 +336,26 @@ where
         let width = self.state.render_node.width();
         let height = self.state.render_node.height();
         match self.sync(conn, fc, event) {
-            Damage::Partial => if !self.state.pending_cb {
-                if width != self.width() || height != self.height() {
-                    self.sync(conn, fc, Event::Frame);
+            Damage::Partial => {
+                if !self.state.pending_cb {
+                    if width != self.width() || height != self.height() {
+                        self.sync(conn, fc, Event::Frame);
+                    }
+                    let render_node = self.widget.create_node(0., 0.);
+                    self.render(pool, fc, render_node, Damage::Partial, conn, qh);
                 }
-                let render_node = self.widget.create_node(0., 0.);
-                self.render(pool, fc, render_node, Damage::Partial, conn, qh);
             }
-            Damage::Frame => if !self.state.pending_cb {
-                if let Some(s) = self.surface.as_ref() {
-                    if s.wl_surface.frame(conn, qh, ()).is_ok() {
-                        if width != self.width() || height != self.height() {
-                            self.sync(conn, fc, Event::Frame);
+            Damage::Frame => {
+                if !self.state.pending_cb {
+                    if let Some(s) = self.surface.as_ref() {
+                        if s.wl_surface.frame(conn, qh, ()).is_ok() {
+                            if width != self.width() || height != self.height() {
+                                self.sync(conn, fc, Event::Frame);
+                            }
+                            let render_node = self.widget.create_node(0., 0.);
+                            self.state.pending_cb = true;
+                            self.render(pool, fc, render_node, Damage::Frame, conn, qh);
                         }
-                        let render_node = self.widget.create_node(0., 0.);
-                        self.state.pending_cb = true;
-                        self.render(pool, fc, render_node, Damage::Frame, conn, qh);
                     }
                 }
             }
@@ -478,22 +492,38 @@ impl GlobalManager {
 
         let wl_surface = compositor.create_surface(conn, qh, ()).ok()?;
         let wl_region = compositor.create_region(conn, qh, ()).ok()?;
-        let layer_surface = layer_shell.get_layer_surface(
-            conn,
-            &wl_surface,
-            None,
-            config.layer,
-            config.namespace.clone(),
-            qh,
-            ()
-        ).ok()?;
+        let layer_surface = layer_shell
+            .get_layer_surface(
+                conn,
+                &wl_surface,
+                None,
+                config.layer,
+                config.namespace.clone(),
+                qh,
+                (),
+            )
+            .ok()?;
         if let Some(anchor) = config.anchor {
             layer_surface.set_anchor(conn, anchor);
         }
         wl_surface.commit(conn);
-        layer_surface.set_margin(conn, config.margin[0], config.margin[1], config.margin[2], config.margin[3]);
+        layer_surface.set_margin(
+            conn,
+            config.margin[0],
+            config.margin[1],
+            config.margin[2],
+            config.margin[3],
+        );
         layer_surface.set_keyboard_interactivity(conn, config.interactivity);
-        Some(Surface::new(wl_surface, wl_region, Shell::LayerShell { config, layer_surface }, None))
+        Some(Surface::new(
+            wl_surface,
+            wl_region,
+            Shell::LayerShell {
+                config,
+                layer_surface,
+            },
+            None,
+        ))
     }
 }
 
@@ -525,9 +555,9 @@ impl Surface {
         self.wl_buffer = None;
     }
     fn destroy(&mut self, ch: &mut ConnectionHandle) {
+        self.shell.destroy(ch);
         self.wl_surface.destroy(ch);
         self.wl_region.destroy(ch);
-        self.shell.destroy(ch);
         self.wl_buffer = None;
         self.destroy_previous(ch);
     }
@@ -615,13 +645,13 @@ where
     }
 }
 
-impl<M, C> AsMut<MultiPool<wl_surface::WlSurface>> for WaylandClient<M, C>
+impl<M, C> AsPool<MultiPool<wl_surface::WlSurface>> for WaylandClient<M, C>
 where
     M: 'static,
     C: Controller<M> + Clone + 'static,
 {
-    fn as_mut(&mut self) -> &mut MultiPool<wl_surface::WlSurface> {
-        self.pool.as_mut().unwrap()
+    fn pool_handle(&self) -> PoolHandle<MultiPool<wl_surface::WlSurface>> {
+        PoolHandle::Ref(self.pool.as_ref().unwrap())
     }
 }
 
@@ -866,9 +896,13 @@ where
             }
         }) {
             match event {
-                xdg_toplevel::Event::Configure { width, height, .. } => {
-                    if let Err((r_width, r_height)) = application.widget.set_size(width as f32, height as f32) {
-                        if let Shell::Xdg{ toplevel, .. } = &application.surface.as_ref().unwrap().shell {
+                xdg_toplevel::Event::Configure { width, height, states } => {
+                    if let Err((r_width, r_height)) =
+                        application.widget.set_size(width as f32, height as f32)
+                    {
+                        if let Shell::Xdg { toplevel, .. } =
+                            &application.surface.as_ref().unwrap().shell
+                        {
                             if width < r_width as i32 && height < r_height as i32 {
                                 toplevel.set_min_size(conn, r_width as i32, r_height as i32);
                             } else if width > r_width as i32 && height > r_height as i32 {
@@ -984,15 +1018,22 @@ where
         event: zwlr_layer_surface_v1::Event,
         _: &Self::UserData,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<Self>
+        qh: &QueueHandle<Self>,
     ) {
-        if let zwlr_layer_surface_v1::Event::Configure { serial, width, height } = event {
+        if let zwlr_layer_surface_v1::Event::Configure {
+            serial,
+            width,
+            height,
+        } = event
+        {
             layer_surface.ack_configure(conn, serial);
             if let Some(application) = self.applications.iter_mut().find(|a| {
                 if let Some(s) = a.surface.as_ref() {
-                    let t_layer_surface= layer_surface;
+                    let t_layer_surface = layer_surface;
                     match &s.shell {
-                        wayland::Shell::LayerShell { layer_surface, .. } => layer_surface.eq(t_layer_surface),
+                        wayland::Shell::LayerShell { layer_surface, .. } => {
+                            layer_surface.eq(t_layer_surface)
+                        }
                         _ => false,
                     }
                 } else {
@@ -1096,14 +1137,15 @@ where
         if self.focus.is_some() {
             match event {
                 wl_pointer::Event::Button {
-                    serial: _,
+                    serial,
                     time,
                     button,
                     state,
                 } => {
                     if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                        self.applications[self.focus.unwrap()].state.time = time;
                         *p = Pointer::MouseClick {
-                            time,
+                            serial,
                             button: MouseButton::new(button),
                             pressed: if let WEnum::Value(state) = state {
                                 state == ButtonState::Pressed
@@ -1146,10 +1188,11 @@ where
                     }
                 }
                 wl_pointer::Event::Motion {
-                    time: _,
+                    time,
                     surface_x,
                     surface_y,
                 } => {
+                    self.applications[self.focus.unwrap()].state.time = time;
                     self.event_buffer =
                         Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
                 }

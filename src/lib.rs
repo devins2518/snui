@@ -39,11 +39,11 @@ pub fn u32_to_source(color: u32) -> Color {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Damage {
-    // Nothing needs to be damaged
+    /// Nothing needs to be damaged
     None,
-    // Something needs to be damaged
+    /// Something needs to be damaged
     Partial,
-    // Damage then request a new frame
+    /// Damage then request a new frame
     Frame,
 }
 
@@ -135,7 +135,7 @@ pub enum Move {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Pointer {
     MouseClick {
-        time: u32,
+        serial: u32,
         button: MouseButton,
         pressed: bool,
     },
@@ -188,15 +188,16 @@ impl MouseButton {
 
 #[derive(Debug, PartialEq)]
 pub enum Event<'d, M> {
-    // Sent when a Full redraw is neccessary
+    // Sent when a full redraw is neccessary
     Frame,
     Prepare,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
-    // Your message object
+    /// A reference to your message
     Message(&'d M),
-    // Waiting for Wayland-rs 0.3.0 to implement it
+    /// Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
+    /// Pointer position and type
     Pointer(f32, f32, Pointer),
 }
 
@@ -301,18 +302,18 @@ pub trait Primitive: Geometry + std::fmt::Debug {
     );
     fn get_background(&self) -> scene::Background;
     fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType;
-    // Tell if the region can fit inside the Primitive
-    // The coordinates will be relative to the Primitive
+    /// Tell if the region can fit inside the Primitive.
+    /// The coordinates will be relative to it
     fn contains(&self, region: &scene::Region) -> bool;
     // Basically Clone
     fn into_primitive(&self) -> scene::PrimitiveType;
 }
 
 pub trait Widget<M>: Geometry {
-    // Widgets are expected to compute their layout when
-    // they're creating their render node.
+    /// Creates the RenderNode of the widget.
+    /// Widgets are expected to compute their layout when this method is invoked.
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
-    // Interface to communicate with the application and retained mode draw operation
+    /// Interface to communicate with the controller and retained mode draw operation
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage;
 }
 

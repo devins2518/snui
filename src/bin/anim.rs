@@ -1,9 +1,9 @@
 use scene::Instruction;
 use snui::controller::*;
 use snui::wayland::shell::*;
-use snui::widgets::container::*;
 use snui::wayland::LayerShellConfig;
-use snui::widgets::extra::{switch::*, Quadratic, Sinus, Easer};
+use snui::widgets::container::*;
+use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 use snui::widgets::shapes::*;
 use snui::widgets::window::*;
 use snui::{
@@ -109,8 +109,7 @@ impl<E: Easer> Widget<AnimationState> for Animate<E> {
         match event {
             Event::Callback(frame_time) => {
                 if self.start {
-                    let steps =
-                        (frame_time * self.easer.steps() as u32) as usize / 5000;
+                    let steps = (frame_time * self.easer.steps() as u32) as usize / 5000;
                     for _ in 0..steps {
                         match self.easer.next() {
                             Some(position) => self.position = position,
@@ -124,20 +123,18 @@ impl<E: Easer> Widget<AnimationState> for Animate<E> {
                     return Damage::Frame;
                 }
             }
-            Event::Message(msg) => {
-                match msg {
-                    AnimationState::Start => {
-                        self.start = true;
-                        return Damage::Frame;
-                    }
-                    AnimationState::Pause => {
-                        self.start = false;
-                    }
-                    AnimationState::Stop => {
-                        self.start = false;
-                    }
+            Event::Message(msg) => match msg {
+                AnimationState::Start => {
+                    self.start = true;
+                    return Damage::Frame;
                 }
-            }
+                AnimationState::Pause => {
+                    self.start = false;
+                }
+                AnimationState::Stop => {
+                    self.start = false;
+                }
+            },
             _ => {}
         }
         Damage::None
@@ -167,7 +164,7 @@ impl Animate<Sinus> {
 }
 
 struct FrameRate {
-    text: Text
+    text: Text,
 }
 
 impl Geometry for FrameRate {
@@ -190,14 +187,16 @@ impl<M> Widget<M> for FrameRate {
                 self.text.edit(&format!("{} fps", frame_rate));
                 self.text.sync(ctx, event)
             }
-            _ => self.text.sync(ctx, event)
+            _ => self.text.sync(ctx, event),
         }
     }
 }
 
 fn ui() -> impl Widget<AnimationState> {
     let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
-    ui.add(FrameRate { text: "frame rate".into() });
+    ui.add(FrameRate {
+        text: "frame rate".into(),
+    });
     ui.add(Animate::quadratic());
     ui.add(Animate::sinus());
 
@@ -210,7 +209,7 @@ fn ui() -> impl Widget<AnimationState> {
             .even_radius(3.)
             .button(move |this, ctx, p| match p {
                 Pointer::MouseClick {
-                    time: _,
+                    serial: _,
                     button,
                     pressed,
                 } => {
@@ -249,7 +248,7 @@ fn main() {
         &event_queue.handle(),
     );
 
-    loop {
+    while client.has_client() {
         event_queue.blocking_dispatch(&mut client).unwrap();
     }
 }

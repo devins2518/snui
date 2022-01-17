@@ -121,7 +121,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                 if self.contains(x, y) {
                     match pointer {
                         Pointer::MouseClick {
-                            time: _,
+                            serial: _,
                             button,
                             pressed,
                         } => {
@@ -216,7 +216,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                 } else if self.pressed {
                     match pointer {
                         Pointer::MouseClick {
-                            time: _,
+                            serial: _,
                             button,
                             pressed,
                         } => {

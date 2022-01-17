@@ -4,7 +4,6 @@ use crate::scene::Instruction;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::{Rectangle, Style};
 use crate::*;
-use std::f32::consts::{FRAC_PI_2, PI};
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum SwitchState {
@@ -71,7 +70,7 @@ impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
                 if self.contains(x, y) {
                     match p {
                         Pointer::MouseClick {
-                            time: _,
+                            serial: _,
                             button,
                             pressed,
                         } => {
@@ -79,19 +78,13 @@ impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
                                 self.start = true;
                                 let state = match self.state {
                                     SwitchState::Activated => {
-                                        self.easer = Sinus::new(
-                                            0.5,
-                                            1.,
-                                            self.width() - self.toggle.width(),
-                                        );
+                                        self.easer =
+                                            Sinus::new(0.5, 1., self.width() - self.toggle.width());
                                         SwitchState::Deactivated
                                     }
                                     SwitchState::Deactivated => {
-                                        self.easer = Sinus::new(
-                                            0.,
-                                            0.5,
-                                            self.width() - self.toggle.width(),
-                                        );
+                                        self.easer =
+                                            Sinus::new(0., 0.5, self.width() - self.toggle.width());
                                         SwitchState::Activated
                                     }
                                 };

@@ -1,3 +1,4 @@
+/// Create a new message from a template (&self) and a given parameter (T).
 pub trait TryFromArg<T>
 where
     Self: Sized,
@@ -6,6 +7,7 @@ where
     fn try_from_arg(&self, _: T) -> Result<Self, Self::Error>;
 }
 
+/// Create a new message from a template (&self) and a given parameter (T).
 pub trait FromArg<T>
 where
     Self: Sized,
@@ -38,12 +40,13 @@ pub enum ControllerError {
 }
 
 pub trait Controller<M> {
-    /// Tells the model all incomming messages are linked
-    /// The Controller returns a token that can be used to deserialize
+    /// Initialize a serialization.
+    /// The Controller returns a token that can be used to deserialize and send serialized messages.
+    /// Serialized messages are applied atomically on deserialization.
     fn serialize(&mut self) -> Result<u32, ControllerError> {
         Err(ControllerError::NonSerialized)
     }
-    /// Ends the serialization.
+    /// End the serialization.
     fn deserialize(&mut self, _serial: u32) -> Result<(), ControllerError> {
         Err(ControllerError::NonSerialized)
     }
@@ -56,7 +59,7 @@ pub trait Controller<M> {
     fn send_serialize(&mut self, _serial: u32, _msg: M) -> Result<M, ControllerError> {
         Err(ControllerError::NonSerialized)
     }
-    // Returns a message if the application needs to be synced
+    /// Returns a message if the application needs to be synced
     fn sync<'s>(&mut self) -> Result<M, ControllerError>;
 }
 

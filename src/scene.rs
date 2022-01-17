@@ -594,6 +594,7 @@ impl PartialEq for Instruction {
     }
 }
 
+/// Node of the scene graph.
 #[derive(Debug, PartialEq)]
 pub enum RenderNode {
     Instruction(Instruction),
