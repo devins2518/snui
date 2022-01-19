@@ -11,6 +11,7 @@ pub enum WindowRequest {
     Close,
     Maximize,
     Minimize,
+    Menu(f32, f32, u32),
     Title(String),
 }
 
@@ -391,27 +392,86 @@ where
     }
 }
 
+struct Hitbox<M, W: Widget<M>> {
+    widget: W,
+    _message: std::marker::PhantomData<M>
+}
+
+impl<M, W: Widget<M>> Geometry for Hitbox<M, W> {
+    fn width(&self) -> f32 {
+        self.widget.width()
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.widget.set_width(width)
+    }
+    fn height(&self) -> f32 {
+        self.widget.height()
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.widget.set_height(height)
+    }
+}
+
+impl<M, W> Style for Hitbox<M, W>
+where
+    W: Widget<M> + Style,
+{
+    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
+        self.widget.set_background(background);
+    }
+    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
+        self.widget.set_border_texture(texture);
+    }
+    fn set_border_size(&mut self, size: f32) {
+        self.widget.set_border_size(size);
+    }
+    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        self.widget.set_radius(tl, tr, br, bl);
+    }
+    fn set_even_radius(&mut self, radius: f32) {
+        self.widget.set_even_radius(radius);
+    }
+}
+
+impl<M, W: Widget<M>> Widget<M> for Hitbox<M, W> {
+    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+        self.widget.create_node(x, y)
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+        match event {
+            Event::Pointer(x, y, p) => match p {
+                Pointer::MouseClick {
+                    button,
+                    pressed,
+                    serial,
+                } => {
+                    if button.is_left() && pressed {
+                        ctx.window_request(WindowRequest::Move(serial));
+                    } else if button.is_right() && pressed {
+                        ctx.window_request(WindowRequest::Menu(x, y, serial));
+                    }
+                }
+                _ => {}
+            }
+            _ => {}
+        }
+        self.widget.sync(ctx, event)
+    }
+}
+
 pub fn default_window<M, W>(header: impl Widget<M> + 'static, widget: W) -> Window<M, impl Widget<M> + Style, W>
 where
     M: 'static,
     W: Widget<M> + Style,
 {
-    let header = headerbar(header)
-        .ext()
-        .background(style::BG2)
-        .even_padding(10.)
-        .button(|_, ctx, p| match p {
-        Pointer::MouseClick {
-            button,
-            pressed,
-            serial,
-        } => {
-            if button.is_left() && pressed {
-                ctx.window_request(WindowRequest::Move(serial));
-            }
-        }
-        _ => {}
-    });
+    let header =
+    Hitbox{
+        widget: headerbar(header)
+            .ext()
+            .background(style::BG2)
+            .even_padding(10.),
+        _message: std::marker::PhantomData
+    };
 
     Window {
         header,

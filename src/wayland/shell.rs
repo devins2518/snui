@@ -290,6 +290,14 @@ where
                         }
                         _ => {}
                     },
+                    WindowRequest::Menu(x, y, serial) => match &s.shell {
+                        Shell::Xdg { toplevel, .. } => {
+                            for seat in &self.globals.borrow().seats {
+                                toplevel.show_window_menu(conn, &seat.seat, serial, x as i32, y as i32);
+                            }
+                        }
+                        _ => {}
+                    },
                     WindowRequest::Minimize => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             toplevel.set_minimized(conn);

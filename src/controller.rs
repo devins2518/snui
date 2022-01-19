@@ -17,7 +17,7 @@ where
 
 impl<I, T> TryFromArg<T> for I
 where
-    Self: FromArg<T>,
+    I: FromArg<T>,
 {
     type Error = ();
     fn try_from_arg(&self, t: T) -> Result<Self, Self::Error>
@@ -52,7 +52,7 @@ pub trait Controller<M> {
     }
     /// Retreive data from the Controller
     fn get(&self, msg: &M) -> Result<M, ControllerError>;
-    /// Share data from the Controller
+    /// Share data with the Controller
     fn send(&mut self, msg: M) -> Result<M, ControllerError>;
     /// Share a serialized message to the Controller. All messages with the same serial
     /// will be atomically handled on deserialize.

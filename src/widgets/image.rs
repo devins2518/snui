@@ -19,6 +19,7 @@ pub struct Image {
     width: u32,
     height: u32,
     scale: Scale,
+    opacity: f32,
     size: (u32, u32),
 }
 
@@ -28,6 +29,7 @@ impl PartialEq for Image {
             && self.scale == other.scale
             && self.width == other.width
             && self.height == other.height
+            && self.opacity == other.opacity
     }
 }
 
@@ -38,6 +40,7 @@ impl Image {
             image,
             width,
             height,
+            opacity: 1.,
             scale: Scale::Fit,
             size: (width, height),
         }
@@ -52,6 +55,7 @@ impl Image {
             image,
             width,
             height,
+            opacity: 1.,
             scale: Scale::Fit,
             size: (width, height),
         })
@@ -71,12 +75,15 @@ impl Image {
             width,
             height,
             size,
+            opacity: 1.,
             scale: Scale::Fit,
         })
     }
-    pub fn fit(mut self, scale: Scale) -> Self {
+    pub fn set_scale(&mut self, scale: Scale) {
         self.scale = scale;
-        self
+    }
+    pub fn set_opacity(&mut self, opacity: f32) {
+        self.opacity = opacity
     }
     pub fn scale(&self) -> (f32, f32) {
         match &self.scale {
@@ -144,7 +151,11 @@ impl Primitive for Image {
                 0,
                 0,
                 PixmapRef::from_bytes(self.image.as_ref(), self.size.0, self.size.1).unwrap(),
-                &crate::context::PIX_PAINT,
+                &PixmapPaint {
+                    blend_mode: BlendMode::SourceOver,
+                    opacity: self.opacity,
+                    quality: FilterQuality::Bilinear
+                },
                 transform.pre_scale(sx, sy),
                 clip,
             );
