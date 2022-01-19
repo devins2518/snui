@@ -60,7 +60,7 @@ pub struct WidgetExt<M, W: Widget<M>> {
     widget: Padding<M, W>,
     radius: (f32, f32, f32, f32),
     background: Background,
-    border: (f32, u32),
+    border: (f32, Color),
     _request: PhantomData<M>,
 }
 
@@ -69,7 +69,7 @@ impl<M, W: Widget<M>> WidgetExt<M, W> {
         WidgetExt {
             widget: Padding::new(widget),
             background: Background::Transparent,
-            border: (0., 0),
+            border: (0., Color::TRANSPARENT),
             radius: (0., 0., 0., 0.),
             _request: PhantomData,
         }
@@ -171,7 +171,7 @@ impl<M, W: Widget<M>> Style for WidgetExt<M, W> {
         self
     }
     fn set_border(&mut self, color: u32, width: f32) {
-        self.border = (width, color);
+        self.border = (width, u32_to_source(color));
     }
     fn border(mut self, color: u32, size: f32) -> Self {
         self.set_border(color, size);
@@ -185,7 +185,7 @@ impl<M, W: Widget<M>> Style for WidgetExt<M, W> {
         self
     }
     fn set_border_color(&mut self, color: u32) {
-        self.border.1 = color;
+        self.border.1 = u32_to_source(color);
     }
     fn border_color(mut self, color: u32) -> Self {
         self.set_border_color(color);
@@ -224,13 +224,14 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
         RenderNode::Extension {
             node: Box::new(node),
             border: {
-                if border_color != 0 || border_size > 0. {
+                if border_color == Color::TRANSPARENT || border_size > 0. {
+                    let mut border = Rectangle::empty(width, height)
+                        .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3);
+                    border.style = ShapeStyle::Border(self.border.1, self.border.0);
                     Some(Instruction::new(
                         x,
                         y,
-                        Rectangle::empty(width, height)
-                            .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
-                            .border(border_color, border_size),
+                        border
                     ))
                 } else {
                     None

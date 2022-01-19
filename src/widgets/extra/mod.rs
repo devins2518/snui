@@ -1,6 +1,6 @@
 pub mod switch;
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::PI;
 
 pub trait Easer: Iterator<Item = f32> {
     fn steps(&self) -> usize;
@@ -13,7 +13,6 @@ pub trait Easer: Iterator<Item = f32> {
 pub struct Sinus {
     steps: f32,
     amplitude: f32,
-    // On the X axis
     start: f32,
     end: f32,
     position: f32,

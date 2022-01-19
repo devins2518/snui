@@ -275,7 +275,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
                     }
                 }
             }
-            Event::Frame => {
+            Event::Configure(_) => {
                 if let Some(message) = self.message.as_ref() {
                     if let Ok(msg) = ctx.get(message) {
                         if let Ok(ratio) = msg.try_into() {

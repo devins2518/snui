@@ -3,7 +3,7 @@ use crate::controller::Controller;
 use crate::font::FontCache;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
-use crate::widgets::window::WindowState;
+use crate::widgets::window::WindowRequest;
 use crate::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 // use smithay_client_toolkit::seat::keyboard::ModifiersState;
@@ -56,7 +56,7 @@ where
 fn convert_event<'d, M>(event: Event<'static, ()>) -> Option<Event<'d, M>> {
     match event {
         Event::Callback(ft) => Some(Event::Callback(ft)),
-        Event::Frame => Some(Event::Frame),
+        Event::Configure(state) => Some(Event::Configure(state)),
         Event::Prepare => Some(Event::Prepare),
         Event::Pointer(x, y, p) => Some(Event::Pointer(x, y, p)),
         Event::Keyboard(k) => Some(Event::Keyboard(k)),
@@ -211,7 +211,7 @@ struct State {
     offset: usize,
     configured: bool,
     pending_cb: bool,
-    maximized: bool,
+    window_state: WindowState,
     render_node: RenderNode,
 }
 
@@ -222,7 +222,7 @@ impl Default for State {
             offset: 0,
             configured: false,
             pending_cb: false,
-            maximized: false,
+            window_state: WindowState::Deactivated,
             render_node: RenderNode::None,
         }
     }
@@ -260,7 +260,7 @@ where
     C: Controller<M> + std::clone::Clone,
 {
     fn sync(&mut self, conn: &mut ConnectionHandle, fc: &mut FontCache, event: Event<M>) -> Damage {
-        let mut damage = if event.is_frame() {
+        let mut damage = if event.is_configure() {
             Damage::Partial
         } else {
             Damage::None
@@ -272,9 +272,9 @@ where
             damage = damage.max(self.widget.sync(&mut ctx, Event::Message(&msg)));
         }
         if let Some(s) = self.surface.as_mut() {
-            if let Some(wm) = take(&mut ctx.window_state) {
-                match wm {
-                    WindowState::Close => {
+            if let Some(request) = take(&mut ctx.window_request) {
+                match request {
+                    WindowRequest::Close => {
                         // The WaylandClient will check if it's configured
                         // and remove the Application if it's not.
                         self.state.configured = false;
@@ -282,7 +282,7 @@ where
                         self.surface = None;
                         return Damage::None;
                     }
-                    WindowState::Move(serial) => match &s.shell {
+                    WindowRequest::Move(serial) => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             for seat in &self.globals.borrow().seats {
                                 toplevel._move(conn, &seat.seat, serial);
@@ -290,17 +290,16 @@ where
                         }
                         _ => {}
                     },
-                    WindowState::Minimize => match &s.shell {
+                    WindowRequest::Minimize => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             toplevel.set_minimized(conn);
                         }
                         _ => {}
                     },
-                    WindowState::Maximize => {
+                    WindowRequest::Maximize => {
                         match &s.shell {
                             Shell::Xdg { toplevel, .. } => {
-                                self.state.maximized = self.state.maximized == false;
-                                if self.state.maximized {
+                                if self.state.window_state != WindowState::Maximized {
                                     toplevel.set_maximized(conn);
                                 } else {
                                     toplevel.unset_maximized(conn);
@@ -313,7 +312,7 @@ where
                             }
                         }
                     }
-                    WindowState::Title(title) => match &s.shell {
+                    WindowRequest::Title(title) => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             toplevel.set_title(conn, title);
                         }
@@ -333,13 +332,13 @@ where
         fc: &mut FontCache,
         event: Event<M>,
     ) {
-        let width = self.state.render_node.width();
-        let height = self.state.render_node.height();
+        let width = self.width();
+        let height = self.height();
         match self.sync(conn, fc, event) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     if width != self.width() || height != self.height() {
-                        self.sync(conn, fc, Event::Frame);
+                        self.sync(conn, fc, Event::Configure(WindowState::Resizing));
                     }
                     let render_node = self.widget.create_node(0., 0.);
                     self.render(pool, fc, render_node, Damage::Partial, conn, qh);
@@ -350,7 +349,7 @@ where
                     if let Some(s) = self.surface.as_ref() {
                         if s.wl_surface.frame(conn, qh, ()).is_ok() {
                             if width != self.width() || height != self.height() {
-                                self.sync(conn, fc, Event::Frame);
+                                self.sync(conn, fc, Event::Configure(WindowState::Resizing));
                             }
                             let render_node = self.widget.create_node(0., 0.);
                             self.state.pending_cb = true;
@@ -794,15 +793,15 @@ where
                 if application.state.pending_cb {
                     application.state.pending_cb = false;
                     // The application is rendered prior and the changes are commited here
-                    let frame_time = (callback_data - application.state.time).min(100);
+                    let frame_time = (callback_data - application.state.time).min(20);
                     application.state.time = callback_data;
                     // Send a callback event with the timeout the application
-                    let width = application.state.render_node.width();
-                    let height = application.state.render_node.height();
+                    let width = application.width();
+                    let height = application.height();
                     match application.sync(conn, fc, Event::Callback(frame_time)) {
                         Damage::Partial => {
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, fc, Event::Frame);
+                                application.sync(conn, fc, Event::Configure(WindowState::Resizing));
                             }
                             let render_node = application.widget.create_node(0., 0.);
                             application.render(pool, fc, render_node, Damage::Partial, conn, qh);
@@ -810,7 +809,7 @@ where
                         Damage::Frame => {
                             cb = Some(i);
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, fc, Event::Frame);
+                                application.sync(conn, fc, Event::Configure(WindowState::Resizing));
                             }
                             let render_node = application.widget.create_node(0., 0.);
                             application.state.pending_cb = true;
@@ -869,6 +868,22 @@ where
     }
 }
 
+impl From<xdg_toplevel::State> for WindowState {
+    fn from(state: xdg_toplevel::State) -> Self {
+        match state {
+            xdg_toplevel::State::Activated => WindowState::Activated,
+            xdg_toplevel::State::Fullscreen => WindowState::Fullscreen,
+            xdg_toplevel::State::TiledLeft => WindowState::TiledLeft,
+            xdg_toplevel::State::TiledRight => WindowState::TiledRight,
+            xdg_toplevel::State::TiledTop => WindowState::TiledTop,
+            xdg_toplevel::State::TiledBottom => WindowState::TiledBottom,
+            xdg_toplevel::State::Resizing => WindowState::Resizing,
+            xdg_toplevel::State::Maximized => WindowState::Maximized,
+            _ => unreachable!()
+        }
+    }
+}
+
 impl<M, C> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<M, C>
 where
     M: 'static,
@@ -884,7 +899,7 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some(application) = self.applications.iter_mut().find(|a| {
+        if let Some((i, application)) = self.applications.iter_mut().enumerate().find(|(_, a)| {
             if let Some(s) = a.surface.as_ref() {
                 let t_toplevel = toplevel;
                 match &s.shell {
@@ -897,6 +912,7 @@ where
         }) {
             match event {
                 xdg_toplevel::Event::Configure { width, height, states } => {
+                    let states = list_states(states);
                     if let Err((r_width, r_height)) =
                         application.widget.set_size(width as f32, height as f32)
                     {
@@ -912,16 +928,40 @@ where
                     }
                     let mut ctx =
                         SyncContext::new(&mut application.controller, &mut self.font_cache);
-                    application.widget.sync(&mut ctx, Event::Frame);
+                    // TO-DO
+                    // Convert xdg_toplevel.state to WindowState
+                    if states.is_empty() {
+                        application.state.window_state = WindowState::Deactivated;
+                        application.widget.sync(&mut ctx, Event::Configure(WindowState::Deactivated));
+                    } else {
+                        application.state.window_state = states[0].into();
+                        application.widget.sync(&mut ctx, Event::Configure(application.state.window_state));
+                    }
                 }
                 xdg_toplevel::Event::Close => {
                     application.surface.as_mut().unwrap().destroy(conn);
+                    self.focus = None;
+                    let application = self.applications.remove(i);
+                    if let Some(s) = application.surface {
+                        self.pool.as_mut().unwrap().remove(&s.wl_surface);
+                    }
                 }
                 _ => {}
             }
         }
         // wl_region has no event
     }
+}
+
+fn list_states(states: Vec<u8>) -> Vec<xdg_toplevel::State> {
+    states
+    .chunks(4)
+    .filter_map(|endian| if endian.len() == 4 {
+        xdg_toplevel::State::try_from(u32::from_ne_bytes([endian[0], endian[1], endian[2], endian[3]])).ok()
+    } else {
+        None
+    })
+    .collect()
 }
 
 impl<M, C> Dispatch<wl_shm::WlShm> for WaylandClient<M, C>
@@ -998,7 +1038,7 @@ where
                     conn,
                     qh,
                     &mut self.font_cache,
-                    Event::Frame,
+                    Event::Configure(application.state.window_state)
                 )
             }
         }
@@ -1040,6 +1080,18 @@ where
                     false
                 }
             }) {
+                if let Shell::LayerShell { config, .. } = &application.surface.as_ref().unwrap().shell {
+                    if config.exclusive {
+                        use zwlr_layer_surface_v1::Anchor;
+                        if let Some(anchor) = config.anchor {
+                            match anchor {
+                                Anchor::Left | Anchor::Right => layer_surface.set_exclusive_zone(conn, application.width() as i32),
+                                Anchor::Top | Anchor::Bottom => layer_surface.set_exclusive_zone(conn, application.height() as i32),
+                                _ => {}
+                            }
+                        }
+                    }
+                }
                 application.set_size(conn, width as f32, height as f32);
                 application.state.configured = true;
                 application.update_scene(
@@ -1047,7 +1099,7 @@ where
                     conn,
                     qh,
                     &mut self.font_cache,
-                    Event::Frame,
+                    Event::Configure(WindowState::Activated),
                 )
             }
         }
@@ -1138,12 +1190,11 @@ where
             match event {
                 wl_pointer::Event::Button {
                     serial,
-                    time,
+                    time:_,
                     button,
                     state,
                 } => {
                     if let Event::Pointer(_, _, p) = &mut self.event_buffer {
-                        self.applications[self.focus.unwrap()].state.time = time;
                         *p = Pointer::MouseClick {
                             serial,
                             button: MouseButton::new(button),
@@ -1188,11 +1239,10 @@ where
                     }
                 }
                 wl_pointer::Event::Motion {
-                    time,
+                    time:_,
                     surface_x,
                     surface_y,
                 } => {
-                    self.applications[self.focus.unwrap()].state.time = time;
                     self.event_buffer =
                         Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
                 }

@@ -74,9 +74,9 @@ impl From<&str> for Label {
 }
 
 impl Label {
-    pub fn new(text: &str) -> Label {
+    pub fn new<T: Into<String>>(text: T) -> Label {
         Label {
-            text: String::from(text),
+            text: text.into(),
             font_size: DEFAULT_FONT_SIZE,
             fonts: Vec::new(),
             settings: LayoutSettings::default(),
@@ -101,9 +101,9 @@ impl Label {
         self.settings = settings;
         self
     }
-    pub fn default(text: &str) -> Label {
+    pub fn default<T: Into<String>>(text: T) -> Label {
         Label {
-            text: String::from(text),
+            text: text.into(),
             font_size: DEFAULT_FONT_SIZE,
             settings: LayoutSettings::default(),
             fonts: vec![FontProperty::new("sans serif")],
@@ -171,20 +171,22 @@ impl From<&str> for Text {
 }
 
 impl Text {
-    pub fn write(&mut self, s: &str) {
-        self.label.text.push_str(s);
+    pub fn write<S: ToString>(&mut self, s: S) {
+        let s = s.to_string();
+        self.label.text.push_str(&s);
         if let Some(buf) = self.buffer.as_mut() {
-            buf.push_str(s);
+            buf.push_str(&s);
         } else {
-            self.buffer = Some(s.to_string());
+            self.buffer = Some(s);
         }
     }
-    pub fn edit(&mut self, s: &str) {
+    pub fn edit<S: ToString>(&mut self, s: S) {
+        let s = s.to_string();
         if s.ne(self.label.text.as_str()) {
             self.label.layout = None;
         }
         self.buffer = None;
-        self.label.text = s.to_string();
+        self.label.text = s;
     }
     pub fn create_node(&self, x: f32, y: f32) -> RenderNode {
         RenderNode::Instruction(Instruction::new(x, y, self.label.clone()))

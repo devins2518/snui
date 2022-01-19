@@ -23,6 +23,7 @@ use smithay_client_toolkit::reexports::protocols::{
 
 use crate::context::Backend;
 use crate::PixmapMut;
+use std::ops::{Deref, DerefMut};
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
 
 const FORMAT: Format = Format::Argb8888;
@@ -71,10 +72,6 @@ pub enum Shell {
         xdg_surface: xdg_surface::XdgSurface,
         toplevel: xdg_toplevel::XdgToplevel,
     },
-}
-
-pub enum ShellConfig {
-    LayerShell(LayerShellConfig),
 }
 
 #[derive(Debug, Clone)]
@@ -225,5 +222,18 @@ impl GlobalManager {
         for seat in &self.seats {
             seat.seat.release(conn);
         }
+    }
+}
+
+impl Deref for GlobalManager {
+    type Target = WlRegistry;
+    fn deref(&self) -> &Self::Target {
+        &self.registry
+    }
+}
+
+impl DerefMut for GlobalManager {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.registry
     }
 }

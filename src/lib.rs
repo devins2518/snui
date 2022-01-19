@@ -2,9 +2,9 @@ pub mod context;
 pub mod controller;
 pub mod font;
 pub mod scene;
+pub mod widgets;
 #[cfg(feature = "wayland")]
 pub mod wayland;
-pub mod widgets;
 
 use context::*;
 use scene::RenderNode;
@@ -186,10 +186,25 @@ impl MouseButton {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum WindowState {
+    Maximized,
+    Resizing,
+    Fullscreen,
+    /// Client window decorations should be painted as if the window is active.
+    Activated,
+    Deactivated,
+    TiledLeft,
+    TiledRight,
+    TiledBottom,
+    TiledTop
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Event<'d, M> {
-    // Sent when a full redraw is neccessary
-    Frame,
+    /// Sent when a full redraw is neccessary
+    Configure(WindowState),
+    /// Doesn't have any particular meaning
     Prepare,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
@@ -204,8 +219,8 @@ pub enum Event<'d, M> {
 impl<'d, M> Clone for Event<'d, M> {
     fn clone(&self) -> Self {
         match self {
-            Self::Frame => Self::Frame,
             Self::Prepare => Self::Prepare,
+            Self::Configure(state) => Self::Configure(*state),
             Self::Callback(ft) => Self::Callback(*ft),
             Self::Message(msg) => Self::Message(*msg),
             Self::Keyboard(key) => Self::Keyboard(*key),
@@ -229,9 +244,9 @@ impl<'d, M> Event<'d, M> {
             _ => false,
         }
     }
-    pub fn is_frame(&self) -> bool {
+    pub fn is_configure(&self) -> bool {
         match self {
-            Self::Frame => true,
+            Self::Configure(_) => true,
             _ => false,
         }
     }

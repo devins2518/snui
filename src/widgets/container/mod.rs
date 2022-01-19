@@ -71,14 +71,12 @@ pub fn apply_height<M, W: Widget<M>>(
 pub struct Child<M> {
     coords: Coords,
     damage: Damage,
-    queue_draw: bool,
     widget: Box<dyn Widget<M>>,
 }
 
 impl<M> Child<M> {
     pub(crate) fn new(widget: impl Widget<M> + 'static) -> Self {
         Child {
-            queue_draw: false,
             damage: Damage::None,
             coords: Coords::new(0., 0.),
             widget: Box::new(widget),
@@ -110,7 +108,6 @@ impl<M> Geometry for Child<M> {
 impl<M> From<Box<dyn Widget<M>>> for Child<M> {
     fn from(widget: Box<dyn Widget<M>>) -> Self {
         Child {
-            queue_draw: false,
             damage: Damage::None,
             coords: Coords::new(0., 0.),
             widget,
@@ -120,7 +117,7 @@ impl<M> From<Box<dyn Widget<M>>> for Child<M> {
 
 impl<M> Widget<M> for Child<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        if self.queue_draw || self.damage.is_some() {
+        if self.damage.is_some() {
             self.damage = Damage::None;
             return self
                 .widget
@@ -136,10 +133,11 @@ impl<M> Widget<M> for Child<M> {
                 let result = self.widget.sync(ctx, Event::Pointer(x, y, p));
                 result
             }
-            Event::Frame => self.widget.sync(ctx, event),
+            Event::Configure(_) => {
+                Damage::Partial.max(self.widget.sync(ctx, event))
+            }
             _ => self.widget.sync(ctx, event),
         });
-        self.queue_draw = self.damage.is_some() || event.is_frame();
         self.damage
     }
 }

@@ -1,11 +1,12 @@
 use crate::*;
 use crate::{
-    scene::{Coords, Instruction, Region},
-    widgets::{container::*, shapes::*, text::Listener, *},
+    scene::{Coords, Instruction, Region, Background},
+    widgets::{container::*, shapes::*, *},
 };
+use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum WindowState {
+pub enum WindowRequest {
     Move(u32),
     Close,
     Maximize,
@@ -55,7 +56,7 @@ impl<M> Widget<M> for Close {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        ctx.window_state(WindowState::Close);
+                        ctx.window_request(WindowRequest::Close);
                     }
                 }
             }
@@ -102,20 +103,28 @@ impl<M> Widget<M> for Maximize {
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
-        if let Event::Pointer(x, y, p) = event {
-            if let Pointer::MouseClick {
-                serial: _,
-                button,
-                pressed,
-            } = p
-            {
-                if self.contains(x, y) {
-                    if button.is_left() && pressed {
-                        self.maximized = self.maximized == false;
-                        ctx.window_state(WindowState::Maximize);
+        match event {
+            Event::Pointer(x, y, p) => {
+                if let Pointer::MouseClick {
+                    serial: _,
+                    button,
+                    pressed,
+                } = p
+                {
+                    if self.contains(x, y) {
+                        if button.is_left() && pressed {
+                            self.maximized = self.maximized == false;
+                            ctx.window_request(WindowRequest::Maximize);
+                        }
                     }
                 }
             }
+            Event::Configure(state) => match state {
+                WindowState::Maximized => self.maximized = true,
+                WindowState::Resizing | WindowState::Activated => self.maximized = false,
+                _ => {}
+            }
+            _ => {}
         }
         Damage::None
     }
@@ -163,7 +172,7 @@ impl<M> Widget<M> for Minimize {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        ctx.window_state(WindowState::Minimize);
+                        ctx.window_request(WindowRequest::Minimize);
                     }
                 }
             }
@@ -184,44 +193,52 @@ where
     l
 }
 
-fn headerbar<M>(listener: Listener<M>) -> impl Widget<M>
-where
-    M: TryInto<String> + 'static,
-{
+fn headerbar<M: 'static>(widget: impl Widget<M> + 'static) -> impl Widget<M> {
     let mut l = LayoutBox::new();
-    l.add(listener.clamp().anchor(START, CENTER));
+    l.add(widget.clamp().anchor(START, CENTER));
     l.add(wm_button().clamp().anchor(END, CENTER));
-    l.button(|_, ctx, p| match p {
-        Pointer::MouseClick {
-            button,
-            pressed,
-            serial,
-        } => {
-            if button.is_left() && pressed {
-                ctx.window_state(WindowState::Move(serial));
-            }
-        }
-        _ => {}
-    })
+    l
 }
 
 pub struct Window<M, H, W>
 where
-    M: TryInto<String>,
-    H: Widget<M>,
-    W: Widget<M>,
+    H: Widget<M> + Style,
+    W: Widget<M> + Style,
 {
-    header: WidgetExt<M, H>,
-    // The position of the window
+    state: WindowState,
+    /// Top window decoration
+    header: H,
+    /// The position of the window
     coords: Coords,
+    /// The window's content
     body: W,
+    /// The background of the headerbar decoration
+    background: Background,
+    /// The radius of window borders
+    radius: (f32, f32, f32, f32),
+    /// Alternative background of the decoration
+    alternate: Option<Background>,
+    _message: std::marker::PhantomData<M>
+}
+
+impl<M, H, W> Window<M, H, W>
+where
+    H: Widget<M> + Style,
+    W: Widget<M> + Style,
+{
+    pub fn set_alternate_background<B: Into<Background>>(&mut self, background: B) {
+        self.alternate = Some(background.into());
+    }
+    pub fn alternate_background<B: Into<Background>>(mut self, background: B) -> Self {
+        self.set_alternate_background(background);
+        self
+    }
 }
 
 impl<M, H, W> Geometry for Window<M, H, W>
 where
-    M: TryInto<String>,
-    H: Widget<M>,
-    W: Widget<M>,
+    H: Widget<M> + Style,
+    W: Widget<M> + Style,
 {
     fn width(&self) -> f32 {
         self.header.width()
@@ -247,9 +264,8 @@ where
 
 impl<M, H, W> Widget<M> for Window<M, H, W>
 where
-    M: TryInto<String>,
-    H: Widget<M>,
-    W: Widget<M>,
+    H: Widget<M> + Style,
+    W: Widget<M> + Style,
 {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         self.set_width(self.width());
@@ -268,10 +284,64 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => self
+            Event::Pointer(x, y, p) => {
+                self
                 .header
                 .sync(ctx, event)
-                .max(self.body.sync(ctx, Event::Pointer(x, y - self.coords.y, p))),
+                .max(self.body.sync(ctx, Event::Pointer(x, y - self.coords.y, p)))
+            }
+            Event::Configure(state) => {
+                match state {
+                    WindowState::Activated => {
+                        match self.state {
+                            WindowState::TiledLeft
+                            | WindowState::TiledRight
+                            | WindowState::TiledBottom
+                            | WindowState::TiledTop
+                            | WindowState::Maximized
+                            | WindowState::Fullscreen => {
+                                self.set_radius(
+                                    self.radius.0,
+                                    self.radius.1,
+                                    self.radius.2,
+                                    self.radius.3,
+                                );
+                            }
+                            _ => {}
+                        }
+                        self.state = state;
+                        if self.alternate.is_some() {
+                            if let Background::Color(ref color) = self.background {
+                                let color = color.to_color_u8().get();
+                                self.header.set_border_color(color);
+                                self.body.set_border_color(color);
+                            }
+                            self.header.set_background(self.background.clone());
+                        }
+                    }
+                    WindowState::Deactivated => if let Some(ref background) = self.alternate {
+                        if let Background::Color(ref color) = background {
+                            let color = color.to_color_u8().get();
+                            self.header.set_border_color(color);
+                            self.body.set_border_color(color);
+                        }
+                        self.header.set_background(background.clone());
+                        self.state = state;
+                    }
+                    WindowState::TiledLeft
+                    | WindowState::TiledRight
+                    | WindowState::TiledBottom
+                    | WindowState::TiledTop
+                    | WindowState::Maximized
+                    | WindowState::Fullscreen => {
+                        self.state = state;
+                        self.body.set_even_radius(0.);
+                        self.header.set_even_radius(0.);
+                    }
+                    _ => {}
+                }
+                self.header.sync(ctx, event).max(self.body.sync(ctx, event))
+            }
             _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
         }
     }
@@ -279,45 +349,86 @@ where
 
 impl<M, H, W> Style for Window<M, H, W>
 where
-    M: TryInto<String>,
-    H: Widget<M>,
+    H: Widget<M> + Style,
     W: Widget<M> + Style,
 {
     fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
-        self.header.set_background(background);
+        self.background = background.into();
+        self.header.set_background(self.background.clone());
     }
     fn set_border(&mut self, color: u32, width: f32) {
         self.body.set_border(color, width);
     }
     fn set_border_color(&mut self, color: u32) {
+        self.header.set_border_color(color);
         self.body.set_border_color(color);
     }
     fn set_border_size(&mut self, size: f32) {
         self.body.set_border_size(size);
     }
     fn set_even_radius(&mut self, radius: f32) {
+        self.radius = (radius, radius, radius, radius);
         self.body.set_radius(0., 0., radius, radius);
         self.header.set_radius(radius, radius, 0., 0.);
     }
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        self.radius = (tl, tr, br, bl);
         self.body.set_radius(0., 0., br, bl);
         self.header.set_radius(tl, tr, 0., 0.);
     }
 }
 
-pub fn default_window<M, W>(listener: Listener<M>, widget: W) -> Window<M, impl Widget<M>, W>
+impl<M, H, W> Deref for Window<M, H, W>
 where
-    M: TryInto<String> + 'static,
-    W: Widget<M>,
+    H: Widget<M> + Style,
+    W: Widget<M> + Style,
 {
-    let header = headerbar(listener)
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.body
+    }
+}
+
+impl<M, H, W> DerefMut for Window<M, H, W>
+where
+    H: Widget<M> + Style,
+    W: Widget<M> + Style,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.body
+    }
+}
+
+pub fn default_window<M, W>(header: impl Widget<M> + 'static, widget: W) -> Window<M, impl Widget<M> + Style, W>
+where
+    M: 'static,
+    W: Widget<M> + Style,
+{
+    let header = headerbar(header)
         .ext()
-        .background(style::BG0)
-        .even_padding(10.);
+        .background(style::BG2)
+        .even_padding(10.)
+        .button(|_, ctx, p| match p {
+        Pointer::MouseClick {
+            button,
+            pressed,
+            serial,
+        } => {
+            if button.is_left() && pressed {
+                ctx.window_request(WindowRequest::Move(serial));
+            }
+        }
+        _ => {}
+    });
 
     Window {
         header,
-        coords: Coords::default(),
         body: widget,
+        radius: (0., 0., 0., 0.),
+        background: style::BG2.into(),
+        alternate: None,
+        state: WindowState::Deactivated,
+        coords: Coords::default(),
+        _message: std::marker::PhantomData
     }
 }

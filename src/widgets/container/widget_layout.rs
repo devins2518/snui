@@ -125,7 +125,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                             node = child.create_node(x, y);
                             if !node.is_none() {
                                 node = RenderNode::Extension {
-                                    background: scene::Instruction::empty(x + dx, y + dy, ww, sh),
+                                    background: scene::Instruction::empty(x + dx, y, ww, sh),
                                     border: None,
                                     node: Box::new(node),
                                 };
@@ -142,7 +142,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                             node = child.create_node(x, y);
                             if !node.is_none() {
                                 node = RenderNode::Extension {
-                                    background: scene::Instruction::empty(x + dx, y + dy, sw, wh),
+                                    background: scene::Instruction::empty(x, y + dy, sw, wh),
                                     border: None,
                                     node: Box::new(node),
                                 };

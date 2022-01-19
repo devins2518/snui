@@ -1,4 +1,5 @@
 use crate::*;
+use crate::widgets::shapes::Style;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -8,7 +9,6 @@ where
 {
     child: W,
     damage: Damage,
-    queue_draw: bool,
     _request: PhantomData<M>,
 }
 
@@ -46,15 +46,19 @@ impl<M, W: Widget<M>> Geometry for Proxy<M, W> {
 
 impl<M, W: Widget<M>> Widget<M> for Proxy<M, W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        if self.queue_draw || self.damage.is_some() {
+        if self.damage.is_some() {
             self.damage = Damage::None;
             return self.child.create_node(x, y);
         }
         RenderNode::None
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
-        self.damage = self.damage.max(self.child.sync(ctx, event));
-        self.queue_draw = self.damage.is_some() || event.is_frame();
+        self.damage = self.damage.max(match event {
+            Event::Configure(_) => {
+                Damage::Partial.max(self.child.sync(ctx, event))
+            }
+            _ => self.child.sync(ctx, event)
+        });
         self.damage
     }
 }
@@ -63,7 +67,6 @@ impl<M, W: Widget<M>> Proxy<M, W> {
     pub fn new(child: W) -> Self {
         Proxy {
             child,
-            queue_draw: true,
             damage: Damage::Partial,
             _request: PhantomData,
         }
@@ -142,6 +145,31 @@ where
             }
         }
         self.proxy.sync(ctx, event)
+    }
+}
+
+impl<M, W, F> Style for Button<M, W, F>
+where
+    W: Widget<M> + Style,
+    F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
+{
+    fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
+        self.proxy.set_background(background);
+    }
+    fn set_border(&mut self, color: u32, width: f32) {
+        self.proxy.set_border(color, width);
+    }
+    fn set_border_color(&mut self, color: u32) {
+        self.proxy.set_border_color(color);
+    }
+    fn set_border_size(&mut self, size: f32) {
+        self.proxy.set_border_size(size);
+    }
+    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        self.proxy.set_radius(tl, tr, br, bl);
+    }
+    fn set_even_radius(&mut self, radius: f32) {
+        self.proxy.set_even_radius(radius);
     }
 }
 

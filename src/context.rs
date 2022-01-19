@@ -5,7 +5,7 @@ use scene::*;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 use widgets::text::Label;
-use widgets::window::WindowState;
+use widgets::window::WindowRequest;
 
 pub(crate) mod canvas {
     use crate::scene::*;
@@ -97,7 +97,7 @@ pub enum Backend<'b> {
 
 pub struct SyncContext<'c, M> {
     controller: &'c mut dyn Controller<M>,
-    pub(crate) window_state: Option<WindowState>,
+    pub(crate) window_request: Option<WindowRequest>,
     pub(crate) font_cache: &'c mut FontCache,
 }
 
@@ -144,13 +144,13 @@ impl<'c> DerefMut for Backend<'c> {
 impl<'c, M> SyncContext<'c, M> {
     pub fn new(controller: &'c mut impl Controller<M>, font_cache: &'c mut FontCache) -> Self {
         Self {
-            window_state: None,
+            window_request: None,
             controller,
             font_cache,
         }
     }
-    pub fn window_state(&mut self, window_state: WindowState) {
-        self.window_state = Some(window_state);
+    pub fn window_request(&mut self, window_request: WindowRequest) {
+        self.window_request = Some(window_request);
     }
 }
 

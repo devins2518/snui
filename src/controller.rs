@@ -73,10 +73,8 @@ where
     data: M,
 }
 
-/*
- * Barebone implementation of Controller.
- * Can be used for debugging your application.
- */
+/// Barebone implementation of Controller.
+/// Can be used for debugging your application.
 impl<M> DummyController<M>
 where
     M: std::fmt::Debug,
