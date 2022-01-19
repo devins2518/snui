@@ -153,14 +153,11 @@ where
     W: Widget<M> + Style,
     F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
-    fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
+    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.proxy.set_background(background);
     }
-    fn set_border(&mut self, color: u32, width: f32) {
-        self.proxy.set_border(color, width);
-    }
-    fn set_border_color(&mut self, color: u32) {
-        self.proxy.set_border_color(color);
+    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
+        self.proxy.set_border_texture(texture);
     }
     fn set_border_size(&mut self, size: f32) {
         self.proxy.set_border_size(size);

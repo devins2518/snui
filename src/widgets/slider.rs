@@ -1,8 +1,8 @@
-use crate::controller::*;
 use crate::*;
 use scene::Instruction;
+use crate::controller::*;
+use widgets::shapes::Style;
 use widgets::shapes::rectangle::Rectangle;
-use widgets::shapes::{ShapeStyle, Style};
 
 pub struct Slider<M: PartialEq + TryFromArg<f32> + TryInto<f32>> {
     step: f32,
@@ -31,15 +31,13 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Slider<M> {
             },
             pressed: false,
             slider: match &orientation {
-                Orientation::Horizontal => Rectangle::new(
+                Orientation::Horizontal => Rectangle::empty(
                     width as f32 / 2.,
                     height as f32,
-                    ShapeStyle::Background(scene::Background::Transparent),
                 ),
-                Orientation::Vertical => Rectangle::new(
+                Orientation::Vertical => Rectangle::empty(
                     width as f32,
                     height as f32 / 2.,
-                    ShapeStyle::Background(scene::Background::Transparent),
                 ),
             },
             orientation,
@@ -299,14 +297,11 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
 }
 
 impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Style for Slider<M> {
-    fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
+    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.slider.set_background(background);
     }
-    fn set_border(&mut self, color: u32, width: f32) {
-        self.slider.set_border(color, width);
-    }
-    fn set_border_color(&mut self, color: u32) {
-        self.slider.set_border_color(color);
+    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
+        self.slider.set_border_texture(texture);
     }
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         self.slider.set_radius(tl, tr, br, bl);

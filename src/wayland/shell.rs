@@ -397,7 +397,7 @@ where
                         &Instruction::empty(0., 0., width, height),
                         None,
                     ) {
-                        ctx.damage_region(&Background::Transparent, region, false);
+                        ctx.damage_region(&Texture::Transparent, region, false);
                         self.state.render_node.render(&mut ctx, None);
                     }
                 }

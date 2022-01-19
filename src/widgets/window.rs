@@ -1,6 +1,6 @@
 use crate::*;
 use crate::{
-    scene::{Coords, Instruction, Region, Background},
+    scene::{Coords, Instruction, Region, Texture},
     widgets::{container::*, shapes::*, *},
 };
 use std::ops::{Deref, DerefMut};
@@ -93,11 +93,11 @@ impl<M> Widget<M> for Maximize {
             Instruction::new(
                 x,
                 y,
-                Rectangle::new(
+                Rectangle::empty(
                     self.width() - 2. * thickness,
                     self.height() - 2. * thickness,
-                    ShapeStyle::Border(u32_to_source(style::BLU), thickness),
-                ),
+                )
+                .border(style::BLU, thickness),
             )
             .into()
         }
@@ -213,11 +213,11 @@ where
     /// The window's content
     body: W,
     /// The background of the headerbar decoration
-    background: Background,
+    background: Texture,
     /// The radius of window borders
     radius: (f32, f32, f32, f32),
     /// Alternative background of the decoration
-    alternate: Option<Background>,
+    alternate: Option<Texture>,
     _message: std::marker::PhantomData<M>
 }
 
@@ -226,10 +226,10 @@ where
     H: Widget<M> + Style,
     W: Widget<M> + Style,
 {
-    pub fn set_alternate_background<B: Into<Background>>(&mut self, background: B) {
+    pub fn set_alternate_background<B: Into<Texture>>(&mut self, background: B) {
         self.alternate = Some(background.into());
     }
-    pub fn alternate_background<B: Into<Background>>(mut self, background: B) -> Self {
+    pub fn alternate_background<B: Into<Texture>>(mut self, background: B) -> Self {
         self.set_alternate_background(background);
         self
     }
@@ -311,21 +311,15 @@ where
                         }
                         self.state = state;
                         if self.alternate.is_some() {
-                            if let Background::Color(ref color) = self.background {
-                                let color = color.to_color_u8().get();
-                                self.header.set_border_color(color);
-                                self.body.set_border_color(color);
-                            }
+                            self.body.set_border_texture(self.background.clone());
                             self.header.set_background(self.background.clone());
+                            self.header.set_border_texture(self.background.clone());
                         }
                     }
-                    WindowState::Deactivated => if let Some(ref background) = self.alternate {
-                        if let Background::Color(ref color) = background {
-                            let color = color.to_color_u8().get();
-                            self.header.set_border_color(color);
-                            self.body.set_border_color(color);
-                        }
-                        self.header.set_background(background.clone());
+                    WindowState::Deactivated => if let Some(ref texture) = self.alternate {
+                        self.body.set_border_texture(texture.clone());
+                        self.header.set_border_texture(texture.clone());
+                        self.header.set_background(texture.clone());
                         self.state = state;
                     }
                     WindowState::TiledLeft
@@ -352,16 +346,14 @@ where
     H: Widget<M> + Style,
     W: Widget<M> + Style,
 {
-    fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
+    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.background = background.into();
         self.header.set_background(self.background.clone());
     }
-    fn set_border(&mut self, color: u32, width: f32) {
-        self.body.set_border(color, width);
-    }
-    fn set_border_color(&mut self, color: u32) {
-        self.header.set_border_color(color);
-        self.body.set_border_color(color);
+    fn set_border_texture<T: Into<Texture>>(&mut self, texture: T) {
+        let texture = texture.into();
+        self.header.set_border_texture(texture.clone());
+        self.body.set_border_texture(texture);
     }
     fn set_border_size(&mut self, size: f32) {
         self.body.set_border_size(size);

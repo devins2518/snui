@@ -49,7 +49,7 @@ impl Coords {
 }
 
 #[derive(Debug, Clone)]
-pub enum Background {
+pub enum Texture {
     Transparent,
     Image(Coords, Image),
     LinearGradient {
@@ -59,11 +59,11 @@ pub enum Background {
         mode: SpreadMode,
         stops: Rc<[GradientStop]>,
     },
-    Composite(Vec<Background>),
+    Composite(Vec<Texture>),
     Color(Color),
 }
 
-impl PartialEq for Background {
+impl PartialEq for Texture {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Self::Transparent => {
@@ -116,73 +116,73 @@ impl PartialEq for Background {
     }
 }
 
-impl From<ShapeStyle> for Background {
+impl From<ShapeStyle> for Texture {
     fn from(style: ShapeStyle) -> Self {
         match style {
-            ShapeStyle::Background(bg) => bg,
-            ShapeStyle::Border(_, _) => Background::Transparent,
+            ShapeStyle::Background(texture) => texture,
+            ShapeStyle::Border(_, _) => Texture::Transparent,
         }
     }
 }
 
-impl From<u32> for Background {
+impl From<u32> for Texture {
     fn from(color: u32) -> Self {
-        Background::Color(u32_to_source(color))
+        Texture::Color(u32_to_source(color))
     }
 }
 
-impl From<Color> for Background {
+impl From<Color> for Texture {
     fn from(color: Color) -> Self {
-        Background::Color(color)
+        Texture::Color(color)
     }
 }
 
-impl From<ColorU8> for Background {
+impl From<ColorU8> for Texture {
     fn from(color: ColorU8) -> Self {
         color.get().into()
     }
 }
 
-impl From<Image> for Background {
+impl From<Image> for Texture {
     fn from(image: Image) -> Self {
-        Background::Image(Coords::new(0., 0.), image)
+        Texture::Image(Coords::new(0., 0.), image)
     }
 }
 
-impl From<Instruction> for Background {
+impl From<Instruction> for Texture {
     fn from(instruction: Instruction) -> Self {
         match instruction.primitive {
             PrimitiveType::Rectangle(r) => r.get_style().background(),
             PrimitiveType::Image(image) => {
                 let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
-                Background::Image(coords, image.clone())
+                Texture::Image(coords, image.clone())
             }
-            _ => Background::Transparent,
+            _ => Texture::Transparent,
         }
     }
 }
 
-impl From<&Instruction> for Background {
+impl From<&Instruction> for Texture {
     fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
             PrimitiveType::Rectangle(r) => r.get_style().background(),
             PrimitiveType::Image(image) => {
                 let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
-                Background::Image(coords, image.clone())
+                Texture::Image(coords, image.clone())
             }
-            _ => Background::Transparent,
+            _ => Texture::Transparent,
         }
     }
 }
 
-impl Background {
-    pub fn solid(color: u32) -> Background {
-        Background::Color(u32_to_source(color))
+impl Texture {
+    pub fn solid(color: u32) -> Texture {
+        Texture::Color(u32_to_source(color))
     }
     // The angle is a radiant representing the tild of the gradient clock wise.
-    pub fn linear_gradient(stops: Vec<GradientStop>, mode: SpreadMode, angle: f32) -> Background {
+    pub fn linear_gradient(stops: Vec<GradientStop>, mode: SpreadMode, angle: f32) -> Texture {
         let stops: Rc<[GradientStop]> = stops.into();
-        Background::LinearGradient {
+        Texture::LinearGradient {
             angle,
             start: Coords::new(0., 0.),
             end: Coords::new(0., 0.),
@@ -198,72 +198,72 @@ impl Background {
     }
     pub fn merge(&self, other: Self) -> Self {
         match self {
-            Background::Color(acolor) => match other {
-                Background::Color(bcolor) => {
+            Texture::Color(acolor) => match other {
+                Texture::Color(bcolor) => {
                     if bcolor.is_opaque() {
                         return other;
                     }
-                    Background::Color(blend(acolor, &bcolor))
+                    Texture::Color(blend(acolor, &bcolor))
                 }
-                Background::Image(_, _) => Background::Composite(vec![self.clone(), other]),
-                Background::Transparent => self.clone(),
-                Background::Composite(mut layers) => {
+                Texture::Image(_, _) => Texture::Composite(vec![self.clone(), other]),
+                Texture::Transparent => self.clone(),
+                Texture::Composite(mut layers) => {
                     layers.insert(0, self.clone());
-                    Background::Composite(layers)
+                    Texture::Composite(layers)
                 }
-                _ => Background::Composite(vec![self.clone(), other]),
+                _ => Texture::Composite(vec![self.clone(), other]),
             },
-            Background::LinearGradient {
+            Texture::LinearGradient {
                 start: _,
                 end: _,
                 stops: _,
                 mode: _,
                 angle: _,
             } => match other {
-                Background::Color(color) => {
+                Texture::Color(color) => {
                     if color.is_opaque() {
                         return other;
                     } else {
-                        Background::Composite(vec![self.clone(), other])
+                        Texture::Composite(vec![self.clone(), other])
                     }
                 }
-                Background::Transparent => return self.clone(),
-                Background::Composite(mut layers) => {
+                Texture::Transparent => return self.clone(),
+                Texture::Composite(mut layers) => {
                     layers.insert(0, self.clone());
-                    Background::Composite(layers)
+                    Texture::Composite(layers)
                 }
-                _ => Background::Composite(vec![self.clone(), other]),
+                _ => Texture::Composite(vec![self.clone(), other]),
             },
-            Background::Image(_, _) => match other {
-                Background::Color(color) => {
+            Texture::Image(_, _) => match other {
+                Texture::Color(color) => {
                     if color.is_opaque() {
                         return other;
                     } else {
-                        Background::Composite(vec![self.clone(), other])
+                        Texture::Composite(vec![self.clone(), other])
                     }
                 }
-                Background::Transparent => return self.clone(),
-                Background::Composite(mut layers) => {
+                Texture::Transparent => return self.clone(),
+                Texture::Composite(mut layers) => {
                     layers.insert(0, self.clone());
-                    Background::Composite(layers)
+                    Texture::Composite(layers)
                 }
-                _ => Background::Composite(vec![self.clone(), other]),
+                _ => Texture::Composite(vec![self.clone(), other]),
             },
-            Background::Composite(sl) => {
+            Texture::Composite(sl) => {
                 let mut layers = sl.clone();
                 if let Some(last) = layers.pop() {
                     let background = last.merge(other);
                     match background {
-                        Background::Composite(mut ol) => {
+                        Texture::Composite(mut ol) => {
                             layers.append(&mut ol);
-                            return Background::Composite(layers);
+                            return Texture::Composite(layers);
                         }
                         _ => layers.push(background),
                     }
                 }
-                Background::Composite(layers)
+                Texture::Composite(layers)
             }
-            Background::Transparent => other,
+            Texture::Transparent => other,
         }
     }
 }
@@ -386,22 +386,22 @@ impl PartialEq for PrimitiveType {
 }
 
 impl Primitive for PrimitiveType {
-    fn get_background(&self) -> Background {
+    fn get_texture(&self) -> Texture {
         match self {
-            Self::Image(image) => image.get_background(),
-            Self::Rectangle(rectangle) => rectangle.get_background(),
-            Self::Label(_) => Background::Transparent,
+            Self::Image(image) => image.get_texture(),
+            Self::Rectangle(rectangle) => rectangle.get_texture(),
+            Self::Label(_) => Texture::Transparent,
             Self::Other {
                 name: _,
                 id: _,
                 primitive,
-            } => primitive.get_background(),
+            } => primitive.get_texture(),
         }
     }
-    fn apply_background(&self, background: Background) -> Self {
+    fn apply_texture(&self, background: Texture) -> Self {
         match self {
-            Self::Image(image) => image.apply_background(background),
-            Self::Rectangle(rectangle) => rectangle.apply_background(background),
+            Self::Image(image) => image.apply_texture(background),
+            Self::Rectangle(rectangle) => rectangle.apply_texture(background),
             Self::Label(_) => Rectangle::empty(self.width(), self.height())
                 .background(background)
                 .into(),
@@ -409,7 +409,7 @@ impl Primitive for PrimitiveType {
                 name: _,
                 id: _,
                 primitive,
-            } => primitive.apply_background(background),
+            } => primitive.apply_texture(background),
         }
     }
     fn contains(&self, region: &Region) -> bool {
@@ -443,9 +443,9 @@ impl Primitive for PrimitiveType {
 
 impl PrimitiveType {
     fn merge(&self, other: Self) -> Self {
-        let background = other.get_background();
-        let background = self.get_background().merge(background);
-        other.apply_background(background)
+        let background = other.get_texture();
+        let background = self.get_texture().merge(background);
+        other.apply_texture(background)
     }
     fn instruction(&self, region: Region) -> Instruction {
         let mut p = self.clone();
@@ -676,7 +676,7 @@ impl RenderNode {
                 background,
                 border: _,
                 node,
-            } => background.primitive.get_background().is_transparent() && node.is_none(),
+            } => background.primitive.get_texture().is_transparent() && node.is_none(),
             _ => false,
         }
     }
@@ -738,7 +738,7 @@ impl RenderNode {
             _ => {}
         }
     }
-    fn clear(&self, ctx: &mut DrawContext, bg: &Background, other: Option<&Region>) {
+    fn clear(&self, ctx: &mut DrawContext, texture: &Texture, other: Option<&Region>) {
         match self {
             RenderNode::Instruction(instruction) => {
                 let region = instruction.region();
@@ -746,7 +746,7 @@ impl RenderNode {
                     Some(other) => region.merge(other),
                     None => region,
                 };
-                ctx.damage_region(bg, region, false);
+                ctx.damage_region(texture, region, false);
             }
             RenderNode::Extension {
                 background,
@@ -759,14 +759,14 @@ impl RenderNode {
                         Some(other) => region.merge(other),
                         None => region,
                     };
-                    ctx.damage_region(bg, region, false);
+                    ctx.damage_region(texture, region, false);
                 } else {
                     let region = background.region();
                     let region = match other {
                         Some(other) => region.merge(other),
                         None => region,
                     };
-                    ctx.damage_region(bg, region, false);
+                    ctx.damage_region(texture, region, false);
                 }
             }
             RenderNode::Container { region, nodes: _ } => {
@@ -774,18 +774,18 @@ impl RenderNode {
                     Some(other) => region.merge(other),
                     None => *region,
                 };
-                ctx.damage_region(bg, region, false);
+                ctx.damage_region(texture, region, false);
             }
             RenderNode::Draw { region, steps: _ } => {
                 let region = match other {
                     Some(other) => region.merge(other),
                     None => *region,
                 };
-                ctx.damage_region(bg, region, false);
+                ctx.damage_region(texture, region, false);
             }
             RenderNode::None => {
                 if let Some(region) = other {
-                    ctx.damage_region(bg, *region, false);
+                    ctx.damage_region(texture, *region, false);
                 }
             }
         }
@@ -862,7 +862,7 @@ impl RenderNode {
                         let r = b.region();
                         if shape.contains(&r) {
                             ctx.damage_region(
-                                &Background::from(shape),
+                                &Texture::from(shape),
                                 a.region().merge(&r),
                                 false,
                             );
@@ -876,14 +876,14 @@ impl RenderNode {
                 }
                 RenderNode::None => {}
                 _ => {
-                    other.clear(ctx, &Background::from(shape), Some(&a.region()));
+                    other.clear(ctx, &Texture::from(shape), Some(&a.region()));
                     *self = other;
                     self.render(ctx, None);
                 }
             },
             RenderNode::None => {
                 *self = other;
-                self.clear(ctx, &Background::from(shape), None);
+                self.clear(ctx, &Texture::from(shape), None);
                 self.render(ctx, clip);
             }
             RenderNode::Container { region, nodes } => {
@@ -906,7 +906,7 @@ impl RenderNode {
                                             clip,
                                         ) {
                                             ctx.damage_region(
-                                                &Background::from(shape),
+                                                &Texture::from(shape),
                                                 region,
                                                 false,
                                             );
@@ -922,7 +922,7 @@ impl RenderNode {
                     }
                     RenderNode::None => {}
                     _ => {
-                        other.clear(ctx, &Background::from(shape), Some(&this_region));
+                        other.clear(ctx, &Texture::from(shape), Some(&this_region));
                         self.merge(other);
                         self.render(ctx, clip);
                     }
@@ -972,7 +972,7 @@ impl RenderNode {
                             if !shape.contains(&merge) {
                                 return Err(merge);
                             }
-                            ctx.damage_region(&Background::from(shape), merge, false);
+                            ctx.damage_region(&Texture::from(shape), merge, false);
                             self.render(ctx, clip);
                         }
                     }
@@ -980,7 +980,7 @@ impl RenderNode {
                     _ => {
                         other.clear(
                             ctx,
-                            &Background::from(shape),
+                            &Texture::from(shape),
                             Some(&if let Some(border) = this_border.as_ref() {
                                 border.region()
                             } else {
@@ -1000,17 +1000,15 @@ impl RenderNode {
                         if !shape.contains(&region) {
                             *self = RenderNode::Draw { region, steps };
                             return Err(region);
-                        } else {
-                            if steps.ne(this_steps) {
-                                self.clear(ctx, &Background::from(shape), Some(&region));
-                                *self = RenderNode::Draw { region, steps };
-                                self.render(ctx, clip);
-                            }
+                        } else if steps.ne(this_steps) {
+                            self.clear(ctx, &Texture::from(shape), Some(&region));
+                            *self = RenderNode::Draw { region, steps };
+                            self.render(ctx, clip);
                         }
                     }
                     RenderNode::None => {}
                     _ => {
-                        self.clear(ctx, &Background::from(shape), Some(&this_region));
+                        self.clear(ctx, &Texture::from(shape), Some(&this_region));
                         self.merge(other);
                         self.render(ctx, clip);
                     }
@@ -1077,7 +1075,7 @@ impl Region {
         let merge = self.merge(other);
         self.width + other.width >= merge.width && self.height + other.height >= merge.height
     }
-    // It will assume other occupies an entire side of self
+    // Assume other occupies an entire side of self
     pub fn substract(&self, other: Self) -> Self {
         let crop = self.crop(&other);
 

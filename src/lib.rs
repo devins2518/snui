@@ -15,7 +15,7 @@ use widgets::shapes::WidgetExt;
 use widgets::{Padding, WidgetBox};
 
 pub mod style {
-    use crate::scene::Background;
+    use crate::scene::Texture;
     pub const FG0: u32 = 0xff_C8_BA_A4;
     pub const FG1: u32 = 0xff_cd_c0_ad;
     pub const FG2: u32 = 0xff_be_ae_94;
@@ -29,7 +29,7 @@ pub mod style {
     pub const BEI: u32 = 0xff_ab_93_82;
     pub const ORG: u32 = 0xff_d0_8b_65;
     pub const RED: u32 = 0xff_c6_5f_5f;
-    pub const TRANSPARENT: Background = Background::Transparent;
+    pub const TRANSPARENT: Texture = Texture::Transparent;
 }
 
 pub fn u32_to_source(color: u32) -> Color {
@@ -315,8 +315,8 @@ pub trait Primitive: Geometry + std::fmt::Debug {
         transform: tiny_skia::Transform,
         clip: Option<&tiny_skia::ClipMask>,
     );
-    fn get_background(&self) -> scene::Background;
-    fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType;
+    fn get_texture(&self) -> scene::Texture;
+    fn apply_texture(&self, texture: scene::Texture) -> scene::PrimitiveType;
     /// Tell if the region can fit inside the Primitive.
     /// The coordinates will be relative to it
     fn contains(&self, region: &scene::Region) -> bool;

@@ -120,11 +120,11 @@ impl Geometry for Image {
 }
 
 impl Primitive for Image {
-    fn get_background(&self) -> scene::Background {
-        scene::Background::Image(scene::Coords::new(0., 0.), self.clone())
+    fn get_texture(&self) -> scene::Texture {
+        scene::Texture::Image(scene::Coords::new(0., 0.), self.clone())
     }
-    fn apply_background(&self, background: scene::Background) -> scene::PrimitiveType {
-        widgets::shapes::Rectangle::empty(self.width(), self.height()).apply_background(background)
+    fn apply_texture(&self, texture: scene::Texture) -> scene::PrimitiveType {
+        widgets::shapes::Rectangle::empty(self.width(), self.height()).apply_texture(texture)
     }
     fn into_primitive(&self) -> scene::PrimitiveType {
         self.clone().into()

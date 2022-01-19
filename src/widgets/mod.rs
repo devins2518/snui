@@ -32,8 +32,8 @@ pub fn blend(pix_a: &Color, pix_b: &Color) -> Color {
     Color::from_rgba(red, green, blue, 1.).unwrap()
 }
 
-fn blend_f32(background: f32, foreground: f32, alpha_fg: f32) -> f32 {
-    foreground * alpha_fg + background * (1. - alpha_fg)
+fn blend_f32(texture: f32, foreground: f32, alpha_fg: f32) -> f32 {
+    foreground * alpha_fg + texture * (1. - alpha_fg)
 }
 
 #[derive(Copy, Clone, Debug)]

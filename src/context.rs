@@ -32,17 +32,17 @@ pub(crate) mod canvas {
             let y = y + self.coords.y;
             self.steps.push(Instruction::new(x, y, p.into()))
         }
-        pub fn draw_rectangle<B: Into<Background>>(
+        pub fn draw_rectangle<B: Into<Texture>>(
             &mut self,
             x: f32,
             y: f32,
             width: f32,
             height: f32,
-            bg: B,
+            texture: B,
         ) {
             let x = x + self.coords.x;
             let y = y + self.coords.y;
-            let rect = Rectangle::empty(width, height).background(bg);
+            let rect = Rectangle::empty(width, height).background(texture);
             self.steps.push(Instruction::new(x, y, rect))
         }
         pub fn draw_at_angle<P: Into<PrimitiveType> + Primitive>(
@@ -197,7 +197,7 @@ impl<'c> DrawContext<'c> {
         }
     }
     /// Dmaages a region of the buffer in preparation of a draw.
-    pub fn damage_region(&mut self, bg: &Background, mut region: Region, composite: bool) {
+    pub fn damage_region(&mut self, texture: &Texture, mut region: Region, composite: bool) {
         if !composite {
             if let Some(last) = self.pending_damage.last() {
                 if last.contains(region.x, region.y) {
@@ -207,8 +207,8 @@ impl<'c> DrawContext<'c> {
             }
             self.pending_damage.push(region);
         }
-        match bg {
-            Background::Color(color) => match &mut self.backend {
+        match texture {
+            Texture::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
                     dt.fill_rect(
                         region.into(),
@@ -224,7 +224,7 @@ impl<'c> DrawContext<'c> {
                 }
                 _ => {}
             },
-            Background::LinearGradient {
+            Texture::LinearGradient {
                 start,
                 end,
                 angle: _,
@@ -253,7 +253,7 @@ impl<'c> DrawContext<'c> {
                     }
                 }
             }
-            Background::Image(coords, image) => {
+            Texture::Image(coords, image) => {
                 let crop =
                     Region::new(coords.x, coords.y, image.width(), image.height()).crop(&region);
                 let (sx, sy) = image.scale();
@@ -278,12 +278,12 @@ impl<'c> DrawContext<'c> {
                     );
                 }
             }
-            Background::Composite(layers) => {
+            Texture::Composite(layers) => {
                 for layer in layers {
                     self.damage_region(layer, region, true);
                 }
             }
-            Background::Transparent => match &mut self.backend {
+            Texture::Transparent => match &mut self.backend {
                 Backend::Pixmap(dt) => {
                     dt.fill_rect(
                         region.into(),

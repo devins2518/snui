@@ -155,39 +155,16 @@ impl<M: TryFromArg<SwitchState>> Switch<M> {
 }
 
 impl<M: TryFromArg<SwitchState>> Style for Switch<M> {
-    fn set_background<B: Into<scene::Background>>(&mut self, background: B) {
+    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.toggle.set_background(background);
     }
-    fn set_border(&mut self, color: u32, width: f32) {
-        self.toggle.set_border(color, width);
-    }
-    fn set_border_color(&mut self, color: u32) {
-        self.toggle.set_border_color(color);
+    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
+        self.toggle.set_border_texture(texture);
     }
     fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
         self.toggle.set_radius(tl, tr, br, bl);
     }
     fn set_border_size(&mut self, size: f32) {
         self.toggle.set_border_size(size);
-    }
-    fn background<B: Into<scene::Background>>(mut self, background: B) -> Self {
-        self.set_background(background);
-        self
-    }
-    fn border(mut self, color: u32, size: f32) -> Self {
-        self.set_border(color, size);
-        self
-    }
-    fn border_color(mut self, color: u32) -> Self {
-        self.set_border_color(color);
-        self
-    }
-    fn border_size(mut self, size: f32) -> Self {
-        self.set_border_size(size);
-        self
-    }
-    fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
-        self.set_radius(tl, tr, br, bl);
-        self
     }
 }

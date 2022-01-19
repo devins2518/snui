@@ -13,10 +13,13 @@ pub trait Style: Sized {
     fn set_even_radius(&mut self, radius: f32) {
         self.set_radius(radius, radius, radius, radius);
     }
-    fn set_background<B: Into<Background>>(&mut self, background: B);
+    fn set_background<B: Into<Texture>>(&mut self, texture: B);
     fn set_border_size(&mut self, size: f32);
-    fn set_border_color(&mut self, color: u32);
-    fn set_border(&mut self, color: u32, width: f32);
+    fn set_border_texture<T: Into<Texture>>(&mut self, texture: T);
+    fn set_border<T: Into<Texture>>(&mut self, texture: T, size: f32) {
+        self.set_border_texture(texture);
+        self.set_border_size(size);
+    }
     fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
         self.set_radius(tl, tr, br, bl);
         self
@@ -24,28 +27,28 @@ pub trait Style: Sized {
     fn even_radius(self, radius: f32) -> Self {
         self.radius(radius, radius, radius, radius)
     }
-    fn background<B: Into<Background>>(mut self, background: B) -> Self {
-        self.set_background(background);
+    fn background<B: Into<Texture>>(mut self, texture: B) -> Self {
+        self.set_background(texture);
         self
     }
     fn border_size(mut self, size: f32) -> Self {
         self.set_border_size(size);
         self
     }
-    fn border_color(mut self, color: u32) -> Self {
-        self.set_border_color(color);
+    fn border_texture<T: Into<Texture>>(mut self, texture: T) -> Self {
+        self.set_border_texture(texture);
         self
     }
-    fn border(mut self, color: u32, width: f32) -> Self {
-        self.set_border(color, width);
+    fn border<T: Into<Texture>>(mut self, texture: T, size: f32) -> Self {
+        self.set_border(texture, size);
         self
     }
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ShapeStyle {
-    Background(Background),
-    Border(Color, f32),
+    Background(Texture),
+    Border(Texture, f32),
 }
 
 impl From<u32> for ShapeStyle {
@@ -59,8 +62,8 @@ impl From<u32> for ShapeStyle {
 pub struct WidgetExt<M, W: Widget<M>> {
     widget: Padding<M, W>,
     radius: (f32, f32, f32, f32),
-    background: Background,
-    border: (f32, Color),
+    background: Texture,
+    border: (Texture, f32),
     _request: PhantomData<M>,
 }
 
@@ -68,8 +71,8 @@ impl<M, W: Widget<M>> WidgetExt<M, W> {
     pub fn new(widget: W) -> Self {
         WidgetExt {
             widget: Padding::new(widget),
-            background: Background::Transparent,
-            border: (0., Color::TRANSPARENT),
+            background: Texture::Transparent,
+            border: (Texture::Transparent, 0.),
             radius: (0., 0., 0., 0.),
             _request: PhantomData,
         }
@@ -104,7 +107,7 @@ fn minimum_padding(tl: f32, tr: f32, br: f32, bl: f32) -> f32 {
 
 impl<M, W: Widget<M>> Geometry for WidgetExt<M, W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        let border = self.border.0;
+        let border = self.border.1;
         if let Err(width) = self.widget.set_width(width - 2. * border) {
             Err(width + 2. * border)
         } else {
@@ -112,7 +115,7 @@ impl<M, W: Widget<M>> Geometry for WidgetExt<M, W> {
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let border = self.border.0;
+        let border = self.border.1;
         if let Err(height) = self.widget.set_height(height - 2. * border) {
             Err(height + 2. * border)
         } else {
@@ -120,10 +123,10 @@ impl<M, W: Widget<M>> Geometry for WidgetExt<M, W> {
         }
     }
     fn width(&self) -> f32 {
-        self.inner_width() + 2. * self.border.0
+        self.inner_width() + 2. * self.border.1
     }
     fn height(&self) -> f32 {
-        self.inner_height() + 2. * self.border.0
+        self.inner_height() + 2. * self.border.1
     }
 }
 
@@ -159,52 +162,29 @@ impl<M, W: Widget<M>> Style for WidgetExt<M, W> {
         self.widget.padding.3 = self.widget.padding.3.max(delta);
         self.radius = (tl, tr, br, bl);
     }
-    fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
-        self.set_radius(tl, tr, br, bl);
-        self
-    }
-    fn set_background<B: Into<Background>>(&mut self, background: B) {
-        self.background = background.into();
-    }
-    fn background<B: Into<Background>>(mut self, background: B) -> Self {
-        self.set_background(background);
-        self
-    }
-    fn set_border(&mut self, color: u32, width: f32) {
-        self.border = (width, u32_to_source(color));
-    }
-    fn border(mut self, color: u32, size: f32) -> Self {
-        self.set_border(color, size);
-        self
+    fn set_background<B: Into<Texture>>(&mut self, texture: B) {
+        self.background = texture.into();
     }
     fn set_border_size(&mut self, size: f32) {
-        self.border.0 = size;
+        self.border.1 = size;
     }
-    fn border_size(mut self, size: f32) -> Self {
-        self.set_border_size(size);
-        self
-    }
-    fn set_border_color(&mut self, color: u32) {
-        self.border.1 = u32_to_source(color);
-    }
-    fn border_color(mut self, color: u32) -> Self {
-        self.set_border_color(color);
-        self
+    fn set_border_texture<T: Into<Texture>>(&mut self, texture: T) {
+        self.border.0 = texture.into();
     }
 }
 
 impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let (border_size, border_color) = self.border;
+        let (border_texture, border_size) = self.border.clone();
         let node = self.widget.create_node(x + border_size, y + border_size);
         let width = self.inner_width();
         let height = self.inner_height();
         match &mut self.background {
-            Background::Image(coords, _) => {
+            Texture::Image(coords, _) => {
                 coords.x = x + border_size;
                 coords.y = y + border_size;
             }
-            Background::LinearGradient {
+            Texture::LinearGradient {
                 start,
                 end,
                 angle,
@@ -224,14 +204,13 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
         RenderNode::Extension {
             node: Box::new(node),
             border: {
-                if border_color == Color::TRANSPARENT || border_size > 0. {
-                    let mut border = Rectangle::empty(width, height)
-                        .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3);
-                    border.style = ShapeStyle::Border(self.border.1, self.border.0);
+                if border_texture != Texture::Transparent || border_size > 0. {
                     Some(Instruction::new(
                         x,
                         y,
-                        border
+                        Rectangle::empty(width, height)
+                            .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
+                            .border(border_texture, border_size)
                     ))
                 } else {
                     None
@@ -253,7 +232,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
         if let Event::Pointer(mut x, mut y, p) = event {
-            let border = self.border.0;
+            let border = self.border.1;
             x -= border;
             y -= border;
             self.widget.sync(ctx, Event::Pointer(x, y, p))
