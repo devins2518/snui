@@ -334,14 +334,14 @@ impl Geometry for PrimitiveType {
 impl Clone for PrimitiveType {
     fn clone(&self) -> Self {
         match self {
-            Self::Image(image) => image.into_primitive(),
-            Self::Rectangle(rect) => rect.into_primitive(),
+            Self::Image(image) => image.primitive_type(),
+            Self::Rectangle(rect) => rect.primitive_type(),
             Self::Label(label) => label.clone().into(),
             Self::Other {
                 name: _,
                 id: _,
                 primitive,
-            } => primitive.into_primitive(),
+            } => primitive.primitive_type(),
         }
     }
 }
@@ -436,7 +436,7 @@ impl Primitive for PrimitiveType {
         }
     }
     // Basically Clone
-    fn into_primitive(&self) -> scene::PrimitiveType {
+    fn primitive_type(&self) -> scene::PrimitiveType {
         self.clone()
     }
 }
@@ -594,20 +594,99 @@ impl PartialEq for Instruction {
     }
 }
 
+#[derive(Debug)]
+pub struct ClipRegion<'c> {
+    region: Region,
+    clipmask: Option<&'c mut ClipMask>
+}
+
+impl<'c> AsRef<Region> for ClipRegion<'c> {
+    fn as_ref(&self) -> &Region {
+        &self.region
+    }
+}
+
+use std::ops::{Deref, DerefMut};
+
+impl<'c> Deref for ClipRegion<'c> {
+    type Target = Region;
+    fn deref(&self) -> &Self::Target {
+        &self.region
+    }
+}
+
+impl<'c> DerefMut for ClipRegion<'c> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.region
+    }
+}
+
+impl<'c> ClipRegion<'c> {
+    pub fn new(region: Region, clipmask: Option<&'c mut ClipMask>) -> Self {
+        Self {
+            region, clipmask
+        }
+    }
+    fn set_region(
+        &mut self,
+        width: f32,
+        height: f32,
+        region: Region,
+    ) -> Option<()> {
+        if region == Region::new(0., 0., width, height) {
+            self.region = region;
+            self.clear();
+            None
+        } else {
+            self.region = region;
+            if let Some(clipmask) = &mut self.clipmask {
+                clipmask.set_path(
+                    width as u32,
+                    height as u32,
+                    &PathBuilder::from_rect(region.into()),
+                    FillRule::EvenOdd,
+                    false
+                )
+            } else {
+                None
+            }
+        }
+    }
+    fn clear(&mut self) {
+        if let Some(clipmask) = &mut self.clipmask {
+            clipmask.clear();
+        }
+    }
+    fn clipmask(&self) -> Option<&ClipMask> {
+        if let Some(clipmask) = &self.clipmask {
+            if clipmask.is_empty() {
+                return None
+            } else {
+                Some(&**clipmask)
+            }
+        } else {
+            None
+        }
+    }
+}
+
 /// Node of the scene graph.
 #[derive(Debug, PartialEq)]
 pub enum RenderNode {
+    None,
     Instruction(Instruction),
     Extension {
         background: Instruction,
         border: Option<Instruction>,
         node: Box<RenderNode>,
     },
-    None,
     Container {
         region: Region,
-        // All nodes need to be in an Extension in max to provide all the information neccessary to accurately damage
         nodes: Vec<RenderNode>,
+    },
+    Clip {
+        region: Region,
+        node: Box<RenderNode>
     },
     Draw {
         region: Region,
@@ -632,6 +711,7 @@ impl Geometry for RenderNode {
                     background.width()
                 }
             }
+            RenderNode::Clip { region, .. } => region.width,
             RenderNode::None => 0.,
         }
     }
@@ -651,6 +731,7 @@ impl Geometry for RenderNode {
                     background.height()
                 }
             }
+            RenderNode::Clip { region, .. } => region.height,
             RenderNode::None => 0.,
         }
     }
@@ -672,11 +753,6 @@ impl RenderNode {
     pub fn is_none(&self) -> bool {
         match self {
             Self::None => true,
-            Self::Extension {
-                background,
-                border: _,
-                node,
-            } => background.primitive.get_texture().is_transparent() && node.is_none(),
             _ => false,
         }
     }
@@ -694,17 +770,23 @@ impl RenderNode {
         let width = self.width() as u32;
         let height = self.height() as u32;
         let mut pixmap = Pixmap::new(width, height)?;
-        let mut new_ctx = DrawContext {
+        let mut ctx = DrawContext {
             backend: Backend::Pixmap(pixmap.as_mut()),
             font_cache: ctx.font_cache,
             pending_damage: &mut v,
         };
-        self.render(&mut new_ctx, None);
+        self.render(
+            &mut ctx,
+            &mut ClipRegion {
+                region: Region::new(0., 0., width as f32, height as f32),
+                clipmask: None
+            }
+        );
         Some(Image::from_raw(pixmap.take(), width, height))
     }
-    pub fn render(&self, ctx: &mut DrawContext, clip: Option<&ClipMask>) {
+    pub fn render(&self, ctx: &mut DrawContext, clip: &mut ClipRegion) {
         match self {
-            Self::Instruction(instruction) => instruction.render(ctx, clip),
+            Self::Instruction(instruction) => instruction.render(ctx, clip.clipmask()),
             Self::Container { region: _, nodes } => {
                 for n in nodes {
                     n.render(ctx, clip);
@@ -716,23 +798,46 @@ impl RenderNode {
                 node,
             } => {
                 if let Some(border) = border.as_ref() {
-                    border.render(ctx, clip);
+                    border.render(ctx, clip.clipmask());
                 }
-                background.render(ctx, clip);
+                background.render(ctx, clip.clipmask());
                 node.render(ctx, clip);
             }
             Self::Draw { region, steps } => {
+                let previous = clip.region;
                 // ClipMask expects the mask to be the size of the buffer
-                let mut clip = ClipMask::new();
-                clip.set_path(
-                    ctx.width() as u32,
-                    ctx.height() as u32,
-                    &PathBuilder::from_rect(region.into()),
-                    FillRule::EvenOdd,
-                    false,
-                );
-                for n in steps {
-                    n.render(ctx, Some(&clip));
+                if clip.set_region(
+                    ctx.width(),
+                    ctx.height(),
+                    *region
+                ).is_some() {
+                    for n in steps {
+                        n.render(ctx, clip.clipmask());
+                    }
+                    clip.set_region(ctx.width(), ctx.height(), previous);
+                } else {
+                    let mut clip = ClipMask::new();
+                    clip.set_path(
+                        ctx.width() as u32,
+                        ctx.height() as u32,
+                        &PathBuilder::from_rect(region.into()),
+                        FillRule::EvenOdd,
+                        false,
+                    );
+                    for n in steps {
+                        n.render(ctx, Some(&clip));
+                    }
+                }
+            }
+            Self::Clip { region, node } => {
+                let previous = clip.region;
+                if clip.set_region(
+                    ctx.width(),
+                    ctx.height(),
+                    *region
+                ).is_some() {
+                    node.render(ctx, clip);
+                    clip.set_region(ctx.width(), ctx.height(), previous);
                 }
             }
             _ => {}
@@ -777,6 +882,13 @@ impl RenderNode {
                 ctx.damage_region(texture, region, false);
             }
             RenderNode::Draw { region, steps: _ } => {
+                let region = match other {
+                    Some(other) => region.merge(other),
+                    None => *region,
+                };
+                ctx.damage_region(texture, region, false);
+            }
+            RenderNode::Clip { region, .. } => {
                 let region = match other {
                     Some(other) => region.merge(other),
                     None => *region,
@@ -840,6 +952,23 @@ impl RenderNode {
                     }
                 }
             }
+            Self::Clip {
+                region,
+                node
+            } => {
+                let this_region = region;
+                let this_node = node.as_mut();
+                match other {
+                    Self::Clip { region, node } => {
+                        *this_region = region;
+                        this_node.merge(*node);
+                    }
+                    RenderNode::None => {}
+                    _ => {
+                        *self = other;
+                    }
+                }
+            }
             _ => match other {
                 Self::None => {}
                 _ => {
@@ -853,7 +982,7 @@ impl RenderNode {
         other: Self,
         ctx: &mut DrawContext,
         shape: &Instruction,
-        clip: Option<&ClipMask>,
+        clip: &mut ClipRegion,
     ) -> Result<(), Region> {
         match self {
             RenderNode::Instruction(a) => match other {
@@ -866,7 +995,7 @@ impl RenderNode {
                                 a.region().merge(&r),
                                 false,
                             );
-                            b.render(ctx, None);
+                            b.render(ctx, clip.clipmask());
                             *self = other;
                         } else {
                             *self = other;
@@ -878,7 +1007,7 @@ impl RenderNode {
                 _ => {
                     other.clear(ctx, &Texture::from(shape), Some(&a.region()));
                     *self = other;
-                    self.render(ctx, None);
+                    self.render(ctx, clip);
                 }
             },
             RenderNode::None => {
@@ -891,6 +1020,7 @@ impl RenderNode {
                 let this_nodes = nodes;
                 match other {
                     RenderNode::Container { region, mut nodes } => {
+                        *this_region = region;
                         if !shape.contains(&region) {
                             self.merge(RenderNode::Container { region, nodes });
                             return Err(region);
@@ -910,7 +1040,7 @@ impl RenderNode {
                                                 region,
                                                 false,
                                             );
-                                            node.render(ctx, None);
+                                            node.render(ctx, clip);
                                         }
                                         node
                                     } else {
@@ -991,6 +1121,36 @@ impl RenderNode {
                         self.render(ctx, clip);
                     }
                 }
+            }
+            RenderNode::Clip { region, node } => {
+                let previous = clip.region;
+                let this_region = region;
+                let this_node = node.as_mut();
+
+                match other {
+                    RenderNode::Clip { region, node } => {
+                        *this_region = region;
+                        clip.set_region(ctx.width(), ctx.height(), region);
+                        if let Err(region) = this_node.draw_merge(
+                            *node,
+                            ctx,
+                            shape,
+                            clip,
+                        ) {
+                            clip.set_region(ctx.width(), ctx.height(), previous);
+                            return Err(region);
+                        }
+                    }
+                    RenderNode::None => {}
+                    _ => {
+                        let region = *this_region;
+                        self.clear(ctx, &Texture::from(shape), Some(&region));
+                        self.merge(other);
+                        self.render(ctx, clip);
+                    }
+                }
+
+                clip.set_region(ctx.width(), ctx.height(), previous);
             }
             RenderNode::Draw { region, steps } => {
                 let this_region = *region;

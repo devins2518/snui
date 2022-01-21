@@ -85,12 +85,22 @@ impl<E: Easer> Geometry for Animate<E> {
 
 impl<E: Easer> Widget<AnimationState> for Animate<E> {
     fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
-        return Instruction::new(
+        let node = Instruction::new(
             x + self.position,
             y,
             Rectangle::empty(self.cursor, 30.).background(style::RED),
         )
         .into();
+
+    	scene::RenderNode::Clip {
+        	region: scene::Region::new(
+            	x + 50.,
+            	y,
+            	self.width() - 100.,
+            	self.height()
+        	),
+        	node: Box::new(node),
+    	}
     }
     fn sync<'d>(
         &'d mut self,

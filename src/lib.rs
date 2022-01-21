@@ -43,7 +43,8 @@ pub enum Damage {
     None,
     /// Something needs to be damaged
     Partial,
-    /// Damage then request a new frame
+    /// Damage then request a new frame.
+    /// Usefull for animations
     Frame,
 }
 
@@ -193,7 +194,6 @@ pub enum WindowState {
     Fullscreen,
     /// Client window decorations should be painted as if the window is active.
     Activated,
-    Deactivated,
     TiledLeft,
     TiledRight,
     TiledBottom,
@@ -202,9 +202,9 @@ pub enum WindowState {
 
 #[derive(Debug, PartialEq)]
 pub enum Event<'d, M> {
-    /// Sent when a full redraw is neccessary
-    Configure(WindowState),
-    /// Doesn't have any particular meaning
+    /// Sent by the display server when the application needs to be reconfigured
+    Configure(&'d [WindowState]),
+    /// Prepares a full redraw
     Prepare,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
@@ -321,7 +321,7 @@ pub trait Primitive: Geometry + std::fmt::Debug {
     /// The coordinates will be relative to it
     fn contains(&self, region: &scene::Region) -> bool;
     // Basically Clone
-    fn into_primitive(&self) -> scene::PrimitiveType;
+    fn primitive_type(&self) -> scene::PrimitiveType;
 }
 
 pub trait Widget<M>: Geometry {

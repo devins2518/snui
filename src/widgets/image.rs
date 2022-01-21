@@ -133,7 +133,7 @@ impl Primitive for Image {
     fn apply_texture(&self, texture: scene::Texture) -> scene::PrimitiveType {
         widgets::shapes::Rectangle::empty(self.width(), self.height()).apply_texture(texture)
     }
-    fn into_primitive(&self) -> scene::PrimitiveType {
+    fn primitive_type(&self) -> scene::PrimitiveType {
         self.clone().into()
     }
     fn contains(&self, region: &scene::Region) -> bool {

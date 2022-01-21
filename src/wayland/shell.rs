@@ -5,6 +5,7 @@ use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
 use crate::*;
+use tiny_skia::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 // use smithay_client_toolkit::seat::keyboard::ModifiersState;
 // use smithay_client_toolkit::shm::AutoMemPool;
@@ -149,6 +150,7 @@ where
             controller,
             globals: self.globals.clone(),
             widget: Box::new(widget),
+            clipmask: ClipMask::new(),
             surface,
         };
 
@@ -172,6 +174,7 @@ where
             state: State::default(),
             controller,
             globals: self.globals.clone(),
+            clipmask: ClipMask::new(),
             widget: Box::new(widget),
             surface,
         };
@@ -203,6 +206,7 @@ where
     controller: C,
     surface: Option<Surface>,
     widget: Box<dyn Widget<M>>,
+    clipmask: ClipMask,
     globals: Rc<RefCell<GlobalManager>>,
 }
 
@@ -211,7 +215,7 @@ struct State {
     offset: usize,
     configured: bool,
     pending_cb: bool,
-    window_state: WindowState,
+    window_state: Vec<WindowState>,
     render_node: RenderNode,
 }
 
@@ -222,7 +226,7 @@ impl Default for State {
             offset: 0,
             configured: false,
             pending_cb: false,
-            window_state: WindowState::Deactivated,
+            window_state: Vec::new(),
             render_node: RenderNode::None,
         }
     }
@@ -307,11 +311,12 @@ where
                     WindowRequest::Maximize => {
                         match &s.shell {
                             Shell::Xdg { toplevel, .. } => {
-                                if self.state.window_state != WindowState::Maximized {
-                                    toplevel.set_maximized(conn);
-                                } else {
+                                if let Some(_) =
+                                	self.state.window_state.iter().find(|s| WindowState::Maximized.eq(s)) {
                                     toplevel.unset_maximized(conn);
-                                }
+                            	} else {
+                                    toplevel.set_maximized(conn);
+                            	}
                             }
                             Shell::LayerShell { layer_surface, .. } => {
                                 // The following Configure event should be adjusted to
@@ -340,13 +345,13 @@ where
         fc: &mut FontCache,
         event: Event<M>,
     ) {
-        let width = self.width();
-        let height = self.height();
+        let width = self.state.render_node.width();
+        let height = self.state.render_node.height();
         match self.sync(conn, fc, event) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     if width != self.width() || height != self.height() {
-                        self.sync(conn, fc, Event::Configure(WindowState::Resizing));
+                        self.sync(conn, fc, Event::Prepare);
                     }
                     let render_node = self.widget.create_node(0., 0.);
                     self.render(pool, fc, render_node, Damage::Partial, conn, qh);
@@ -357,7 +362,7 @@ where
                     if let Some(s) = self.surface.as_ref() {
                         if s.wl_surface.frame(conn, qh, ()).is_ok() {
                             if width != self.width() || height != self.height() {
-                                self.sync(conn, fc, Event::Configure(WindowState::Resizing));
+                                self.sync(conn, fc, Event::Prepare);
                             }
                             let render_node = self.widget.create_node(0., 0.);
                             self.state.pending_cb = true;
@@ -397,16 +402,31 @@ where
                 if offset != self.state.offset {
                     self.state.offset = offset;
                     self.state.render_node.merge(render_node);
-                    self.state.render_node.render(&mut ctx, None);
+                    self.state.render_node.render(
+                        &mut ctx,
+                        &mut ClipRegion::new(
+                            Region::new(0., 0., width, height),
+                            Some(&mut self.clipmask)
+                        )
+                    );
                 } else {
                     if let Err(region) = self.state.render_node.draw_merge(
                         render_node,
                         &mut ctx,
                         &Instruction::empty(0., 0., width, height),
-                        None,
+                        &mut ClipRegion::new(
+                            Region::new(0., 0., width, height),
+                            Some(&mut self.clipmask)
+                        )
                     ) {
                         ctx.damage_region(&Texture::Transparent, region, false);
-                        self.state.render_node.render(&mut ctx, None);
+                        self.state.render_node.render(
+                            &mut ctx,
+                            &mut ClipRegion::new(
+                                Region::new(0., 0., width, height),
+                                Some(&mut self.clipmask)
+                            )
+                        );
                     }
                 }
                 s.damage(conn, &v);
@@ -804,12 +824,12 @@ where
                     let frame_time = (callback_data - application.state.time).min(20);
                     application.state.time = callback_data;
                     // Send a callback event with the timeout the application
-                    let width = application.width();
-                    let height = application.height();
+                    let width = application.state.render_node.width();
+                    let height = application.state.render_node.height();
                     match application.sync(conn, fc, Event::Callback(frame_time)) {
                         Damage::Partial => {
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, fc, Event::Configure(WindowState::Resizing));
+                                application.sync(conn, fc, Event::Prepare);
                             }
                             let render_node = application.widget.create_node(0., 0.);
                             application.render(pool, fc, render_node, Damage::Partial, conn, qh);
@@ -817,7 +837,7 @@ where
                         Damage::Frame => {
                             cb = Some(i);
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, fc, Event::Configure(WindowState::Resizing));
+                                application.sync(conn, fc, Event::Prepare);
                             }
                             let render_node = application.widget.create_node(0., 0.);
                             application.state.pending_cb = true;
@@ -920,13 +940,15 @@ where
         }) {
             match event {
                 xdg_toplevel::Event::Configure { width, height, states } => {
-                    let states = list_states(states);
-                    if let Err((r_width, r_height)) =
-                        application.widget.set_size(width as f32, height as f32)
-                    {
+                    application.state.window_state = list_states(states);
+                    let r_width = application.widget.set_width(width as f32);
+                    let r_height = application.widget.set_height(height as f32);
+                    if r_width.is_err() && r_height.is_err() {
                         if let Shell::Xdg { toplevel, .. } =
                             &application.surface.as_ref().unwrap().shell
                         {
+                            let r_width = r_width.unwrap_err();
+                            let r_height = r_height.unwrap_err();
                             if width < r_width as i32 && height < r_height as i32 {
                                 toplevel.set_min_size(conn, r_width as i32, r_height as i32);
                             } else if width > r_width as i32 && height > r_height as i32 {
@@ -938,13 +960,7 @@ where
                         SyncContext::new(&mut application.controller, &mut self.font_cache);
                     // TO-DO
                     // Convert xdg_toplevel.state to WindowState
-                    if states.is_empty() {
-                        application.state.window_state = WindowState::Deactivated;
-                        application.widget.sync(&mut ctx, Event::Configure(WindowState::Deactivated));
-                    } else {
-                        application.state.window_state = states[0].into();
-                        application.widget.sync(&mut ctx, Event::Configure(application.state.window_state));
-                    }
+                    application.widget.sync(&mut ctx, Event::Configure(&application.state.window_state));
                 }
                 xdg_toplevel::Event::Close => {
                     application.surface.as_mut().unwrap().destroy(conn);
@@ -961,11 +977,15 @@ where
     }
 }
 
-fn list_states(states: Vec<u8>) -> Vec<xdg_toplevel::State> {
+fn list_states(states: Vec<u8>) -> Vec<WindowState> {
     states
     .chunks(4)
     .filter_map(|endian| if endian.len() == 4 {
-        xdg_toplevel::State::try_from(u32::from_ne_bytes([endian[0], endian[1], endian[2], endian[3]])).ok()
+        if let Ok(state) = xdg_toplevel::State::try_from(u32::from_ne_bytes([endian[0], endian[1], endian[2], endian[3]])) {
+            Some(WindowState::from(state))
+        } else {
+            None
+        }
     } else {
         None
     })
@@ -1046,7 +1066,7 @@ where
                     conn,
                     qh,
                     &mut self.font_cache,
-                    Event::Configure(application.state.window_state)
+                    Event::Prepare
                 )
             }
         }
@@ -1107,7 +1127,7 @@ where
                     conn,
                     qh,
                     &mut self.font_cache,
-                    Event::Configure(WindowState::Activated),
+                    Event::Configure(&[WindowState::Activated]),
                 )
             }
         }

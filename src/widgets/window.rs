@@ -120,10 +120,8 @@ impl<M> Widget<M> for Maximize {
                     }
                 }
             }
-            Event::Configure(state) => match state {
-                WindowState::Maximized => self.maximized = true,
-                WindowState::Resizing | WindowState::Activated => self.maximized = false,
-                _ => {}
+            Event::Configure(state) =>  {
+                self.maximized = state.iter().find(|s| WindowState::Maximized.eq(s)).is_some();
             }
             _ => {}
         }
@@ -206,7 +204,7 @@ where
     H: Widget<M> + Style,
     W: Widget<M> + Style,
 {
-    state: WindowState,
+    activated: bool,
     /// Top window decoration
     header: H,
     /// The position of the window
@@ -292,49 +290,44 @@ where
                 .max(self.body.sync(ctx, Event::Pointer(x, y - self.coords.y, p)))
             }
             Event::Configure(state) => {
-                match state {
-                    WindowState::Activated => {
-                        match self.state {
-                            WindowState::TiledLeft
-                            | WindowState::TiledRight
-                            | WindowState::TiledBottom
-                            | WindowState::TiledTop
-                            | WindowState::Maximized
-                            | WindowState::Fullscreen => {
-                                self.set_radius(
-                                    self.radius.0,
-                                    self.radius.1,
-                                    self.radius.2,
-                                    self.radius.3,
-                                );
+                let mut activated = false;
+                for state in state.iter().rev() {
+                    match state {
+                        WindowState::Activated => if self.alternate.is_some() {
+                            activated = true;
+                            if !self.activated {
+                                self.body.set_border_texture(self.background.clone());
+                                self.header.set_background(self.background.clone());
+                                self.header.set_border_texture(self.background.clone());
                             }
-                            _ => {}
                         }
-                        self.state = state;
-                        if self.alternate.is_some() {
-                            self.body.set_border_texture(self.background.clone());
-                            self.header.set_background(self.background.clone());
-                            self.header.set_border_texture(self.background.clone());
+                        WindowState::TiledLeft
+                        | WindowState::TiledRight
+                        | WindowState::TiledBottom
+                        | WindowState::TiledTop
+                        | WindowState::Maximized
+                        | WindowState::Fullscreen => if activated {
+                            self.set_radius(
+                                self.radius.0,
+                                self.radius.1,
+                                self.radius.2,
+                                self.radius.3,
+                            );
+                        } else {
+                            self.body.set_even_radius(0.);
+                            self.header.set_even_radius(0.);
                         }
+                        _ => {}
                     }
-                    WindowState::Deactivated => if let Some(ref texture) = self.alternate {
+                }
+                if !activated {
+                    if let Some(ref texture) = self.alternate {
                         self.body.set_border_texture(texture.clone());
                         self.header.set_border_texture(texture.clone());
                         self.header.set_background(texture.clone());
-                        self.state = state;
                     }
-                    WindowState::TiledLeft
-                    | WindowState::TiledRight
-                    | WindowState::TiledBottom
-                    | WindowState::TiledTop
-                    | WindowState::Maximized
-                    | WindowState::Fullscreen => {
-                        self.state = state;
-                        self.body.set_even_radius(0.);
-                        self.header.set_even_radius(0.);
-                    }
-                    _ => {}
                 }
+                self.activated = activated;
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
             _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
@@ -439,19 +432,21 @@ impl<M, W: Widget<M>> Widget<M> for Hitbox<M, W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => match p {
-                Pointer::MouseClick {
-                    button,
-                    pressed,
-                    serial,
-                } => {
-                    if button.is_left() && pressed {
-                        ctx.window_request(WindowRequest::Move(serial));
-                    } else if button.is_right() && pressed {
-                        ctx.window_request(WindowRequest::Menu(x, y, serial));
+            Event::Pointer(x, y, p) => if self.contains(x, y) {
+                match p {
+                    Pointer::MouseClick {
+                        button,
+                        pressed,
+                        serial,
+                    } => {
+                        if button.is_left() && pressed {
+                            ctx.window_request(WindowRequest::Move(serial));
+                        } else if button.is_right() && pressed {
+                            ctx.window_request(WindowRequest::Menu(x, y, serial));
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
             _ => {}
         }
@@ -475,11 +470,11 @@ where
 
     Window {
         header,
+        activated: false,
         body: widget,
         radius: (0., 0., 0., 0.),
         background: style::BG2.into(),
         alternate: None,
-        state: WindowState::Deactivated,
         coords: Coords::default(),
         _message: std::marker::PhantomData
     }

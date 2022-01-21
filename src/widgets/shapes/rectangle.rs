@@ -256,7 +256,7 @@ impl Primitive for Rectangle {
     fn get_texture(&self) -> scene::Texture {
         self.style.texture()
     }
-    fn into_primitive(&self) -> scene::PrimitiveType {
+    fn primitive_type(&self) -> scene::PrimitiveType {
         self.clone().into()
     }
     fn contains(&self, region: &scene::Region) -> bool {

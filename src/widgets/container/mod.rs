@@ -133,7 +133,7 @@ impl<M> Widget<M> for Child<M> {
                 let result = self.widget.sync(ctx, Event::Pointer(x, y, p));
                 result
             }
-            Event::Configure(_) => {
+            Event::Configure(_) | Event::Prepare => {
                 Damage::Partial.max(self.widget.sync(ctx, event))
             }
             _ => self.widget.sync(ctx, event),

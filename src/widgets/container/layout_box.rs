@@ -45,7 +45,11 @@ impl<M> Geometry for LayoutBox<M> {
             }
             self.size.0 = self.width();
         }
-        Err(self.size.0)
+        if self.size.0 == width {
+            Ok(())
+        } else {
+            Err(self.size.0)
+        }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height != self.size.1 {
@@ -61,7 +65,11 @@ impl<M> Geometry for LayoutBox<M> {
             }
             self.size.1 = self.height();
         }
-        Err(self.size.1)
+        if self.size.1 == height {
+            Ok(())
+        } else {
+            Err(self.size.1)
+        }
     }
     fn width(&self) -> f32 {
         let mut width = 0.;

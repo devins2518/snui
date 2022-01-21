@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 fontdue = "0.6.2"
-tiny-skia = "0.6.1"
+tiny-skia = "0.6.2"
 fontconfig = "0.2.1"
 image = { version="0.23.14", features=["jpeg", "png"] }
 smithay-client-toolkit = { path="../client-toolkit/", optional= true }
