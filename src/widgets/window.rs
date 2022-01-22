@@ -114,14 +114,16 @@ impl<M> Widget<M> for Maximize {
                 {
                     if self.contains(x, y) {
                         if button.is_left() && pressed {
-                            self.maximized = self.maximized == false;
                             ctx.window_request(WindowRequest::Maximize);
                         }
                     }
                 }
             }
-            Event::Configure(state) =>  {
-                self.maximized = state.iter().find(|s| WindowState::Maximized.eq(s)).is_some();
+            Event::Configure(state) => {
+                self.maximized = state
+                    .iter()
+                    .find(|s| WindowState::Maximized.eq(s))
+                    .is_some();
             }
             _ => {}
         }
@@ -129,7 +131,6 @@ impl<M> Widget<M> for Maximize {
     }
 }
 
-// This is essentially the close button
 struct Minimize {}
 
 impl Geometry for Minimize {
@@ -205,6 +206,7 @@ where
     W: Widget<M> + Style,
 {
     activated: bool,
+    positioned: bool,
     /// Top window decoration
     header: H,
     /// The position of the window
@@ -217,7 +219,7 @@ where
     radius: (f32, f32, f32, f32),
     /// Alternative background of the decoration
     alternate: Option<Texture>,
-    _message: std::marker::PhantomData<M>
+    _message: std::marker::PhantomData<M>,
 }
 
 impl<M, H, W> Window<M, H, W>
@@ -247,7 +249,11 @@ where
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if let Err(width) = self.body.set_width(width) {
-            self.header.set_width(width)
+            if let Err(width) = self.header.set_width(width) {
+                self.body.set_width(width)
+            } else {
+                Ok(())
+            }
         } else {
             if let Err(width) = self.header.set_width(width) {
                 self.body.set_width(width)
@@ -267,7 +273,6 @@ where
     W: Widget<M> + Style,
 {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.set_width(self.width());
         let h = self.header.create_node(x, y);
         if !h.is_none() {
             self.coords.y = h.height();
@@ -283,22 +288,23 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => {
-                self
+            Event::Pointer(x, y, p) => self
                 .header
                 .sync(ctx, event)
-                .max(self.body.sync(ctx, Event::Pointer(x, y - self.coords.y, p)))
-            }
+                .max(self.body.sync(ctx, Event::Pointer(x, y - self.coords.y, p))),
             Event::Configure(state) => {
                 let mut activated = false;
+                let mut positioned = false;
                 for state in state.iter().rev() {
                     match state {
-                        WindowState::Activated => if self.alternate.is_some() {
-                            activated = true;
-                            if !self.activated {
-                                self.body.set_border_texture(self.background.clone());
-                                self.header.set_background(self.background.clone());
-                                self.header.set_border_texture(self.background.clone());
+                        WindowState::Activated => {
+                            if self.alternate.is_some() {
+                                activated = true;
+                                if !self.activated {
+                                    self.body.set_border_texture(self.background.clone());
+                                    self.header.set_background(self.background.clone());
+                                    self.header.set_border_texture(self.background.clone());
+                                }
                             }
                         }
                         WindowState::TiledLeft
@@ -306,14 +312,8 @@ where
                         | WindowState::TiledBottom
                         | WindowState::TiledTop
                         | WindowState::Maximized
-                        | WindowState::Fullscreen => if activated {
-                            self.set_radius(
-                                self.radius.0,
-                                self.radius.1,
-                                self.radius.2,
-                                self.radius.3,
-                            );
-                        } else {
+                        | WindowState::Fullscreen => {
+                            positioned = true;
                             self.body.set_even_radius(0.);
                             self.header.set_even_radius(0.);
                         }
@@ -327,7 +327,17 @@ where
                         self.header.set_background(texture.clone());
                     }
                 }
+                if !positioned && self.positioned {
+                    self.positioned = false;
+                    self.set_radius(
+                        self.radius.0,
+                        self.radius.1,
+                        self.radius.2,
+                        self.radius.3,
+                    );
+                }
                 self.activated = activated;
+                self.positioned = positioned;
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
             _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
@@ -387,7 +397,7 @@ where
 
 struct Hitbox<M, W: Widget<M>> {
     widget: W,
-    _message: std::marker::PhantomData<M>
+    _message: std::marker::PhantomData<M>,
 }
 
 impl<M, W: Widget<M>> Geometry for Hitbox<M, W> {
@@ -432,20 +442,22 @@ impl<M, W: Widget<M>> Widget<M> for Hitbox<M, W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => if self.contains(x, y) {
-                match p {
-                    Pointer::MouseClick {
-                        button,
-                        pressed,
-                        serial,
-                    } => {
-                        if button.is_left() && pressed {
-                            ctx.window_request(WindowRequest::Move(serial));
-                        } else if button.is_right() && pressed {
-                            ctx.window_request(WindowRequest::Menu(x, y, serial));
+            Event::Pointer(x, y, p) => {
+                if self.contains(x, y) {
+                    match p {
+                        Pointer::MouseClick {
+                            button,
+                            pressed,
+                            serial,
+                        } => {
+                            if button.is_left() && pressed {
+                                ctx.window_request(WindowRequest::Move(serial));
+                            } else if button.is_right() && pressed {
+                                ctx.window_request(WindowRequest::Menu(x, y, serial));
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
             _ => {}
@@ -454,28 +466,31 @@ impl<M, W: Widget<M>> Widget<M> for Hitbox<M, W> {
     }
 }
 
-pub fn default_window<M, W>(header: impl Widget<M> + 'static, widget: W) -> Window<M, impl Widget<M> + Style, W>
+pub fn default_window<M, W>(
+    header: impl Widget<M> + 'static,
+    widget: W,
+) -> Window<M, impl Widget<M> + Style, W>
 where
     M: 'static,
     W: Widget<M> + Style,
 {
-    let header =
-    Hitbox{
+    let header = Hitbox {
         widget: headerbar(header)
             .ext()
             .background(style::BG2)
             .even_padding(10.),
-        _message: std::marker::PhantomData
+        _message: std::marker::PhantomData,
     };
 
     Window {
         header,
         activated: false,
+        positioned: false,
         body: widget,
         radius: (0., 0., 0., 0.),
         background: style::BG2.into(),
         alternate: None,
         coords: Coords::default(),
-        _message: std::marker::PhantomData
+        _message: std::marker::PhantomData,
     }
 }

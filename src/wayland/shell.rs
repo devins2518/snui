@@ -37,8 +37,8 @@ use smithay_client_toolkit::reexports::protocols::{
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
-use smithay_client_toolkit::shm::pool::{AsPool, PoolHandle};
 use smithay_client_toolkit::shm::pool::raw::RawPool;
+use smithay_client_toolkit::shm::pool::{AsPool, PoolHandle};
 
 pub struct WaylandClient<M, C>
 where
@@ -297,7 +297,8 @@ where
                     WindowRequest::Menu(x, y, serial) => match &s.shell {
                         Shell::Xdg { toplevel, .. } => {
                             for seat in &self.globals.borrow().seats {
-                                toplevel.show_window_menu(conn, &seat.seat, serial, x as i32, y as i32);
+                                toplevel
+                                    .show_window_menu(conn, &seat.seat, serial, x as i32, y as i32);
                             }
                         }
                         _ => {}
@@ -311,12 +312,16 @@ where
                     WindowRequest::Maximize => {
                         match &s.shell {
                             Shell::Xdg { toplevel, .. } => {
-                                if let Some(_) =
-                                	self.state.window_state.iter().find(|s| WindowState::Maximized.eq(s)) {
+                                if let Some(_) = self
+                                    .state
+                                    .window_state
+                                    .iter()
+                                    .find(|s| WindowState::Maximized.eq(s))
+                                {
                                     toplevel.unset_maximized(conn);
-                            	} else {
+                                } else {
                                     toplevel.set_maximized(conn);
-                            	}
+                                }
                             }
                             Shell::LayerShell { layer_surface, .. } => {
                                 // The following Configure event should be adjusted to
@@ -360,7 +365,7 @@ where
             Damage::Frame => {
                 if !self.state.pending_cb {
                     if let Some(s) = self.surface.as_ref() {
-                        if s.wl_surface.frame(conn, qh, ()).is_ok() {
+                        if s.frame(conn, qh, ()).is_ok() {
                             if width != self.width() || height != self.height() {
                                 self.sync(conn, fc, Event::Prepare);
                             }
@@ -406,8 +411,8 @@ where
                         &mut ctx,
                         &mut ClipRegion::new(
                             Region::new(0., 0., width, height),
-                            Some(&mut self.clipmask)
-                        )
+                            Some(&mut self.clipmask),
+                        ),
                     );
                 } else {
                     if let Err(region) = self.state.render_node.draw_merge(
@@ -416,16 +421,16 @@ where
                         &Instruction::empty(0., 0., width, height),
                         &mut ClipRegion::new(
                             Region::new(0., 0., width, height),
-                            Some(&mut self.clipmask)
-                        )
+                            Some(&mut self.clipmask),
+                        ),
                     ) {
                         ctx.damage_region(&Texture::Transparent, region, false);
                         self.state.render_node.render(
                             &mut ctx,
                             &mut ClipRegion::new(
                                 Region::new(0., 0., width, height),
-                                Some(&mut self.clipmask)
-                            )
+                                Some(&mut self.clipmask),
+                            ),
                         );
                     }
                 }
@@ -433,7 +438,7 @@ where
                 s.commit(conn);
             }
         } else if let Some(s) = self.surface.as_ref() {
-            if !self.state.pending_cb && s.wl_surface.frame(conn, qh, ()).is_ok() {
+            if !self.state.pending_cb && s.frame(conn, qh, ()).is_ok() {
                 s.wl_surface.commit(conn);
                 self.state.pending_cb = true;
             } else if let Damage::Frame = damage {
@@ -605,6 +610,13 @@ impl Surface {
     fn replace_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer) -> Option<()> {
         self.wl_buffer = Some(wl_buffer);
         return Some(());
+    }
+}
+
+impl Deref for Surface {
+    type Target = wl_surface::WlSurface;
+    fn deref(&self) -> &Self::Target {
+        &self.wl_surface
     }
 }
 
@@ -849,8 +861,8 @@ where
             }
             if let Some(i) = cb {
                 if let Some(s) = self.applications[i].surface.as_ref() {
-                    if s.wl_surface.frame(conn, qh, ()).is_ok() {
-                        s.wl_surface.commit(conn);
+                    if s.frame(conn, qh, ()).is_ok() {
+                        s.deref().commit(conn);
                     }
                 }
             }
@@ -907,7 +919,7 @@ impl From<xdg_toplevel::State> for WindowState {
             xdg_toplevel::State::TiledBottom => WindowState::TiledBottom,
             xdg_toplevel::State::Resizing => WindowState::Resizing,
             xdg_toplevel::State::Maximized => WindowState::Maximized,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -939,7 +951,11 @@ where
             }
         }) {
             match event {
-                xdg_toplevel::Event::Configure { width, height, states } => {
+                xdg_toplevel::Event::Configure {
+                    width,
+                    height,
+                    states,
+                } => {
                     application.state.window_state = list_states(states);
                     let r_width = application.widget.set_width(width as f32);
                     let r_height = application.widget.set_height(height as f32);
@@ -960,7 +976,9 @@ where
                         SyncContext::new(&mut application.controller, &mut self.font_cache);
                     // TO-DO
                     // Convert xdg_toplevel.state to WindowState
-                    application.widget.sync(&mut ctx, Event::Configure(&application.state.window_state));
+                    application
+                        .widget
+                        .sync(&mut ctx, Event::Configure(&application.state.window_state));
                 }
                 xdg_toplevel::Event::Close => {
                     application.surface.as_mut().unwrap().destroy(conn);
@@ -979,17 +997,21 @@ where
 
 fn list_states(states: Vec<u8>) -> Vec<WindowState> {
     states
-    .chunks(4)
-    .filter_map(|endian| if endian.len() == 4 {
-        if let Ok(state) = xdg_toplevel::State::try_from(u32::from_ne_bytes([endian[0], endian[1], endian[2], endian[3]])) {
-            Some(WindowState::from(state))
-        } else {
-            None
-        }
-    } else {
-        None
-    })
-    .collect()
+        .chunks(4)
+        .filter_map(|endian| {
+            if endian.len() == 4 {
+                if let Ok(state) = xdg_toplevel::State::try_from(u32::from_ne_bytes([
+                    endian[0], endian[1], endian[2], endian[3],
+                ])) {
+                    Some(WindowState::from(state))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 impl<M, C> Dispatch<wl_shm::WlShm> for WaylandClient<M, C>
@@ -1066,7 +1088,7 @@ where
                     conn,
                     qh,
                     &mut self.font_cache,
-                    Event::Prepare
+                    Event::Prepare,
                 )
             }
         }
@@ -1108,13 +1130,17 @@ where
                     false
                 }
             }) {
-                if let Shell::LayerShell { config, .. } = &application.surface.as_ref().unwrap().shell {
+                if let Shell::LayerShell { config, .. } =
+                    &application.surface.as_ref().unwrap().shell
+                {
                     if config.exclusive {
                         use zwlr_layer_surface_v1::Anchor;
                         if let Some(anchor) = config.anchor {
                             match anchor {
-                                Anchor::Left | Anchor::Right => layer_surface.set_exclusive_zone(conn, application.width() as i32),
-                                Anchor::Top | Anchor::Bottom => layer_surface.set_exclusive_zone(conn, application.height() as i32),
+                                Anchor::Left | Anchor::Right => layer_surface
+                                    .set_exclusive_zone(conn, application.width() as i32),
+                                Anchor::Top | Anchor::Bottom => layer_surface
+                                    .set_exclusive_zone(conn, application.height() as i32),
                                 _ => {}
                             }
                         }
@@ -1218,7 +1244,7 @@ where
             match event {
                 wl_pointer::Event::Button {
                     serial,
-                    time:_,
+                    time: _,
                     button,
                     state,
                 } => {
@@ -1267,7 +1293,7 @@ where
                     }
                 }
                 wl_pointer::Event::Motion {
-                    time:_,
+                    time: _,
                     surface_x,
                     surface_y,
                 } => {

@@ -358,15 +358,16 @@ impl Primitive for Rectangle {
                             &Paint {
                                 shader: match texture {
                                     Texture::Color(color) => Shader::SolidColor(*color),
-                                    Texture::LinearGradient { angle, mode, stops, .. } => {
-                                        LinearGradient::new(
-                                            Point::from_xy(x, y),
-                                            Point::from_xy(x + width, y + self.height * angle.tan()),
-                                            stops.as_ref().to_vec(),
-                                            *mode,
-                                            Transform::identity(),
-                                        ).unwrap()
-                                    }
+                                    Texture::LinearGradient {
+                                        angle, mode, stops, ..
+                                    } => LinearGradient::new(
+                                        Point::from_xy(x, y),
+                                        Point::from_xy(x + width, y + self.height * angle.tan()),
+                                        stops.as_ref().to_vec(),
+                                        *mode,
+                                        Transform::identity(),
+                                    )
+                                    .unwrap(),
                                     Texture::Image(_, image) => {
                                         let (sx, sy) = image.scale();
                                         Pattern::new(
@@ -377,8 +378,10 @@ impl Primitive for Rectangle {
                                             Transform::from_scale(sx, sy),
                                         )
                                     }
-                                    &Texture::Composite(_) => panic!("Composite texture cannot be used for border."),
-                                    _ => Shader::SolidColor(Color::TRANSPARENT)
+                                    &Texture::Composite(_) => {
+                                        panic!("Composite texture cannot be used for border.")
+                                    }
+                                    _ => Shader::SolidColor(Color::TRANSPARENT),
                                 },
                                 blend_mode: BlendMode::SourceOver,
                                 anti_alias: true,

@@ -23,8 +23,8 @@ use smithay_client_toolkit::reexports::protocols::{
 
 use crate::context::Backend;
 use crate::PixmapMut;
-use std::ops::{Deref, DerefMut};
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
+use std::ops::{Deref, DerefMut};
 
 const FORMAT: Format = Format::Argb8888;
 

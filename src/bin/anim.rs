@@ -92,15 +92,10 @@ impl<E: Easer> Widget<AnimationState> for Animate<E> {
         )
         .into();
 
-    	scene::RenderNode::Clip {
-        	region: scene::Region::new(
-            	x + 50.,
-            	y,
-            	self.width() - 100.,
-            	self.height()
-        	),
-        	node: Box::new(node),
-    	}
+        scene::RenderNode::Clip {
+            region: scene::Region::new(x + 50., y, self.width() - 100., self.height()),
+            node: Box::new(node),
+        }
     }
     fn sync<'d>(
         &'d mut self,
@@ -183,12 +178,14 @@ impl<M> Widget<M> for FrameRate {
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
-            Event::Callback(frame_time) => if frame_time > 0 {
-                let frame_rate = 1000 / frame_time;
-                self.text.edit(frame_rate);
-                self.text.sync(ctx, event)
-            } else {
-                self.text.sync(ctx, event)
+            Event::Callback(frame_time) => {
+                if frame_time > 0 {
+                    let frame_rate = 1000 / frame_time;
+                    self.text.edit(frame_rate);
+                    self.text.sync(ctx, event)
+                } else {
+                    self.text.sync(ctx, event)
+                }
             }
             _ => self.text.sync(ctx, event),
         }
@@ -197,9 +194,13 @@ impl<M> Widget<M> for FrameRate {
 
 fn ui() -> impl Widget<AnimationState> {
     let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
-    ui.add(FrameRate {
-        text: "frame rate".into(),
-    }.clamp().with_size(40., 20.));
+    ui.add(
+        FrameRate {
+            text: "frame rate".into(),
+        }
+        .clamp()
+        .with_size(40., 20.),
+    );
     ui.add(Animate::quadratic());
     ui.add(Animate::sinus());
 
@@ -247,7 +248,10 @@ fn main() {
 
     client.new_window(
         EaserCtl::default(),
-        window.background(style::BG2).alternate_background(0xff58514F).border(style::BG2, 2.),
+        window
+            .background(style::BG2)
+            .alternate_background(0xff58514F)
+            .border(style::BG2, 2.),
         &event_queue.handle(),
     );
 

@@ -2,9 +2,9 @@ pub mod context;
 pub mod controller;
 pub mod font;
 pub mod scene;
-pub mod widgets;
 #[cfg(feature = "wayland")]
 pub mod wayland;
+pub mod widgets;
 
 use context::*;
 use scene::RenderNode;
@@ -197,7 +197,7 @@ pub enum WindowState {
     TiledLeft,
     TiledRight,
     TiledBottom,
-    TiledTop
+    TiledTop,
 }
 
 #[derive(Debug, PartialEq)]

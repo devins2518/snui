@@ -597,7 +597,7 @@ impl PartialEq for Instruction {
 #[derive(Debug)]
 pub struct ClipRegion<'c> {
     region: Region,
-    clipmask: Option<&'c mut ClipMask>
+    clipmask: Option<&'c mut ClipMask>,
 }
 
 impl<'c> AsRef<Region> for ClipRegion<'c> {
@@ -623,16 +623,9 @@ impl<'c> DerefMut for ClipRegion<'c> {
 
 impl<'c> ClipRegion<'c> {
     pub fn new(region: Region, clipmask: Option<&'c mut ClipMask>) -> Self {
-        Self {
-            region, clipmask
-        }
+        Self { region, clipmask }
     }
-    fn set_region(
-        &mut self,
-        width: f32,
-        height: f32,
-        region: Region,
-    ) -> Option<()> {
+    fn set_region(&mut self, width: f32, height: f32, region: Region) -> Option<()> {
         if region == Region::new(0., 0., width, height) {
             self.region = region;
             self.clear();
@@ -645,7 +638,7 @@ impl<'c> ClipRegion<'c> {
                     height as u32,
                     &PathBuilder::from_rect(region.into()),
                     FillRule::EvenOdd,
-                    false
+                    false,
                 )
             } else {
                 None
@@ -660,7 +653,7 @@ impl<'c> ClipRegion<'c> {
     fn clipmask(&self) -> Option<&ClipMask> {
         if let Some(clipmask) = &self.clipmask {
             if clipmask.is_empty() {
-                return None
+                return None;
             } else {
                 Some(&**clipmask)
             }
@@ -686,7 +679,7 @@ pub enum RenderNode {
     },
     Clip {
         region: Region,
-        node: Box<RenderNode>
+        node: Box<RenderNode>,
     },
     Draw {
         region: Region,
@@ -779,8 +772,8 @@ impl RenderNode {
             &mut ctx,
             &mut ClipRegion {
                 region: Region::new(0., 0., width as f32, height as f32),
-                clipmask: None
-            }
+                clipmask: None,
+            },
         );
         Some(Image::from_raw(pixmap.take(), width, height))
     }
@@ -806,11 +799,10 @@ impl RenderNode {
             Self::Draw { region, steps } => {
                 let previous = clip.region;
                 // ClipMask expects the mask to be the size of the buffer
-                if clip.set_region(
-                    ctx.width(),
-                    ctx.height(),
-                    *region
-                ).is_some() {
+                if clip
+                    .set_region(ctx.width(), ctx.height(), *region)
+                    .is_some()
+                {
                     for n in steps {
                         n.render(ctx, clip.clipmask());
                     }
@@ -831,11 +823,10 @@ impl RenderNode {
             }
             Self::Clip { region, node } => {
                 let previous = clip.region;
-                if clip.set_region(
-                    ctx.width(),
-                    ctx.height(),
-                    *region
-                ).is_some() {
+                if clip
+                    .set_region(ctx.width(), ctx.height(), *region)
+                    .is_some()
+                {
                     node.render(ctx, clip);
                     clip.set_region(ctx.width(), ctx.height(), previous);
                 }
@@ -952,10 +943,7 @@ impl RenderNode {
                     }
                 }
             }
-            Self::Clip {
-                region,
-                node
-            } => {
+            Self::Clip { region, node } => {
                 let this_region = region;
                 let this_node = node.as_mut();
                 match other {
@@ -990,11 +978,7 @@ impl RenderNode {
                     if b.ne(a) {
                         let r = b.region();
                         if shape.contains(&r) {
-                            ctx.damage_region(
-                                &Texture::from(shape),
-                                a.region().merge(&r),
-                                false,
-                            );
+                            ctx.damage_region(&Texture::from(shape), a.region().merge(&r), false);
                             b.render(ctx, clip.clipmask());
                             *self = other;
                         } else {
@@ -1035,11 +1019,7 @@ impl RenderNode {
                                             shape,
                                             clip,
                                         ) {
-                                            ctx.damage_region(
-                                                &Texture::from(shape),
-                                                region,
-                                                false,
-                                            );
+                                            ctx.damage_region(&Texture::from(shape), region, false);
                                             node.render(ctx, clip);
                                         }
                                         node
@@ -1131,12 +1111,7 @@ impl RenderNode {
                     RenderNode::Clip { region, node } => {
                         *this_region = region;
                         clip.set_region(ctx.width(), ctx.height(), region);
-                        if let Err(region) = this_node.draw_merge(
-                            *node,
-                            ctx,
-                            shape,
-                            clip,
-                        ) {
+                        if let Err(region) = this_node.draw_merge(*node, ctx, shape, clip) {
                             clip.set_region(ctx.width(), ctx.height(), previous);
                             return Err(region);
                         }
@@ -1236,17 +1211,30 @@ impl Region {
         self.width + other.width >= merge.width && self.height + other.height >= merge.height
     }
     // Assume other occupies an entire side of self
-    pub fn substract(&self, other: Self) -> Self {
+    pub fn substract(&self, other: Self) -> [Self; 2] {
         let crop = self.crop(&other);
-
-        if crop.x == self.x && crop.y + crop.height == self.y + self.height {
-            let x = crop.x + crop.width;
-            return Self::new(x, self.y, self.x + self.width - x, self.height);
-        } else if crop.y == self.y && crop.x + crop.width == self.x + self.width {
-            let y = crop.y + crop.height;
-            return Self::new(self.x, y, self.width, self.y + self.height - y);
-        }
-        *self
+        [
+            Region::new(
+                if crop.x == self.x {
+                    crop.x + crop.width
+                } else {
+                    self.x
+                },
+                self.y,
+                self.width - crop.width,
+                self.height,
+            ),
+            Region::new(
+                self.x,
+                if crop.y == self.y {
+                    crop.y + crop.height
+                } else {
+                    self.y
+                },
+                self.width,
+                self.height - crop.height,
+            ),
+        ]
     }
     pub fn merge(&self, other: &Self) -> Self {
         let x = self.x.min(other.x);

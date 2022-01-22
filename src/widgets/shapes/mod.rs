@@ -210,7 +210,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
                         y,
                         Rectangle::empty(width, height)
                             .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
-                            .border(border_texture, border_size)
+                            .border(border_texture, border_size),
                     ))
                 } else {
                     None

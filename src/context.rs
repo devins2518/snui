@@ -196,13 +196,15 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
-    /// Dmaages a region of the buffer in preparation of a draw.
-    pub fn damage_region(&mut self, texture: &Texture, mut region: Region, composite: bool) {
+    /// Damages a region of the buffer in preparation of a draw.
+    pub fn damage_region(&mut self, texture: &Texture, region: Region, composite: bool) {
         if !composite {
             if let Some(last) = self.pending_damage.last() {
                 if last.contains(region.x, region.y) {
-                    let taken = last.merge(&region).substract(*last);
-                    region = taken;
+                    for region in last.merge(&region).substract(*last) {
+                        self.damage_region(texture, region, false);
+                    }
+                    return;
                 }
             }
             self.pending_damage.push(region);

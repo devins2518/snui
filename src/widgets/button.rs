@@ -1,5 +1,5 @@
-use crate::*;
 use crate::widgets::shapes::Style;
+use crate::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -54,10 +54,8 @@ impl<M, W: Widget<M>> Widget<M> for Proxy<M, W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         self.damage = self.damage.max(match event {
-            Event::Configure(_) => {
-                Damage::Partial.max(self.child.sync(ctx, event))
-            }
-            _ => self.child.sync(ctx, event)
+            Event::Configure(_) | Event::Prepare => Damage::Partial.max(self.child.sync(ctx, event)),
+            _ => self.child.sync(ctx, event),
         });
         self.damage
     }

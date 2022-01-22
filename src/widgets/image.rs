@@ -154,7 +154,7 @@ impl Primitive for Image {
                 &PixmapPaint {
                     blend_mode: BlendMode::SourceOver,
                     opacity: self.opacity,
-                    quality: FilterQuality::Bilinear
+                    quality: FilterQuality::Bilinear,
                 },
                 transform.pre_scale(sx, sy),
                 clip,

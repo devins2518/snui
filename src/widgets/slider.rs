@@ -1,8 +1,8 @@
+use crate::controller::*;
 use crate::*;
 use scene::Instruction;
-use crate::controller::*;
-use widgets::shapes::Style;
 use widgets::shapes::rectangle::Rectangle;
+use widgets::shapes::Style;
 
 pub struct Slider<M: PartialEq + TryFromArg<f32> + TryInto<f32>> {
     step: f32,
@@ -31,14 +31,8 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Slider<M> {
             },
             pressed: false,
             slider: match &orientation {
-                Orientation::Horizontal => Rectangle::empty(
-                    width as f32 / 2.,
-                    height as f32,
-                ),
-                Orientation::Vertical => Rectangle::empty(
-                    width as f32,
-                    height as f32 / 2.,
-                ),
+                Orientation::Horizontal => Rectangle::empty(width as f32 / 2., height as f32),
+                Orientation::Vertical => Rectangle::empty(width as f32, height as f32 / 2.),
             },
             orientation,
         }
