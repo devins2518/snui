@@ -241,8 +241,7 @@ impl DerefMut for Text {
 
 use crate::controller::Controller;
 
-// Updates text on messages with a matching id or on Frame.
-// The retreived Data will replace all occurences of `{}` in the format.
+/// Updates text on Message or on Prepare events.
 pub struct Listener<M: TryInto<String>> {
     message: Option<M>,
     format: Option<String>,
@@ -266,18 +265,18 @@ impl<M: TryInto<String>> Geometry for Listener<M> {
 
 impl<M: TryInto<String>> Widget<M> for Listener<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(Instruction::new(x, y, self.text.label.clone()))
+        Instruction::new(x, y, self.text.label.clone()).into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
-            Event::Message(_) => {
+            Event::Message(_) | Event::Prepare => {
                 if let Some(message) = self.message.as_ref() {
                     if let Ok(msg) = ctx.get(message) {
                         if let Ok(string) = msg.try_into() {
                             if let Some(format) = self.format.as_ref() {
-                                self.text.edit(format.replace("{}", &string).as_str());
+                                self.text.edit(format.replace("{}", &string));
                             } else {
-                                self.text.edit(format!("{}", string).as_str());
+                                self.text.edit(format!("{}", string));
                             }
                         }
                     }
