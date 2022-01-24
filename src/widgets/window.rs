@@ -340,6 +340,13 @@ where
                 self.positioned = positioned;
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
+            Event::Prepare => {
+                if self.set_width(self.width()).is_ok() {
+                    self.header.sync(ctx, event).max(self.body.sync(ctx, event))
+                } else {
+                    Damage::None
+                }
+            }
             _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
         }
     }

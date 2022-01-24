@@ -12,10 +12,8 @@ struct ColorControl {
     color: tiny_skia::Color,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum ColorMsg {
-    Close,
-    Null,
     Source(u32),
     Red(f32),
     Green(f32),
@@ -59,16 +57,6 @@ impl TryFromArg<f32> for ColorMsg {
     }
 }
 
-impl TryInto<WindowRequest> for ColorMsg {
-    type Error = ();
-    fn try_into(self) -> Result<WindowRequest, Self::Error> {
-        match self {
-            Self::Close => Ok(WindowRequest::Close),
-            _ => Err(()),
-        }
-    }
-}
-
 impl Controller<ColorMsg> for ColorControl {
     fn get<'m>(&'m self, msg: &'m ColorMsg) -> Result<ColorMsg, ControllerError> {
         match msg {
@@ -80,7 +68,6 @@ impl Controller<ColorMsg> for ColorControl {
                 let color = self.color.to_color_u8().get();
                 Ok(ColorMsg::Source(color))
             }
-            _ => Err(ControllerError::Message),
         }
     }
     fn send<'m>(&'m mut self, msg: ColorMsg) -> Result<ColorMsg, ControllerError> {
@@ -89,18 +76,14 @@ impl Controller<ColorMsg> for ColorControl {
             ColorMsg::Red(red) => self.color.set_red(red),
             ColorMsg::Green(green) => self.color.set_green(green),
             ColorMsg::Blue(blue) => self.color.set_blue(blue),
-            ColorMsg::Close => {}
             _ => return Err(ControllerError::Message),
         }
         self.signal = Some(msg);
-        Ok(ColorMsg::Null)
+        Ok(msg)
     }
     fn sync(&mut self) -> Result<ColorMsg, ControllerError> {
-        if let Some(signal) = self.signal.take() {
-            match signal {
-                ColorMsg::Close => return Ok(ColorMsg::Close),
-                _ => return Ok(ColorMsg::Source(self.color.to_color_u8().get())),
-            }
+        if let Some(_) = self.signal.take() {
+            return Ok(ColorMsg::Source(self.color.to_color_u8().get()))
         }
         Err(ControllerError::Waiting)
     }
@@ -180,7 +163,7 @@ fn main() {
         &event_queue.handle(),
     );
 
-    while client.has_client() {
+    while client.has_application() {
         event_queue.blocking_dispatch(&mut client).unwrap();
     }
 }
@@ -194,7 +177,7 @@ fn sliders() -> WidgetLayout<ColorMsg> {
                 BLU => ColorMsg::Blue(0.),
                 GRN => ColorMsg::Green(0.),
                 BG0 => ColorMsg::Alpha(0.),
-                _ => ColorMsg::Close,
+                _ => unreachable!(),
             };
             widgets::slider::Slider::new(200, 8)
                 .message(message)
@@ -219,7 +202,7 @@ fn body() -> WidgetLayout<ColorMsg> {
         .anchor(CENTER, START)
         .constraint(Constraint::Downward);
 
-    let mut indicator = WidgetLayout::new(0.).orientation(Orientation::Vertical);
+    let mut indicator = LayoutBox::new().orientation(Orientation::Vertical);
 
     indicator.add(listener.ext().padding(10., 10., 10., 10.));
     indicator.add(ColorBlock {
@@ -227,7 +210,6 @@ fn body() -> WidgetLayout<ColorMsg> {
         height: 200.,
         color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap().to_color_u8(),
     });
-    indicator.justify(CENTER);
 
     layout.add(indicator);
     layout.add(sliders());

@@ -289,7 +289,7 @@ impl Primitive for Rectangle {
                                     anti_alias: true,
                                     force_hq_pipeline: false,
                                 },
-                                FillRule::EvenOdd,
+                                FillRule::Winding,
                                 transform,
                                 clip,
                             );
@@ -310,7 +310,7 @@ impl Primitive for Rectangle {
                                     anti_alias: true,
                                     force_hq_pipeline: false,
                                 },
-                                FillRule::EvenOdd,
+                                FillRule::Winding,
                                 transform,
                                 clip,
                             );
@@ -337,7 +337,7 @@ impl Primitive for Rectangle {
                                         anti_alias: true,
                                         force_hq_pipeline: false,
                                     },
-                                    FillRule::EvenOdd,
+                                    FillRule::Winding,
                                     transform,
                                     clip,
                                 );

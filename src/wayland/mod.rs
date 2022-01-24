@@ -133,7 +133,7 @@ pub struct Surface {
     shell: Shell,
     wl_region: WlRegion,
     wl_surface: WlSurface,
-    wl_output: Option<WlOutput>,
+    output: Option<Output>,
     wl_buffer: Option<WlBuffer>,
     previous: Option<Box<Self>>,
 }

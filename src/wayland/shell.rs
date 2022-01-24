@@ -5,7 +5,6 @@ use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
 use crate::*;
-use tiny_skia::*;
 // use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
 // use smithay_client_toolkit::seat::keyboard::ModifiersState;
 // use smithay_client_toolkit::shm::AutoMemPool;
@@ -119,7 +118,7 @@ where
             }
         }
     }
-    fn fwd_event(&mut self, event: Event<M>, qh: &QueueHandle<Self>) {
+    pub fn fwd_event(&mut self, event: Event<M>, qh: &QueueHandle<Self>) {
         if let Some(i) = self.focus {
             self.applications[i].update_scene(
                 self.pool.as_mut().unwrap(),
@@ -183,7 +182,7 @@ where
 
         self.applications.push(application);
     }
-    pub fn has_client(&self) -> bool {
+    pub fn has_application(&self) -> bool {
         !self.applications.is_empty()
     }
 }
@@ -252,7 +251,7 @@ where
         }
     }
     pub unsafe fn globals(&self) -> Rc<GlobalManager> {
-        let ptr = self.globals.as_ref().as_ptr();
+        let ptr = self.globals.as_ptr();
         Rc::increment_strong_count(ptr);
         Rc::from_raw(ptr)
     }
@@ -388,22 +387,25 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<M, C>>,
     ) {
-        let width = render_node.width();
-        let height = render_node.height();
-
-        if let Some((offset, wl_buffer, backend)) = buffer(
-            pool,
-            width as u32,
-            height as u32,
-            &self.surface.as_ref().unwrap().wl_surface,
-            (),
-            conn,
-            qh,
-        ) {
-            if let Some(s) = self.surface.as_mut() {
-                s.replace_buffer(wl_buffer);
+		if let Some(surface) = self.surface.as_mut() {
+    		let width = render_node.width();
+    		let height = render_node.height();
+            if let Some((offset, wl_buffer, backend)) = buffer(
+                pool,
+                width as u32,
+                height as u32,
+                &surface.wl_surface,
+                (),
+                conn,
+                qh,
+            ) {
+                surface.replace_buffer(wl_buffer);
                 let mut v = Vec::new();
-                let mut ctx = DrawContext::new(backend, fc, &mut v);
+                let mut ctx = DrawContext::new(
+                    backend,
+                    fc,
+                    &mut v
+                );
                 if offset != self.state.offset {
                     self.state.offset = offset;
                     self.state.render_node.merge(render_node);
@@ -434,17 +436,17 @@ where
                         );
                     }
                 }
-                s.damage(conn, &v);
-                s.commit(conn);
+                surface.damage(conn, &v);
+                surface.commit(conn);
+            } else if let Some(s) = self.surface.as_ref() {
+                if !self.state.pending_cb && s.frame(conn, qh, ()).is_ok() {
+                    s.wl_surface.commit(conn);
+                    self.state.pending_cb = true;
+                } else if let Damage::Frame = damage {
+                    self.state.pending_cb = false;
+                }
             }
-        } else if let Some(s) = self.surface.as_ref() {
-            if !self.state.pending_cb && s.frame(conn, qh, ()).is_ok() {
-                s.wl_surface.commit(conn);
-                self.state.pending_cb = true;
-            } else if let Damage::Frame = damage {
-                self.state.pending_cb = false;
-            }
-        }
+		}
     }
 }
 
@@ -497,17 +499,15 @@ impl GlobalManager {
 
         wl_surface.commit(conn);
 
-        Some(Surface {
+        Some(Surface::new(
             wl_surface,
             wl_region,
-            wl_buffer: None,
-            previous: None,
-            wl_output: None,
-            shell: Shell::Xdg {
+            Shell::Xdg {
                 xdg_surface,
                 toplevel,
             },
-        })
+            None,
+        ))
     }
     fn create_layer_surface<M, C>(
         &self,
@@ -570,7 +570,7 @@ impl Surface {
             wl_surface,
             shell,
             wl_region,
-            wl_output: None,
+            output: None,
             previous: if let Some(surface) = previous {
                 Some(Box::new(surface))
             } else {
@@ -788,14 +788,15 @@ where
         _: &QueueHandle<Self>,
     ) {
         if let wl_surface::Event::Enter { output } = event {
-            if let Some(o) = self
+            if let Some(output) = self
                 .globals
                 .borrow()
                 .outputs
                 .iter()
                 .find(|o| o.output == output)
             {
-                // surface.set_buffer_scale(conn, o.scale);
+                // Scaling is currently unsupported
+                // surface.set_buffer_scale(conn, output.scale);
                 if let Some((i, application)) = self
                     .applications
                     .iter_mut()
@@ -803,7 +804,7 @@ where
                     .find(|a| a.1.eq_surface(&surface))
                 {
                     self.focus = Some(i);
-                    application.surface.as_mut().unwrap().wl_output = Some(output);
+                    application.surface.as_mut().unwrap().output = Some(output.clone());
                 }
             }
         }

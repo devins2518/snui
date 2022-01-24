@@ -36,9 +36,9 @@ impl From<&Coords> for Point {
     }
 }
 
-impl Into<Point> for Coords {
-    fn into(self) -> Point {
-        Point::from_xy(self.x, self.y)
+impl From<Coords> for Point {
+    fn from(coords: Coords) -> Self {
+        Point::from_xy(coords.x, coords.y)
     }
 }
 
@@ -435,7 +435,6 @@ impl Primitive for PrimitiveType {
             } => primitive.draw_with_transform_clip(ctx, transform, clip),
         }
     }
-    // Basically Clone
     fn primitive_type(&self) -> scene::PrimitiveType {
         self.clone()
     }
@@ -600,12 +599,6 @@ pub struct ClipRegion<'c> {
     clipmask: Option<&'c mut ClipMask>,
 }
 
-impl<'c> AsRef<Region> for ClipRegion<'c> {
-    fn as_ref(&self) -> &Region {
-        &self.region
-    }
-}
-
 use std::ops::{Deref, DerefMut};
 
 impl<'c> Deref for ClipRegion<'c> {
@@ -637,7 +630,7 @@ impl<'c> ClipRegion<'c> {
                     width as u32,
                     height as u32,
                     &PathBuilder::from_rect(region.into()),
-                    FillRule::EvenOdd,
+                    FillRule::Winding,
                     false,
                 )
             } else {
@@ -1210,7 +1203,20 @@ impl Region {
         let merge = self.merge(other);
         self.width + other.width >= merge.width && self.height + other.height >= merge.height
     }
-    // Assume other occupies an entire side of self
+    /// Returns regions other doesn't occupy in Self.
+    /// Because of the way RenderNode are iterated and the layout of the widget system
+    /// it is not necessary to return a third Region to accurately damage the scene.
+    // +----------------+---------------+
+    // |				|				|
+    // |				|		2		|
+    // |				|				|
+    // |		1		+---------------+-----------+
+    // |				|							|
+    // |				|							|
+    // |				|			Other			|
+    // +----------------|							|
+    // 					|							|
+    // 					+---------------------------+
     pub fn substract(&self, other: Self) -> [Self; 2] {
         let crop = self.crop(&other);
         [
@@ -1225,13 +1231,17 @@ impl Region {
                 self.height,
             ),
             Region::new(
-                self.x,
+                if crop.x == self.x {
+                    self.x
+                } else {
+                    crop.x + crop.width
+                },
                 if crop.y == self.y {
                     crop.y + crop.height
                 } else {
                     self.y
                 },
-                self.width,
+                crop.width,
                 self.height - crop.height,
             ),
         ]
@@ -1261,6 +1271,17 @@ impl Region {
     }
     pub fn contains(&self, x: f32, y: f32) -> bool {
         self.x <= x && x - self.x < self.width && self.y <= y && y - self.y < self.height
+    }
+    pub fn scale(&self, sx: f32, sy: f32) -> Self {
+        Self::new(
+            self.x * sx,
+            self.y * sy,
+            self.width * sx,
+            self.height * sy,
+        )
+    }
+    pub fn null(&self) -> bool {
+        self.width == 0. || self.height == 0.
     }
     pub fn pad(&self, padding: f32) -> Region {
         Self {

@@ -202,7 +202,9 @@ impl<'c> DrawContext<'c> {
             if let Some(last) = self.pending_damage.last() {
                 if last.contains(region.x, region.y) {
                     for region in last.merge(&region).substract(*last) {
-                        self.damage_region(texture, region, false);
+                        if !region.null() {
+                            self.damage_region(texture, region, composite);
+                        }
                     }
                     return;
                 }
@@ -216,7 +218,7 @@ impl<'c> DrawContext<'c> {
                         region.into(),
                         &Paint {
                             shader: Shader::SolidColor(*color),
-                            blend_mode: BlendMode::SourceAtop,
+                            blend_mode: BlendMode::SourceOver,
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },
@@ -245,7 +247,7 @@ impl<'c> DrawContext<'c> {
                             region.into(),
                             &Paint {
                                 shader: grad,
-                                blend_mode: BlendMode::SourceAtop,
+                                blend_mode: BlendMode::SourceOver,
                                 anti_alias: false,
                                 force_hq_pipeline: false,
                             },
