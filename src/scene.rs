@@ -145,7 +145,7 @@ impl From<ColorU8> for Texture {
 
 impl<I> From<I> for Texture
 where
-    I: Into<Image>
+    I: Into<Image>,
 {
     fn from(image: I) -> Self {
         Texture::Image(Coords::new(0., 0.), image.into())
@@ -430,10 +430,7 @@ impl PrimitiveType {
     fn instruction(&self, region: Region) -> Instruction {
         let mut p = self.clone();
         let _ = p.set_size(region.width, region.height);
-        Instruction::new(
-            Transform::from_translate(region.x, region.y),
-            p
-        )
+        Instruction::new(Transform::from_translate(region.x, region.y), p)
     }
 }
 
@@ -494,8 +491,14 @@ impl Instruction {
             transform: Transform::from_translate(x, y),
         }
     }
-    fn contains(&self, region: &Region) -> bool {
-        let region = region.relative_to(self.transform.tx, self.transform.ty);
+    fn contains(&self, other: &Self) -> bool {
+        let region = Region::new(
+            other.transform.tx,
+            other.transform.ty,
+            other.width(),
+            other.height(),
+        )
+        .relative_to(self.transform.tx, self.transform.ty);
         match &self.primitive {
             PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
             _ => true,
@@ -528,8 +531,8 @@ impl Instruction {
         Region::new(
             self.transform.tx,
             self.transform.ty,
-            self.width(),
-            self.height(),
+            self.width() * self.transform.sx,
+            self.height() * self.transform.sy,
         )
     }
 }
@@ -642,15 +645,15 @@ pub enum RenderNode {
         node: Box<RenderNode>,
     },
     Container {
-        region: Region,
+        region: Instruction,
         nodes: Vec<RenderNode>,
     },
     Clip {
-        region: Region,
+        region: Instruction,
         node: Box<RenderNode>,
     },
     Draw {
-        region: Region,
+        region: Instruction,
         steps: Vec<Instruction>,
     },
 }
@@ -658,8 +661,8 @@ pub enum RenderNode {
 impl Geometry for RenderNode {
     fn width(&self) -> f32 {
         match self {
-            RenderNode::Container { region, nodes: _ } => region.width,
-            RenderNode::Draw { region, steps: _ } => region.width,
+            RenderNode::Container { region, nodes: _ } => region.width(),
+            RenderNode::Draw { region, steps: _ } => region.width(),
             RenderNode::Instruction(instruction) => instruction.width(),
             RenderNode::Extension {
                 background,
@@ -672,14 +675,14 @@ impl Geometry for RenderNode {
                     background.width()
                 }
             }
-            RenderNode::Clip { region, .. } => region.width,
+            RenderNode::Clip { region, .. } => region.width(),
             RenderNode::None => 0.,
         }
     }
     fn height(&self) -> f32 {
         match self {
-            RenderNode::Container { region, nodes: _ } => region.height,
-            RenderNode::Draw { region, steps: _ } => region.height,
+            RenderNode::Container { region, nodes: _ } => region.height(),
+            RenderNode::Draw { region, steps: _ } => region.height(),
             RenderNode::Instruction(instruction) => instruction.height(),
             RenderNode::Extension {
                 background,
@@ -692,7 +695,7 @@ impl Geometry for RenderNode {
                     background.height()
                 }
             }
-            RenderNode::Clip { region, .. } => region.height,
+            RenderNode::Clip { region, .. } => region.height(),
             RenderNode::None => 0.,
         }
     }
@@ -768,7 +771,7 @@ impl RenderNode {
                 let previous = clip.region;
                 // ClipMask expects the mask to be the size of the buffer
                 if clip
-                    .set_region(ctx.width(), ctx.height(), *region)
+                    .set_region(ctx.width(), ctx.height(), region.region())
                     .is_some()
                 {
                     for n in steps {
@@ -780,7 +783,7 @@ impl RenderNode {
                     clip.set_path(
                         ctx.width() as u32,
                         ctx.height() as u32,
-                        &PathBuilder::from_rect(region.into()),
+                        &PathBuilder::from_rect(region.region().into()),
                         FillRule::EvenOdd,
                         false,
                     );
@@ -792,7 +795,7 @@ impl RenderNode {
             Self::Clip { region, node } => {
                 let previous = clip.region;
                 if clip
-                    .set_region(ctx.width(), ctx.height(), *region)
+                    .set_region(ctx.width(), ctx.height(), region.region())
                     .is_some()
                 {
                     node.render(ctx, clip);
@@ -834,23 +837,26 @@ impl RenderNode {
                 }
             }
             RenderNode::Container { region, nodes: _ } => {
+                let region = region.region();
                 let region = match other {
                     Some(other) => region.merge(other),
-                    None => *region,
+                    None => region,
                 };
                 ctx.damage_region(texture, region, false);
             }
             RenderNode::Draw { region, steps: _ } => {
+                let region = region.region();
                 let region = match other {
                     Some(other) => region.merge(other),
-                    None => *region,
+                    None => region,
                 };
                 ctx.damage_region(texture, region, false);
             }
             RenderNode::Clip { region, .. } => {
+                let region = region.region();
                 let region = match other {
                     Some(other) => region.merge(other),
-                    None => *region,
+                    None => region,
                 };
                 ctx.damage_region(texture, region, false);
             }
@@ -945,7 +951,7 @@ impl RenderNode {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
                         let r = b.region();
-                        if shape.contains(&r) {
+                        if shape.contains(b) {
                             ctx.damage_region(&Texture::from(shape), a.region().merge(&r), false);
                             b.render(ctx, clip.clipmask());
                             *self = other;
@@ -973,9 +979,8 @@ impl RenderNode {
                 match other {
                     RenderNode::Container { region, mut nodes } => {
                         *this_region = region;
-                        if !shape.contains(&region) {
-                            self.merge(RenderNode::Container { region, nodes });
-                            return Err(region);
+                        if !shape.contains(&this_region) {
+                            return Err(this_region.region());
                         } else {
                             *this_nodes = (0..nodes.len())
                                 .map(|i| {
@@ -1000,7 +1005,7 @@ impl RenderNode {
                     }
                     RenderNode::None => {}
                     _ => {
-                        other.clear(ctx, &Texture::from(shape), Some(&this_region));
+                        other.clear(ctx, &Texture::from(shape), Some(&this_region.region()));
                         self.merge(other);
                         self.render(ctx, clip);
                     }
@@ -1032,9 +1037,12 @@ impl RenderNode {
                                 self.render(ctx, clip);
                             };
                         } else {
+                            let contains: bool;
                             let merge = if let Some(rect) = this_border.as_ref() {
+                                contains = shape.contains(rect);
                                 rect.region()
                             } else {
+                                contains = shape.contains(this_background);
                                 this_background.region()
                             }
                             .merge(
@@ -1047,7 +1055,7 @@ impl RenderNode {
                             this_node.merge(*node);
                             *this_border = border;
                             *this_background = background;
-                            if !shape.contains(&merge) {
+                            if !contains {
                                 return Err(merge);
                             }
                             ctx.damage_region(&Texture::from(shape), merge, false);
@@ -1078,7 +1086,7 @@ impl RenderNode {
                 match other {
                     RenderNode::Clip { region, node } => {
                         *this_region = region;
-                        clip.set_region(ctx.width(), ctx.height(), region);
+                        clip.set_region(ctx.width(), ctx.height(), this_region.region());
                         if let Err(region) = this_node.draw_merge(*node, ctx, shape, clip) {
                             clip.set_region(ctx.width(), ctx.height(), previous);
                             return Err(region);
@@ -1086,7 +1094,7 @@ impl RenderNode {
                     }
                     RenderNode::None => {}
                     _ => {
-                        let region = *this_region;
+                        let region = this_region.region();
                         self.clear(ctx, &Texture::from(shape), Some(&region));
                         self.merge(other);
                         self.render(ctx, clip);
@@ -1096,22 +1104,24 @@ impl RenderNode {
                 clip.set_region(ctx.width(), ctx.height(), previous);
             }
             RenderNode::Draw { region, steps } => {
-                let this_region = *region;
+                let this_region = region;
                 let this_steps = steps;
                 match other {
                     RenderNode::Draw { region, steps } => {
                         if !shape.contains(&region) {
+                            let err = region.region();
                             *self = RenderNode::Draw { region, steps };
-                            return Err(region);
+                            return Err(err);
                         } else if steps.ne(this_steps) {
-                            self.clear(ctx, &Texture::from(shape), Some(&region));
+                            self.clear(ctx, &Texture::from(shape), Some(&region.region()));
                             *self = RenderNode::Draw { region, steps };
                             self.render(ctx, clip);
                         }
                     }
                     RenderNode::None => {}
                     _ => {
-                        self.clear(ctx, &Texture::from(shape), Some(&this_region));
+                        let region = this_region.region();
+                        self.clear(ctx, &Texture::from(shape), Some(&region));
                         self.merge(other);
                         self.render(ctx, clip);
                     }
@@ -1234,6 +1244,14 @@ impl Region {
             height: fy - y,
         }
     }
+    pub fn transform(transform: Transform, width: f32, height: f32) -> Self {
+        Self::new(
+            transform.tx,
+            transform.ty,
+            width * transform.sx,
+            height * transform.sy,
+        )
+    }
     pub fn translate(&self, x: f32, y: f32) -> Self {
         Region::new(self.x + x, self.y + y, self.width, self.height)
     }
@@ -1248,12 +1266,7 @@ impl Region {
         self.x <= x && x - self.x < self.width && self.y <= y && y - self.y < self.height
     }
     pub fn scale(&self, sx: f32, sy: f32) -> Self {
-        Self::new(
-            self.x * sx,
-            self.y * sy,
-            self.width * sx,
-            self.height * sy,
-        )
+        Self::new(self.x * sx, self.y * sy, self.width * sx, self.height * sy)
     }
     pub fn null(&self) -> bool {
         self.width == 0. || self.height == 0.

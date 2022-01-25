@@ -1,6 +1,5 @@
 use crate::controller::TryFromArg;
 use crate::controller::*;
-use crate::scene::Instruction;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::{Rectangle, Style};
 use crate::*;
@@ -56,17 +55,10 @@ impl<M: TryFromArg<SwitchState>> Geometry for Switch<M> {
 impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let transform = match self.orientation {
-            Orientation::Horizontal => {
-                transform.pre_translate(self.position, 0.)
-            }
-            Orientation::Vertical => {
-                transform.pre_translate(0., self.position)
-            }
+            Orientation::Horizontal => transform.pre_translate(self.position, 0.),
+            Orientation::Vertical => transform.pre_translate(0., self.position),
         };
-        Widget::<()>::create_node(
-            &mut self.toggle,
-            transform
-        )
+        Widget::<()>::create_node(&mut self.toggle, transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {

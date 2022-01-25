@@ -1,6 +1,6 @@
+pub mod cache;
 pub mod context;
 pub mod controller;
-pub mod cache;
 pub mod scene;
 #[cfg(feature = "wayland")]
 pub mod wayland;
@@ -280,7 +280,7 @@ pub trait Geometry {
         }
     }
     fn create_canvas(&self, transform: Transform) -> context::canvas::Canvas {
-        context::canvas::Canvas::new(transform, self.width() , self.height())
+        context::canvas::Canvas::new(transform, self.width(), self.height())
     }
     fn contains(&self, x: f32, y: f32) -> bool {
         scene::Region::new(0., 0., self.width(), self.height()).contains(x, y)

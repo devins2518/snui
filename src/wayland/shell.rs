@@ -1,6 +1,6 @@
+use crate::cache::*;
 use crate::context::DrawContext;
 use crate::controller::Controller;
-use crate::cache::*;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
@@ -103,16 +103,19 @@ where
                 // Forward the event to the Application
                 self.applications[i].update_scene(
                     self.pool.as_mut().unwrap(),
-                    conn,
-                    qh,
                     &mut self.cache,
                     event,
+                    conn,
+                    qh,
                 );
                 if !self.applications[i].state.configured {
                     self.focus = None;
                     self.event_buffer = Event::default();
                     let application = self.applications.remove(i);
-                    self.pool.as_mut().unwrap().remove(&application.surface.wl_surface);
+                    self.pool
+                        .as_mut()
+                        .unwrap()
+                        .remove(&application.surface.wl_surface);
                 }
             }
         }
@@ -121,15 +124,18 @@ where
         if let Some(i) = self.focus {
             self.applications[i].update_scene(
                 self.pool.as_mut().unwrap(),
-                &mut self.connection.handle(),
-                qh,
                 &mut self.cache,
                 event,
+                &mut self.connection.handle(),
+                qh,
             );
             if !self.applications[i].state.configured {
                 self.focus = None;
                 let application = self.applications.remove(i);
-                self.pool.as_mut().unwrap().remove(&application.surface.wl_surface);
+                self.pool
+                    .as_mut()
+                    .unwrap()
+                    .remove(&application.surface.wl_surface);
             }
         }
     }
@@ -287,8 +293,7 @@ where
                 WindowRequest::Menu(x, y, serial) => match &self.surface.shell {
                     Shell::Xdg { toplevel, .. } => {
                         for seat in &self.globals.borrow().seats {
-                            toplevel
-                                .show_window_menu(conn, &seat.seat, serial, x as i32, y as i32);
+                            toplevel.show_window_menu(conn, &seat.seat, serial, x as i32, y as i32);
                         }
                     }
                     _ => {}
@@ -334,26 +339,28 @@ where
     fn update_scene(
         &mut self,
         pool: &mut MultiPool<wl_surface::WlSurface>,
-        conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<M, C>>,
         cache: &mut Cache,
         event: Event<M>,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<WaylandClient<M, C>>,
     ) {
-        let width = self.state.render_node.width();
-        let height = self.state.render_node.height();
         let scale = if let Some(output) = &self.surface.output {
             output.scale
         } else {
             1
         };
+        let width = self.state.render_node.width() / scale as f32;
+        let height = self.state.render_node.height() / scale as f32;
         match self.sync(conn, cache, event) {
             Damage::Partial => {
                 if !self.state.pending_cb {
-                    if width != self.width() || height != self.height() {
+                    if width != self.width() * scale as f32 || height != self.height() {
                         self.sync(conn, cache, Event::Prepare);
                     }
-                    let render_node = self.widget.create_node(Transform::from_scale(scale as f32, scale as f32));
-                    self.render(pool, cache, render_node, Damage::Partial, conn, qh);
+                    let render_node = self
+                        .widget
+                        .create_node(Transform::from_scale(scale as f32, scale as f32));
+                    self.render(pool, cache, render_node, scale, Damage::Partial, conn, qh);
                 }
             }
             Damage::Frame => {
@@ -362,9 +369,11 @@ where
                         if width != self.width() || height != self.height() {
                             self.sync(conn, cache, Event::Prepare);
                         }
-                        let render_node = self.widget.create_node(Transform::from_scale(scale as f32, scale as f32));
+                        let render_node = self
+                            .widget
+                            .create_node(Transform::from_scale(scale as f32, scale as f32));
                         self.state.pending_cb = true;
-                        self.render(pool, cache, render_node, Damage::Frame, conn, qh);
+                        self.render(pool, cache, render_node, scale, Damage::Frame, conn, qh);
                     }
                 }
             }
@@ -376,22 +385,18 @@ where
         pool: &mut MultiPool<wl_surface::WlSurface>,
         cache: &mut Cache,
         render_node: RenderNode,
+        scale: i32,
         damage: Damage,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<M, C>>,
     ) {
         let surface = &mut self.surface;
-		let width = render_node.width();
-		let height = render_node.height();
-        let scale = if let Some(output) = &surface.output {
-            output.scale
-        } else {
-            1
-        };
+        let width = self.widget.width() * scale as f32;
+        let height = self.widget.height() * scale as f32;
         if let Some((offset, wl_buffer, backend)) = buffer(
             pool,
-            width as u32 * scale as u32,
-            height as u32 * scale as u32,
+            width as u32,
+            height as u32,
             &surface.wl_surface,
             (),
             conn,
@@ -399,42 +404,29 @@ where
         ) {
             surface.replace_buffer(wl_buffer);
             let mut v = Vec::new();
-            let mut ctx = DrawContext::new(
-                backend,
-                cache,
-                &mut v
-            );
+            let mut ctx = DrawContext::new(backend, cache, &mut v);
             if offset != self.state.offset {
                 self.state.offset = offset;
                 self.state.render_node.merge(render_node);
                 self.state.render_node.render(
                     &mut ctx,
-                    &mut ClipRegion::new(
-                        Region::new(0., 0., width, height),
-                        Some(&mut self.clipmask),
-                    ),
+                    &mut ClipRegion::new(Region::new(0., 0., width, height), None),
                 );
             } else {
                 if let Err(region) = self.state.render_node.draw_merge(
                     render_node,
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
-                    &mut ClipRegion::new(
-                        Region::new(0., 0., width, height),
-                        Some(&mut self.clipmask),
-                    ),
+                    &mut ClipRegion::new(Region::new(0., 0., width, height), Some(&mut self.clipmask)),
                 ) {
                     ctx.damage_region(&Texture::Transparent, region, false);
                     self.state.render_node.render(
                         &mut ctx,
-                        &mut ClipRegion::new(
-                            Region::new(0., 0., width, height),
-                            Some(&mut self.clipmask),
-                        ),
+                        &mut ClipRegion::new(Region::new(0., 0., width, height), None),
                     );
                 }
             }
-            surface.damage(conn, &v);
+            surface.damage(conn, &v, scale);
             surface.commit(conn);
         } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
             surface.wl_surface.commit(conn);
@@ -596,10 +588,15 @@ impl Surface {
     fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
         self.shell.set_size(ch, width, height);
     }
-    fn damage(&self, ch: &mut ConnectionHandle, report: &[Region]) {
+    fn damage(&self, ch: &mut ConnectionHandle, report: &[Region], scale: i32) {
         for d in report {
-            self.wl_surface
-                .damage(ch, d.x as i32, d.y as i32, d.width as i32, d.height as i32);
+            self.wl_surface.damage(
+                ch,
+                d.x as i32 / scale,
+                d.y as i32 / scale,
+                d.width as i32 / scale,
+                d.height as i32 / scale,
+            );
         }
     }
     fn replace_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer) -> Option<()> {
@@ -780,7 +777,7 @@ where
         event: wl_surface::Event,
         _: &Self::UserData,
         conn: &mut ConnectionHandle,
-        _: &QueueHandle<Self>,
+        qh: &QueueHandle<Self>,
     ) {
         if let wl_surface::Event::Enter { output } = event {
             if let Some(output) = self
@@ -800,6 +797,14 @@ where
                 {
                     self.focus = Some(i);
                     application.surface.output = Some(output.clone());
+                    application.state.render_node = RenderNode::None;
+                    application.update_scene(
+                        self.pool.as_mut().unwrap(),
+                        &mut self.cache,
+                        Event::Prepare,
+                        conn,
+                        qh,
+                    );
                 }
             }
         }
@@ -837,24 +842,44 @@ where
                         1
                     };
                     // Send a callback event with the timeout the application
-                    let width = application.state.render_node.width();
-                    let height = application.state.render_node.height();
+                    let width = application.state.render_node.width() / scale as f32;
+                    let height = application.state.render_node.height() / scale as f32;
                     match application.sync(conn, cache, Event::Callback(frame_time)) {
                         Damage::Partial => {
                             if width != application.width() || height != application.height() {
                                 application.sync(conn, cache, Event::Prepare);
                             }
-                            let render_node = application.widget.create_node(Transform::from_scale(scale as f32, scale as f32));
-                            application.render(pool, cache, render_node, Damage::Partial, conn, qh);
+                            let render_node = application
+                                .widget
+                                .create_node(Transform::from_scale(scale as f32, scale as f32));
+                            application.render(
+                                pool,
+                                cache,
+                                render_node,
+                                scale,
+                                Damage::Partial,
+                                conn,
+                                qh,
+                            );
                         }
                         Damage::Frame => {
                             cb = Some(i);
                             if width != application.width() || height != application.height() {
                                 application.sync(conn, cache, Event::Prepare);
                             }
-                            let render_node = application.widget.create_node(Transform::from_scale(scale as f32, scale as f32));
+                            let render_node = application
+                                .widget
+                                .create_node(Transform::from_scale(scale as f32, scale as f32));
                             application.state.pending_cb = true;
-                            application.render(pool, cache, render_node, Damage::Partial, conn, qh);
+                            application.render(
+                                pool,
+                                cache,
+                                render_node,
+                                scale,
+                                Damage::Partial,
+                                conn,
+                                qh,
+                            );
                         }
                         Damage::None => {}
                     }
@@ -955,9 +980,7 @@ where
                     let r_width = application.widget.set_width(width as f32);
                     let r_height = application.widget.set_height(height as f32);
                     if r_width.is_err() && r_height.is_err() {
-                        if let Shell::Xdg { toplevel, .. } =
-                            &application.surface.shell
-                        {
+                        if let Shell::Xdg { toplevel, .. } = &application.surface.shell {
                             let r_width = r_width.unwrap_err();
                             let r_height = r_height.unwrap_err();
                             if width < r_width as i32 && height < r_height as i32 {
@@ -967,8 +990,7 @@ where
                             }
                         }
                     }
-                    let mut ctx =
-                        SyncContext::new(&mut application.controller, &mut self.cache);
+                    let mut ctx = SyncContext::new(&mut application.controller, &mut self.cache);
                     // TO-DO
                     // Convert xdg_toplevel.state to WindowState
                     application
@@ -979,7 +1001,10 @@ where
                     application.surface.destroy(conn);
                     self.focus = None;
                     let application = self.applications.remove(i);
-                    self.pool.as_mut().unwrap().remove(&application.surface.wl_surface);
+                    self.pool
+                        .as_mut()
+                        .unwrap()
+                        .remove(&application.surface.wl_surface);
                 }
                 _ => {}
             }
@@ -1074,10 +1099,10 @@ where
                 application.state.configured = true;
                 application.update_scene(
                     self.pool.as_mut().unwrap(),
-                    conn,
-                    qh,
                     &mut self.cache,
                     Event::Prepare,
+                    conn,
+                    qh,
                 )
             }
         }
@@ -1115,9 +1140,7 @@ where
                     _ => false,
                 }
             }) {
-                if let Shell::LayerShell { config, .. } =
-                    &application.surface.shell
-                {
+                if let Shell::LayerShell { config, .. } = &application.surface.shell {
                     if config.exclusive {
                         use zwlr_layer_surface_v1::Anchor;
                         if let Some(anchor) = config.anchor {
@@ -1135,10 +1158,10 @@ where
                 application.state.configured = true;
                 application.update_scene(
                     self.pool.as_mut().unwrap(),
-                    conn,
-                    qh,
                     &mut self.cache,
                     Event::Configure(&[WindowState::Activated]),
+                    conn,
+                    qh,
                 )
             }
         }

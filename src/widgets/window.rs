@@ -1,6 +1,6 @@
 use crate::*;
 use crate::{
-    scene::{Coords, Instruction, Region, Texture},
+    scene::{Coords, Instruction, Texture},
     widgets::{container::*, shapes::*, *},
 };
 use std::ops::{Deref, DerefMut};
@@ -85,8 +85,14 @@ impl<M> Widget<M> for Maximize {
         if self.maximized {
             Instruction {
                 transform,
-                primitive: Rectangle::new(self.width(), self.height(), ShapeStyle::solid(style::BLU)).into(),
-            }.into()
+                primitive: Rectangle::new(
+                    self.width(),
+                    self.height(),
+                    ShapeStyle::solid(style::BLU),
+                )
+                .into(),
+            }
+            .into()
         } else {
             let thickness = 2.;
             Instruction {
@@ -96,8 +102,9 @@ impl<M> Widget<M> for Maximize {
                     self.height() - 2. * thickness,
                 )
                 .border(style::BLU, thickness)
-                .into()
-            }.into()
+                .into(),
+            }
+            .into()
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
@@ -274,16 +281,16 @@ where
         if !h.is_none() {
             self.coords.y = h.height();
         }
-        let c = self.body.create_node(transform.pre_translate(0., self.coords.y));
+        let c = self
+            .body
+            .create_node(transform.pre_translate(0., self.coords.y));
         if c.is_none() && h.is_none() {
             return c;
         }
         RenderNode::Container {
-            region: Region::new(
-                transform.tx,
-                transform.ty,
-                c.width().max(h.width()),
-                self.coords.y + c.height()
+            region: scene::Instruction::new(
+                transform,
+                Rectangle::empty(c.width().max(h.width()), h.height() + c.height()),
             ),
             nodes: vec![h, c],
         }
@@ -331,12 +338,7 @@ where
                 }
                 if !positioned && self.positioned {
                     self.positioned = false;
-                    self.set_radius(
-                        self.radius.0,
-                        self.radius.1,
-                        self.radius.2,
-                        self.radius.3,
-                    );
+                    self.set_radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3);
                 }
                 self.activated = activated;
                 self.positioned = positioned;

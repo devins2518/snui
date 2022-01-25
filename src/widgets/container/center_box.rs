@@ -1,7 +1,8 @@
 use crate::widgets::container::*;
+use crate::widgets::shapes::Rectangle;
 use crate::widgets::*;
 use crate::*;
-use scene::Region;
+use scene::Instruction;
 
 pub struct CenterBox<M> {
     size: (f32, f32),
@@ -116,12 +117,7 @@ impl<M> Widget<M> for CenterBox<M> {
         self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
-            region: Region::new(
-                transform.tx,
-                transform.ty,
-                sw,
-                sh
-            ),
+            region: Instruction::new(transform, Rectangle::empty(sw, sh)),
             nodes: self
                 .widgets
                 .iter_mut()

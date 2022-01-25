@@ -445,10 +445,7 @@ impl<M> Widget<M> for Rectangle {
                 _ => {}
             }
         }
-        Instruction::new(
-            transform,
-            self.clone()
-        ).into()
+        Instruction::new(transform, self.clone()).into()
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None

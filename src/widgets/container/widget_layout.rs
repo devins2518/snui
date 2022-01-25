@@ -1,7 +1,9 @@
 use crate::widgets::container::{Child, Container};
+use crate::widgets::shapes::Rectangle;
 use crate::widgets::Alignment;
 use crate::*;
-use scene::{Coords, Region, RenderNode};
+use scene::Instruction;
+use scene::{Coords, RenderNode};
 
 pub struct WidgetLayout<M> {
     spacing: f32,
@@ -106,12 +108,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
         let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
-            region: Region::new(
-                transform.tx,
-                transform.ty,
-                sw,
-                sh
-            ),
+            region: Instruction::new(transform, Rectangle::empty(sw, sh)),
             nodes: self
                 .widgets
                 .iter_mut()

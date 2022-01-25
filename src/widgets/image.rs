@@ -3,8 +3,8 @@ use image::io::Reader as ImageReader;
 
 use crate::widgets::shapes::Rectangle;
 use crate::widgets::shapes::Style;
-use std::path::{Path, PathBuf};
 use std::ops::Deref;
+use std::path::{Path, PathBuf};
 
 use crate::cache::RawImage;
 
@@ -25,21 +25,17 @@ impl Image {
         Self {
             path: path.as_ref().to_path_buf(),
             size: None,
-            inner: None
+            inner: None,
         }
     }
-    pub fn new_with_size<P>(
-        path: P,
-        width: u32,
-        height: u32,
-    ) -> Self
+    pub fn new_with_size<P>(path: P, width: u32, height: u32) -> Self
     where
-        P: AsRef<Path>
+        P: AsRef<Path>,
     {
         Self {
             path: path.as_ref().to_path_buf(),
             size: Some((width, height)),
-            inner: None
+            inner: None,
         }
     }
 }
@@ -78,9 +74,7 @@ impl Geometry for Image {
 impl<M> Widget<M> for Image {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         if let Some(image) = self.inner.as_mut() {
-            Widget::<()>::create_node(
-                image, transform
-            )
+            Widget::<()>::create_node(image, transform)
         } else {
             RenderNode::None
         }
@@ -106,7 +100,7 @@ pub struct InnerImage {
     raw: RawImage,
     scale: Scale,
     width: f32,
-    height: f32
+    height: f32,
 }
 
 impl From<RawImage> for InnerImage {
@@ -115,7 +109,7 @@ impl From<RawImage> for InnerImage {
             scale: Scale::Fit,
             width: raw.width(),
             height: raw.height(),
-            raw
+            raw,
         }
     }
 }
@@ -186,9 +180,8 @@ impl Geometry for InnerImage {
 impl<M> Widget<M> for InnerImage {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
-            &mut Rectangle::empty(self.width(), self.height())
-            .background(self.clone()),
-        	transform
+            &mut Rectangle::empty(self.width(), self.height()).background(self.clone()),
+            transform,
         )
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {

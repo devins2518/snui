@@ -156,7 +156,7 @@ impl<M, W: Widget<M>> Geometry for Padding<M, W> {
 impl<M, W: Widget<M>> Widget<M> for Padding<M, W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let (top, _, _, left) = self.padding;
-        self.widget.create_node(transform.post_translate(left, top))
+        self.widget.create_node(transform.pre_translate(left, top))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
         let (top, _, _, left) = self.padding;
@@ -328,7 +328,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetBox<M, W> {
             Alignment::End => (self.height() - self.widget.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
-        self.widget.create_node(transform.post_translate(dx, dy))
+        self.widget.create_node(transform.pre_translate(dx, dy))
     }
 }
 

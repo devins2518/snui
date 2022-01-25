@@ -1,6 +1,8 @@
 use crate::widgets::container::*;
+use crate::widgets::shapes::Rectangle;
 use crate::*;
-use scene::{Coords, Region, RenderNode};
+use scene::Instruction;
+use scene::{Coords, RenderNode};
 
 pub struct LayoutBox<M> {
     size: (f32, f32),
@@ -112,12 +114,7 @@ impl<M> Widget<M> for LayoutBox<M> {
         self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
-            region: Region::new(
-                transform.tx,
-                transform.ty,
-                sw,
-                sh
-            ),
+            region: Instruction::new(transform, Rectangle::empty(sw, sh)),
             nodes: self
                 .widgets
                 .iter_mut()

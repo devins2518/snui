@@ -24,17 +24,16 @@ pub(crate) mod canvas {
         pub fn new(transform: Transform, width: f32, height: f32) -> Self {
             Canvas {
                 transform,
-                width, height,
+                width,
+                height,
                 steps: Vec::new(),
             }
         }
         pub fn draw<P: Into<PrimitiveType>>(&mut self, x: f32, y: f32, p: P) {
-            self.steps.push(
-                Instruction {
-                    transform: self.transform.pre_translate(x, y),
-                    primitive: p.into()
-                }
-            )
+            self.steps.push(Instruction {
+                transform: self.transform.post_translate(x, y),
+                primitive: p.into(),
+            })
         }
         pub fn draw_rectangle<B: Into<Texture>>(
             &mut self,
@@ -45,12 +44,10 @@ pub(crate) mod canvas {
             texture: B,
         ) {
             let rect = Rectangle::empty(width, height).background(texture);
-            self.steps.push(
-                Instruction {
-                    transform: self.transform.post_translate(x, y),
-                    primitive: rect.into()
-                }
-            )
+            self.steps.push(Instruction {
+                transform: self.transform.post_translate(x, y),
+                primitive: rect.into(),
+            })
         }
         pub fn draw_at_angle<P: Into<PrimitiveType> + Primitive>(
             &mut self,
@@ -61,29 +58,22 @@ pub(crate) mod canvas {
         ) {
             let w = p.width();
             let h = p.height();
-            self.steps.push(
-                Instruction {
-                    transform: self.transform
-                        .post_translate(x, y)
-                        .post_concat(Transform::from_rotate_at(
-                            angle,
-                            self.transform.tx + x + w / 2.,
-                            self.transform.ty + y + h / 2.,
-                        )
-                    ),
-                    primitive: p.into()
-                }
-            )
+            let transform = self.transform.post_translate(x, y);
+            self.steps.push(Instruction {
+                transform: transform.pre_concat(Transform::from_rotate_at(
+                    angle,
+                    w / 2.,
+                    h / 2.,
+                )),
+                primitive: p.into(),
+            })
         }
         pub fn finish(self) -> RenderNode {
-            let region = Region::new(
-                self.transform.tx,
-                self.transform.ty,
-                self.width,
-                self.height
-            );
             RenderNode::Draw {
-                region,
+                region: scene::Instruction::new(
+                    self.transform,
+                    Rectangle::empty(self.width, self.height),
+                ),
                 steps: self.steps,
             }
         }

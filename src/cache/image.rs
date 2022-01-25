@@ -1,10 +1,10 @@
-use std::clone::Clone;
 use crate::Geometry;
+use image::io::Reader as ImageReader;
+use std::clone::Clone;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tiny_skia::PixmapRef;
-use image::io::Reader as ImageReader;
 
 #[derive(Clone, PartialEq)]
 pub struct RawImage {
@@ -14,13 +14,13 @@ pub struct RawImage {
 }
 
 pub struct ImageCache {
-    cache: HashMap<PathBuf, RawImage>
+    cache: HashMap<PathBuf, RawImage>,
 }
 
 impl Default for ImageCache {
     fn default() -> Self {
         Self {
-            cache: HashMap::new()
+            cache: HashMap::new(),
         }
     }
 }
@@ -63,7 +63,7 @@ impl AsRef<[u8]> for RawImage {
 impl ImageCache {
     pub fn get<P>(&mut self, path: P) -> Result<RawImage, Box<dyn std::error::Error>>
     where
-        P: AsRef<Path>
+        P: AsRef<Path>,
     {
         match self.cache.get(path.as_ref()) {
             Some(image) => Ok(image.clone()),
@@ -76,7 +76,7 @@ impl ImageCache {
                 let raw = RawImage {
                     image,
                     width,
-                    height
+                    height,
                 };
 
                 self.cache.insert(path.as_ref().to_path_buf(), raw.clone());

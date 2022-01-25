@@ -80,7 +80,10 @@ impl FontCache {
             layout: Layout::new(CoordinateSystem::PositiveYDown),
         }
     }
-    pub fn get_fonts<'f>(cache: &'f HashMap<FontProperty, GlyphCache>, fonts: &[FontProperty]) -> Vec<&'f Font> {
+    pub fn get_fonts<'f>(
+        cache: &'f HashMap<FontProperty, GlyphCache>,
+        fonts: &[FontProperty],
+    ) -> Vec<&'f Font> {
         fonts
             .iter()
             .filter_map(|font| {

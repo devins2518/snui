@@ -83,7 +83,7 @@ impl Controller<ColorMsg> for ColorControl {
     }
     fn sync(&mut self) -> Result<ColorMsg, ControllerError> {
         if let Some(_) = self.signal.take() {
-            return Ok(ColorMsg::Source(self.color.to_color_u8().get()))
+            return Ok(ColorMsg::Source(self.color.to_color_u8().get()));
         }
         Err(ControllerError::Waiting)
     }
@@ -119,7 +119,7 @@ impl Widget<ColorMsg> for ColorBlock {
             &mut Rectangle::empty(self.width, self.height)
                 .background(self.color)
                 .even_radius(5.),
-            transform
+            transform,
         )
     }
     fn sync<'d>(

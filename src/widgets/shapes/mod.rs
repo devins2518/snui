@@ -178,7 +178,9 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
         let x = transform.tx;
         let y = transform.ty;
         let (border_texture, border_size) = self.border.clone();
-        let node = self.widget.create_node(transform.pre_translate(border_size, border_size));
+        let node = self
+            .widget
+            .create_node(transform.pre_translate(border_size, border_size));
         let width = self.inner_width();
         let height = self.inner_height();
         match &mut self.background {

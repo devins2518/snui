@@ -1,12 +1,12 @@
-pub mod image;
 pub mod font;
+pub mod image;
 
 pub use self::image::*;
 pub use font::*;
 
 pub struct Cache {
     pub(crate) font_cache: FontCache,
-    pub(crate) image_cache: ImageCache
+    pub(crate) image_cache: ImageCache,
 }
 
 use std::convert::AsRef;
@@ -27,7 +27,7 @@ impl Default for Cache {
     fn default() -> Self {
         Self {
             font_cache: FontCache::new(),
-            image_cache: ImageCache::default()
+            image_cache: ImageCache::default(),
         }
     }
 }

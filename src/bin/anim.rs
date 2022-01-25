@@ -85,10 +85,13 @@ impl<E: Easer> Geometry for Animate<E> {
 
 impl<E: Easer> Widget<AnimationState> for Animate<E> {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
-    	Instruction {
-        	transform: transform.post_translate(self.position, 0.),
-            primitive: Rectangle::empty(self.cursor, 30.).background(style::RED).into(),
-    	}.into()
+        Instruction {
+            transform: transform.pre_translate(self.position, 0.),
+            primitive: Rectangle::empty(self.cursor, 30.)
+                .background(style::RED)
+                .into(),
+        }
+        .into()
     }
     fn sync<'d>(
         &'d mut self,
@@ -167,10 +170,7 @@ impl Geometry for FrameRate {
 
 impl<M> Widget<M> for FrameRate {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
-        Widget::<()>::create_node(
-            &mut self.text,
-            transform
-        )
+        Widget::<()>::create_node(&mut self.text, transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {

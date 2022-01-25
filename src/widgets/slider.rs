@@ -1,6 +1,5 @@
 use crate::controller::*;
 use crate::*;
-use scene::Instruction;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::Style;
 
@@ -106,10 +105,7 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
         } else {
             transform
         };
-        Widget::<()>::create_node(
-            &mut self.slider,
-            transform
-        )
+        Widget::<()>::create_node(&mut self.slider, transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
