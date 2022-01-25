@@ -174,7 +174,10 @@ impl Geometry for FrameRate {
 
 impl<M> Widget<M> for FrameRate {
     fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
-        self.text.create_node(x, y)
+        Widget::<()>::create_node(
+            &mut self.text,
+            x, y
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {

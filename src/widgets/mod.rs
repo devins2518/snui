@@ -8,7 +8,7 @@ pub mod text;
 pub mod window;
 
 use crate::scene::Coords;
-pub use crate::widgets::image::Image;
+pub use crate::widgets::image::InnerImage;
 use crate::*;
 pub use button::Button;
 pub use container::*;

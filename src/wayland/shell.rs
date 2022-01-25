@@ -1,6 +1,6 @@
 use crate::context::DrawContext;
 use crate::controller::Controller;
-use crate::font::FontCache;
+use crate::cache::*;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
@@ -46,7 +46,7 @@ where
 {
     focus: Option<usize>,
     pool: Option<MultiPool<wl_surface::WlSurface>>,
-    font_cache: FontCache,
+    cache: Cache,
     connection: Connection,
     event_buffer: Event<'static, ()>,
     globals: Rc<RefCell<GlobalManager>>,
@@ -83,7 +83,7 @@ where
         let mut wl_client = Self {
             focus: None,
             pool: None,
-            font_cache: FontCache::new(),
+            cache: Cache::default(),
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
             connection: conn,
             event_buffer: Event::default(),
@@ -104,7 +104,7 @@ where
                     self.pool.as_mut().unwrap(),
                     conn,
                     qh,
-                    &mut self.font_cache,
+                    &mut self.cache,
                     event,
                 );
                 if !self.applications[i].state.configured {
@@ -124,7 +124,7 @@ where
                 self.pool.as_mut().unwrap(),
                 &mut self.connection.handle(),
                 qh,
-                &mut self.font_cache,
+                &mut self.cache,
                 event,
             );
             if !self.applications[i].state.configured {
@@ -153,7 +153,7 @@ where
             surface,
         };
 
-        application.sync(&mut conn, &mut self.font_cache, Event::Prepare);
+        application.sync(&mut conn, &mut self.cache, Event::Prepare);
 
         self.applications.push(application);
     }
@@ -178,7 +178,7 @@ where
             surface,
         };
 
-        application.sync(&mut conn, &mut self.font_cache, Event::Prepare);
+        application.sync(&mut conn, &mut self.cache, Event::Prepare);
 
         self.applications.push(application);
     }
@@ -262,13 +262,13 @@ where
     M: 'static,
     C: Controller<M> + std::clone::Clone,
 {
-    fn sync(&mut self, conn: &mut ConnectionHandle, fc: &mut FontCache, event: Event<M>) -> Damage {
+    fn sync(&mut self, conn: &mut ConnectionHandle, cache: &mut Cache, event: Event<M>) -> Damage {
         let mut damage = if event.is_configure() {
             Damage::Partial
         } else {
             Damage::None
         };
-        let mut ctx = SyncContext::new(&mut self.controller, fc);
+        let mut ctx = SyncContext::new(&mut self.controller, cache);
         damage = damage.max(self.widget.sync(&mut ctx, event));
 
         while let Ok(msg) = ctx.sync() {
@@ -346,19 +346,19 @@ where
         pool: &mut MultiPool<wl_surface::WlSurface>,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<M, C>>,
-        fc: &mut FontCache,
+        cache: &mut Cache,
         event: Event<M>,
     ) {
         let width = self.state.render_node.width();
         let height = self.state.render_node.height();
-        match self.sync(conn, fc, event) {
+        match self.sync(conn, cache, event) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     if width != self.width() || height != self.height() {
-                        self.sync(conn, fc, Event::Prepare);
+                        self.sync(conn, cache, Event::Prepare);
                     }
                     let render_node = self.widget.create_node(0., 0.);
-                    self.render(pool, fc, render_node, Damage::Partial, conn, qh);
+                    self.render(pool, cache, render_node, Damage::Partial, conn, qh);
                 }
             }
             Damage::Frame => {
@@ -366,11 +366,11 @@ where
                     if let Some(s) = self.surface.as_ref() {
                         if s.frame(conn, qh, ()).is_ok() {
                             if width != self.width() || height != self.height() {
-                                self.sync(conn, fc, Event::Prepare);
+                                self.sync(conn, cache, Event::Prepare);
                             }
                             let render_node = self.widget.create_node(0., 0.);
                             self.state.pending_cb = true;
-                            self.render(pool, fc, render_node, Damage::Frame, conn, qh);
+                            self.render(pool, cache, render_node, Damage::Frame, conn, qh);
                         }
                     }
                 }
@@ -381,7 +381,7 @@ where
     fn render(
         &mut self,
         pool: &mut MultiPool<wl_surface::WlSurface>,
-        fc: &mut FontCache,
+        cache: &mut Cache,
         render_node: RenderNode,
         damage: Damage,
         conn: &mut ConnectionHandle,
@@ -403,7 +403,7 @@ where
                 let mut v = Vec::new();
                 let mut ctx = DrawContext::new(
                     backend,
-                    fc,
+                    cache,
                     &mut v
                 );
                 if offset != self.state.offset {
@@ -784,7 +784,7 @@ where
         surface: &wl_surface::WlSurface,
         event: wl_surface::Event,
         _: &Self::UserData,
-        conn: &mut ConnectionHandle,
+        _: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
         if let wl_surface::Event::Enter { output } = event {
@@ -828,7 +828,7 @@ where
     ) {
         if let wl_callback::Event::Done { callback_data } = event {
             let mut cb = None;
-            let fc = &mut self.font_cache;
+            let cache = &mut self.cache;
             let pool = self.pool.as_mut().unwrap();
             for (i, application) in self.applications.iter_mut().enumerate() {
                 if application.state.pending_cb {
@@ -839,22 +839,22 @@ where
                     // Send a callback event with the timeout the application
                     let width = application.state.render_node.width();
                     let height = application.state.render_node.height();
-                    match application.sync(conn, fc, Event::Callback(frame_time)) {
+                    match application.sync(conn, cache, Event::Callback(frame_time)) {
                         Damage::Partial => {
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, fc, Event::Prepare);
+                                application.sync(conn, cache, Event::Prepare);
                             }
                             let render_node = application.widget.create_node(0., 0.);
-                            application.render(pool, fc, render_node, Damage::Partial, conn, qh);
+                            application.render(pool, cache, render_node, Damage::Partial, conn, qh);
                         }
                         Damage::Frame => {
                             cb = Some(i);
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, fc, Event::Prepare);
+                                application.sync(conn, cache, Event::Prepare);
                             }
                             let render_node = application.widget.create_node(0., 0.);
                             application.state.pending_cb = true;
-                            application.render(pool, fc, render_node, Damage::Partial, conn, qh);
+                            application.render(pool, cache, render_node, Damage::Partial, conn, qh);
                         }
                         Damage::None => {}
                     }
@@ -974,7 +974,7 @@ where
                         }
                     }
                     let mut ctx =
-                        SyncContext::new(&mut application.controller, &mut self.font_cache);
+                        SyncContext::new(&mut application.controller, &mut self.cache);
                     // TO-DO
                     // Convert xdg_toplevel.state to WindowState
                     application
@@ -1088,7 +1088,7 @@ where
                     self.pool.as_mut().unwrap(),
                     conn,
                     qh,
-                    &mut self.font_cache,
+                    &mut self.cache,
                     Event::Prepare,
                 )
             }
@@ -1153,7 +1153,7 @@ where
                     self.pool.as_mut().unwrap(),
                     conn,
                     qh,
-                    &mut self.font_cache,
+                    &mut self.cache,
                     Event::Configure(&[WindowState::Activated]),
                 )
             }

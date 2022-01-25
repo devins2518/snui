@@ -1,4 +1,4 @@
-use crate::font::FontCache;
+use crate::cache::*;
 use crate::*;
 use controller::*;
 use scene::*;
@@ -98,12 +98,12 @@ pub enum Backend<'b> {
 pub struct SyncContext<'c, M> {
     controller: &'c mut dyn Controller<M>,
     pub(crate) window_request: Option<WindowRequest>,
-    pub(crate) font_cache: &'c mut FontCache,
+    pub(crate) cache: &'c mut Cache,
 }
 
 pub struct DrawContext<'c> {
     pub(crate) backend: Backend<'c>,
-    pub(crate) font_cache: &'c mut FontCache,
+    pub(crate) cache: &'c mut Cache,
     pub(crate) pending_damage: &'c mut Vec<Region>,
 }
 
@@ -142,15 +142,18 @@ impl<'c> DerefMut for Backend<'c> {
 }
 
 impl<'c, M> SyncContext<'c, M> {
-    pub fn new(controller: &'c mut impl Controller<M>, font_cache: &'c mut FontCache) -> Self {
+    pub fn new(controller: &'c mut impl Controller<M>, cache: &'c mut Cache) -> Self {
         Self {
             window_request: None,
             controller,
-            font_cache,
+            cache,
         }
     }
     pub fn window_request(&mut self, window_request: WindowRequest) {
         self.window_request = Some(window_request);
+    }
+    pub fn font_cache(&mut self) -> &mut FontCache {
+        &mut self.cache.font_cache
     }
 }
 
@@ -175,12 +178,12 @@ impl<'c, M> Controller<M> for SyncContext<'c, M> {
 impl<'c> DrawContext<'c> {
     pub fn new(
         backend: Backend<'c>,
-        font_cache: &'c mut FontCache,
+        cache: &'c mut Cache,
         pending_damage: &'c mut Vec<Region>,
     ) -> Self {
         Self {
             backend,
-            font_cache,
+            cache,
             pending_damage,
         }
     }
@@ -309,17 +312,18 @@ impl<'c> DrawContext<'c> {
         self.pending_damage.clear();
     }
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
-        let mut layout;
+        let layout;
+        let font_cache = &mut self.cache.font_cache;
         for gp in {
             if let Some(layout) = &label.layout {
                 layout.as_ref()
             } else {
-                layout = self.font_cache.layout(label);
-                layout.glyphs()
+                font_cache.layout(label);
+                layout = font_cache.layout.glyphs();
+                layout
             }
         } {
-            if let Some(glyph_cache) = self
-                .font_cache
+            if let Some(glyph_cache) = font_cache
                 .fonts
                 .get_mut(&label.fonts.as_slice()[gp.font_index])
             {

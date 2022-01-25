@@ -1,6 +1,6 @@
 pub mod context;
 pub mod controller;
-pub mod font;
+pub mod cache;
 pub mod scene;
 #[cfg(feature = "wayland")]
 pub mod wayland;

@@ -7,7 +7,7 @@ use widgets::blend;
 
 use widgets::shapes::*;
 use widgets::text::*;
-use widgets::Image;
+use widgets::InnerImage as Image;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Coords {
@@ -143,9 +143,12 @@ impl From<ColorU8> for Texture {
     }
 }
 
-impl From<Image> for Texture {
-    fn from(image: Image) -> Self {
-        Texture::Image(Coords::new(0., 0.), image)
+impl<I> From<I> for Texture
+where
+    I: Into<Image>
+{
+    fn from(image: I) -> Self {
+        Texture::Image(Coords::new(0., 0.), image.into())
     }
 }
 
@@ -153,10 +156,6 @@ impl From<Instruction> for Texture {
     fn from(instruction: Instruction) -> Self {
         match instruction.primitive {
             PrimitiveType::Rectangle(r) => r.get_style().background(),
-            PrimitiveType::Image(image) => {
-                let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
-                Texture::Image(coords, image.clone())
-            }
             _ => Texture::Transparent,
         }
     }
@@ -166,10 +165,6 @@ impl From<&Instruction> for Texture {
     fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
             PrimitiveType::Rectangle(r) => r.get_style().background(),
-            PrimitiveType::Image(image) => {
-                let coords = Coords::new(instruction.transform.tx, instruction.transform.ty);
-                Texture::Image(coords, image.clone())
-            }
             _ => Texture::Transparent,
         }
     }
@@ -271,7 +266,6 @@ impl Texture {
 #[derive(Debug)]
 pub enum PrimitiveType {
     Label(Label),
-    Image(Image),
     Rectangle(Rectangle),
     Other {
         name: &'static str,
@@ -290,7 +284,6 @@ impl Geometry for PrimitiveType {
             } => primitive.width(),
             Self::Label(l) => l.width(),
             Self::Rectangle(r) => r.width(),
-            Self::Image(i) => i.width(),
         }
     }
     fn height(&self) -> f32 {
@@ -302,7 +295,6 @@ impl Geometry for PrimitiveType {
             } => primitive.height(),
             Self::Label(l) => l.height(),
             Self::Rectangle(r) => r.height(),
-            Self::Image(i) => i.height(),
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
@@ -314,7 +306,6 @@ impl Geometry for PrimitiveType {
             } => primitive.set_height(height),
             Self::Label(l) => l.set_height(height),
             Self::Rectangle(r) => r.set_height(height),
-            Self::Image(i) => Err(i.height()),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
@@ -326,7 +317,6 @@ impl Geometry for PrimitiveType {
             } => primitive.set_width(width),
             Self::Label(l) => l.set_width(width),
             Self::Rectangle(r) => r.set_width(width),
-            Self::Image(i) => Err(i.width()),
         }
     }
 }
@@ -334,7 +324,6 @@ impl Geometry for PrimitiveType {
 impl Clone for PrimitiveType {
     fn clone(&self) -> Self {
         match self {
-            Self::Image(image) => image.primitive_type(),
             Self::Rectangle(rect) => rect.primitive_type(),
             Self::Label(label) => label.clone().into(),
             Self::Other {
@@ -356,11 +345,6 @@ impl PartialEq for PrimitiveType {
             }
             PrimitiveType::Label(s) => {
                 if let PrimitiveType::Label(o) = other {
-                    return s.eq(o);
-                }
-            }
-            PrimitiveType::Image(s) => {
-                if let PrimitiveType::Image(o) = other {
                     return s.eq(o);
                 }
             }
@@ -388,7 +372,6 @@ impl PartialEq for PrimitiveType {
 impl Primitive for PrimitiveType {
     fn get_texture(&self) -> Texture {
         match self {
-            Self::Image(image) => image.get_texture(),
             Self::Rectangle(rectangle) => rectangle.get_texture(),
             Self::Label(_) => Texture::Transparent,
             Self::Other {
@@ -400,7 +383,6 @@ impl Primitive for PrimitiveType {
     }
     fn apply_texture(&self, background: Texture) -> Self {
         match self {
-            Self::Image(image) => image.apply_texture(background),
             Self::Rectangle(rectangle) => rectangle.apply_texture(background),
             Self::Label(_) => Rectangle::empty(self.width(), self.height())
                 .background(background)
@@ -425,7 +407,6 @@ impl Primitive for PrimitiveType {
         clip: Option<&tiny_skia::ClipMask>,
     ) {
         match self {
-            Self::Image(image) => image.draw_with_transform_clip(ctx, transform, clip),
             Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
             Self::Label(l) => ctx.draw_label(l, transform.tx, transform.ty),
             Self::Other {
@@ -468,12 +449,6 @@ impl From<Rectangle> for PrimitiveType {
 impl From<Label> for PrimitiveType {
     fn from(l: Label) -> Self {
         PrimitiveType::Label(l)
-    }
-}
-
-impl From<Image> for PrimitiveType {
-    fn from(i: Image) -> Self {
-        PrimitiveType::Image(i)
     }
 }
 
@@ -528,9 +503,6 @@ impl Instruction {
         let x = self.transform.tx;
         let y = self.transform.ty;
         match &self.primitive {
-            PrimitiveType::Image(i) => {
-                i.draw_with_transform_clip(ctx, self.transform, clip);
-            }
             PrimitiveType::Other {
                 id: _,
                 name: _,
@@ -560,7 +532,6 @@ impl Instruction {
 impl Geometry for Instruction {
     fn width(&self) -> f32 {
         match &self.primitive {
-            PrimitiveType::Image(i) => i.width(),
             PrimitiveType::Rectangle(r) => r.width(),
             PrimitiveType::Label(l) => l.width(),
             PrimitiveType::Other {
@@ -572,7 +543,6 @@ impl Geometry for Instruction {
     }
     fn height(&self) -> f32 {
         match &self.primitive {
-            PrimitiveType::Image(i) => i.height(),
             PrimitiveType::Rectangle(r) => r.height(),
             PrimitiveType::Label(l) => l.height(),
             PrimitiveType::Other {
@@ -758,7 +728,7 @@ impl RenderNode {
         let mut pixmap = Pixmap::new(width, height)?;
         let mut ctx = DrawContext {
             backend: Backend::Pixmap(pixmap.as_mut()),
-            font_cache: ctx.font_cache,
+            cache: &mut ctx.cache,
             pending_damage: &mut v,
         };
         self.render(

@@ -1,4 +1,4 @@
-pub use crate::font::FontProperty;
+pub use crate::cache::font::FontProperty;
 use crate::{style::FG0, *};
 pub use fontdue::{
     layout,
@@ -137,8 +137,8 @@ impl<M> Widget<M> for Label {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, _event: Event<'d, M>) -> Damage {
         if self.layout.is_none() {
-            let layout = ctx.font_cache.layout(self).glyphs().clone();
-            self.size = font::get_size(&layout);
+            let layout = ctx.font_cache().layout(self).clone();
+            self.size = cache::font::get_size(&layout);
             self.layout = Some(layout.into());
             Damage::Partial
         } else {
@@ -188,9 +188,6 @@ impl Text {
         self.buffer = None;
         self.label.text = s;
     }
-    pub fn create_node(&self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(Instruction::new(x, y, self.label.clone()))
-    }
 }
 
 impl Geometry for Text {
@@ -210,13 +207,16 @@ impl Geometry for Text {
 
 impl<M> Widget<M> for Text {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(Instruction::new(x, y, self.label.clone()))
+        Widget::<()>::create_node(
+            &mut self.label,
+            x, y
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Some(string) = &self.buffer {
-            ctx.font_cache.write(&mut self.layout, &self.label, string);
+            ctx.font_cache().write(&mut self.layout, &self.label, string);
             let glyphs = self.layout.glyphs().clone();
-            self.label.size = font::get_size(&glyphs);
+            self.label.size = cache::font::get_size(&glyphs);
             self.label.layout = Some(glyphs.into());
             self.buffer = None;
             Damage::Partial
@@ -265,7 +265,10 @@ impl<M: TryInto<String>> Geometry for Listener<M> {
 
 impl<M: TryInto<String>> Widget<M> for Listener<M> {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        Instruction::new(x, y, self.text.label.clone()).into()
+        Widget::<()>::create_node(
+            &mut self.text,
+            x, y
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {

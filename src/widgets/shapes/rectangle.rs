@@ -217,11 +217,6 @@ impl Geometry for Rectangle {
             .max(self.radius.1)
             .max(self.radius.2)
             .max(self.radius.3);
-        if let ShapeStyle::Background(background) = &mut self.style {
-            if let Texture::Image(_, img) = background {
-                img.set_width(self.width)?;
-            }
-        }
         return Ok(());
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
@@ -235,11 +230,6 @@ impl Geometry for Rectangle {
             .max(self.radius.1)
             .max(self.radius.2)
             .max(self.radius.3);
-        if let ShapeStyle::Background(background) = &mut self.style {
-            if let Texture::Image(_, img) = background {
-                img.set_height(self.height)?;
-            }
-        }
         return Ok(());
     }
 }
@@ -435,9 +425,10 @@ impl<M> Widget<M> for Rectangle {
     fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
         if let ShapeStyle::Background(background) = &mut self.style {
             match background {
-                Texture::Image(coords, _) => {
+                Texture::Image(coords, image) => {
                     coords.x = x;
                     coords.y = y;
+                    image.set_size(self.width, self.height).unwrap();
                 }
                 Texture::LinearGradient {
                     start,
@@ -454,7 +445,7 @@ impl<M> Widget<M> for Rectangle {
                 _ => {}
             }
         }
-        RenderNode::Instruction(Instruction::new(x, y, self.clone()))
+        Instruction::new(x, y, self.clone()).into()
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None

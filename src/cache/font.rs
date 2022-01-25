@@ -67,8 +67,9 @@ impl FontProperty {
 /// A fontconfig backed FontCache.
 /// If a font cannot be found it will load it if possible.
 pub struct FontCache {
-    fc: Option<Fontconfig>,
-    pub fonts: HashMap<FontProperty, GlyphCache>,
+    pub(crate) fc: Option<Fontconfig>,
+    pub(crate) layout: Layout,
+    pub(crate) fonts: HashMap<FontProperty, GlyphCache>,
 }
 
 impl FontCache {
@@ -76,13 +77,14 @@ impl FontCache {
         FontCache {
             fc: Fontconfig::new(),
             fonts: HashMap::new(),
+            layout: Layout::new(CoordinateSystem::PositiveYDown),
         }
     }
-    pub fn get_fonts(&self, fonts: &[FontProperty]) -> Vec<&Font> {
+    pub fn get_fonts<'f>(cache: &'f HashMap<FontProperty, GlyphCache>, fonts: &[FontProperty]) -> Vec<&'f Font> {
         fonts
             .iter()
             .filter_map(|font| {
-                if let Some(glyph_cache) = self.fonts.get(font) {
+                if let Some(glyph_cache) = cache.get(font) {
                     return Some(&glyph_cache.font);
                 }
                 None
@@ -109,7 +111,7 @@ impl FontCache {
         for font in &label.fonts {
             self.load_font(font);
         }
-        let fonts = self.get_fonts(&label.fonts);
+        let fonts = Self::get_fonts(&self.fonts, &label.fonts);
         for c in string.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
@@ -122,17 +124,16 @@ impl FontCache {
             }
         }
     }
-    pub fn layout(&mut self, label: &Label) -> Layout {
+    pub fn layout(&mut self, label: &Label) -> &Vec<GlyphPosition> {
         for font in &label.fonts {
             self.load_font(font);
         }
-        let fonts = self.get_fonts(&label.fonts);
-        let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
-        layout.reset(&label.settings);
+        let fonts = Self::get_fonts(&self.fonts, &label.fonts);
+        self.layout.reset(&label.settings);
         for c in label.get_text().chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
-                    layout.append(
+                    self.layout.append(
                         &fonts,
                         &TextStyle::new(&c.to_string(), label.get_font_size(), i),
                     );
@@ -140,7 +141,7 @@ impl FontCache {
                 }
             }
         }
-        layout
+        self.layout.glyphs()
     }
 }
 
