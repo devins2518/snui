@@ -110,13 +110,18 @@ impl<M> Geometry for CenterBox<M> {
 }
 
 impl<M> Widget<M> for CenterBox<M> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
         self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
-            region: Region::new(x, y, sw, sh),
+            region: Region::new(
+                transform.tx,
+                transform.ty,
+                sw,
+                sh
+            ),
             nodes: self
                 .widgets
                 .iter_mut()
@@ -126,12 +131,12 @@ impl<M> Widget<M> for CenterBox<M> {
                     match self.orientation {
                         Orientation::Horizontal => {
                             let _ = wbox.set_height(sh);
-                            node = wbox.create_node(x, y);
+                            node = wbox.create_node(transform);
                             dx += wbox.width();
                         }
                         Orientation::Vertical => {
                             let _ = wbox.set_width(sw);
-                            node = wbox.create_node(x, y);
+                            node = wbox.create_node(transform);
                             dy += wbox.height();
                         }
                     }

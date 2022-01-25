@@ -422,12 +422,12 @@ impl Style for Rectangle {
 }
 
 impl<M> Widget<M> for Rectangle {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         if let ShapeStyle::Background(background) = &mut self.style {
             match background {
                 Texture::Image(coords, image) => {
-                    coords.x = x;
-                    coords.y = y;
+                    coords.x = transform.tx;
+                    coords.y = transform.ty;
                     image.set_size(self.width, self.height).unwrap();
                 }
                 Texture::LinearGradient {
@@ -437,15 +437,18 @@ impl<M> Widget<M> for Rectangle {
                     stops: _,
                     mode: _,
                 } => {
-                    start.x = x;
-                    start.y = y;
-                    end.x = x + self.width;
-                    end.y = y + self.height * angle.tan();
+                    start.x = transform.tx;
+                    start.y = transform.ty;
+                    end.x = transform.tx + self.width;
+                    end.y = transform.ty + self.height * angle.tan();
                 }
                 _ => {}
             }
         }
-        Instruction::new(x, y, self.clone()).into()
+        Instruction::new(
+            transform,
+            self.clone()
+        ).into()
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None

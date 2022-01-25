@@ -63,7 +63,7 @@ impl Geometry for () {
 }
 
 impl<M> Widget<M> for () {
-    fn create_node(&mut self, _x: f32, _y: f32) -> RenderNode {
+    fn create_node(&mut self, _: Transform) -> RenderNode {
         RenderNode::None
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
@@ -88,7 +88,7 @@ impl Geometry for Spacer {
 }
 
 impl<M> Widget<M> for Spacer {
-    fn create_node(&mut self, _x: f32, _y: f32) -> RenderNode {
+    fn create_node(&mut self, _: Transform) -> RenderNode {
         RenderNode::None
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
@@ -154,9 +154,9 @@ impl<M, W: Widget<M>> Geometry for Padding<M, W> {
 }
 
 impl<M, W: Widget<M>> Widget<M> for Padding<M, W> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         let (top, _, _, left) = self.padding;
-        self.widget.create_node(x + left, y + top)
+        self.widget.create_node(transform.post_translate(left, top))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
         let (top, _, _, left) = self.padding;
@@ -303,14 +303,14 @@ impl<M, W: Widget<M>> Widget<M> for WidgetBox<M, W> {
             self.widget.sync(ctx, event)
         }
     }
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         if (self.constraint == Constraint::Fixed || self.constraint == Constraint::Upward)
             && (self.widget.width() > self.width() || self.widget.height() > self.height())
         {
             eprintln!(
                 "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
-                x,
-                y,
+                transform.tx,
+                transform.ty,
                 self.width(),
                 self.height()
             );
@@ -328,7 +328,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetBox<M, W> {
             Alignment::End => (self.height() - self.widget.height()).floor(),
         };
         self.coords = Coords::new(dx, dy);
-        self.widget.create_node(x + dx, y + dy)
+        self.widget.create_node(transform.post_translate(dx, dy))
     }
 }
 

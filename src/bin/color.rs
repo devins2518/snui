@@ -114,12 +114,12 @@ impl Geometry for ColorBlock {
 }
 
 impl Widget<ColorMsg> for ColorBlock {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
             &mut Rectangle::empty(self.width, self.height)
                 .background(self.color)
                 .even_radius(5.),
-            x, y
+            transform
         )
     }
     fn sync<'d>(

@@ -54,15 +54,19 @@ impl<M: TryFromArg<SwitchState>> Geometry for Switch<M> {
 }
 
 impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        match self.orientation {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        let transform = match self.orientation {
             Orientation::Horizontal => {
-                Instruction::new(x + self.position, y, self.toggle.clone()).into()
+                transform.pre_translate(self.position, 0.)
             }
             Orientation::Vertical => {
-                Instruction::new(x, y + self.position, self.toggle.clone()).into()
+                transform.pre_translate(0., self.position)
             }
-        }
+        };
+        Widget::<()>::create_node(
+            &mut self.toggle,
+            transform
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {

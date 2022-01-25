@@ -45,10 +45,10 @@ impl<M, W: Widget<M>> Geometry for Proxy<M, W> {
 }
 
 impl<M, W: Widget<M>> Widget<M> for Proxy<M, W> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         if self.damage.is_some() {
             self.damage = Damage::None;
-            return self.child.create_node(x, y);
+            return self.child.create_node(transform);
         }
         RenderNode::None
     }
@@ -125,8 +125,8 @@ where
     W: Widget<M>,
     F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
 {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.proxy.create_node(x, y)
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        self.proxy.create_node(transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         if let Event::Pointer(x, y, pointer) = event {

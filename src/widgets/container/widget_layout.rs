@@ -98,7 +98,7 @@ impl<M> WidgetLayout<M> {
 }
 
 impl<M> Widget<M> for WidgetLayout<M> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
         let spacing = self.spacing;
@@ -106,7 +106,12 @@ impl<M> Widget<M> for WidgetLayout<M> {
         let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
-            region: Region::new(x, y, sw, sh),
+            region: Region::new(
+                transform.tx,
+                transform.ty,
+                sw,
+                sh
+            ),
             nodes: self
                 .widgets
                 .iter_mut()
@@ -122,7 +127,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                                 Alignment::End => dy = sh - wh,
                             }
                             child.coords = Coords::new(dx, dy);
-                            node = child.create_node(x, y);
+                            node = child.create_node(transform);
                             dx += child.width() + spacing;
                         }
                         Orientation::Vertical => {
@@ -132,7 +137,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                                 Alignment::End => dx = sw - ww,
                             }
                             child.coords = Coords::new(dx, dy);
-                            node = child.create_node(x, y);
+                            node = child.create_node(transform);
                             dy += child.height() + spacing;
                         }
                     }

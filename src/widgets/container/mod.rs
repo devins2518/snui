@@ -116,12 +116,12 @@ impl<M> From<Box<dyn Widget<M>>> for Child<M> {
 }
 
 impl<M> Widget<M> for Child<M> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         if self.damage.is_some() {
             self.damage = Damage::None;
             return self
                 .widget
-                .create_node(x + self.coords.x, y + self.coords.y);
+                .create_node(transform.pre_translate(self.coords.x, self.coords.y));
         }
         RenderNode::None
     }

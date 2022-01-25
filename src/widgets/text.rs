@@ -132,8 +132,22 @@ impl Geometry for Label {
 }
 
 impl<M> Widget<M> for Label {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        RenderNode::Instruction(Instruction::new(x, y, self.clone()))
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        if transform.sx != 1. || transform.sy != 1. {
+            let mut label =
+                self.clone().font_size(
+                    transform.sx.min(transform.sy) * self.font_size);
+            label.layout = None;
+            Instruction::new(
+                transform,
+                label
+            ).into()
+        } else {
+            Instruction::new(
+                transform,
+                self.clone()
+            ).into()
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, _event: Event<'d, M>) -> Damage {
         if self.layout.is_none() {
@@ -206,10 +220,10 @@ impl Geometry for Text {
 }
 
 impl<M> Widget<M> for Text {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
             &mut self.label,
-            x, y
+            transform
         )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
@@ -264,10 +278,10 @@ impl<M: TryInto<String>> Geometry for Listener<M> {
 }
 
 impl<M: TryInto<String>> Widget<M> for Listener<M> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
             &mut self.text,
-            x, y
+            transform
         )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {

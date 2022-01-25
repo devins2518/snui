@@ -84,18 +84,11 @@ impl<E: Easer> Geometry for Animate<E> {
 }
 
 impl<E: Easer> Widget<AnimationState> for Animate<E> {
-    fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
-        let node = Instruction::new(
-            x + self.position,
-            y,
-            Rectangle::empty(self.cursor, 30.).background(style::RED),
-        )
-        .into();
-
-        scene::RenderNode::Clip {
-            region: scene::Region::new(x + 50., y, self.width() - 100., self.height()),
-            node: Box::new(node),
-        }
+    fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
+    	Instruction {
+        	transform: transform.post_translate(self.position, 0.),
+            primitive: Rectangle::empty(self.cursor, 30.).background(style::RED).into(),
+    	}.into()
     }
     fn sync<'d>(
         &'d mut self,
@@ -173,10 +166,10 @@ impl Geometry for FrameRate {
 }
 
 impl<M> Widget<M> for FrameRate {
-    fn create_node(&mut self, x: f32, y: f32) -> scene::RenderNode {
+    fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
         Widget::<()>::create_node(
             &mut self.text,
-            x, y
+            transform
         )
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<M>, event: Event<'d, M>) -> Damage {

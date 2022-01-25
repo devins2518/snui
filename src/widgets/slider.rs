@@ -91,21 +91,25 @@ impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Geometry for Slider<M> {
 }
 
 impl<M: PartialEq + TryFromArg<f32> + TryInto<f32>> Widget<M> for Slider<M> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        if self.flip {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        let transform = if self.flip {
             match self.orientation {
                 Orientation::Horizontal => {
                     let delta = self.width() - self.slider.width();
-                    RenderNode::Instruction(Instruction::new(x + delta, y, self.slider.clone()))
+                    transform.pre_translate(delta, 0.)
                 }
                 Orientation::Vertical => {
                     let delta = self.height() - self.slider.height();
-                    RenderNode::Instruction(Instruction::new(x, y + delta, self.slider.clone()))
+                    transform.pre_translate(0., delta)
                 }
             }
         } else {
-            RenderNode::Instruction(Instruction::new(x, y, self.slider.clone()))
-        }
+            transform
+        };
+        Widget::<()>::create_node(
+            &mut self.slider,
+            transform
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {

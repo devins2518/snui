@@ -430,7 +430,10 @@ impl PrimitiveType {
     fn instruction(&self, region: Region) -> Instruction {
         let mut p = self.clone();
         let _ = p.set_size(region.width, region.height);
-        Instruction::new(region.x, region.y, p)
+        Instruction::new(
+            Transform::from_translate(region.x, region.y),
+            p
+        )
     }
 }
 
@@ -454,8 +457,8 @@ impl From<Label> for PrimitiveType {
 
 #[derive(Debug)]
 pub struct Instruction {
-    transform: Transform,
-    primitive: PrimitiveType,
+    pub transform: Transform,
+    pub primitive: PrimitiveType,
 }
 
 use std::collections::hash_map::DefaultHasher;
@@ -473,10 +476,12 @@ impl Instruction {
             },
         }
     }
-    pub fn new<P: Into<PrimitiveType>>(x: f32, y: f32, primitive: P) -> Instruction {
+    pub fn new<P: Into<PrimitiveType>>(mut transform: Transform, primitive: P) -> Instruction {
+        transform.tx = transform.tx.round();
+        transform.ty = transform.ty.round();
         Instruction {
+            transform,
             primitive: primitive.into(),
-            transform: Transform::from_translate(x.round(), y.round()),
         }
     }
     pub fn transform(mut self, tranform: Transform) -> Instruction {

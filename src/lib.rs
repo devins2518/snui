@@ -279,8 +279,8 @@ pub trait Geometry {
             }
         }
     }
-    fn create_canvas(&self, x: f32, y: f32) -> context::canvas::Canvas {
-        context::canvas::Canvas::new(scene::Region::new(x, y, self.width(), self.height()))
+    fn create_canvas(&self, transform: Transform) -> context::canvas::Canvas {
+        context::canvas::Canvas::new(transform, self.width() , self.height())
     }
     fn contains(&self, x: f32, y: f32) -> bool {
         scene::Region::new(0., 0., self.width(), self.height()).contains(x, y)
@@ -327,7 +327,7 @@ pub trait Primitive: Geometry + std::fmt::Debug {
 pub trait Widget<M>: Geometry {
     /// Creates the RenderNode of the widget.
     /// Widgets are expected to compute their layout when this method is invoked.
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode;
+    fn create_node(&mut self, transform: Transform) -> RenderNode;
     /// Interface to communicate with the controller and retained mode draw operation
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage;
 }

@@ -106,13 +106,18 @@ impl<M> Geometry for LayoutBox<M> {
 }
 
 impl<M> Widget<M> for LayoutBox<M> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
         self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container {
-            region: Region::new(x, y, sw, sh),
+            region: Region::new(
+                transform.tx,
+                transform.ty,
+                sw,
+                sh
+            ),
             nodes: self
                 .widgets
                 .iter_mut()
@@ -122,12 +127,12 @@ impl<M> Widget<M> for LayoutBox<M> {
                     match self.orientation {
                         Orientation::Horizontal => {
                             let _ = child.set_height(sh);
-                            node = child.create_node(x, y);
+                            node = child.create_node(transform);
                             dx += child.width();
                         }
                         Orientation::Vertical => {
                             let _ = child.set_width(sw);
-                            node = child.create_node(x, y);
+                            node = child.create_node(transform);
                             dy += child.height();
                         }
                     }

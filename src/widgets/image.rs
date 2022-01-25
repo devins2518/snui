@@ -76,10 +76,10 @@ impl Geometry for Image {
 }
 
 impl<M> Widget<M> for Image {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         if let Some(image) = self.inner.as_mut() {
             Widget::<()>::create_node(
-                image, x, y
+                image, transform
             )
         } else {
             RenderNode::None
@@ -184,11 +184,11 @@ impl Geometry for InnerImage {
 }
 
 impl<M> Widget<M> for InnerImage {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
             &mut Rectangle::empty(self.width(), self.height())
             .background(self.clone()),
-            x, y
+        	transform
         )
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {

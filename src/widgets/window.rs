@@ -28,8 +28,8 @@ impl Geometry for Close {
 }
 
 impl<M> Widget<M> for Close {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let mut canvas = self.create_canvas(x, y);
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        let mut canvas = self.create_canvas(transform);
 
         use std::f32::consts::FRAC_1_SQRT_2;
 
@@ -81,26 +81,23 @@ impl Geometry for Maximize {
 }
 
 impl<M> Widget<M> for Maximize {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
         if self.maximized {
-            Instruction::new(
-                x,
-                y,
-                Rectangle::new(self.width(), self.height(), ShapeStyle::solid(style::BLU)),
-            )
-            .into()
+            Instruction {
+                transform,
+                primitive: Rectangle::new(self.width(), self.height(), ShapeStyle::solid(style::BLU)).into(),
+            }.into()
         } else {
             let thickness = 2.;
-            Instruction::new(
-                x,
-                y,
-                Rectangle::empty(
+            Instruction {
+                transform,
+                primitive: Rectangle::empty(
                     self.width() - 2. * thickness,
                     self.height() - 2. * thickness,
                 )
-                .border(style::BLU, thickness),
-            )
-            .into()
+                .border(style::BLU, thickness)
+                .into()
+            }.into()
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
@@ -143,8 +140,8 @@ impl Geometry for Minimize {
 }
 
 impl<M> Widget<M> for Minimize {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let mut canvas = self.create_canvas(x, y);
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        let mut canvas = self.create_canvas(transform);
 
         use std::f32::consts::FRAC_1_SQRT_2;
 
@@ -272,17 +269,22 @@ where
     H: Widget<M> + Style,
     W: Widget<M> + Style,
 {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        let h = self.header.create_node(x, y);
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        let h = self.header.create_node(transform);
         if !h.is_none() {
             self.coords.y = h.height();
         }
-        let c = self.body.create_node(x, y + self.coords.y);
+        let c = self.body.create_node(transform.pre_translate(0., self.coords.y));
         if c.is_none() && h.is_none() {
             return c;
         }
         RenderNode::Container {
-            region: Region::new(x, y, c.width().max(h.width()), self.coords.y + c.height()),
+            region: Region::new(
+                transform.tx,
+                transform.ty,
+                c.width().max(h.width()),
+                self.coords.y + c.height()
+            ),
             nodes: vec![h, c],
         }
     }
@@ -444,8 +446,8 @@ where
 }
 
 impl<M, W: Widget<M>> Widget<M> for Hitbox<M, W> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
-        self.widget.create_node(x, y)
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        self.widget.create_node(transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {

@@ -174,9 +174,11 @@ impl<M, W: Widget<M>> Style for WidgetExt<M, W> {
 }
 
 impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
-    fn create_node(&mut self, x: f32, y: f32) -> RenderNode {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        let x = transform.tx;
+        let y = transform.ty;
         let (border_texture, border_size) = self.border.clone();
-        let node = self.widget.create_node(x + border_size, y + border_size);
+        let node = self.widget.create_node(transform.pre_translate(border_size, border_size));
         let width = self.inner_width();
         let height = self.inner_height();
         match &mut self.background {
@@ -206,8 +208,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
             border: {
                 if border_texture != Texture::Transparent || border_size > 0. {
                     Some(Instruction::new(
-                        x,
-                        y,
+                        transform,
                         Rectangle::empty(width, height)
                             .radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3)
                             .border(border_texture, border_size),
@@ -217,8 +218,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetExt<M, W> {
                 }
             },
             background: Instruction::new(
-                x + border_size,
-                y + border_size,
+                transform.pre_translate(border_size, border_size),
                 Rectangle::empty(width, height)
                     .background(self.background.clone())
                     .radius(
