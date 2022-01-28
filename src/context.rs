@@ -11,43 +11,85 @@ pub(crate) mod canvas {
     use crate::scene::*;
     use crate::widgets::shapes::*;
     use crate::*;
+    use std::ops::{Deref, DerefMut};
 
     // Helper to draw using the retained mode API
     pub struct Canvas {
         transform: Transform,
+        inner: InnerCanvas
+    }
+
+    #[derive(Clone, PartialEq)]
+    pub struct InnerCanvas {
         width: f32,
         height: f32,
         steps: Vec<Instruction>,
     }
 
-    impl Canvas {
-        pub fn new(transform: Transform, width: f32, height: f32) -> Self {
-            Canvas {
-                transform,
+    impl InnerCanvas {
+        pub fn new(width: f32, height: f32) -> Self {
+            Self {
                 width,
                 height,
                 steps: Vec::new(),
             }
         }
-        pub fn draw<P: Into<PrimitiveType>>(&mut self, x: f32, y: f32, p: P) {
-            self.steps.push(Instruction {
-                transform: self.transform.post_translate(x, y),
-                primitive: p.into(),
-            })
+    }
+
+    impl Deref for Canvas {
+        type Target = InnerCanvas;
+        fn deref(&self) -> &Self::Target {
+            &self.inner
+        }
+    }
+
+    impl DerefMut for Canvas {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.inner
+        }
+    }
+
+    impl Canvas {
+        pub fn new(transform: Transform, width: f32, height: f32) -> Self {
+            if transform.is_scale_translate() {
+                Canvas {
+                    transform,
+                    inner: InnerCanvas::new(width, height),
+                }
+            } else {
+                panic!("Canvas' transformations can only be scale and translate")
+            }
+        }
+        pub fn draw<P: Into<PrimitiveType>>(&mut self, transform: Transform, p: P) {
+            self.inner.steps.push(
+                Instruction {
+                    transform,
+                    primitive: p.into(),
+                }
+            )
+        }
+        pub fn draw_at<P: Into<PrimitiveType>>(&mut self, x: f32, y: f32, p: P) {
+            self.inner.steps.push(
+                Instruction {
+                    transform: Transform::from_translate(x, y),
+                    primitive: p.into(),
+                }
+            )
         }
         pub fn draw_rectangle<B: Into<Texture>>(
             &mut self,
-            x: f32,
-            y: f32,
+            transform: Transform,
             width: f32,
             height: f32,
             texture: B,
         ) {
             let rect = Rectangle::empty(width, height).background(texture);
-            self.steps.push(Instruction {
-                transform: self.transform.post_translate(x, y),
-                primitive: rect.into(),
-            })
+            self.inner.steps.push(
+                Instruction {
+                    transform,
+                    primitive: rect.into(),
+                }
+            )
         }
         pub fn draw_at_angle<P: Into<PrimitiveType> + Primitive>(
             &mut self,
@@ -58,27 +100,72 @@ pub(crate) mod canvas {
         ) {
             let w = p.width();
             let h = p.height();
-            let transform = self.transform.post_translate(x, y);
-            self.steps.push(Instruction {
-                transform: transform.pre_concat(Transform::from_rotate_at(
-                    angle,
-                    w / 2.,
-                    h / 2.,
-                )),
-                primitive: p.into(),
-            })
+            let transform = Transform::from_translate(x, y);
+            self.steps.push(
+                Instruction {
+                    transform: transform.pre_concat(Transform::from_rotate_at(
+                        angle,
+                        w / 2.,
+                        h / 2.,
+                    )),
+                    primitive: p.into(),
+                }
+            )
         }
-        pub fn finish(self) -> RenderNode {
-            RenderNode::Draw {
-                region: scene::Instruction::new(
-                    self.transform,
-                    Rectangle::empty(self.width, self.height),
-                ),
-                steps: self.steps,
+        pub fn finish(mut self) -> RenderNode {
+            match self.inner.steps.len() {
+                0 => RenderNode::None,
+                1 => {
+                    let mut i = self.inner.steps.remove(0);
+                    i.transform = i.transform.post_concat(self.transform);
+                    i.into()
+                }
+                _ => Instruction::other(self.transform, self.inner).into()
             }
         }
-        // pub fn draw_oval(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        // }
+    }
+
+    impl std::fmt::Debug for InnerCanvas {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("Canvas")
+            	.field("width", &self.width)
+            	.field("height", &self.height)
+            	.finish()
+        }
+    }
+
+    impl Geometry for InnerCanvas {
+        fn height(&self) -> f32 {
+            self.height
+        }
+        fn width(&self) -> f32 {
+            self.width
+        }
+    }
+
+    impl Primitive for InnerCanvas {
+        fn apply_texture(&self, _: scene::Texture) -> scene::PrimitiveType {
+            PrimitiveType::Other (
+                Box::new(self.clone())
+            )
+        }
+        fn draw_with_transform_clip(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>) {
+            for s in &self.steps {
+                let t = s.transform.post_concat(transform);
+                s.primitive.draw_with_transform_clip(ctx, t, clip);
+            }
+        }
+        fn contains(&self, region: &scene::Region) -> bool {
+            Region::new(0., 0., self.width, self.height).rfit(&region)
+        }
+        fn primitive_type(&self) -> scene::PrimitiveType {
+            PrimitiveType::Other (
+                Box::new(self.clone())
+            )
+        }
+        fn get_texture(&self) -> scene::Texture {
+            Texture::Transparent
+        }
     }
 }
 
@@ -284,7 +371,7 @@ impl<'c> DrawContext<'c> {
                                 Transform::from_scale(sx, sy).post_translate(coords.x, coords.y),
                             ),
                             anti_alias: false,
-                            force_hq_pipeline: true,
+                            force_hq_pipeline: false,
                             blend_mode: BlendMode::SourceOver,
                         },
                         Transform::identity(),

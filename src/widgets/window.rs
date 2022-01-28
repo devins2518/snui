@@ -212,7 +212,7 @@ where
     activated: bool,
     positioned: bool,
     /// Top window decoration
-    header: H,
+    header: Header<M, H>,
     /// The position of the window
     coords: Coords,
     /// The window's content
@@ -287,13 +287,13 @@ where
         if c.is_none() && h.is_none() {
             return c;
         }
-        RenderNode::Container {
-            region: scene::Instruction::new(
+        RenderNode::Container(
+            scene::Instruction::new(
                 transform,
                 Rectangle::empty(c.width().max(h.width()), h.height() + c.height()),
             ),
-            nodes: vec![h, c],
-        }
+            vec![h, c],
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         match event {
@@ -406,12 +406,31 @@ where
     }
 }
 
-struct Hitbox<M, W: Widget<M>> {
+impl<M, W> Deref for Header<M, W>
+where
+    W: Widget<M> + Style,
+{
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.widget
+    }
+}
+
+impl<M, W> DerefMut for Header<M, W>
+where
+    W: Widget<M> + Style,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.widget
+    }
+}
+
+struct Header<M, W: Widget<M>> {
     widget: W,
     _message: std::marker::PhantomData<M>,
 }
 
-impl<M, W: Widget<M>> Geometry for Hitbox<M, W> {
+impl<M, W: Widget<M>> Geometry for Header<M, W> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -426,28 +445,7 @@ impl<M, W: Widget<M>> Geometry for Hitbox<M, W> {
     }
 }
 
-impl<M, W> Style for Hitbox<M, W>
-where
-    W: Widget<M> + Style,
-{
-    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
-        self.widget.set_background(background);
-    }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.widget.set_border_texture(texture);
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.widget.set_border_size(size);
-    }
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.widget.set_radius(tl, tr, br, bl);
-    }
-    fn set_even_radius(&mut self, radius: f32) {
-        self.widget.set_even_radius(radius);
-    }
-}
-
-impl<M, W: Widget<M>> Widget<M> for Hitbox<M, W> {
+impl<M, W: Widget<M>> Widget<M> for Header<M, W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         self.widget.create_node(transform)
     }
@@ -485,7 +483,7 @@ where
     M: 'static,
     W: Widget<M> + Style,
 {
-    let header = Hitbox {
+    let header = Header {
         widget: headerbar(header)
             .ext()
             .background(style::BG2)

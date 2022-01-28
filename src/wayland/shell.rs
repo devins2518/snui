@@ -45,13 +45,13 @@ where
     M: 'static,
     C: Controller<M> + Clone + 'static,
 {
-    focus: Option<usize>,
-    pool: Option<MultiPool<wl_surface::WlSurface>>,
     cache: Cache,
+    focus: Option<usize>,
     connection: Connection,
     event_buffer: Event<'static, ()>,
     globals: Rc<RefCell<GlobalManager>>,
     applications: Vec<Application<M, C>>,
+    pool: Option<MultiPool<wl_surface::WlSurface>>,
 }
 
 fn convert_event<'d, M>(event: Event<'static, ()>) -> Option<Event<'d, M>> {
@@ -187,6 +187,9 @@ where
     }
     pub fn has_application(&self) -> bool {
         !self.applications.is_empty()
+    }
+    pub fn cache(&mut self) -> &mut Cache {
+        &mut self.cache
     }
 }
 
@@ -405,30 +408,36 @@ where
             surface.replace_buffer(wl_buffer);
             let mut v = Vec::new();
             let mut ctx = DrawContext::new(backend, cache, &mut v);
+            let region = Region::new(0., 0., width, height);
             if offset != self.state.offset {
                 self.state.offset = offset;
                 self.state.render_node.merge(render_node);
+                ctx.damage_region(&Texture::Transparent, region, false);
                 self.state.render_node.render(
                     &mut ctx,
-                    &mut ClipRegion::new(Region::new(0., 0., width, height), None),
+                    &mut ClipRegion::new(region, None),
                 );
             } else {
                 if let Err(region) = self.state.render_node.draw_merge(
                     render_node,
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
-                    &mut ClipRegion::new(Region::new(0., 0., width, height), Some(&mut self.clipmask)),
+                    &mut ClipRegion::new(
+                        region,
+                        Some(&mut self.clipmask),
+                    ),
                 ) {
                     ctx.damage_region(&Texture::Transparent, region, false);
                     self.state.render_node.render(
                         &mut ctx,
-                        &mut ClipRegion::new(Region::new(0., 0., width, height), None),
+                        &mut ClipRegion::new(region, None),
                     );
                 }
             }
             surface.damage(conn, &v, scale);
             surface.commit(conn);
-        } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
+        } else if !self.state.pending_cb
+        	&& surface.frame(conn, qh, ()).is_ok() {
             surface.wl_surface.commit(conn);
             self.state.pending_cb = true;
         } else if let Damage::Frame = damage {

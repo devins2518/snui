@@ -287,7 +287,7 @@ pub trait Geometry {
     }
 }
 
-pub trait Primitive: Geometry + std::fmt::Debug {
+pub trait Primitive: Geometry + std::fmt::Debug + DynEq + std::any::Any {
     fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
         self.draw_with_transform_clip(ctx, tiny_skia::Transform::from_translate(x, y), None);
     }
@@ -349,6 +349,13 @@ pub trait WidgetUtil<M>: Widget<M> + Sized {
     ) -> Button<M, Self, F>;
 }
 
+pub trait DynEq {
+    fn same(&self, other: &dyn std::any::Any) -> bool;
+    fn not_same(&self, other: &dyn std::any::Any) -> bool {
+        !self.same(other)
+    }
+}
+
 impl<G> Flex<G> for G
 where
     G: Geometry,
@@ -364,6 +371,18 @@ where
     fn with_size(mut self, width: f32, height: f32) -> Self {
         let _ = self.set_size(width, height);
         self
+    }
+}
+
+impl<T> DynEq for T
+where
+    T: PartialEq + 'static
+{
+    fn same(&self, other: &dyn std::any::Any) -> bool {
+        if let Some(other) = other.downcast_ref::<T>() {
+            return self.eq(other);
+        }
+        false
     }
 }
 

@@ -10,13 +10,17 @@ pub struct CenterBox<M> {
     widgets: [WidgetBox<M, Child<M>>; 3],
 }
 
-impl<M: 'static> FromIterator<Child<M>> for CenterBox<M> {
-    fn from_iter<T: IntoIterator<Item = Child<M>>>(iter: T) -> Self {
+impl<M, C> FromIterator<C> for CenterBox<M> 
+where
+    M: 'static,
+    C: Widget<M> + 'static
+{
+    fn from_iter<T: IntoIterator<Item = C>>(iter: T) -> Self {
         let mut centerbox = CenterBox::new();
         let mut i = 0;
         for c in iter {
             if i < 3 {
-                centerbox.widgets[i] = c.clamp();
+                centerbox.widgets[i] = c.child().clamp();
             } else {
                 break;
             }
@@ -26,11 +30,15 @@ impl<M: 'static> FromIterator<Child<M>> for CenterBox<M> {
     }
 }
 
-impl<M: 'static> Container<M> for CenterBox<M> {
+impl<M, C> Container<M, WidgetBox<M, Child<M>>, C> for CenterBox<M>
+where
+    M: 'static,
+    C: Widget<M> + 'static
+{
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: impl Widget<M> + 'static) {
+    fn add(&mut self, widget: C) {
         for wbox in self.widgets.iter_mut() {
             if wbox.width() == 0. && wbox.height() == 0. {
                 wbox.widget.widget = Box::new(widget);
@@ -38,8 +46,11 @@ impl<M: 'static> Container<M> for CenterBox<M> {
             }
         }
     }
-    fn remove(&mut self, index: usize) -> Child<M> {
-        std::mem::replace(&mut self.widgets[index], Child::new(()).clamp()).widget
+    fn remove(&mut self, index: usize) -> WidgetBox<M, Child<M>> {
+        std::mem::replace(&mut self.widgets[index], Child::new(()).clamp())
+    }
+    fn widgets(&mut self) -> &mut [WidgetBox<M, Child<M>>] {
+        &mut self.widgets
     }
 }
 
@@ -116,10 +127,9 @@ impl<M> Widget<M> for CenterBox<M> {
         let sh = self.height();
         self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
-        RenderNode::Container {
-            region: Instruction::new(transform, Rectangle::empty(sw, sh)),
-            nodes: self
-                .widgets
+        RenderNode::Container(
+            Instruction::new(transform, Rectangle::empty(sw, sh)),
+            self.widgets
                 .iter_mut()
                 .map(|wbox| {
                     let node;
@@ -139,7 +149,7 @@ impl<M> Widget<M> for CenterBox<M> {
                     node
                 })
                 .collect(),
-        }
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         let mut damage = Damage::None;

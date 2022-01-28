@@ -85,7 +85,7 @@ impl Controller<ColorMsg> for ColorControl {
         if let Some(_) = self.signal.take() {
             return Ok(ColorMsg::Source(self.color.to_color_u8().get()));
         }
-        Err(ControllerError::Waiting)
+        Err(ControllerError::None)
     }
 }
 
@@ -183,7 +183,6 @@ fn sliders() -> WidgetLayout<ColorMsg> {
                 .ext()
                 .background(BG2)
                 .even_radius(3.)
-                .child()
         })
         .collect::<WidgetLayout<ColorMsg>>()
         .spacing(10.)

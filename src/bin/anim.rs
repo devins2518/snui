@@ -16,11 +16,11 @@ enum AnimationState {
     Pause,
 }
 
-impl FromArg<SwitchState> for AnimationState {
-    fn from_arg(&self, t: SwitchState) -> Self {
+impl FromArg<BooleanState> for AnimationState {
+    fn from_arg(&self, t: BooleanState) -> Self {
         match t {
-            SwitchState::Activated => AnimationState::Start,
-            SwitchState::Deactivated => AnimationState::Pause,
+            BooleanState::Activated => AnimationState::Start,
+            BooleanState::Deactivated => AnimationState::Pause,
         }
     }
 }
@@ -52,7 +52,7 @@ impl Controller<AnimationState> for EaserCtl {
     fn sync<'s>(&mut self) -> Result<AnimationState, ControllerError> {
         if !self.block {
             match self.state {
-                AnimationState::Stop => return Err(ControllerError::Waiting),
+                AnimationState::Stop => return Err(ControllerError::None),
                 AnimationState::Start => {
                     self.block = true;
                     return Ok(self.state);
@@ -63,7 +63,7 @@ impl Controller<AnimationState> for EaserCtl {
                 }
             }
         }
-        Err(ControllerError::Blocking)
+        Err(ControllerError::None)
     }
 }
 
@@ -85,12 +85,11 @@ impl<E: Easer> Geometry for Animate<E> {
 
 impl<E: Easer> Widget<AnimationState> for Animate<E> {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
-        Instruction {
-            transform: transform.pre_translate(self.position, 0.),
-            primitive: Rectangle::empty(self.cursor, 30.)
+        Instruction::new(
+            transform.pre_translate(self.position, 0.),
+            Rectangle::empty(self.cursor, 30.)
                 .background(style::RED)
-                .into(),
-        }
+        )
         .into()
     }
     fn sync<'d>(
@@ -178,10 +177,8 @@ impl<M> Widget<M> for FrameRate {
                 if frame_time > 0 {
                     let frame_rate = 1000 / frame_time;
                     self.text.edit(frame_rate);
-                    self.text.sync(ctx, event)
-                } else {
-                    self.text.sync(ctx, event)
                 }
+                self.text.sync(ctx, event)
             }
             _ => self.text.sync(ctx, event),
         }

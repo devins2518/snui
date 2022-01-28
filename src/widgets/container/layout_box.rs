@@ -10,25 +10,37 @@ pub struct LayoutBox<M> {
     orientation: Orientation,
 }
 
-impl<M: 'static> FromIterator<Child<M>> for LayoutBox<M> {
-    fn from_iter<T: IntoIterator<Item = Child<M>>>(iter: T) -> Self {
+
+impl<M, C> FromIterator<C> for LayoutBox<M>
+where
+    M: 'static,
+    C: Widget<M> + 'static
+{
+    fn from_iter<T: IntoIterator<Item = C>>(iter: T) -> Self {
         let mut layoutbox = LayoutBox::new();
         for c in iter {
-            layoutbox.widgets.push(c);
+            layoutbox.widgets.push(c.child());
         }
         layoutbox
     }
 }
 
-impl<M: 'static> Container<M> for LayoutBox<M> {
+impl<M: 'static, C> Container<M, Child<M>, C> for LayoutBox<M>
+where
+    M: 'static,
+    C: Widget<M> + 'static
+{
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: impl Widget<M> + 'static) {
+    fn add(&mut self, widget: C) {
         self.widgets.push(Child::new(widget));
     }
     fn remove(&mut self, index: usize) -> Child<M> {
         self.widgets.remove(index)
+    }
+    fn widgets(&mut self) -> &mut [Child<M>] {
+        &mut self.widgets
     }
 }
 
@@ -113,10 +125,9 @@ impl<M> Widget<M> for LayoutBox<M> {
         let sh = self.height();
         self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
-        RenderNode::Container {
-            region: Instruction::new(transform, Rectangle::empty(sw, sh)),
-            nodes: self
-                .widgets
+        RenderNode::Container(
+            Instruction::new(transform, Rectangle::empty(sw, sh)),
+            self.widgets
                 .iter_mut()
                 .map(|child| {
                     let node;
@@ -136,7 +147,7 @@ impl<M> Widget<M> for LayoutBox<M> {
                     node
                 })
                 .collect(),
-        }
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         let mut damage = Damage::None;

@@ -5,23 +5,23 @@ use crate::widgets::shapes::{Rectangle, Style};
 use crate::*;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
-pub enum SwitchState {
+pub enum BooleanState {
     Activated,
     Deactivated,
 }
 
-pub struct Switch<M: TryFromArg<SwitchState>> {
+pub struct Switch<M: TryFromArg<BooleanState>> {
     start: bool,
     toggle: Rectangle,
     orientation: Orientation,
-    state: SwitchState,
+    state: BooleanState,
     position: f32,
     easer: Sinus,
     duration: u32,
     message: Option<M>,
 }
 
-impl<M: TryFromArg<SwitchState>> Geometry for Switch<M> {
+impl<M: TryFromArg<BooleanState>> Geometry for Switch<M> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = self.orientation {
             self.toggle.width() * 2.
@@ -52,7 +52,7 @@ impl<M: TryFromArg<SwitchState>> Geometry for Switch<M> {
     }
 }
 
-impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
+impl<M: TryFromArg<BooleanState>> Widget<M> for Switch<M> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let transform = match self.orientation {
             Orientation::Horizontal => transform.pre_translate(self.position, 0.),
@@ -73,15 +73,15 @@ impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
                             if button.is_left() && pressed {
                                 self.start = true;
                                 let state = match self.state {
-                                    SwitchState::Activated => {
+                                    BooleanState::Activated => {
                                         self.easer =
                                             Sinus::new(0.5, 1., self.width() - self.toggle.width());
-                                        SwitchState::Deactivated
+                                        BooleanState::Deactivated
                                     }
-                                    SwitchState::Deactivated => {
+                                    BooleanState::Deactivated => {
                                         self.easer =
                                             Sinus::new(0., 0.5, self.width() - self.toggle.width());
-                                        SwitchState::Activated
+                                        BooleanState::Activated
                                     }
                                 };
                                 if let Some(msg) = self.message.as_ref() {
@@ -120,7 +120,7 @@ impl<M: TryFromArg<SwitchState>> Widget<M> for Switch<M> {
     }
 }
 
-impl<M: TryFromArg<SwitchState>> Default for Switch<M> {
+impl<M: TryFromArg<BooleanState>> Default for Switch<M> {
     fn default() -> Self {
         Self {
             start: false,
@@ -130,12 +130,12 @@ impl<M: TryFromArg<SwitchState>> Default for Switch<M> {
             orientation: Orientation::Horizontal,
             message: None,
             duration: 500,
-            state: SwitchState::Deactivated,
+            state: BooleanState::Deactivated,
         }
     }
 }
 
-impl<M: TryFromArg<SwitchState>> Switch<M> {
+impl<M: TryFromArg<BooleanState>> Switch<M> {
     // Time in ms
     pub fn duration(mut self, duration: u32) -> Self {
         self.duration = duration;
@@ -145,12 +145,12 @@ impl<M: TryFromArg<SwitchState>> Switch<M> {
         self.message = Some(message);
         self
     }
-    pub fn state(&self) -> SwitchState {
+    pub fn state(&self) -> BooleanState {
         self.state
     }
 }
 
-impl<M: TryFromArg<SwitchState>> Style for Switch<M> {
+impl<M: TryFromArg<BooleanState>> Style for Switch<M> {
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.toggle.set_background(background);
     }

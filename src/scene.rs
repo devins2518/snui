@@ -267,54 +267,34 @@ impl Texture {
 pub enum PrimitiveType {
     Label(Label),
     Rectangle(Rectangle),
-    Other {
-        name: &'static str,
-        id: u64,
-        primitive: Box<dyn Primitive>,
-    },
+    Other (Box<dyn Primitive>),
 }
 
 impl Geometry for PrimitiveType {
     fn width(&self) -> f32 {
         match self {
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.width(),
+            Self::Other ( primitive ) => primitive.width(),
             Self::Label(l) => l.width(),
             Self::Rectangle(r) => r.width(),
         }
     }
     fn height(&self) -> f32 {
         match self {
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.height(),
+            Self::Other ( primitive, ) => primitive.height(),
             Self::Label(l) => l.height(),
             Self::Rectangle(r) => r.height(),
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         match self {
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.set_height(height),
+            Self::Other ( primitive, ) => primitive.set_height(height),
             Self::Label(l) => l.set_height(height),
             Self::Rectangle(r) => r.set_height(height),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         match self {
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.set_width(width),
+            Self::Other ( primitive, ) => primitive.set_width(width),
             Self::Label(l) => l.set_width(width),
             Self::Rectangle(r) => r.set_width(width),
         }
@@ -324,14 +304,57 @@ impl Geometry for PrimitiveType {
 impl Clone for PrimitiveType {
     fn clone(&self) -> Self {
         match self {
-            Self::Rectangle(rect) => rect.primitive_type(),
             Self::Label(label) => label.clone().into(),
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.primitive_type(),
+            Self::Rectangle(rect) => rect.primitive_type(),
+            Self::Other ( primitive ) => primitive.primitive_type(),
         }
+    }
+}
+
+impl Primitive for PrimitiveType {
+    fn get_texture(&self) -> Texture {
+        match self {
+            Self::Rectangle(rectangle) => rectangle.get_texture(),
+            Self::Label(_) => Texture::Transparent,
+            Self::Other (
+                primitive,
+            ) => primitive.get_texture(),
+        }
+    }
+    fn apply_texture(&self, background: Texture) -> Self {
+        match self {
+            Self::Rectangle(rectangle) => rectangle.apply_texture(background),
+            Self::Label(_) => Rectangle::empty(self.width(), self.height())
+                .background(background)
+                .into(),
+            Self::Other (
+                primitive,
+            ) => primitive.apply_texture(background),
+        }
+    }
+    fn contains(&self, region: &Region) -> bool {
+        match &self {
+            PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
+            PrimitiveType::Other(primitive) => Primitive::contains(&**primitive, &region),
+            _ => true,
+        }
+    }
+    fn draw_with_transform_clip(
+        &self,
+        ctx: &mut DrawContext,
+        transform: tiny_skia::Transform,
+        clip: Option<&tiny_skia::ClipMask>,
+    ) {
+        match self {
+            Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
+            Self::Label(l) => ctx.draw_label(l, transform.tx, transform.ty),
+            Self::Other (
+                primitive,
+            ) => primitive.draw_with_transform_clip(ctx, transform, clip),
+        }
+    }
+    fn primitive_type(&self) -> scene::PrimitiveType {
+        self.clone()
     }
 }
 
@@ -348,76 +371,18 @@ impl PartialEq for PrimitiveType {
                     return s.eq(o);
                 }
             }
-            PrimitiveType::Other {
-                name,
-                id,
-                primitive: _,
-            } => {
-                let sn = name;
-                let sid = id;
-                if let PrimitiveType::Other {
-                    id,
-                    name,
-                    primitive: _,
-                } = other
+            PrimitiveType::Other (
+                t_primitive,
+            ) => {
+                if let PrimitiveType::Other (
+                    primitive,
+                ) = other
                 {
-                    return sn == name && id == sid;
+                    return primitive.as_ref().same(&*t_primitive);
                 }
             }
         }
         false
-    }
-}
-
-impl Primitive for PrimitiveType {
-    fn get_texture(&self) -> Texture {
-        match self {
-            Self::Rectangle(rectangle) => rectangle.get_texture(),
-            Self::Label(_) => Texture::Transparent,
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.get_texture(),
-        }
-    }
-    fn apply_texture(&self, background: Texture) -> Self {
-        match self {
-            Self::Rectangle(rectangle) => rectangle.apply_texture(background),
-            Self::Label(_) => Rectangle::empty(self.width(), self.height())
-                .background(background)
-                .into(),
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.apply_texture(background),
-        }
-    }
-    fn contains(&self, region: &Region) -> bool {
-        match &self {
-            PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
-            _ => true,
-        }
-    }
-    fn draw_with_transform_clip(
-        &self,
-        ctx: &mut DrawContext,
-        transform: tiny_skia::Transform,
-        clip: Option<&tiny_skia::ClipMask>,
-    ) {
-        match self {
-            Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
-            Self::Label(l) => ctx.draw_label(l, transform.tx, transform.ty),
-            Self::Other {
-                name: _,
-                id: _,
-                primitive,
-            } => primitive.draw_with_transform_clip(ctx, transform, clip),
-        }
-    }
-    fn primitive_type(&self) -> scene::PrimitiveType {
-        self.clone()
     }
 }
 
@@ -452,25 +417,21 @@ impl From<Label> for PrimitiveType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Instruction {
-    pub transform: Transform,
-    pub primitive: PrimitiveType,
+    pub(crate) transform: Transform,
+    pub(crate) primitive: PrimitiveType,
 }
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 impl Instruction {
-    pub fn other<P: 'static + Hash + Primitive>(x: f32, y: f32, primitive: P) -> Instruction {
-        let mut hasher = DefaultHasher::new();
-        primitive.hash(&mut hasher);
+    pub fn other<P: 'static + Primitive>(mut transform: Transform, primitive: P) -> Instruction {
+        transform.tx = transform.tx.round();
+        transform.ty = transform.ty.round();
         Instruction {
-            transform: Transform::from_translate(x, y),
-            primitive: PrimitiveType::Other {
-                name: std::any::type_name::<P>(),
-                id: hasher.finish(),
-                primitive: Box::new(primitive),
-            },
+            transform,
+            primitive: PrimitiveType::Other (
+                Box::new(primitive),
+            ),
         }
     }
     pub fn new<P: Into<PrimitiveType>>(mut transform: Transform, primitive: P) -> Instruction {
@@ -508,20 +469,18 @@ impl Instruction {
 
 impl Instruction {
     fn render(&self, ctx: &mut DrawContext, clip: Option<&ClipMask>) {
-        let x = self.transform.tx;
-        let y = self.transform.ty;
         match &self.primitive {
-            PrimitiveType::Other {
-                id: _,
-                name: _,
+            PrimitiveType::Other (
                 primitive,
-            } => {
+            ) => {
                 primitive.draw_with_transform_clip(ctx, self.transform, clip);
             }
             PrimitiveType::Rectangle(r) => {
                 r.draw_with_transform_clip(ctx, self.transform, clip);
             }
             PrimitiveType::Label(l) => {
+                let x = self.transform.tx;
+                let y = self.transform.ty;
                 ctx.draw_label(l, x, y);
             }
         }
@@ -542,32 +501,19 @@ impl Geometry for Instruction {
         match &self.primitive {
             PrimitiveType::Rectangle(r) => r.width(),
             PrimitiveType::Label(l) => l.width(),
-            PrimitiveType::Other {
-                id: _,
-                name: _,
+            PrimitiveType::Other (
                 primitive,
-            } => primitive.width(),
+            ) => primitive.width(),
         }
     }
     fn height(&self) -> f32 {
         match &self.primitive {
             PrimitiveType::Rectangle(r) => r.height(),
             PrimitiveType::Label(l) => l.height(),
-            PrimitiveType::Other {
-                id: _,
-                name: _,
+            PrimitiveType::Other (
                 primitive,
-            } => primitive.height(),
+            ) => primitive.height(),
         }
-    }
-}
-
-impl PartialEq for Instruction {
-    fn eq(&self, other: &Self) -> bool {
-        self.transform.eq(&other.transform) && self.primitive.eq(&other.primitive)
-    }
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
     }
 }
 
@@ -644,58 +590,34 @@ pub enum RenderNode {
         border: Option<Instruction>,
         node: Box<RenderNode>,
     },
-    Container {
-        region: Instruction,
-        nodes: Vec<RenderNode>,
-    },
-    Clip {
-        region: Instruction,
-        node: Box<RenderNode>,
-    },
-    Draw {
-        region: Instruction,
-        steps: Vec<Instruction>,
-    },
+    Container(Instruction, Vec<RenderNode>),
+    Clip(Instruction, Box<RenderNode>),
 }
 
 impl Geometry for RenderNode {
     fn width(&self) -> f32 {
         match self {
-            RenderNode::Container { region, nodes: _ } => region.width(),
-            RenderNode::Draw { region, steps: _ } => region.width(),
+            RenderNode::Container(region, _) => region.width(),
             RenderNode::Instruction(instruction) => instruction.width(),
             RenderNode::Extension {
                 background,
                 border,
                 node: _,
-            } => {
-                if let Some(border) = border.as_ref() {
-                    border.width()
-                } else {
-                    background.width()
-                }
-            }
-            RenderNode::Clip { region, .. } => region.width(),
+            } => border.as_ref().unwrap_or(background).width(),
+            RenderNode::Clip(region, ..) => region.width(),
             RenderNode::None => 0.,
         }
     }
     fn height(&self) -> f32 {
         match self {
-            RenderNode::Container { region, nodes: _ } => region.height(),
-            RenderNode::Draw { region, steps: _ } => region.height(),
+            RenderNode::Container(region, _) => region.height(),
             RenderNode::Instruction(instruction) => instruction.height(),
             RenderNode::Extension {
                 background,
                 border,
                 node: _,
-            } => {
-                if let Some(border) = border.as_ref() {
-                    border.height()
-                } else {
-                    background.height()
-                }
-            }
-            RenderNode::Clip { region, .. } => region.height(),
+            } => border.as_ref().unwrap_or(background).height(),
+            RenderNode::Clip(region, ..) => region.height(),
             RenderNode::None => 0.,
         }
     }
@@ -726,32 +648,10 @@ impl RenderNode {
             _ => Some(self),
         }
     }
-    pub fn snapshot(&self, ctx: &mut DrawContext) -> Option<Image> {
-        if self.is_none() {
-            return None;
-        }
-        let mut v = Vec::new();
-        let width = self.width() as u32;
-        let height = self.height() as u32;
-        let mut pixmap = Pixmap::new(width, height)?;
-        let mut ctx = DrawContext {
-            backend: Backend::Pixmap(pixmap.as_mut()),
-            cache: &mut ctx.cache,
-            pending_damage: &mut v,
-        };
-        self.render(
-            &mut ctx,
-            &mut ClipRegion {
-                region: Region::new(0., 0., width as f32, height as f32),
-                clipmask: None,
-            },
-        );
-        Some(Image::from_raw(pixmap.take(), width, height))
-    }
     pub fn render(&self, ctx: &mut DrawContext, clip: &mut ClipRegion) {
         match self {
             Self::Instruction(instruction) => instruction.render(ctx, clip.clipmask()),
-            Self::Container { region: _, nodes } => {
+            Self::Container(_, nodes) => {
                 for n in nodes {
                     n.render(ctx, clip);
                 }
@@ -767,32 +667,7 @@ impl RenderNode {
                 background.render(ctx, clip.clipmask());
                 node.render(ctx, clip);
             }
-            Self::Draw { region, steps } => {
-                let previous = clip.region;
-                // ClipMask expects the mask to be the size of the buffer
-                if clip
-                    .set_region(ctx.width(), ctx.height(), region.region())
-                    .is_some()
-                {
-                    for n in steps {
-                        n.render(ctx, clip.clipmask());
-                    }
-                    clip.set_region(ctx.width(), ctx.height(), previous);
-                } else {
-                    let mut clip = ClipMask::new();
-                    clip.set_path(
-                        ctx.width() as u32,
-                        ctx.height() as u32,
-                        &PathBuilder::from_rect(region.region().into()),
-                        FillRule::EvenOdd,
-                        false,
-                    );
-                    for n in steps {
-                        n.render(ctx, Some(&clip));
-                    }
-                }
-            }
-            Self::Clip { region, node } => {
+            Self::Clip(region, node) => {
                 let previous = clip.region;
                 if clip
                     .set_region(ctx.width(), ctx.height(), region.region())
@@ -820,23 +695,14 @@ impl RenderNode {
                 border,
                 node: _,
             } => {
-                if let Some(rect) = border.as_ref() {
-                    let region = rect.region();
-                    let region = match other {
-                        Some(other) => region.merge(other),
-                        None => region,
-                    };
-                    ctx.damage_region(texture, region, false);
-                } else {
-                    let region = background.region();
-                    let region = match other {
-                        Some(other) => region.merge(other),
-                        None => region,
-                    };
-                    ctx.damage_region(texture, region, false);
-                }
+                let region = border.as_ref().unwrap_or(background).region();
+                let region = match other {
+                    Some(other) => region.merge(other),
+                    None => region,
+                };
+                ctx.damage_region(texture, region, false);
             }
-            RenderNode::Container { region, nodes: _ } => {
+            RenderNode::Container(region, _) => {
                 let region = region.region();
                 let region = match other {
                     Some(other) => region.merge(other),
@@ -844,15 +710,7 @@ impl RenderNode {
                 };
                 ctx.damage_region(texture, region, false);
             }
-            RenderNode::Draw { region, steps: _ } => {
-                let region = region.region();
-                let region = match other {
-                    Some(other) => region.merge(other),
-                    None => region,
-                };
-                ctx.damage_region(texture, region, false);
-            }
-            RenderNode::Clip { region, .. } => {
+            RenderNode::Clip(region, ..) => {
                 let region = region.region();
                 let region = match other {
                     Some(other) => region.merge(other),
@@ -869,30 +727,26 @@ impl RenderNode {
     }
     pub fn merge<'r>(&'r mut self, other: Self) {
         match self {
-            RenderNode::Container { region, nodes } => {
-                let this_region = region;
-                let this_nodes = nodes;
-                match other {
-                    RenderNode::Container { region, mut nodes } => {
-                        *this_region = region;
-                        *this_nodes = (0..nodes.len())
-                            .map(|i| {
-                                if let Some(node) = this_nodes.get_mut(i) {
-                                    let mut node = mem::take(node);
-                                    node.merge(mem::take(&mut nodes[i]));
-                                    node
-                                } else {
-                                    mem::take(&mut nodes[i])
-                                }
-                            })
-                            .collect();
-                    }
-                    RenderNode::None => {}
-                    _ => {
-                        *self = other;
-                    }
+            RenderNode::Container(t_region, t_nodes) => match other {
+                RenderNode::Container(region, mut nodes) => {
+                    *t_region = region;
+                    *t_nodes = (0..nodes.len())
+                        .map(|i| {
+                            if let Some(node) = t_nodes.get_mut(i) {
+                                let mut node = mem::take(node);
+                                node.merge(mem::take(&mut nodes[i]));
+                                node
+                            } else {
+                                mem::take(&mut nodes[i])
+                            }
+                        })
+                        .collect();
                 }
-            }
+                RenderNode::None => {}
+                _ => {
+                    *self = other;
+                }
+            },
             Self::Extension {
                 background,
                 border,
@@ -917,13 +771,13 @@ impl RenderNode {
                     }
                 }
             }
-            Self::Clip { region, node } => {
-                let this_region = region;
-                let this_node = node.as_mut();
+            Self::Clip(region, node) => {
+                let t_region = region;
+                let t_node = node.as_mut();
                 match other {
-                    Self::Clip { region, node } => {
-                        *this_region = region;
-                        this_node.merge(*node);
+                    Self::Clip(region, node) => {
+                        *t_region = region;
+                        t_node.merge(*node);
                     }
                     RenderNode::None => {}
                     _ => {
@@ -952,7 +806,11 @@ impl RenderNode {
                     if b.ne(a) {
                         let r = b.region();
                         if shape.contains(b) {
-                            ctx.damage_region(&Texture::from(shape), a.region().merge(&r), false);
+                            ctx.damage_region(
+                                &Texture::from(shape),
+                                a.region().merge(&r),
+                                false
+                            );
                             b.render(ctx, clip.clipmask());
                             *self = other;
                         } else {
@@ -973,88 +831,70 @@ impl RenderNode {
                 self.clear(ctx, &Texture::from(shape), None);
                 self.render(ctx, clip);
             }
-            RenderNode::Container { region, nodes } => {
-                let this_region = region;
-                let this_nodes = nodes;
-                match other {
-                    RenderNode::Container { region, mut nodes } => {
-                        *this_region = region;
-                        if !shape.contains(&this_region) {
-                            return Err(this_region.region());
-                        } else {
-                            *this_nodes = (0..nodes.len())
-                                .map(|i| {
-                                    if let Some(node) = this_nodes.get_mut(i) {
-                                        let mut node = mem::take(node);
-                                        if let Err(region) = node.draw_merge(
-                                            mem::take(&mut nodes[i]),
-                                            ctx,
-                                            shape,
-                                            clip,
-                                        ) {
-                                            ctx.damage_region(&Texture::from(shape), region, false);
-                                            node.render(ctx, clip);
-                                        }
-                                        node
-                                    } else {
-                                        mem::take(&mut nodes[i])
+            RenderNode::Container(t_region, t_nodes) => match other {
+                RenderNode::Container(region, mut nodes) => {
+                    *t_region = region;
+                    if !shape.contains(&t_region) {
+                        return Err(t_region.region());
+                    } else {
+                        *t_nodes = (0..nodes.len())
+                            .map(|i| {
+                                if let Some(node) = t_nodes.get_mut(i) {
+                                    let mut node = mem::take(node);
+                                    if let Err(region) =
+                                        node.draw_merge(mem::take(&mut nodes[i]), ctx, shape, clip)
+                                    {
+                                        ctx.damage_region(&Texture::from(shape), region, false);
+                                        node.render(ctx, clip);
                                     }
-                                })
-                                .collect();
-                        }
-                    }
-                    RenderNode::None => {}
-                    _ => {
-                        other.clear(ctx, &Texture::from(shape), Some(&this_region.region()));
-                        self.merge(other);
-                        self.render(ctx, clip);
+                                    node
+                                } else {
+                                    mem::take(&mut nodes[i])
+                                }
+                            })
+                            .collect();
                     }
                 }
-            }
+                RenderNode::None => {}
+                _ => {
+                    other.clear(ctx, &Texture::from(shape), Some(&t_region.region()));
+                    self.merge(other);
+                    self.render(ctx, clip);
+                }
+            },
             RenderNode::Extension {
                 background,
                 border,
                 node,
             } => {
-                let this_node = node.as_mut();
-                let this_border = border;
-                let this_background = background;
+                let t_node = node.as_mut();
+                let t_border = border;
+                let t_background = background;
+
                 match other {
                     RenderNode::Extension {
                         background,
                         border,
                         node,
                     } => {
-                        if background.eq(this_background) && border.eq(this_border) {
-                            let instruction = Instruction {
-                                transform: background.transform,
-                                primitive: shape.primitive.merge(background.primitive.clone()),
-                            };
-                            if let Err(region) =
-                                this_node.draw_merge(*node, ctx, &instruction, clip)
-                            {
+                        if background.eq(t_background) && border.eq(t_border) {
+                            let instruction = Instruction::new(
+                                background.transform,
+                                shape.primitive.merge(background.primitive.clone()),
+                            );
+                            if let Err(region) = t_node.draw_merge(*node, ctx, &instruction, clip) {
                                 shape.primitive.instruction(region).render(ctx, None);
                                 self.render(ctx, clip);
                             };
                         } else {
-                            let contains: bool;
-                            let merge = if let Some(rect) = this_border.as_ref() {
-                                contains = shape.contains(rect);
-                                rect.region()
-                            } else {
-                                contains = shape.contains(this_background);
-                                this_background.region()
-                            }
-                            .merge(
-                                &if let Some(rect) = border.as_ref() {
-                                    rect.region()
-                                } else {
-                                    background.region()
-                                },
-                            );
-                            this_node.merge(*node);
-                            *this_border = border;
-                            *this_background = background;
+                            let instruction = t_border.as_ref().unwrap_or(t_background);
+                            let contains = shape.contains(instruction);
+                            let merge = instruction
+                                .region()
+                                .merge(&border.as_ref().unwrap_or(&background).region());
+                            t_node.merge(*node);
+                            *t_border = border;
+                            *t_background = background;
                             if !contains {
                                 return Err(merge);
                             }
@@ -1067,34 +907,28 @@ impl RenderNode {
                         other.clear(
                             ctx,
                             &Texture::from(shape),
-                            Some(&if let Some(border) = this_border.as_ref() {
-                                border.region()
-                            } else {
-                                this_background.region()
-                            }),
+                            Some(&t_border.as_ref().unwrap_or(&t_background).region()),
                         );
                         self.merge(other);
                         self.render(ctx, clip);
                     }
                 }
             }
-            RenderNode::Clip { region, node } => {
+            RenderNode::Clip(t_region, t_node) => {
                 let previous = clip.region;
-                let this_region = region;
-                let this_node = node.as_mut();
 
                 match other {
-                    RenderNode::Clip { region, node } => {
-                        *this_region = region;
-                        clip.set_region(ctx.width(), ctx.height(), this_region.region());
-                        if let Err(region) = this_node.draw_merge(*node, ctx, shape, clip) {
+                    RenderNode::Clip(region, node) => {
+                        *t_region = region;
+                        clip.set_region(ctx.width(), ctx.height(), t_region.region());
+                        if let Err(region) = t_node.draw_merge(*node, ctx, shape, clip) {
                             clip.set_region(ctx.width(), ctx.height(), previous);
                             return Err(region);
                         }
                     }
                     RenderNode::None => {}
                     _ => {
-                        let region = this_region.region();
+                        let region = t_region.region();
                         self.clear(ctx, &Texture::from(shape), Some(&region));
                         self.merge(other);
                         self.render(ctx, clip);
@@ -1102,30 +936,6 @@ impl RenderNode {
                 }
 
                 clip.set_region(ctx.width(), ctx.height(), previous);
-            }
-            RenderNode::Draw { region, steps } => {
-                let this_region = region;
-                let this_steps = steps;
-                match other {
-                    RenderNode::Draw { region, steps } => {
-                        if !shape.contains(&region) {
-                            let err = region.region();
-                            *self = RenderNode::Draw { region, steps };
-                            return Err(err);
-                        } else if steps.ne(this_steps) {
-                            self.clear(ctx, &Texture::from(shape), Some(&region.region()));
-                            *self = RenderNode::Draw { region, steps };
-                            self.render(ctx, clip);
-                        }
-                    }
-                    RenderNode::None => {}
-                    _ => {
-                        let region = this_region.region();
-                        self.clear(ctx, &Texture::from(shape), Some(&region));
-                        self.merge(other);
-                        self.render(ctx, clip);
-                    }
-                }
             }
         }
         Ok(())
@@ -1258,9 +1068,12 @@ impl Region {
     pub fn relative_to(&self, x: f32, y: f32) -> Self {
         Region::new(self.x - x, self.y - y, self.width, self.height)
     }
-    pub fn fit(&self, other: &Self) -> bool {
+    pub fn rfit(&self, other: &Self) -> bool {
         other.x - self.x + other.width <= self.width
             && other.y - self.y + other.height <= self.height
+    }
+    pub fn fit(&self, other: &Self) -> bool {
+        other.rfit(self)
     }
     pub fn contains(&self, x: f32, y: f32) -> bool {
         self.x <= x && x - self.x < self.width && self.y <= y && y - self.y < self.height

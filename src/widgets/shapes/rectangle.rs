@@ -423,29 +423,32 @@ impl Style for Rectangle {
 
 impl<M> Widget<M> for Rectangle {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if let ShapeStyle::Background(background) = &mut self.style {
-            match background {
-                Texture::Image(coords, image) => {
-                    coords.x = transform.tx;
-                    coords.y = transform.ty;
-                    image.set_size(self.width, self.height).unwrap();
+        if transform.is_scale_translate() {
+                if let ShapeStyle::Background(background) = &mut self.style {
+                    match background {
+                        Texture::Image(coords, image) => {
+                            coords.x = transform.tx;
+                            coords.y = transform.ty;
+                            image.set_size(self.width, self.height).unwrap();
+                        }
+                        Texture::LinearGradient {
+                            start,
+                            end,
+                            angle,
+                            stops: _,
+                            mode: _,
+                        } => {
+                            start.x = transform.tx;
+                            start.y = transform.ty;
+                            end.x = transform.tx + self.width;
+                            end.y = transform.ty + self.height * angle.tan();
+                        }
+                        _ => {}
+                    }
                 }
-                Texture::LinearGradient {
-                    start,
-                    end,
-                    angle,
-                    stops: _,
-                    mode: _,
-                } => {
-                    start.x = transform.tx;
-                    start.y = transform.ty;
-                    end.x = transform.tx + self.width;
-                    end.y = transform.ty + self.height * angle.tan();
-                }
-                _ => {}
-            }
+            return Instruction::new(transform, self.clone()).into()
         }
-        Instruction::new(transform, self.clone()).into()
+        RenderNode::None
     }
     fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
         Damage::None

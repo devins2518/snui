@@ -9,8 +9,6 @@ pub struct Cache {
     pub(crate) image_cache: ImageCache,
 }
 
-use std::convert::AsRef;
-
 impl AsMut<FontCache> for Cache {
     fn as_mut(&mut self) -> &mut FontCache {
         &mut self.font_cache

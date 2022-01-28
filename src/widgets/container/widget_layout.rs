@@ -12,13 +12,36 @@ pub struct WidgetLayout<M> {
     orientation: Orientation,
 }
 
-impl<M> FromIterator<Child<M>> for WidgetLayout<M> {
-    fn from_iter<T: IntoIterator<Item = Child<M>>>(iter: T) -> Self {
+impl<M, C> FromIterator<C> for WidgetLayout<M>
+where
+    M: 'static,
+    C: Widget<M> + 'static
+{
+    fn from_iter<T: IntoIterator<Item = C>>(iter: T) -> Self {
         let mut layout = WidgetLayout::new(0.);
         for c in iter {
-            layout.widgets.push(c);
+            layout.widgets.push(Child::new(c));
         }
         layout
+    }
+}
+
+impl<M: 'static, C> Container<M, Child<M>, C> for WidgetLayout<M>
+where
+    M: 'static,
+    C: Widget<M> + 'static
+{
+    fn len(&self) -> usize {
+        self.widgets.len()
+    }
+    fn add(&mut self, widget: C) {
+        self.widgets.push(Child::new(widget));
+    }
+    fn remove(&mut self, index: usize) -> Child<M> {
+        self.widgets.remove(index)
+    }
+    fn widgets(&mut self) -> &mut [Child<M>] {
+        &mut self.widgets
     }
 }
 
@@ -59,18 +82,6 @@ impl<M> Geometry for WidgetLayout<M> {
     }
 }
 
-impl<M: 'static> Container<M> for WidgetLayout<M> {
-    fn len(&self) -> usize {
-        self.widgets.len()
-    }
-    fn add(&mut self, widget: impl Widget<M> + 'static) {
-        self.widgets.push(Child::new(widget));
-    }
-    fn remove(&mut self, index: usize) -> Child<M> {
-        self.widgets.remove(index)
-    }
-}
-
 impl<M> WidgetLayout<M> {
     pub fn new<S: Into<f32>>(spacing: S) -> Self {
         WidgetLayout {
@@ -107,10 +118,9 @@ impl<M> Widget<M> for WidgetLayout<M> {
         let orientation = self.orientation;
         let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
-        RenderNode::Container {
-            region: Instruction::new(transform, Rectangle::empty(sw, sh)),
-            nodes: self
-                .widgets
+        RenderNode::Container(
+            Instruction::new(transform, Rectangle::empty(sw, sh)),
+            self.widgets
                 .iter_mut()
                 .map(|child| {
                     let node;
@@ -141,7 +151,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                     node
                 })
                 .collect(),
-        }
+        )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
         let mut damage = Damage::None;

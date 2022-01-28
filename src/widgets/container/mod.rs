@@ -8,16 +8,21 @@ pub use layout_box::LayoutBox;
 use scene::Coords;
 pub use widget_layout::WidgetLayout;
 
-pub trait Container<M: 'static>: Geometry + FromIterator<Child<M>> {
+pub trait Container<M, W, C>: Geometry + FromIterator<C>
+where
+    W: Widget<M>,
+    C: Widget<M>
+{
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn remove(&mut self, index: usize) -> Child<M>;
-    fn add(&mut self, widget: impl Widget<M> + 'static);
-    fn pop(&mut self) -> Child<M> {
+    fn remove(&mut self, index: usize) -> W;
+    fn add(&mut self, widget: C);
+    fn pop(&mut self) -> W {
         self.remove(self.len() - 1)
     }
+    fn widgets(&mut self) -> &mut [W];
 }
 
 pub fn apply_width<M, W: Widget<M>>(

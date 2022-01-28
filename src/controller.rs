@@ -30,10 +30,8 @@ where
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControllerError {
-    Waiting,
-    Blocking,
+    None,
     Message,
-    Data,
     WrongSerial,
     PendingSerial,
     NonSerialized,
@@ -125,6 +123,6 @@ where
         Err(ControllerError::Message)
     }
     fn sync<'s>(&mut self) -> Result<M, ControllerError> {
-        Err(ControllerError::Waiting)
+        Err(ControllerError::None)
     }
 }

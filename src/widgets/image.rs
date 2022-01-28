@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::cache::RawImage;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum Scale {
     Fill,
     Fit,
