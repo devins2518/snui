@@ -1,27 +1,26 @@
-use crate::controller::TryFromArg;
-use crate::controller::*;
+use crate::data::*;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::{Rectangle, Style};
 use crate::*;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
-pub enum BooleanState {
+pub enum SwitchState {
     Activated,
     Deactivated,
 }
 
-pub struct Switch<M: TryFromArg<BooleanState>> {
+pub struct Switch<M> {
     start: bool,
     toggle: Rectangle,
     orientation: Orientation,
-    state: BooleanState,
+    state: SwitchState,
     position: f32,
     easer: Sinus,
     duration: u32,
-    message: Option<M>,
+    message: M,
 }
 
-impl<M: TryFromArg<BooleanState>> Geometry for Switch<M> {
+impl<M> Geometry for Switch<M> {
     fn width(&self) -> f32 {
         if let Orientation::Horizontal = self.orientation {
             self.toggle.width() * 2.
@@ -52,7 +51,11 @@ impl<M: TryFromArg<BooleanState>> Geometry for Switch<M> {
     }
 }
 
-impl<M: TryFromArg<BooleanState>> Widget<M> for Switch<M> {
+impl<M, D> Widget<D> for Switch<M>
+where
+    M: Clone + Copy,
+    D: Message<M, bool, bool>,
+{
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let transform = match self.orientation {
             Orientation::Horizontal => transform.pre_translate(self.position, 0.),
@@ -60,7 +63,7 @@ impl<M: TryFromArg<BooleanState>> Widget<M> for Switch<M> {
         };
         Widget::<()>::create_node(&mut self.toggle, transform)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
                 if self.contains(x, y) {
@@ -73,25 +76,23 @@ impl<M: TryFromArg<BooleanState>> Widget<M> for Switch<M> {
                             if button.is_left() && pressed {
                                 self.start = true;
                                 let state = match self.state {
-                                    BooleanState::Activated => {
+                                    SwitchState::Activated => {
                                         self.easer =
                                             Sinus::new(0.5, 1., self.width() - self.toggle.width());
-                                        BooleanState::Deactivated
+                                        SwitchState::Deactivated
                                     }
-                                    BooleanState::Deactivated => {
+                                    SwitchState::Deactivated => {
                                         self.easer =
                                             Sinus::new(0., 0.5, self.width() - self.toggle.width());
-                                        BooleanState::Activated
+                                        SwitchState::Activated
                                     }
                                 };
-                                if let Some(msg) = self.message.as_ref() {
-                                    if let Ok(msg) = msg.try_from_arg(state) {
-                                        if ctx.send(msg).is_ok() {
-                                            self.state = state;
-                                            return Damage::Frame;
-                                        }
-                                    }
-                                }
+                                self.state = state;
+                                match self.state {
+                                    SwitchState::Activated => ctx.send(self.message, true),
+                                    SwitchState::Deactivated => ctx.send(self.message, false),
+                                };
+                                return Damage::Frame;
                             }
                         }
                         _ => {}
@@ -120,37 +121,36 @@ impl<M: TryFromArg<BooleanState>> Widget<M> for Switch<M> {
     }
 }
 
-impl<M: TryFromArg<BooleanState>> Default for Switch<M> {
-    fn default() -> Self {
+impl<M> Switch<M> {
+    pub fn new(message: M) -> Self {
         Self {
             start: false,
             position: 0.,
             toggle: Rectangle::empty(20., 20.).background(style::BG2),
             easer: Sinus::new(0., 0.5, 20.),
             orientation: Orientation::Horizontal,
-            message: None,
+            message,
             duration: 500,
-            state: BooleanState::Deactivated,
+            state: SwitchState::Deactivated,
         }
     }
-}
-
-impl<M: TryFromArg<BooleanState>> Switch<M> {
     // Time in ms
     pub fn duration(mut self, duration: u32) -> Self {
         self.duration = duration;
         self
     }
     pub fn message(mut self, message: M) -> Self {
-        self.message = Some(message);
+        self.message = message;
         self
     }
-    pub fn state(&self) -> BooleanState {
+    pub fn state(&self) -> SwitchState {
         self.state
     }
 }
 
-impl<M: TryFromArg<BooleanState>> Style for Switch<M> {
+impl<M> Switch<M> {}
+
+impl<M> Style for Switch<M> {
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.toggle.set_background(background);
     }

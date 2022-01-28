@@ -27,7 +27,7 @@ impl Geometry for Close {
     }
 }
 
-impl<M> Widget<M> for Close {
+impl<D> Widget<D> for Close {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let mut canvas = self.create_canvas(transform);
 
@@ -47,7 +47,7 @@ impl<M> Widget<M> for Close {
 
         canvas.finish()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if let Pointer::MouseClick {
                 serial: _,
@@ -80,7 +80,7 @@ impl Geometry for Maximize {
     }
 }
 
-impl<M> Widget<M> for Maximize {
+impl<D> Widget<D> for Maximize {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         if self.maximized {
             Instruction {
@@ -107,7 +107,7 @@ impl<M> Widget<M> for Maximize {
             .into()
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
                 if let Pointer::MouseClick {
@@ -146,7 +146,7 @@ impl Geometry for Minimize {
     }
 }
 
-impl<M> Widget<M> for Minimize {
+impl<D> Widget<D> for Minimize {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let mut canvas = self.create_canvas(transform);
 
@@ -166,7 +166,7 @@ impl<M> Widget<M> for Minimize {
 
         canvas.finish()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if let Pointer::MouseClick {
                 serial: _,
@@ -185,11 +185,11 @@ impl<M> Widget<M> for Minimize {
     }
 }
 
-fn wm_button<M>() -> impl Widget<M>
+fn wm_button<D>() -> impl Widget<D>
 where
-    M: 'static,
+    D: 'static,
 {
-    let mut l = WidgetLayout::new(15.);
+    let mut l = WidgetLayout::default().spacing(15.);
     l.add(Minimize {});
     l.add(Maximize { maximized: false });
     l.add(Close {});
@@ -197,22 +197,18 @@ where
     l
 }
 
-fn headerbar<M: 'static>(widget: impl Widget<M> + 'static) -> impl Widget<M> {
+fn headerbar<D: 'static>(widget: impl Widget<D> + 'static) -> impl Widget<D> {
     let mut l = LayoutBox::new();
     l.add(widget.clamp().anchor(START, CENTER));
     l.add(wm_button().clamp().anchor(END, CENTER));
     l
 }
 
-pub struct Window<M, H, W>
-where
-    H: Widget<M> + Style,
-    W: Widget<M> + Style,
-{
+pub struct Window<H, W> {
     activated: bool,
     positioned: bool,
     /// Top window decoration
-    header: Header<M, H>,
+    header: Header<H>,
     /// The position of the window
     coords: Coords,
     /// The window's content
@@ -223,13 +219,12 @@ where
     radius: (f32, f32, f32, f32),
     /// Alternative background of the decoration
     alternate: Option<Texture>,
-    _message: std::marker::PhantomData<M>,
 }
 
-impl<M, H, W> Window<M, H, W>
+impl<H, W> Window<H, W>
 where
-    H: Widget<M> + Style,
-    W: Widget<M> + Style,
+    H: Style,
+    W: Style,
 {
     pub fn set_alternate_background<B: Into<Texture>>(&mut self, background: B) {
         self.alternate = Some(background.into());
@@ -240,10 +235,10 @@ where
     }
 }
 
-impl<M, H, W> Geometry for Window<M, H, W>
+impl<H, W> Geometry for Window<H, W>
 where
-    H: Widget<M> + Style,
-    W: Widget<M> + Style,
+    H: Geometry,
+    W: Geometry,
 {
     fn width(&self) -> f32 {
         self.header.width()
@@ -271,10 +266,10 @@ where
     }
 }
 
-impl<M, H, W> Widget<M> for Window<M, H, W>
+impl<D, H, W> Widget<D> for Window<H, W>
 where
-    H: Widget<M> + Style,
-    W: Widget<M> + Style,
+    H: Widget<D> + Style,
+    W: Widget<D> + Style,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let h = self.header.create_node(transform);
@@ -295,7 +290,7 @@ where
             vec![h, c],
         )
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => self
                 .header
@@ -356,10 +351,10 @@ where
     }
 }
 
-impl<M, H, W> Style for Window<M, H, W>
+impl<H, W> Style for Window<H, W>
 where
-    H: Widget<M> + Style,
-    W: Widget<M> + Style,
+    H: Style,
+    W: Style,
 {
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.background = background.into();
@@ -385,52 +380,37 @@ where
     }
 }
 
-impl<M, H, W> Deref for Window<M, H, W>
-where
-    H: Widget<M> + Style,
-    W: Widget<M> + Style,
-{
+impl<H, W> Deref for Window<H, W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.body
     }
 }
 
-impl<M, H, W> DerefMut for Window<M, H, W>
-where
-    H: Widget<M> + Style,
-    W: Widget<M> + Style,
-{
+impl<H, W> DerefMut for Window<H, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.body
     }
 }
 
-impl<M, W> Deref for Header<M, W>
-where
-    W: Widget<M> + Style,
-{
+impl<W> Deref for Header<W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.widget
     }
 }
 
-impl<M, W> DerefMut for Header<M, W>
-where
-    W: Widget<M> + Style,
-{
+impl<W> DerefMut for Header<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.widget
     }
 }
 
-struct Header<M, W: Widget<M>> {
+struct Header<W> {
     widget: W,
-    _message: std::marker::PhantomData<M>,
 }
 
-impl<M, W: Widget<M>> Geometry for Header<M, W> {
+impl<W: Geometry> Geometry for Header<W> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -445,11 +425,11 @@ impl<M, W: Widget<M>> Geometry for Header<M, W> {
     }
 }
 
-impl<M, W: Widget<M>> Widget<M> for Header<M, W> {
+impl<D, W: Widget<D>> Widget<D> for Header<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         self.widget.create_node(transform)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
                 if self.contains(x, y) {
@@ -475,20 +455,19 @@ impl<M, W: Widget<M>> Widget<M> for Header<M, W> {
     }
 }
 
-pub fn default_window<M, W>(
-    header: impl Widget<M> + 'static,
+pub fn default_window<D, W>(
+    header: impl Widget<D> + 'static,
     widget: W,
-) -> Window<M, impl Widget<M> + Style, W>
+) -> Window<impl Widget<D> + Style, W>
 where
-    M: 'static,
-    W: Widget<M> + Style,
+    D: 'static,
+    W: Widget<D> + Style,
 {
     let header = Header {
         widget: headerbar(header)
             .ext()
             .background(style::BG2)
             .even_padding(10.),
-        _message: std::marker::PhantomData,
     };
 
     Window {
@@ -500,6 +479,5 @@ where
         background: style::BG2.into(),
         alternate: None,
         coords: Coords::default(),
-        _message: std::marker::PhantomData,
     }
 }

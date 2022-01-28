@@ -267,34 +267,34 @@ impl Texture {
 pub enum PrimitiveType {
     Label(Label),
     Rectangle(Rectangle),
-    Other (Box<dyn Primitive>),
+    Other(Box<dyn Primitive>),
 }
 
 impl Geometry for PrimitiveType {
     fn width(&self) -> f32 {
         match self {
-            Self::Other ( primitive ) => primitive.width(),
+            Self::Other(primitive) => primitive.width(),
             Self::Label(l) => l.width(),
             Self::Rectangle(r) => r.width(),
         }
     }
     fn height(&self) -> f32 {
         match self {
-            Self::Other ( primitive, ) => primitive.height(),
+            Self::Other(primitive) => primitive.height(),
             Self::Label(l) => l.height(),
             Self::Rectangle(r) => r.height(),
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         match self {
-            Self::Other ( primitive, ) => primitive.set_height(height),
+            Self::Other(primitive) => primitive.set_height(height),
             Self::Label(l) => l.set_height(height),
             Self::Rectangle(r) => r.set_height(height),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         match self {
-            Self::Other ( primitive, ) => primitive.set_width(width),
+            Self::Other(primitive) => primitive.set_width(width),
             Self::Label(l) => l.set_width(width),
             Self::Rectangle(r) => r.set_width(width),
         }
@@ -306,7 +306,7 @@ impl Clone for PrimitiveType {
         match self {
             Self::Label(label) => label.clone().into(),
             Self::Rectangle(rect) => rect.primitive_type(),
-            Self::Other ( primitive ) => primitive.primitive_type(),
+            Self::Other(primitive) => primitive.primitive_type(),
         }
     }
 }
@@ -316,9 +316,7 @@ impl Primitive for PrimitiveType {
         match self {
             Self::Rectangle(rectangle) => rectangle.get_texture(),
             Self::Label(_) => Texture::Transparent,
-            Self::Other (
-                primitive,
-            ) => primitive.get_texture(),
+            Self::Other(primitive) => primitive.get_texture(),
         }
     }
     fn apply_texture(&self, background: Texture) -> Self {
@@ -327,9 +325,7 @@ impl Primitive for PrimitiveType {
             Self::Label(_) => Rectangle::empty(self.width(), self.height())
                 .background(background)
                 .into(),
-            Self::Other (
-                primitive,
-            ) => primitive.apply_texture(background),
+            Self::Other(primitive) => primitive.apply_texture(background),
         }
     }
     fn contains(&self, region: &Region) -> bool {
@@ -348,9 +344,7 @@ impl Primitive for PrimitiveType {
         match self {
             Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
             Self::Label(l) => ctx.draw_label(l, transform.tx, transform.ty),
-            Self::Other (
-                primitive,
-            ) => primitive.draw_with_transform_clip(ctx, transform, clip),
+            Self::Other(primitive) => primitive.draw_with_transform_clip(ctx, transform, clip),
         }
     }
     fn primitive_type(&self) -> scene::PrimitiveType {
@@ -371,13 +365,8 @@ impl PartialEq for PrimitiveType {
                     return s.eq(o);
                 }
             }
-            PrimitiveType::Other (
-                t_primitive,
-            ) => {
-                if let PrimitiveType::Other (
-                    primitive,
-                ) = other
-                {
+            PrimitiveType::Other(t_primitive) => {
+                if let PrimitiveType::Other(primitive) = other {
                     return primitive.as_ref().same(&*t_primitive);
                 }
             }
@@ -429,9 +418,7 @@ impl Instruction {
         transform.ty = transform.ty.round();
         Instruction {
             transform,
-            primitive: PrimitiveType::Other (
-                Box::new(primitive),
-            ),
+            primitive: PrimitiveType::Other(Box::new(primitive)),
         }
     }
     pub fn new<P: Into<PrimitiveType>>(mut transform: Transform, primitive: P) -> Instruction {
@@ -470,9 +457,7 @@ impl Instruction {
 impl Instruction {
     fn render(&self, ctx: &mut DrawContext, clip: Option<&ClipMask>) {
         match &self.primitive {
-            PrimitiveType::Other (
-                primitive,
-            ) => {
+            PrimitiveType::Other(primitive) => {
                 primitive.draw_with_transform_clip(ctx, self.transform, clip);
             }
             PrimitiveType::Rectangle(r) => {
@@ -501,18 +486,14 @@ impl Geometry for Instruction {
         match &self.primitive {
             PrimitiveType::Rectangle(r) => r.width(),
             PrimitiveType::Label(l) => l.width(),
-            PrimitiveType::Other (
-                primitive,
-            ) => primitive.width(),
+            PrimitiveType::Other(primitive) => primitive.width(),
         }
     }
     fn height(&self) -> f32 {
         match &self.primitive {
             PrimitiveType::Rectangle(r) => r.height(),
             PrimitiveType::Label(l) => l.height(),
-            PrimitiveType::Other (
-                primitive,
-            ) => primitive.height(),
+            PrimitiveType::Other(primitive) => primitive.height(),
         }
     }
 }
@@ -806,11 +787,7 @@ impl RenderNode {
                     if b.ne(a) {
                         let r = b.region();
                         if shape.contains(b) {
-                            ctx.damage_region(
-                                &Texture::from(shape),
-                                a.region().merge(&r),
-                                false
-                            );
+                            ctx.damage_region(&Texture::from(shape), a.region().merge(&r), false);
                             b.render(ctx, clip.clipmask());
                             *self = other;
                         } else {

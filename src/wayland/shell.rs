@@ -1,6 +1,6 @@
 use crate::cache::*;
 use crate::context::DrawContext;
-use crate::controller::Controller;
+use crate::data::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
@@ -40,35 +40,22 @@ use smithay_client_toolkit::shm::pool::multi::MultiPool;
 use smithay_client_toolkit::shm::pool::raw::RawPool;
 use smithay_client_toolkit::shm::pool::{AsPool, PoolHandle};
 
-pub struct WaylandClient<M, C>
+pub struct WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     cache: Cache,
-    focus: Option<usize>,
+    current: Option<usize>,
     connection: Connection,
-    event_buffer: Event<'static, ()>,
+    event_buffer: Event<'static>,
     globals: Rc<RefCell<GlobalManager>>,
-    applications: Vec<Application<M, C>>,
+    applications: Vec<Application<D>>,
     pool: Option<MultiPool<wl_surface::WlSurface>>,
 }
 
-fn convert_event<'d, M>(event: Event<'static, ()>) -> Option<Event<'d, M>> {
-    match event {
-        Event::Callback(ft) => Some(Event::Callback(ft)),
-        Event::Configure(state) => Some(Event::Configure(state)),
-        Event::Prepare => Some(Event::Prepare),
-        Event::Pointer(x, y, p) => Some(Event::Pointer(x, y, p)),
-        Event::Keyboard(k) => Some(Event::Keyboard(k)),
-        Event::Message(_) => None,
-    }
-}
-
-impl<M, C> WaylandClient<M, C>
+impl<D> WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone,
+    D: Data + Clone,
 {
     pub fn new() -> Option<(Self, EventQueue<Self>)> {
         let conn = Connection::connect_to_env().ok()?;
@@ -82,7 +69,7 @@ where
             .ok()?;
 
         let mut wl_client = Self {
-            focus: None,
+            current: None,
             pool: None,
             cache: Cache::default(),
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
@@ -98,30 +85,28 @@ where
         Some((wl_client, event_queue))
     }
     fn flush_ev_buffer(&mut self, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
-        if let Some(i) = self.focus {
-            if let Some(event) = convert_event(self.event_buffer) {
-                // Forward the event to the Application
-                self.applications[i].update_scene(
-                    self.pool.as_mut().unwrap(),
-                    &mut self.cache,
-                    event,
-                    conn,
-                    qh,
-                );
-                if !self.applications[i].state.configured {
-                    self.focus = None;
-                    self.event_buffer = Event::default();
-                    let application = self.applications.remove(i);
-                    self.pool
-                        .as_mut()
-                        .unwrap()
-                        .remove(&application.surface.wl_surface);
-                }
+        if let Some(i) = self.current {
+            // Forward the event to the Application
+            self.applications[i].update_scene(
+                self.pool.as_mut().unwrap(),
+                &mut self.cache,
+                self.event_buffer,
+                conn,
+                qh,
+            );
+            if !self.applications[i].state.configured {
+                self.current = None;
+                self.event_buffer = Event::default();
+                let application = self.applications.remove(i);
+                self.pool
+                    .as_mut()
+                    .unwrap()
+                    .remove(&application.surface.wl_surface);
             }
         }
     }
-    pub fn fwd_event(&mut self, event: Event<M>, qh: &QueueHandle<Self>) {
-        if let Some(i) = self.focus {
+    pub fn fwd_event(&mut self, event: Event, qh: &QueueHandle<Self>) {
+        if let Some(i) = self.current {
             self.applications[i].update_scene(
                 self.pool.as_mut().unwrap(),
                 &mut self.cache,
@@ -130,7 +115,7 @@ where
                 qh,
             );
             if !self.applications[i].state.configured {
-                self.focus = None;
+                self.current = None;
                 let application = self.applications.remove(i);
                 self.pool
                     .as_mut()
@@ -141,15 +126,15 @@ where
     }
     pub fn new_window(
         &mut self,
-        controller: C,
-        widget: impl Widget<M> + 'static,
+        data: D,
+        widget: impl Widget<D> + 'static,
         qh: &QueueHandle<Self>,
     ) {
         let mut conn = self.connection.handle();
         let surface = self.globals.borrow().create_xdg_surface(&mut conn, qh);
         let mut application = Application {
             state: State::default(),
-            controller,
+            data,
             globals: self.globals.clone(),
             widget: Box::new(widget),
             clipmask: ClipMask::new(),
@@ -162,8 +147,8 @@ where
     }
     pub fn new_widget(
         &mut self,
-        controller: C,
-        widget: impl Widget<M> + 'static,
+        data: D,
+        widget: impl Widget<D> + 'static,
         config: LayerShellConfig,
         qh: &QueueHandle<Self>,
     ) {
@@ -174,7 +159,7 @@ where
             .create_layer_surface(&mut conn, config, qh);
         let mut application = Application {
             state: State::default(),
-            controller,
+            data,
             globals: self.globals.clone(),
             clipmask: ClipMask::new(),
             widget: Box::new(widget),
@@ -193,24 +178,23 @@ where
     }
 }
 
-impl<M, C> Drop for WaylandClient<M, C>
+impl<D> Drop for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone,
+    D: Data + Clone,
 {
     fn drop(&mut self) {
         self.globals.borrow().destroy(&mut self.connection.handle())
     }
 }
 
-pub struct Application<M, C>
+pub struct Application<D>
 where
-    C: Controller<M>,
+    D: Data,
 {
     state: State,
-    controller: C,
+    data: D,
     surface: Surface,
-    widget: Box<dyn Widget<M>>,
+    widget: Box<dyn Widget<D>>,
     clipmask: ClipMask,
     globals: Rc<RefCell<GlobalManager>>,
 }
@@ -237,9 +221,9 @@ impl Default for State {
     }
 }
 
-impl<M, C> Application<M, C>
+impl<D> Application<D>
 where
-    C: Controller<M>,
+    D: Data,
 {
     fn eq_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         self.surface.wl_surface.eq(surface)
@@ -258,22 +242,21 @@ where
     }
 }
 
-impl<M, C> Application<M, C>
+impl<D> Application<D>
 where
-    M: 'static,
-    C: Controller<M> + std::clone::Clone,
+    D: Data + std::clone::Clone,
 {
-    fn sync(&mut self, conn: &mut ConnectionHandle, cache: &mut Cache, event: Event<M>) -> Damage {
+    fn sync(&mut self, conn: &mut ConnectionHandle, cache: &mut Cache, event: Event) -> Damage {
         let mut damage = if event.is_configure() {
             Damage::Partial
         } else {
             Damage::None
         };
-        let mut ctx = SyncContext::new(&mut self.controller, cache);
+        let mut ctx = SyncContext::new(&mut self.data, cache);
         damage = damage.max(self.widget.sync(&mut ctx, event));
 
-        while let Ok(msg) = ctx.sync() {
-            damage = damage.max(self.widget.sync(&mut ctx, Event::Message(&msg)));
+        while ctx.sync() {
+            damage = damage.max(self.widget.sync(&mut ctx, Event::Sync));
         }
 
         if let Some(request) = take(&mut ctx.window_request) {
@@ -343,9 +326,9 @@ where
         &mut self,
         pool: &mut MultiPool<wl_surface::WlSurface>,
         cache: &mut Cache,
-        event: Event<M>,
+        event: Event,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<M, C>>,
+        qh: &QueueHandle<WaylandClient<D>>,
     ) {
         let scale = if let Some(output) = &self.surface.output {
             output.scale
@@ -391,7 +374,7 @@ where
         scale: i32,
         damage: Damage,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<M, C>>,
+        qh: &QueueHandle<WaylandClient<D>>,
     ) {
         let surface = &mut self.surface;
         let width = self.widget.width() * scale as f32;
@@ -407,48 +390,45 @@ where
         ) {
             surface.replace_buffer(wl_buffer);
             let mut v = Vec::new();
-            let mut ctx = DrawContext::new(backend, cache, &mut v);
             let region = Region::new(0., 0., width, height);
+            let mut ctx = DrawContext::new(backend, cache, &mut v);
+
             if offset != self.state.offset {
                 self.state.offset = offset;
                 self.state.render_node.merge(render_node);
                 ctx.damage_region(&Texture::Transparent, region, false);
-                self.state.render_node.render(
-                    &mut ctx,
-                    &mut ClipRegion::new(region, None),
-                );
+                self.state
+                    .render_node
+                    .render(&mut ctx, &mut ClipRegion::new(region, None));
             } else {
                 if let Err(region) = self.state.render_node.draw_merge(
                     render_node,
                     &mut ctx,
                     &Instruction::empty(0., 0., width, height),
-                    &mut ClipRegion::new(
-                        region,
-                        Some(&mut self.clipmask),
-                    ),
+                    &mut ClipRegion::new(region, Some(&mut self.clipmask)),
                 ) {
                     ctx.damage_region(&Texture::Transparent, region, false);
-                    self.state.render_node.render(
-                        &mut ctx,
-                        &mut ClipRegion::new(region, None),
-                    );
+                    self.state
+                        .render_node
+                        .render(&mut ctx, &mut ClipRegion::new(region, None));
                 }
             }
+
             surface.damage(conn, &v, scale);
             surface.commit(conn);
-        } else if !self.state.pending_cb
-        	&& surface.frame(conn, qh, ()).is_ok() {
+        } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
             surface.wl_surface.commit(conn);
             self.state.pending_cb = true;
+        // If this is a case it means the callback failed so pending_cb callback should be reset
         } else if let Damage::Frame = damage {
             self.state.pending_cb = false;
         }
     }
 }
 
-impl<M, C> Geometry for Application<M, C>
+impl<D> Geometry for Application<D>
 where
-    C: Controller<M>,
+    D: Data,
 {
     fn height(&self) -> f32 {
         self.widget.height()
@@ -473,14 +453,13 @@ where
 }
 
 impl GlobalManager {
-    fn create_xdg_surface<M, C>(
+    fn create_xdg_surface<D>(
         &self,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<M, C>>,
+        qh: &QueueHandle<WaylandClient<D>>,
     ) -> Option<Surface>
     where
-        M: 'static,
-        C: Controller<M> + Clone,
+        D: Data + Clone,
     {
         let wm_base = self.wm_base.as_ref()?;
         let compositor = self.compositor.as_ref()?;
@@ -505,15 +484,14 @@ impl GlobalManager {
             None,
         ))
     }
-    fn create_layer_surface<M, C>(
+    fn create_layer_surface<D>(
         &self,
         conn: &mut ConnectionHandle,
         config: LayerShellConfig,
-        qh: &QueueHandle<WaylandClient<M, C>>,
+        qh: &QueueHandle<WaylandClient<D>>,
     ) -> Option<Surface>
     where
-        M: 'static,
-        C: Controller<M> + Clone,
+        D: Data + Clone,
     {
         let layer_shell = self.layer_shell.as_ref()?;
         let compositor = self.compositor.as_ref()?;
@@ -621,10 +599,9 @@ impl Deref for Surface {
     }
 }
 
-impl<M, C> Dispatch<wl_registry::WlRegistry> for WaylandClient<M, C>
+impl<D> Dispatch<wl_registry::WlRegistry> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -685,20 +662,18 @@ where
     }
 }
 
-impl<M, C> AsPool<MultiPool<wl_surface::WlSurface>> for WaylandClient<M, C>
+impl<D> AsPool<MultiPool<wl_surface::WlSurface>> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     fn pool_handle(&self) -> PoolHandle<MultiPool<wl_surface::WlSurface>> {
         PoolHandle::Ref(self.pool.as_ref().unwrap())
     }
 }
 
-impl<M, C> Dispatch<wl_buffer::WlBuffer> for WaylandClient<M, C>
+impl<D> Dispatch<wl_buffer::WlBuffer> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -716,10 +691,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_compositor::WlCompositor> for WaylandClient<M, C>
+impl<D> Dispatch<wl_compositor::WlCompositor> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -735,10 +709,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_shm_pool::WlShmPool> for WaylandClient<M, C>
+impl<D> Dispatch<wl_shm_pool::WlShmPool> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -754,10 +727,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_subcompositor::WlSubcompositor> for WaylandClient<M, C>
+impl<D> Dispatch<wl_subcompositor::WlSubcompositor> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -773,10 +745,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_surface::WlSurface> for WaylandClient<M, C>
+impl<D> Dispatch<wl_surface::WlSurface> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -804,7 +775,7 @@ where
                     .enumerate()
                     .find(|a| a.1.eq_surface(&surface))
                 {
-                    self.focus = Some(i);
+                    self.current = Some(i);
                     application.surface.output = Some(output.clone());
                     application.state.render_node = RenderNode::None;
                     application.update_scene(
@@ -820,10 +791,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_callback::WlCallback> for WaylandClient<M, C>
+impl<D> Dispatch<wl_callback::WlCallback> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -903,10 +873,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_subsurface::WlSubsurface> for WaylandClient<M, C>
+impl<D> Dispatch<wl_subsurface::WlSubsurface> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -922,10 +891,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_region::WlRegion> for WaylandClient<M, C>
+impl<D> Dispatch<wl_region::WlRegion> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -957,10 +925,9 @@ impl From<xdg_toplevel::State> for WindowState {
     }
 }
 
-impl<M, C> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<M, C>
+impl<D> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -999,7 +966,7 @@ where
                             }
                         }
                     }
-                    let mut ctx = SyncContext::new(&mut application.controller, &mut self.cache);
+                    let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
                     // TO-DO
                     // Convert xdg_toplevel.state to WindowState
                     application
@@ -1008,7 +975,7 @@ where
                 }
                 xdg_toplevel::Event::Close => {
                     application.surface.destroy(conn);
-                    self.focus = None;
+                    self.current = None;
                     let application = self.applications.remove(i);
                     self.pool
                         .as_mut()
@@ -1041,10 +1008,9 @@ fn list_states(states: Vec<u8>) -> Vec<WindowState> {
         .collect()
 }
 
-impl<M, C> Dispatch<wl_shm::WlShm> for WaylandClient<M, C>
+impl<D> Dispatch<wl_shm::WlShm> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1060,10 +1026,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<xdg_wm_base::XdgWmBase> for WaylandClient<M, C>
+impl<D> Dispatch<xdg_wm_base::XdgWmBase> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1081,10 +1046,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<xdg_surface::XdgSurface> for WaylandClient<M, C>
+impl<D> Dispatch<xdg_surface::XdgSurface> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1118,10 +1082,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1> for WaylandClient<M, C>
+impl<D> Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1177,10 +1140,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1> for WaylandClient<M, C>
+impl<D> Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1196,10 +1158,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_seat::WlSeat> for WaylandClient<M, C>
+impl<D> Dispatch<wl_seat::WlSeat> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1242,10 +1203,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_pointer::WlPointer> for WaylandClient<M, C>
+impl<D> Dispatch<wl_pointer::WlPointer> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1257,7 +1217,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<Self>,
     ) {
-        if self.focus.is_some() {
+        if self.current.is_some() {
             match event {
                 wl_pointer::Event::Button {
                     serial,
@@ -1326,19 +1286,19 @@ where
                         *p = Pointer::Leave;
                     }
                     self.flush_ev_buffer(conn, qh);
-                    self.focus = None;
+                    self.current = None;
                 }
                 _ => {}
             }
         } else {
             match event {
                 wl_pointer::Event::Enter { ref surface, .. } => {
-                    self.focus = (0..self.applications.len())
+                    self.current = (0..self.applications.len())
                         .find(|i| self.applications[*i].eq_surface(surface));
                     self.event(pointer, event, data, conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {
-                    self.focus = None;
+                    self.current = None;
                 }
                 _ => {}
             }
@@ -1346,10 +1306,9 @@ where
     }
 }
 
-impl<M, C> Dispatch<wl_output::WlOutput> for WaylandClient<M, C>
+impl<D> Dispatch<wl_output::WlOutput> for WaylandClient<D>
 where
-    M: 'static,
-    C: Controller<M> + Clone + 'static,
+    D: Data + Clone + 'static,
 {
     type UserData = ();
 

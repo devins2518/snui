@@ -4,57 +4,13 @@ use crate::widgets::*;
 use crate::*;
 use scene::Instruction;
 
-pub struct CenterBox<M> {
+pub struct CenterBox<W> {
     size: (f32, f32),
     orientation: Orientation,
-    widgets: [WidgetBox<M, Child<M>>; 3],
+    widgets: [WidgetBox<Positioner<Proxy<W>>>; 3],
 }
 
-impl<M, C> FromIterator<C> for CenterBox<M> 
-where
-    M: 'static,
-    C: Widget<M> + 'static
-{
-    fn from_iter<T: IntoIterator<Item = C>>(iter: T) -> Self {
-        let mut centerbox = CenterBox::new();
-        let mut i = 0;
-        for c in iter {
-            if i < 3 {
-                centerbox.widgets[i] = c.child().clamp();
-            } else {
-                break;
-            }
-            i += 1;
-        }
-        centerbox
-    }
-}
-
-impl<M, C> Container<M, WidgetBox<M, Child<M>>, C> for CenterBox<M>
-where
-    M: 'static,
-    C: Widget<M> + 'static
-{
-    fn len(&self) -> usize {
-        self.widgets.len()
-    }
-    fn add(&mut self, widget: C) {
-        for wbox in self.widgets.iter_mut() {
-            if wbox.width() == 0. && wbox.height() == 0. {
-                wbox.widget.widget = Box::new(widget);
-                break;
-            }
-        }
-    }
-    fn remove(&mut self, index: usize) -> WidgetBox<M, Child<M>> {
-        std::mem::replace(&mut self.widgets[index], Child::new(()).clamp())
-    }
-    fn widgets(&mut self) -> &mut [WidgetBox<M, Child<M>>] {
-        &mut self.widgets
-    }
-}
-
-impl<M> Geometry for CenterBox<M> {
+impl<W: Geometry> Geometry for CenterBox<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width != self.size.0 {
             let size = (width / self.widgets.len() as f32).ceil();
@@ -121,7 +77,7 @@ impl<M> Geometry for CenterBox<M> {
     }
 }
 
-impl<M> Widget<M> for CenterBox<M> {
+impl<D, W: Widget<D>> Widget<D> for CenterBox<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -131,19 +87,19 @@ impl<M> Widget<M> for CenterBox<M> {
             Instruction::new(transform, Rectangle::empty(sw, sh)),
             self.widgets
                 .iter_mut()
-                .map(|wbox| {
+                .map(|widget| {
                     let node;
-                    wbox.widget.coords = Coords::new(dx, dy);
+                    widget.set_coords(dx, dy);
                     match self.orientation {
                         Orientation::Horizontal => {
-                            let _ = wbox.set_height(sh);
-                            node = wbox.create_node(transform);
-                            dx += wbox.width();
+                            let _ = widget.set_height(sh);
+                            node = widget.create_node(transform);
+                            dx += widget.width();
                         }
                         Orientation::Vertical => {
-                            let _ = wbox.set_width(sw);
-                            node = wbox.create_node(transform);
-                            dy += wbox.height();
+                            let _ = widget.set_width(sw);
+                            node = widget.create_node(transform);
+                            dy += widget.height();
                         }
                     }
                     node
@@ -151,7 +107,7 @@ impl<M> Widget<M> for CenterBox<M> {
                 .collect(),
         )
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         let mut damage = Damage::None;
         for wbox in self.widgets.iter_mut() {
             damage = damage.max(wbox.sync(ctx, event));
@@ -160,29 +116,14 @@ impl<M> Widget<M> for CenterBox<M> {
     }
 }
 
-impl<M: 'static> CenterBox<M> {
-    pub fn from(
-        first: impl Widget<M> + 'static,
-        second: impl Widget<M> + 'static,
-        third: impl Widget<M> + 'static,
-    ) -> Self {
+impl<W> CenterBox<W> {
+    pub fn from(first: W, second: W, third: W) -> Self {
         Self {
             size: (0., 0.),
             widgets: [
-                Child::new(first).clamp().anchor(START, CENTER),
-                Child::new(second).clamp().anchor(CENTER, CENTER),
-                Child::new(third).clamp().anchor(END, CENTER),
-            ],
-            orientation: Orientation::Horizontal,
-        }
-    }
-    pub fn new() -> Self {
-        Self {
-            size: (0., 0.),
-            widgets: [
-                Child::new(Spacer::default()).clamp().anchor(START, CENTER),
-                Child::new(Spacer::default()).clamp().anchor(CENTER, CENTER),
-                Child::new(Spacer::default()).clamp().anchor(END, CENTER),
+                WidgetBox::new(Positioner::new(Proxy::new(first))).anchor(START, CENTER),
+                WidgetBox::new(Positioner::new(Proxy::new(second))).anchor(CENTER, CENTER),
+                WidgetBox::new(Positioner::new(Proxy::new(third))).anchor(END, CENTER),
             ],
             orientation: Orientation::Horizontal,
         }

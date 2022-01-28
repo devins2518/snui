@@ -1,9 +1,7 @@
 use crate::cache::*;
 use crate::*;
-use controller::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
-use tiny_skia::*;
 use widgets::text::Label;
 use widgets::window::WindowRequest;
 
@@ -16,7 +14,7 @@ pub(crate) mod canvas {
     // Helper to draw using the retained mode API
     pub struct Canvas {
         transform: Transform,
-        inner: InnerCanvas
+        inner: InnerCanvas,
     }
 
     #[derive(Clone, PartialEq)]
@@ -61,20 +59,16 @@ pub(crate) mod canvas {
             }
         }
         pub fn draw<P: Into<PrimitiveType>>(&mut self, transform: Transform, p: P) {
-            self.inner.steps.push(
-                Instruction {
-                    transform,
-                    primitive: p.into(),
-                }
-            )
+            self.inner.steps.push(Instruction {
+                transform,
+                primitive: p.into(),
+            })
         }
         pub fn draw_at<P: Into<PrimitiveType>>(&mut self, x: f32, y: f32, p: P) {
-            self.inner.steps.push(
-                Instruction {
-                    transform: Transform::from_translate(x, y),
-                    primitive: p.into(),
-                }
-            )
+            self.inner.steps.push(Instruction {
+                transform: Transform::from_translate(x, y),
+                primitive: p.into(),
+            })
         }
         pub fn draw_rectangle<B: Into<Texture>>(
             &mut self,
@@ -84,12 +78,10 @@ pub(crate) mod canvas {
             texture: B,
         ) {
             let rect = Rectangle::empty(width, height).background(texture);
-            self.inner.steps.push(
-                Instruction {
-                    transform,
-                    primitive: rect.into(),
-                }
-            )
+            self.inner.steps.push(Instruction {
+                transform,
+                primitive: rect.into(),
+            })
         }
         pub fn draw_at_angle<P: Into<PrimitiveType> + Primitive>(
             &mut self,
@@ -101,16 +93,10 @@ pub(crate) mod canvas {
             let w = p.width();
             let h = p.height();
             let transform = Transform::from_translate(x, y);
-            self.steps.push(
-                Instruction {
-                    transform: transform.pre_concat(Transform::from_rotate_at(
-                        angle,
-                        w / 2.,
-                        h / 2.,
-                    )),
-                    primitive: p.into(),
-                }
-            )
+            self.steps.push(Instruction {
+                transform: transform.pre_concat(Transform::from_rotate_at(angle, w / 2., h / 2.)),
+                primitive: p.into(),
+            })
         }
         pub fn finish(mut self) -> RenderNode {
             match self.inner.steps.len() {
@@ -120,7 +106,7 @@ pub(crate) mod canvas {
                     i.transform = i.transform.post_concat(self.transform);
                     i.into()
                 }
-                _ => Instruction::other(self.transform, self.inner).into()
+                _ => Instruction::other(self.transform, self.inner).into(),
             }
         }
     }
@@ -128,9 +114,9 @@ pub(crate) mod canvas {
     impl std::fmt::Debug for InnerCanvas {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("Canvas")
-            	.field("width", &self.width)
-            	.field("height", &self.height)
-            	.finish()
+                .field("width", &self.width)
+                .field("height", &self.height)
+                .finish()
         }
     }
 
@@ -145,11 +131,14 @@ pub(crate) mod canvas {
 
     impl Primitive for InnerCanvas {
         fn apply_texture(&self, _: scene::Texture) -> scene::PrimitiveType {
-            PrimitiveType::Other (
-                Box::new(self.clone())
-            )
+            PrimitiveType::Other(Box::new(self.clone()))
         }
-        fn draw_with_transform_clip(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&tiny_skia::ClipMask>) {
+        fn draw_with_transform_clip(
+            &self,
+            ctx: &mut DrawContext,
+            transform: tiny_skia::Transform,
+            clip: Option<&tiny_skia::ClipMask>,
+        ) {
             for s in &self.steps {
                 let t = s.transform.post_concat(transform);
                 s.primitive.draw_with_transform_clip(ctx, t, clip);
@@ -159,9 +148,7 @@ pub(crate) mod canvas {
             Region::new(0., 0., self.width, self.height).rfit(&region)
         }
         fn primitive_type(&self) -> scene::PrimitiveType {
-            PrimitiveType::Other (
-                Box::new(self.clone())
-            )
+            PrimitiveType::Other(Box::new(self.clone()))
         }
         fn get_texture(&self) -> scene::Texture {
             Texture::Transparent
@@ -189,8 +176,8 @@ pub enum Backend<'b> {
     Dummy,
 }
 
-pub struct SyncContext<'c, M> {
-    controller: &'c mut dyn Controller<M>,
+pub struct SyncContext<'c, D> {
+    data: &'c mut D,
     pub(crate) window_request: Option<WindowRequest>,
     pub(crate) cache: &'c mut Cache,
 }
@@ -235,11 +222,11 @@ impl<'c> DerefMut for Backend<'c> {
     }
 }
 
-impl<'c, M> SyncContext<'c, M> {
-    pub fn new(controller: &'c mut impl Controller<M>, cache: &'c mut Cache) -> Self {
+impl<'c, D> SyncContext<'c, D> {
+    pub fn new(data: &'c mut D, cache: &'c mut Cache) -> Self {
         Self {
             window_request: None,
-            controller,
+            data,
             cache,
         }
     }
@@ -251,21 +238,16 @@ impl<'c, M> SyncContext<'c, M> {
     }
 }
 
-impl<'c, M> Controller<M> for SyncContext<'c, M> {
-    fn serialize(&mut self) -> Result<u32, ControllerError> {
-        self.controller.serialize()
+impl<'c, D> Deref for SyncContext<'c, D> {
+    type Target = D;
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
-    fn deserialize(&mut self, serial: u32) -> Result<(), ControllerError> {
-        self.controller.deserialize(serial)
-    }
-    fn get(&self, msg: &M) -> Result<M, ControllerError> {
-        self.controller.get(msg)
-    }
-    fn send(&mut self, msg: M) -> Result<M, ControllerError> {
-        self.controller.send(msg)
-    }
-    fn sync<'s>(&mut self) -> Result<M, ControllerError> {
-        self.controller.sync()
+}
+
+impl<'c, D> DerefMut for SyncContext<'c, D> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }
 

@@ -131,7 +131,7 @@ impl Geometry for Label {
     }
 }
 
-impl<M> Widget<M> for Label {
+impl<D> Widget<D> for Label {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         if transform.sx != 1. || transform.sy != 1. {
             let mut label = self
@@ -143,7 +143,7 @@ impl<M> Widget<M> for Label {
             Instruction::new(transform, self.clone()).into()
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, _event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _event: Event<'d>) -> Damage {
         if self.layout.is_none() {
             let layout = ctx.font_cache().layout(self).clone();
             self.size = cache::font::get_size(&layout);
@@ -213,11 +213,11 @@ impl Geometry for Text {
     }
 }
 
-impl<M> Widget<M> for Text {
+impl<D> Widget<D> for Text {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(&mut self.label, transform)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Some(string) = &self.buffer {
             ctx.font_cache()
                 .write(&mut self.layout, &self.label, string);
@@ -245,16 +245,16 @@ impl DerefMut for Text {
     }
 }
 
-use crate::controller::Controller;
+use crate::data::*;
 
 /// Updates text on Message or on Prepare events.
-pub struct Listener<M: TryInto<String>> {
-    message: Option<M>,
-    format: Option<String>,
+pub struct Listener<M> {
+    message: M,
     text: Text,
+    format: Option<String>,
 }
 
-impl<M: TryInto<String>> Geometry for Listener<M> {
+impl<M> Geometry for Listener<M> {
     fn width(&self) -> f32 {
         self.text.width()
     }
@@ -269,22 +269,22 @@ impl<M: TryInto<String>> Geometry for Listener<M> {
     }
 }
 
-impl<M: TryInto<String>> Widget<M> for Listener<M> {
+impl<M, D> Widget<D> for Listener<M>
+where
+    M: Clone + Copy,
+    D: Message<M, (), String>,
+{
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(&mut self.text, transform)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
-            Event::Message(_) | Event::Prepare => {
-                if let Some(message) = self.message.as_ref() {
-                    if let Ok(msg) = ctx.get(message) {
-                        if let Ok(string) = msg.try_into() {
-                            if let Some(format) = self.format.as_ref() {
-                                self.text.edit(format.replace("{}", &string));
-                            } else {
-                                self.text.edit(format!("{}", string));
-                            }
-                        }
+            Event::Sync | Event::Prepare => {
+                if let Some(string) = ctx.get(self.message) {
+                    if let Some(format) = self.format.as_ref() {
+                        self.text.edit(format.replace("{}", &string));
+                    } else {
+                        self.text.edit(format!("{}", string));
                     }
                 }
             }
@@ -294,24 +294,13 @@ impl<M: TryInto<String>> Widget<M> for Listener<M> {
     }
 }
 
-impl<M, T> From<T> for Listener<M>
-where
-    M: TryInto<String>,
-    T: Into<Text>,
-{
-    fn from(text: T) -> Self {
+impl<M> Listener<M> {
+    pub fn new<T: Into<Text>>(text: T, message: M) -> Self {
         Self {
-            message: None,
+            message,
             text: text.into(),
             format: None,
         }
-    }
-}
-
-impl<M: TryInto<String>> Listener<M> {
-    pub fn message(mut self, message: M) -> Self {
-        self.message = Some(message);
-        self
     }
     pub fn format(mut self, format: &str) -> Self {
         self.format = Some(format.to_string());
@@ -319,14 +308,14 @@ impl<M: TryInto<String>> Listener<M> {
     }
 }
 
-impl<M: TryInto<String>> Deref for Listener<M> {
+impl<M> Deref for Listener<M> {
     type Target = Text;
     fn deref(&self) -> &Self::Target {
         &self.text
     }
 }
 
-impl<M: TryInto<String>> DerefMut for Listener<M> {
+impl<M> DerefMut for Listener<M> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.text
     }

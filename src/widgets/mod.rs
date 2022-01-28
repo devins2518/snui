@@ -14,7 +14,6 @@ pub use button::Button;
 pub use container::*;
 pub use shapes::Style;
 pub use slider::Slider;
-use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
@@ -62,11 +61,11 @@ impl Geometry for () {
     }
 }
 
-impl<M> Widget<M> for () {
+impl<D> Widget<D> for () {
     fn create_node(&mut self, _: Transform) -> RenderNode {
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
 }
@@ -87,11 +86,11 @@ impl Geometry for Spacer {
     }
 }
 
-impl<M> Widget<M> for Spacer {
+impl<D> Widget<D> for Spacer {
     fn create_node(&mut self, _: Transform) -> RenderNode {
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
 }
@@ -120,13 +119,12 @@ impl Default for Spacer {
     }
 }
 
-pub struct Padding<M, W: Widget<M>> {
+pub struct Padding<W> {
     pub padding: (f32, f32, f32, f32),
     pub widget: W,
-    _request: PhantomData<M>,
 }
 
-impl<M, W: Widget<M>> Geometry for Padding<M, W> {
+impl<W: Geometry> Geometry for Padding<W> {
     fn width(&self) -> f32 {
         let (_, right, _, left) = self.padding;
         self.widget.width() + right + left
@@ -153,12 +151,12 @@ impl<M, W: Widget<M>> Geometry for Padding<M, W> {
     }
 }
 
-impl<M, W: Widget<M>> Widget<M> for Padding<M, W> {
+impl<D, W: Widget<D>> Widget<D> for Padding<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let (top, _, _, left) = self.padding;
         self.widget.create_node(transform.pre_translate(left, top))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         let (top, _, _, left) = self.padding;
         if let Event::Pointer(mut x, mut y, p) = event {
             x -= left;
@@ -170,12 +168,11 @@ impl<M, W: Widget<M>> Widget<M> for Padding<M, W> {
     }
 }
 
-impl<M, W: Widget<M>> Padding<M, W> {
+impl<W> Padding<W> {
     pub fn new(widget: W) -> Self {
         Self {
             widget,
             padding: (0., 0., 0., 0.),
-            _request: PhantomData,
         }
     }
     pub fn set_padding(&mut self, top: f32, right: f32, bottom: f32, left: f32) {
@@ -193,30 +190,29 @@ impl<M, W: Widget<M>> Padding<M, W> {
     }
 }
 
-impl<M, W: Widget<M>> Deref for Padding<M, W> {
+impl<W> Deref for Padding<W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.widget
     }
 }
 
-impl<M, W: Widget<M>> DerefMut for Padding<M, W> {
+impl<W> DerefMut for Padding<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.widget
     }
 }
 
-pub struct WidgetBox<M, W: Widget<M>> {
+pub struct WidgetBox<W> {
     pub(crate) widget: W,
     coords: Coords,
     width: Option<f32>,
     height: Option<f32>,
     constraint: Constraint,
     anchor: (Alignment, Alignment),
-    _request: PhantomData<M>,
 }
 
-impl<M, W: Widget<M>> Geometry for WidgetBox<M, W> {
+impl<W: Geometry> Geometry for WidgetBox<W> {
     fn width(&self) -> f32 {
         match &self.constraint {
             Constraint::Fixed => self.width.unwrap_or(self.widget.width()),
@@ -293,8 +289,8 @@ impl<M, W: Widget<M>> Geometry for WidgetBox<M, W> {
     }
 }
 
-impl<M, W: Widget<M>> Widget<M> for WidgetBox<M, W> {
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
+impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         if let Event::Pointer(mut x, mut y, pointer) = event {
             x -= self.coords.x;
             y -= self.coords.y;
@@ -332,7 +328,7 @@ impl<M, W: Widget<M>> Widget<M> for WidgetBox<M, W> {
     }
 }
 
-impl<M, W: Widget<M>> WidgetBox<M, W> {
+impl<W> WidgetBox<W> {
     pub fn new(widget: W) -> Self {
         Self {
             widget,
@@ -341,7 +337,6 @@ impl<M, W: Widget<M>> WidgetBox<M, W> {
             coords: Coords::new(0., 0.),
             anchor: (Alignment::Center, Alignment::Center),
             constraint: Constraint::Downward,
-            _request: PhantomData,
         }
     }
     pub fn coords(&self) -> Coords {
@@ -363,14 +358,14 @@ impl<M, W: Widget<M>> WidgetBox<M, W> {
     }
 }
 
-impl<M, W: Widget<M>> Deref for WidgetBox<M, W> {
+impl<W> Deref for WidgetBox<W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.widget
     }
 }
 
-impl<M, W: Widget<M>> DerefMut for WidgetBox<M, W> {
+impl<W> DerefMut for WidgetBox<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.widget
     }

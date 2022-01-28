@@ -8,24 +8,23 @@ pub use layout_box::LayoutBox;
 use scene::Coords;
 pub use widget_layout::WidgetLayout;
 
-pub trait Container<M, W, C>: Geometry + FromIterator<C>
+pub trait Container<D, W>: Geometry
 where
-    W: Widget<M>,
-    C: Widget<M>
+    W: Widget<D>,
 {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
     fn remove(&mut self, index: usize) -> W;
-    fn add(&mut self, widget: C);
+    fn add(&mut self, widget: W);
     fn pop(&mut self) -> W {
         self.remove(self.len() - 1)
     }
-    fn widgets(&mut self) -> &mut [W];
+    fn widgets(&mut self) -> Vec<&mut W>;
 }
 
-pub fn apply_width<M, W: Widget<M>>(
+pub fn apply_width<W: Geometry>(
     widgets: &mut [W],
     fixed: &mut Vec<usize>,
     index: usize,
@@ -49,7 +48,7 @@ pub fn apply_width<M, W: Widget<M>>(
     }
 }
 
-pub fn apply_height<M, W: Widget<M>>(
+pub fn apply_height<W: Geometry>(
     widgets: &mut [W],
     fixed: &mut Vec<usize>,
     index: usize,
@@ -73,18 +72,16 @@ pub fn apply_height<M, W: Widget<M>>(
     }
 }
 
-pub struct Child<M> {
+pub struct Positioner<W> {
     coords: Coords,
-    damage: Damage,
-    widget: Box<dyn Widget<M>>,
+    widget: W,
 }
 
-impl<M> Child<M> {
-    pub(crate) fn new(widget: impl Widget<M> + 'static) -> Self {
-        Child {
-            damage: Damage::None,
+impl<W> Positioner<W> {
+    pub(crate) fn new(widget: W) -> Self {
+        Positioner {
+            widget,
             coords: Coords::new(0., 0.),
-            widget: Box::new(widget),
         }
     }
     pub fn set_coords(&mut self, x: f32, y: f32) {
@@ -92,7 +89,7 @@ impl<M> Child<M> {
     }
 }
 
-impl<M> Geometry for Child<M> {
+impl<W: Geometry> Geometry for Positioner<W> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
@@ -110,39 +107,24 @@ impl<M> Geometry for Child<M> {
     }
 }
 
-impl<M> From<Box<dyn Widget<M>>> for Child<M> {
-    fn from(widget: Box<dyn Widget<M>>) -> Self {
-        Child {
-            damage: Damage::None,
-            coords: Coords::new(0., 0.),
-            widget,
+impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        return self
+            .widget
+            .create_node(transform.pre_translate(self.coords.x, self.coords.y));
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
+        match event {
+            Event::Pointer(mut x, mut y, p) => {
+                x -= self.coords.x;
+                y -= self.coords.y;
+                self.widget.sync(ctx, Event::Pointer(x, y, p))
+            }
+            _ => self.widget.sync(ctx, event),
         }
     }
 }
 
-impl<M> Widget<M> for Child<M> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if self.damage.is_some() {
-            self.damage = Damage::None;
-            return self
-                .widget
-                .create_node(transform.pre_translate(self.coords.x, self.coords.y));
-        }
-        RenderNode::None
-    }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<M>) -> Damage {
-        self.damage = self.damage.max(match event {
-            Event::Pointer(mut x, mut y, p) => {
-                x -= self.coords.x;
-                y -= self.coords.y;
-                let result = self.widget.sync(ctx, Event::Pointer(x, y, p));
-                result
-            }
-            Event::Configure(_) | Event::Prepare => {
-                Damage::Partial.max(self.widget.sync(ctx, event))
-            }
-            _ => self.widget.sync(ctx, event),
-        });
-        self.damage
-    }
+pub fn child<W>(widget: W) -> Positioner<Proxy<W>> {
+    Positioner::new(Proxy::new(widget))
 }

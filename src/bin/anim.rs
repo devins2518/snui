@@ -1,5 +1,5 @@
 use scene::Instruction;
-use snui::controller::*;
+use snui::data::*;
 use snui::wayland::shell::*;
 use snui::widgets::container::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
@@ -16,54 +16,58 @@ enum AnimationState {
     Pause,
 }
 
-impl FromArg<BooleanState> for AnimationState {
-    fn from_arg(&self, t: BooleanState) -> Self {
-        match t {
-            BooleanState::Activated => AnimationState::Start,
-            BooleanState::Deactivated => AnimationState::Pause,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct EaserCtl {
-    block: bool,
+struct Demo {
+    sync: bool,
     state: AnimationState,
 }
 
-impl Default for EaserCtl {
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Remote {}
+
+impl Default for Demo {
     fn default() -> Self {
-        EaserCtl {
-            block: false,
+        Demo {
+            sync: false,
             state: AnimationState::Stop,
         }
     }
 }
 
-impl Controller<AnimationState> for EaserCtl {
-    fn get(&self, _msg: &AnimationState) -> Result<AnimationState, ControllerError> {
-        return Ok(self.state);
+impl Message<Remote, bool, bool> for Demo {
+    fn get(&self, _: Remote) -> Option<bool> {
+        None
     }
-    fn send(&mut self, msg: AnimationState) -> Result<AnimationState, ControllerError> {
-        self.block = false;
-        self.state = msg;
-        Ok(self.state)
-    }
-    fn sync<'s>(&mut self) -> Result<AnimationState, ControllerError> {
-        if !self.block {
-            match self.state {
-                AnimationState::Stop => return Err(ControllerError::None),
-                AnimationState::Start => {
-                    self.block = true;
-                    return Ok(self.state);
-                }
-                AnimationState::Pause => {
-                    self.block = true;
-                    return Ok(self.state);
-                }
-            }
+    fn send(&mut self, _: Remote, data: bool) -> Option<bool> {
+        self.sync = true;
+        match data {
+            true => self.start(),
+            false => self.pause(),
         }
-        Err(ControllerError::None)
+        None
+    }
+}
+
+impl Data for Demo {
+    fn sync(&mut self) -> bool {
+        if self.sync {
+            self.sync = false;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl Demo {
+    fn start(&mut self) {
+        self.state = AnimationState::Start
+    }
+    fn pause(&mut self) {
+        self.state = AnimationState::Pause
+    }
+    fn stop(&mut self) {
+        self.state = AnimationState::Stop
     }
 }
 
@@ -83,20 +87,15 @@ impl<E: Easer> Geometry for Animate<E> {
     }
 }
 
-impl<E: Easer> Widget<AnimationState> for Animate<E> {
+impl<E: Easer> Widget<Demo> for Animate<E> {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
         Instruction::new(
             transform.pre_translate(self.position, 0.),
-            Rectangle::empty(self.cursor, 30.)
-                .background(style::RED)
+            Rectangle::empty(self.cursor, 30.).background(style::RED),
         )
         .into()
     }
-    fn sync<'d>(
-        &'d mut self,
-        ctx: &mut context::SyncContext<AnimationState>,
-        event: Event<AnimationState>,
-    ) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<Demo>, event: Event) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if self.start {
@@ -105,7 +104,7 @@ impl<E: Easer> Widget<AnimationState> for Animate<E> {
                         match self.easer.next() {
                             Some(position) => self.position = position,
                             None => {
-                                ctx.send(AnimationState::Stop).unwrap();
+                                ctx.stop();
                                 self.start = false;
                                 return Damage::None;
                             }
@@ -114,7 +113,7 @@ impl<E: Easer> Widget<AnimationState> for Animate<E> {
                     return Damage::Frame;
                 }
             }
-            Event::Message(msg) => match msg {
+            Event::Sync => match ctx.state {
                 AnimationState::Start => {
                     self.start = true;
                     return Damage::Frame;
@@ -167,11 +166,11 @@ impl Geometry for FrameRate {
     }
 }
 
-impl<M> Widget<M> for FrameRate {
+impl<D> Widget<D> for FrameRate {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
         Widget::<()>::create_node(&mut self.text, transform)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if frame_time > 0 {
@@ -185,7 +184,7 @@ impl<M> Widget<M> for FrameRate {
     }
 }
 
-fn ui() -> impl Widget<AnimationState> {
+fn ui() -> impl Widget<Demo> {
     let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
     ui.add(
         FrameRate {
@@ -198,27 +197,24 @@ fn ui() -> impl Widget<AnimationState> {
     ui.add(Animate::sinus());
 
     ui.add(
-        Switch::default()
-            .message(AnimationState::Pause)
+        Switch::new(Remote {})
             .duration(600)
             .ext()
             .background(style::BG1)
             .even_radius(3.)
-            .button(move |this, ctx, p| match p {
+            .button::<Demo, _>(move |this, ctx, p| match p {
                 Pointer::MouseClick {
                     serial: _,
                     button,
                     pressed,
                 } => {
                     if button.is_left() && pressed {
-                        if let Ok(state) = ctx.get(&AnimationState::Start) {
-                            match state {
-                                AnimationState::Start => {
-                                    this.set_background(style::BG1);
-                                }
-                                AnimationState::Pause | AnimationState::Stop => {
-                                    this.set_background(style::RED);
-                                }
+                        match ctx.state {
+                            AnimationState::Start => {
+                                this.set_background(style::BG1);
+                            }
+                            AnimationState::Pause | AnimationState::Stop => {
+                                this.set_background(style::RED);
                             }
                         }
                     }
@@ -240,7 +236,7 @@ fn main() {
     );
 
     client.new_window(
-        EaserCtl::default(),
+        Demo::default(),
         window
             .background(style::BG2)
             .alternate_background(0xff58514F)

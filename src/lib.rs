@@ -1,6 +1,6 @@
 pub mod cache;
 pub mod context;
-pub mod controller;
+pub mod data;
 pub mod scene;
 #[cfg(feature = "wayland")]
 pub mod wayland;
@@ -8,9 +8,10 @@ pub mod widgets;
 
 use context::*;
 use scene::RenderNode;
+use std::ops::{Deref, DerefMut};
 pub use tiny_skia::*;
-use widgets::button::{Button, Proxy};
-use widgets::container::Child;
+use widgets::button::Button;
+use widgets::container::Positioner;
 use widgets::shapes::WidgetExt;
 use widgets::{Padding, WidgetBox};
 
@@ -200,44 +201,28 @@ pub enum WindowState {
     TiledTop,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Event<'d, M> {
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Event<'d> {
     /// Sent by the display server when the application needs to be reconfigured
     Configure(&'d [WindowState]),
     /// Prepares a full redraw
     Prepare,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
-    /// A reference to your message
-    Message(&'d M),
+    Sync,
     /// Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     /// Pointer position and type
     Pointer(f32, f32, Pointer),
 }
 
-impl<'d, M> Clone for Event<'d, M> {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Prepare => Self::Prepare,
-            Self::Configure(state) => Self::Configure(*state),
-            Self::Callback(ft) => Self::Callback(*ft),
-            Self::Message(msg) => Self::Message(*msg),
-            Self::Keyboard(key) => Self::Keyboard(*key),
-            Self::Pointer(x, y, p) => Self::Pointer(*x, *y, *p),
-        }
-    }
-}
-
-impl<'d, M> Default for Event<'d, M> {
+impl<'d> Default for Event<'d> {
     fn default() -> Self {
         Self::Prepare
     }
 }
 
-impl<'d, M> Copy for Event<'d, M> {}
-
-impl<'d, M> Event<'d, M> {
+impl<'d> Event<'d> {
     pub fn is_cb(&self) -> bool {
         match self {
             Self::Callback(_) => true,
@@ -249,6 +234,78 @@ impl<'d, M> Event<'d, M> {
             Self::Configure(_) => true,
             _ => false,
         }
+    }
+}
+
+pub struct Proxy<W> {
+    pub(crate) inner: W,
+    damage: Damage,
+}
+
+impl<W> Deref for Proxy<W> {
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<W> DerefMut for Proxy<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.damage = self.damage.max(Damage::Partial);
+        &mut self.inner
+    }
+}
+
+impl<W: Geometry> Geometry for Proxy<W> {
+    fn width(&self) -> f32 {
+        self.inner.width()
+    }
+    fn height(&self) -> f32 {
+        self.inner.height()
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.inner.set_width(width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.inner.set_height(height)
+    }
+    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+        self.inner.set_size(width, height)
+    }
+}
+
+impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        match self.damage {
+            Damage::None => {
+                RenderNode::None
+            }
+            _ => {
+                self.damage = Damage::None;
+                self.inner.create_node(transform)
+            }
+        }
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+        self.damage = self.damage.max(match event {
+            Event::Configure(_) | Event::Prepare => {
+                Damage::Partial.max(self.inner.sync(ctx, event))
+            }
+            _ => self.inner.sync(ctx, event),
+        });
+        self.damage
+    }
+}
+
+impl<W> Proxy<W> {
+    pub fn new(inner: W) -> Self {
+        Proxy {
+            inner,
+            damage: Damage::Partial,
+        }
+    }
+    pub fn get_mut(&mut self) -> &mut W {
+        &mut self.inner
     }
 }
 
@@ -324,12 +381,12 @@ pub trait Primitive: Geometry + std::fmt::Debug + DynEq + std::any::Any {
     fn primitive_type(&self) -> scene::PrimitiveType;
 }
 
-pub trait Widget<M>: Geometry {
+pub trait Widget<D>: Geometry {
     /// Creates the RenderNode of the widget.
     /// Widgets are expected to compute their layout when this method is invoked.
     fn create_node(&mut self, transform: Transform) -> RenderNode;
     /// Interface to communicate with the controller and retained mode draw operation
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage;
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
 }
 
 pub trait Flex<G>: Geometry + Sized {
@@ -338,15 +395,14 @@ pub trait Flex<G>: Geometry + Sized {
     fn with_size(self, width: f32, height: f32) -> Self;
 }
 
-pub trait WidgetUtil<M>: Widget<M> + Sized {
-    fn ext(self) -> WidgetExt<M, Self>;
-    fn clamp(self) -> WidgetBox<M, Self>;
-    fn pad(self, padding: f32) -> Padding<M, Self>;
-    fn child(self) -> Child<M>;
-    fn button<F: for<'d> FnMut(&'d mut Proxy<M, Self>, &'d mut SyncContext<M>, Pointer)>(
-        self,
-        cb: F,
-    ) -> Button<M, Self, F>;
+pub trait Wrapped: Sized + Geometry {
+    fn ext(self) -> WidgetExt<Self>;
+    fn clamp(self) -> WidgetBox<Self>;
+    fn child(self) -> Positioner<Proxy<Self>>;
+    fn pad(self, padding: f32) -> Padding<Self>;
+    fn button<D, F>(self, cb: F) -> Button<D, Self, F>
+    where
+        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer);
 }
 
 pub trait DynEq {
@@ -376,7 +432,7 @@ where
 
 impl<T> DynEq for T
 where
-    T: PartialEq + 'static
+    T: PartialEq + 'static,
 {
     fn same(&self, other: &dyn std::any::Any) -> bool {
         if let Some(other) = other.downcast_ref::<T>() {
@@ -386,26 +442,50 @@ where
     }
 }
 
-impl<W, M> WidgetUtil<M> for W
+impl<W> Wrapped for W
 where
-    W: Widget<M> + 'static,
+    W: Geometry,
 {
-    fn pad(self, padding: f32) -> Padding<M, Self> {
+    fn pad(self, padding: f32) -> Padding<Self> {
         Padding::new(self).even_padding(padding)
     }
-    fn clamp(self) -> WidgetBox<M, Self> {
+    fn clamp(self) -> WidgetBox<Self> {
         WidgetBox::new(self)
     }
-    fn ext(self) -> WidgetExt<M, Self> {
+    fn ext(self) -> WidgetExt<Self> {
         WidgetExt::new(self)
     }
-    fn child(self) -> Child<M> {
-        Child::new(self)
+    fn child(self) -> Positioner<Proxy<Self>> {
+        Positioner::new(Proxy::new(self))
     }
-    fn button<F>(self, cb: F) -> Button<M, Self, F>
+    fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where
-        F: for<'d> FnMut(&'d mut Proxy<M, W>, &'d mut SyncContext<M>, Pointer),
+        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer),
     {
         Button::new(self, cb)
+    }
+}
+
+impl<D> Geometry for Box<dyn Widget<D>> {
+    fn height(&self) -> f32 {
+        self.as_ref().height()
+    }
+    fn width(&self) -> f32 {
+        self.as_ref().width()
+    }
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        self.as_mut().set_width(width)
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        self.as_mut().set_height(height)
+    }
+}
+
+impl<D> Widget<D> for Box<dyn Widget<D>> {
+    fn create_node(&mut self, transform: Transform) -> RenderNode {
+        self.deref_mut().create_node(transform)
+    }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+        self.deref_mut().sync(ctx, event)
     }
 }

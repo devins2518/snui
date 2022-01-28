@@ -1,91 +1,69 @@
-use snui::context::*;
-use snui::controller::{Controller, ControllerError, TryFromArg};
+use snui::data::*;
 use snui::scene::*;
+use snui::context::*;
 use snui::wayland::shell::*;
 use snui::widgets::window::WindowRequest;
 use snui::widgets::{shapes::*, text::*, *};
 use snui::{style::*, *};
 
 #[derive(Clone, Debug)]
-struct ColorControl {
-    signal: Option<ColorMsg>,
+struct Color {
+    sync: bool,
     color: tiny_skia::Color,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum ColorMsg {
-    Source(u32),
-    Red(f32),
-    Green(f32),
-    Blue(f32),
-    Alpha(f32),
+enum Channel {
+    Red,
+    Green,
+    Blue,
+    Alpha,
 }
 
-impl TryInto<String> for ColorMsg {
-    type Error = ();
-    fn try_into(self) -> Result<String, Self::Error> {
-        match self {
-            Self::Source(color) => Ok(format!("{:#010X}", color).replace("0x", "#")),
-            _ => Err(()),
-        }
+impl Message<Channel, f32, f32> for Color {
+    fn get(&self, message: Channel) -> Option<f32> {
+        Some(match message {
+            Channel::Alpha => self.color.alpha(),
+            Channel::Red => self.color.red(),
+            Channel::Green => self.color.green(),
+            Channel::Blue => self.color.blue(),
+        })
     }
-}
-
-impl TryInto<f32> for ColorMsg {
-    type Error = ();
-    fn try_into(self) -> Result<f32, Self::Error> {
-        match self {
-            Self::Red(f) => Ok(f),
-            Self::Green(f) => Ok(f),
-            Self::Blue(f) => Ok(f),
-            Self::Alpha(f) => Ok(f),
-            _ => Err(()),
+    fn send(&mut self, message: Channel, data: f32) -> Option<f32> {
+        self.sync = true;
+        match message {
+            Channel::Alpha => self.color.set_alpha(data),
+            Channel::Red => self.color.set_red(data),
+            Channel::Green => self.color.set_green(data),
+            Channel::Blue => self.color.set_blue(data),
         }
+        None
     }
 }
 
-impl TryFromArg<f32> for ColorMsg {
-    type Error = ();
-    fn try_from_arg(&self, f: f32) -> Result<Self, Self::Error> {
-        match self {
-            Self::Red(_) => Ok(Self::Red(f)),
-            Self::Green(_) => Ok(Self::Green(f)),
-            Self::Blue(_) => Ok(Self::Blue(f)),
-            Self::Alpha(_) => Ok(Self::Alpha(f)),
-            _ => Err(()),
+impl Message<(), (), String> for Color {
+    fn get(&self, _: ()) -> Option<String> {
+        Some(self.as_string())
+    }
+    fn send(&mut self, _: (), _: ()) -> Option<String> {
+        None
+    }
+}
+
+impl Data for Color {
+    fn sync(&mut self) -> bool {
+        if self.sync {
+            self.sync = false;
+            true
+        } else {
+            false
         }
     }
 }
 
-impl Controller<ColorMsg> for ColorControl {
-    fn get<'m>(&'m self, msg: &'m ColorMsg) -> Result<ColorMsg, ControllerError> {
-        match msg {
-            ColorMsg::Alpha(_) => Ok(ColorMsg::Alpha(self.color.alpha())),
-            ColorMsg::Red(_) => Ok(ColorMsg::Red(self.color.red())),
-            ColorMsg::Green(_) => Ok(ColorMsg::Red(self.color.green())),
-            ColorMsg::Blue(_) => Ok(ColorMsg::Blue(self.color.blue())),
-            ColorMsg::Source(_) => {
-                let color = self.color.to_color_u8().get();
-                Ok(ColorMsg::Source(color))
-            }
-        }
-    }
-    fn send<'m>(&'m mut self, msg: ColorMsg) -> Result<ColorMsg, ControllerError> {
-        match msg {
-            ColorMsg::Alpha(alpha) => self.color.set_alpha(alpha),
-            ColorMsg::Red(red) => self.color.set_red(red),
-            ColorMsg::Green(green) => self.color.set_green(green),
-            ColorMsg::Blue(blue) => self.color.set_blue(blue),
-            _ => return Err(ControllerError::Message),
-        }
-        self.signal = Some(msg);
-        Ok(msg)
-    }
-    fn sync(&mut self) -> Result<ColorMsg, ControllerError> {
-        if let Some(_) = self.signal.take() {
-            return Ok(ColorMsg::Source(self.color.to_color_u8().get()));
-        }
-        Err(ControllerError::None)
+impl Color {
+    fn as_string(&self) -> String {
+        format!("{:#010X}", self.color.to_color_u8().get()).replace("0x", "#")
     }
 }
 
@@ -93,7 +71,7 @@ impl Controller<ColorMsg> for ColorControl {
 struct ColorBlock {
     width: f32,
     height: f32,
-    color: snui::ColorU8,
+    color: tiny_skia::Color,
 }
 
 impl Geometry for ColorBlock {
@@ -113,7 +91,7 @@ impl Geometry for ColorBlock {
     }
 }
 
-impl Widget<ColorMsg> for ColorBlock {
+impl Widget<Color> for ColorBlock {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
             &mut Rectangle::empty(self.width, self.height)
@@ -122,17 +100,10 @@ impl Widget<ColorMsg> for ColorBlock {
             transform,
         )
     }
-    fn sync<'d>(
-        &'d mut self,
-        ctx: &mut SyncContext<ColorMsg>,
-        event: Event<'d, ColorMsg>,
-    ) -> Damage {
-        if let Event::Message(_) = event {
-            let msg = ctx.get(&ColorMsg::Source(0)).unwrap();
-            if let ColorMsg::Source(color) = msg {
-                ctx.window_request(WindowRequest::Title(msg.try_into().unwrap()));
-                self.color = u32_to_source(color).to_color_u8();
-            }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
+        if let Event::Sync = event {
+            self.color = ctx.color;
+            ctx.window_request(WindowRequest::Title(ctx.as_string()));
             return Damage::Partial;
         }
         Damage::None
@@ -142,16 +113,16 @@ impl Widget<ColorMsg> for ColorBlock {
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let listener = Listener::from(Label::default("").font_size(20.)).message(ColorMsg::Source(0));
+    let listener = Listener::new("", ());
     let window = window::default_window(
         listener,
         body().clamp().ext().even_padding(10.).background(BG0),
     );
 
     client.new_window(
-        ColorControl {
-            signal: None,
-            color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
+        Color {
+            sync: false,
+            color: tiny_skia::Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
         },
         window
             .background(BG2)
@@ -166,15 +137,15 @@ fn main() {
     }
 }
 
-fn sliders() -> WidgetLayout<ColorMsg> {
+fn sliders() -> WidgetLayout<impl Widget<Color>> {
     [RED, GRN, BLU, BG0]
         .iter()
         .map(|color| {
             let message = match *color {
-                RED => ColorMsg::Red(0.),
-                BLU => ColorMsg::Blue(0.),
-                GRN => ColorMsg::Green(0.),
-                BG0 => ColorMsg::Alpha(0.),
+                RED => Channel::Red,
+                BLU => Channel::Blue,
+                GRN => Channel::Green,
+                BG0 => Channel::Alpha,
                 _ => unreachable!(),
             };
             widgets::slider::Slider::new(200, 8)
@@ -184,28 +155,27 @@ fn sliders() -> WidgetLayout<ColorMsg> {
                 .background(BG2)
                 .even_radius(3.)
         })
-        .collect::<WidgetLayout<ColorMsg>>()
+        .collect::<WidgetLayout<WidgetExt<Slider<Channel>>>>()
         .spacing(10.)
         .orientation(Orientation::Vertical)
 }
 
-fn body() -> WidgetLayout<ColorMsg> {
+fn body() -> WidgetLayout<impl Widget<Color>> {
     let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
 
-    let listener = Listener::from(Label::default("").font_size(20.))
-        .message(ColorMsg::Source(0))
+    let listener = Listener::new("", ())
         .clamp()
-        .with_size(200., 20.)
+        .with_size(200., 30.)
         .anchor(CENTER, START)
         .constraint(Constraint::Downward);
 
     let mut indicator = LayoutBox::new().orientation(Orientation::Vertical);
 
-    indicator.add(listener.ext().padding(10., 10., 10., 10.));
+    indicator.add(listener);
     indicator.add(ColorBlock {
         width: 200.,
         height: 200.,
-        color: Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap().to_color_u8(),
+        color: tiny_skia::Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
     });
 
     layout.add(indicator);

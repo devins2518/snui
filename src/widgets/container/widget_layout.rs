@@ -1,51 +1,49 @@
-use crate::widgets::container::{Child, Container};
+use crate::widgets::container::{child, Container, Positioner};
 use crate::widgets::shapes::Rectangle;
 use crate::widgets::Alignment;
 use crate::*;
 use scene::Instruction;
-use scene::{Coords, RenderNode};
+use scene::RenderNode;
 
-pub struct WidgetLayout<M> {
+pub struct WidgetLayout<W> {
     spacing: f32,
-    widgets: Vec<Child<M>>,
+    widgets: Vec<Positioner<Proxy<W>>>,
     alignment: Alignment,
     orientation: Orientation,
 }
 
-impl<M, C> FromIterator<C> for WidgetLayout<M>
-where
-    M: 'static,
-    C: Widget<M> + 'static
-{
-    fn from_iter<T: IntoIterator<Item = C>>(iter: T) -> Self {
+impl<W> FromIterator<W> for WidgetLayout<W> {
+    fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
         let mut layout = WidgetLayout::new(0.);
-        for c in iter {
-            layout.widgets.push(Child::new(c));
+        for widget in iter {
+            layout.widgets.push(child(widget));
         }
         layout
     }
 }
 
-impl<M: 'static, C> Container<M, Child<M>, C> for WidgetLayout<M>
+impl<D, W> Container<D, W> for WidgetLayout<W>
 where
-    M: 'static,
-    C: Widget<M> + 'static
+    W: Widget<D>,
 {
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: C) {
-        self.widgets.push(Child::new(widget));
+    fn add(&mut self, widget: W) {
+        self.widgets.push(child(widget));
     }
-    fn remove(&mut self, index: usize) -> Child<M> {
-        self.widgets.remove(index)
+    fn remove(&mut self, index: usize) -> W {
+        self.widgets.remove(index).widget.inner
     }
-    fn widgets(&mut self) -> &mut [Child<M>] {
-        &mut self.widgets
+    fn widgets(&mut self) -> Vec<&mut W> {
+        self.widgets
+            .iter_mut()
+            .map(|inner| inner.widget.deref_mut())
+            .collect()
     }
 }
 
-impl<M> Geometry for WidgetLayout<M> {
+impl<W: Geometry> Geometry for WidgetLayout<W> {
     fn width(&self) -> f32 {
         let mut width = 0.;
         match self.orientation {
@@ -82,7 +80,24 @@ impl<M> Geometry for WidgetLayout<M> {
     }
 }
 
-impl<M> WidgetLayout<M> {
+impl<D> Default for WidgetLayout<Box<dyn Widget<D>>> {
+    fn default() -> Self {
+        WidgetLayout {
+            spacing: 0.,
+            widgets: Vec::new(),
+            alignment: Alignment::Start,
+            orientation: Orientation::Horizontal,
+        }
+    }
+}
+
+impl<D> WidgetLayout<Box<dyn Widget<D>>> {
+    pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
+        self.widgets.push(child(Box::new(widget)));
+    }
+}
+
+impl<W> WidgetLayout<W> {
     pub fn new<S: Into<f32>>(spacing: S) -> Self {
         WidgetLayout {
             spacing: spacing.into(),
@@ -110,7 +125,7 @@ impl<M> WidgetLayout<M> {
     }
 }
 
-impl<M> Widget<M> for WidgetLayout<M> {
+impl<D, W: Widget<D>> Widget<D> for WidgetLayout<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -133,7 +148,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                                 Alignment::Center => dy = (sh - wh) / 2.,
                                 Alignment::End => dy = sh - wh,
                             }
-                            child.coords = Coords::new(dx, dy);
+                            child.set_coords(dx, dy);
                             node = child.create_node(transform);
                             dx += child.width() + spacing;
                         }
@@ -143,7 +158,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                                 Alignment::Center => dx = (sw - ww) / 2.,
                                 Alignment::End => dx = sw - ww,
                             }
-                            child.coords = Coords::new(dx, dy);
+                            child.set_coords(dx, dy);
                             node = child.create_node(transform);
                             dy += child.height() + spacing;
                         }
@@ -153,7 +168,7 @@ impl<M> Widget<M> for WidgetLayout<M> {
                 .collect(),
         )
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
             damage = damage.max(child.sync(ctx, event));

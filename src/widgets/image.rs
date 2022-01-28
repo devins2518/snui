@@ -71,7 +71,7 @@ impl Geometry for Image {
     }
 }
 
-impl<M> Widget<M> for Image {
+impl<D> Widget<D> for Image {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         if let Some(image) = self.inner.as_mut() {
             Widget::<()>::create_node(image, transform)
@@ -79,7 +79,7 @@ impl<M> Widget<M> for Image {
             RenderNode::None
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, _: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.inner.is_none() {
             if let Ok(raw) = ctx.cache.image_cache.get(self.path.as_path()) {
                 let mut inner = InnerImage::from(raw);
@@ -177,14 +177,14 @@ impl Geometry for InnerImage {
     }
 }
 
-impl<M> Widget<M> for InnerImage {
+impl<D> Widget<D> for InnerImage {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
             &mut Rectangle::empty(self.width(), self.height()).background(self.clone()),
             transform,
         )
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<M>, _event: Event<M>) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
 }

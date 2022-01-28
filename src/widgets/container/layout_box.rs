@@ -2,49 +2,46 @@ use crate::widgets::container::*;
 use crate::widgets::shapes::Rectangle;
 use crate::*;
 use scene::Instruction;
-use scene::{Coords, RenderNode};
+use scene::RenderNode;
 
-pub struct LayoutBox<M> {
+pub struct LayoutBox<W> {
     size: (f32, f32),
-    widgets: Vec<Child<M>>,
     orientation: Orientation,
+    widgets: Vec<Positioner<Proxy<W>>>,
 }
 
-
-impl<M, C> FromIterator<C> for LayoutBox<M>
-where
-    M: 'static,
-    C: Widget<M> + 'static
-{
-    fn from_iter<T: IntoIterator<Item = C>>(iter: T) -> Self {
+impl<W> FromIterator<W> for LayoutBox<W> {
+    fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
         let mut layoutbox = LayoutBox::new();
-        for c in iter {
-            layoutbox.widgets.push(c.child());
+        for widget in iter {
+            layoutbox.widgets.push(child(widget));
         }
         layoutbox
     }
 }
 
-impl<M: 'static, C> Container<M, Child<M>, C> for LayoutBox<M>
+impl<D, W> Container<D, W> for LayoutBox<W>
 where
-    M: 'static,
-    C: Widget<M> + 'static
+    W: Widget<D>,
 {
     fn len(&self) -> usize {
         self.widgets.len()
     }
-    fn add(&mut self, widget: C) {
-        self.widgets.push(Child::new(widget));
+    fn add(&mut self, widget: W) {
+        self.widgets.push(child(widget))
     }
-    fn remove(&mut self, index: usize) -> Child<M> {
-        self.widgets.remove(index)
+    fn remove(&mut self, index: usize) -> W {
+        self.widgets.remove(index).widget.inner
     }
-    fn widgets(&mut self) -> &mut [Child<M>] {
-        &mut self.widgets
+    fn widgets(&mut self) -> Vec<&mut W> {
+        self.widgets
+            .iter_mut()
+            .map(|inner| inner.widget.deref_mut())
+            .collect()
     }
 }
 
-impl<M> Geometry for LayoutBox<M> {
+impl<W: Geometry> Geometry for LayoutBox<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         if width != self.size.0 {
             let size = (width / self.widgets.len() as f32).ceil();
@@ -119,7 +116,7 @@ impl<M> Geometry for LayoutBox<M> {
     }
 }
 
-impl<M> Widget<M> for LayoutBox<M> {
+impl<D, W: Widget<D>> Widget<D> for LayoutBox<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -131,7 +128,7 @@ impl<M> Widget<M> for LayoutBox<M> {
                 .iter_mut()
                 .map(|child| {
                     let node;
-                    child.coords = Coords::new(dx, dy);
+                    child.set_coords(dx, dy);
                     match self.orientation {
                         Orientation::Horizontal => {
                             let _ = child.set_height(sh);
@@ -149,7 +146,7 @@ impl<M> Widget<M> for LayoutBox<M> {
                 .collect(),
         )
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<M>, event: Event<'d, M>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         let mut damage = Damage::None;
         for child in self.widgets.iter_mut() {
             damage = damage.max(child.sync(ctx, event));
@@ -158,7 +155,23 @@ impl<M> Widget<M> for LayoutBox<M> {
     }
 }
 
-impl<M> LayoutBox<M> {
+impl<D> Default for LayoutBox<Box<dyn Widget<D>>> {
+    fn default() -> Self {
+        Self {
+            size: (0., 0.),
+            widgets: Vec::new(),
+            orientation: Orientation::Horizontal,
+        }
+    }
+}
+
+impl<D> LayoutBox<Box<dyn Widget<D>>> {
+    pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
+        self.widgets.push(child(Box::new(widget)));
+    }
+}
+
+impl<W> LayoutBox<W> {
     pub fn new() -> Self {
         Self {
             size: (0., 0.),
