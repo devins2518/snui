@@ -185,7 +185,7 @@ pub struct SyncContext<'c, D> {
 pub struct DrawContext<'c> {
     pub(crate) backend: Backend<'c>,
     pub(crate) cache: &'c mut Cache,
-    pub(crate) pending_damage: &'c mut Vec<Region>,
+    pub(crate) pending_damage: Vec<Region>,
 }
 
 impl<'b> Geometry for Backend<'b> {
@@ -255,12 +255,11 @@ impl<'c> DrawContext<'c> {
     pub fn new(
         backend: Backend<'c>,
         cache: &'c mut Cache,
-        pending_damage: &'c mut Vec<Region>,
     ) -> Self {
         Self {
             backend,
             cache,
-            pending_damage,
+            pending_damage: Vec::new(),
         }
     }
     pub fn commit(&mut self, region: Region) {
@@ -384,8 +383,8 @@ impl<'c> DrawContext<'c> {
             },
         }
     }
-    pub fn flush(&mut self) {
-        self.pending_damage.clear();
+    pub fn damage_queue(&self) -> &[Region] {
+        self.pending_damage.as_slice()
     }
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
         let layout;

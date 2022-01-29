@@ -26,12 +26,6 @@ pub struct Label {
 }
 
 impl Label {
-    pub fn get_text(&self) -> &str {
-        self.text.as_str()
-    }
-    pub fn get_font_size(&self) -> f32 {
-        self.font_size
-    }
     pub fn max_width(&self) -> f32 {
         self.settings.max_width.unwrap_or(self.size.0)
     }
@@ -133,10 +127,11 @@ impl Geometry for Label {
 
 impl<D> Widget<D> for Label {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if transform.sx != 1. || transform.sy != 1. {
+        let scale = transform.sx.max(transform.sy);
+        if scale != 1. {
             let mut label = self
                 .clone()
-                .font_size(transform.sx.min(transform.sy) * self.font_size);
+                .font_size(scale * self.font_size);
             label.layout = None;
             Instruction::new(transform, label).into()
         } else {

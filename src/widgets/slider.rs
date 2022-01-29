@@ -227,7 +227,9 @@ where
                                 }
                             }
                         },
-                        Pointer::Leave => self.pressed = false,
+                        Pointer::Leave => {
+                            self.pressed = false;
+                        }
                         _ => {}
                     }
                 }

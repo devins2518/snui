@@ -389,9 +389,8 @@ where
             qh,
         ) {
             surface.replace_buffer(wl_buffer);
-            let mut v = Vec::new();
             let region = Region::new(0., 0., width, height);
-            let mut ctx = DrawContext::new(backend, cache, &mut v);
+            let mut ctx = DrawContext::new(backend, cache);
 
             if offset != self.state.offset {
                 self.state.offset = offset;
@@ -414,7 +413,7 @@ where
                 }
             }
 
-            surface.damage(conn, &v, scale);
+            surface.damage(conn, ctx.damage_queue(), scale);
             surface.commit(conn);
         } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
             surface.wl_surface.commit(conn);
@@ -437,18 +436,10 @@ where
         self.widget.width()
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width > 0. {
-            self.widget.set_width(width)
-        } else {
-            Err(self.width())
-        }
+        self.widget.set_width(width)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height > 0. {
-            return self.widget.set_height(height);
-        } else {
-            Err(self.width())
-        }
+        self.widget.set_height(height)
     }
 }
 
@@ -971,8 +962,6 @@ where
                         }
                     }
                     let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
-                    // TO-DO
-                    // Convert xdg_toplevel.state to WindowState
                     application
                         .widget
                         .sync(&mut ctx, Event::Configure(&application.state.window_state));
