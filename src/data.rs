@@ -1,54 +1,37 @@
-/// Create a new message from a template (&self) and a given parameter (T).
-pub trait TryFromArg<T>
-where
-    Self: Sized,
-{
-    type Error;
-    fn try_from_arg(&self, _: T) -> Result<Self, Self::Error>;
-}
-
-/// Create a new message from a template (&self) and a given parameter (T).
-pub trait FromArg<T>
-where
-    Self: Sized,
-{
-    fn from_arg(&self, _: T) -> Self;
-}
-
-pub trait Message<M, D, U> {
+/// Post refers to the idea of a post office.
+///
+/// In the scope of snui, a Post is an interface widgets can use exchange messages with the application.
+/// This allows widgets to operate idependently from the application and keep most of the complexity inside the trait implementation.
+///
+/// M: The subject of your message.
+/// Your post will use this type to identify what it should do with your message.
+///
+/// D: The data or the content of your message.
+/// This is additional data you can attach to your message.
+///
+/// U: The type you want the Post to return.
+pub trait Post<M, D, U> {
     fn get(&self, message: M) -> Option<U>;
     fn send(&mut self, message: M, data: D) -> Option<U>;
 }
 
-pub trait SimpleMessage<M, D, U>: Message<M, D, U> {
+pub trait SimplePost<M, D, U>: Post<M, D, U> {
     fn send(&mut self, message: M) -> Option<U>;
 }
 
-impl<M, U, T> SimpleMessage<M, (), U> for T
+impl<M, U, T> SimplePost<M, (), U> for T
 where
-    T: Message<M, (), U>
+    T: Post<M, (), U>
 {
     fn send(&mut self, message: M) -> Option<U> {
-        Message::send(self, message, ())
-    }
-}
-
-impl<I, T> TryFromArg<T> for I
-where
-    I: FromArg<T>,
-{
-    type Error = ();
-    fn try_from_arg(&self, t: T) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        Ok(FromArg::from_arg(self, t))
+        Post::send(self, message, ())
     }
 }
 
 /// The heart of snui's application model.
-/// When your application needs to be updated, your widget's sync method will be invoked
-/// and your Data will be propagates down the widget tree.
+/// When your application needs to be updated, your widget's sync method will be invoked.
+///
+/// If sync returns true, your widgets will receive a Sync event along with your Data.
 pub trait Data {
     fn sync(&mut self) -> bool;
 }

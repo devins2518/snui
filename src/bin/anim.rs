@@ -34,7 +34,7 @@ impl Default for Demo {
     }
 }
 
-impl Message<Remote, bool, bool> for Demo {
+impl Post<Remote, bool, bool> for Demo {
     fn get(&self, _: Remote) -> Option<bool> {
         None
     }

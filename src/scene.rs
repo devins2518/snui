@@ -620,13 +620,15 @@ impl RenderNode {
     pub fn is_none(&self) -> bool {
         match self {
             Self::None => true,
+            Self::Container(_, v) => v.is_empty(),
             _ => false,
         }
     }
     pub fn as_option(self) -> Option<Self> {
-        match self {
-            Self::None => None,
-            _ => Some(self),
+        if self.is_none() {
+            None
+        } else {
+            Some(self)
         }
     }
     pub fn render(&self, ctx: &mut DrawContext, clip: &mut ClipRegion) {

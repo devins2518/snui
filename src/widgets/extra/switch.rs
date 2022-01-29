@@ -54,7 +54,7 @@ impl<M> Geometry for Switch<M> {
 impl<M, D> Widget<D> for Switch<M>
 where
     M: Clone + Copy,
-    D: Message<M, bool, bool>,
+    D: Post<M, bool, bool>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let transform = match self.orientation {

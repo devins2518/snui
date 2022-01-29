@@ -186,4 +186,7 @@ impl<W> LayoutBox<W> {
     pub fn clear(&mut self) {
         self.widgets.clear();
     }
+    pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
+        self.widgets.as_mut_slice()
+    }
 }

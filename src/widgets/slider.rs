@@ -92,7 +92,7 @@ impl<M> Geometry for Slider<M> {
 impl<M, D> Widget<D> for Slider<M>
 where
     M: Clone + Copy,
-    D: Message<M, f32, f32>,
+    D: Post<M, f32, f32>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let transform = if self.flip {

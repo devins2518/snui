@@ -776,15 +776,19 @@ where
                     .find(|a| a.1.eq_surface(&surface))
                 {
                     self.current = Some(i);
+                    if let Some(c_output) = application.surface.output.as_ref() {
+                        if c_output.scale != output.scale {
+                            application.state.render_node = RenderNode::None;
+                            application.update_scene(
+                                self.pool.as_mut().unwrap(),
+                                &mut self.cache,
+                                Event::Prepare,
+                                conn,
+                                qh,
+                            );
+                        }
+                    }
                     application.surface.output = Some(output.clone());
-                    application.state.render_node = RenderNode::None;
-                    application.update_scene(
-                        self.pool.as_mut().unwrap(),
-                        &mut self.cache,
-                        Event::Prepare,
-                        conn,
-                        qh,
-                    );
                 }
             }
         }

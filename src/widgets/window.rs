@@ -1,6 +1,6 @@
 use crate::*;
 use crate::{
-    scene::{Coords, Instruction, Texture},
+    scene::{Instruction, Texture},
     widgets::{container::*, shapes::*, *},
 };
 use std::ops::{Deref, DerefMut};
@@ -15,7 +15,6 @@ pub enum WindowRequest {
     Title(String),
 }
 
-// This is essentially the close button
 struct Close {}
 
 impl Geometry for Close {
@@ -209,10 +208,8 @@ pub struct Window<H, W> {
     positioned: bool,
     /// Top window decoration
     header: Header<H>,
-    /// The position of the window
-    coords: Coords,
     /// The window's content
-    body: W,
+    body: Positioner<Proxy<W>>,
     /// The background of the headerbar decoration
     background: Texture,
     /// The radius of window borders
@@ -274,11 +271,11 @@ where
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let h = self.header.create_node(transform);
         if !h.is_none() {
-            self.coords.y = h.height();
+            self.body.set_coords(0., h.height());
         }
         let c = self
             .body
-            .create_node(transform.pre_translate(0., self.coords.y));
+            .create_node(transform);
         if c.is_none() && h.is_none() {
             return c;
         }
@@ -292,10 +289,6 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => self
-                .header
-                .sync(ctx, event)
-                .max(self.body.sync(ctx, Event::Pointer(x, y - self.coords.y, p))),
             Event::Configure(state) => {
                 let mut activated = false;
                 let mut positioned = false;
@@ -383,13 +376,13 @@ where
 impl<H, W> Deref for Window<H, W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
-        &self.body
+        self.body.widget.deref()
     }
 }
 
 impl<H, W> DerefMut for Window<H, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.body
+        self.body.widget.deref_mut()
     }
 }
 
@@ -474,10 +467,9 @@ where
         header,
         activated: false,
         positioned: false,
-        body: widget,
+        body: widget.child(),
         radius: (0., 0., 0., 0.),
         background: style::BG2.into(),
         alternate: None,
-        coords: Coords::default(),
     }
 }

@@ -247,7 +247,7 @@ impl DerefMut for Text {
 
 use crate::data::*;
 
-/// Updates text on Message or on Prepare events.
+/// Updates text on Post or on Prepare events.
 pub struct Listener<M> {
     message: M,
     text: Text,
@@ -272,7 +272,7 @@ impl<M> Geometry for Listener<M> {
 impl<M, D> Widget<D> for Listener<M>
 where
     M: Clone + Copy,
-    D: Message<M, (), String>,
+    D: Post<M, (), String>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(&mut self.text, transform)

@@ -3,9 +3,10 @@ pub mod layout_box;
 pub mod widget_layout;
 
 use crate::*;
+use scene::Coords;
+use widgets::Style;
 pub use center_box::CenterBox;
 pub use layout_box::LayoutBox;
-use scene::Coords;
 pub use widget_layout::WidgetLayout;
 
 pub trait Container<D, W>: Geometry
@@ -74,7 +75,7 @@ pub fn apply_height<W: Geometry>(
 
 pub struct Positioner<W> {
     coords: Coords,
-    widget: W,
+    pub(crate) widget: W,
 }
 
 impl<W> Positioner<W> {
@@ -122,6 +123,21 @@ impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
             }
             _ => self.widget.sync(ctx, event),
         }
+    }
+}
+
+impl<W: Style> Style for Positioner<W> {
+    fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
+        self.widget.set_background(texture)
+    }
+    fn set_border_size(&mut self, size: f32) {
+        self.widget.set_border_size(size)
+    }
+    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
+        self.widget.set_border_texture(texture)
+    }
+    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
+        self.widget.set_radius(tl, tr, br, bl)
     }
 }
 

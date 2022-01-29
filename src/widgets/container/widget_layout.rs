@@ -121,7 +121,10 @@ impl<W> WidgetLayout<W> {
         self.alignment = alignment;
     }
     pub fn clear(&mut self) {
-        self.widgets = Vec::new();
+        self.widgets.clear();
+    }
+    pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
+        self.widgets.as_mut_slice()
     }
 }
 

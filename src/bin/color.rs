@@ -20,7 +20,7 @@ enum Channel {
     Alpha,
 }
 
-impl Message<Channel, f32, f32> for Color {
+impl Post<Channel, f32, f32> for Color {
     fn get(&self, message: Channel) -> Option<f32> {
         Some(match message {
             Channel::Alpha => self.color.alpha(),
@@ -41,7 +41,7 @@ impl Message<Channel, f32, f32> for Color {
     }
 }
 
-impl Message<(), (), String> for Color {
+impl Post<(), (), String> for Color {
     fn get(&self, _: ()) -> Option<String> {
         Some(self.as_string())
     }
