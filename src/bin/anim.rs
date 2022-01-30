@@ -1,7 +1,6 @@
 use scene::Instruction;
 use snui::data::*;
 use snui::wayland::shell::*;
-use snui::widgets::container::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 use snui::widgets::shapes::*;
 use snui::{
@@ -91,7 +90,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
         Instruction::new(
             transform.pre_translate(self.position, 0.),
-            Rectangle::empty(self.cursor, 30.).background(style::RED),
+            Rectangle::empty(self.cursor, 30.).background(theme::RED),
         )
         .into()
     }
@@ -199,8 +198,8 @@ fn ui() -> impl Widget<Demo> {
     ui.add(
         Switch::new(Remote {})
             .duration(600)
-            .ext()
-            .background(style::BG1)
+            .style()
+            .background(theme::BG1)
             .even_radius(3.)
             .button::<Demo, _>(move |this, ctx, p| match p {
                 Pointer::MouseClick {
@@ -211,10 +210,10 @@ fn ui() -> impl Widget<Demo> {
                     if button.is_left() && pressed {
                         match ctx.state {
                             AnimationState::Start => {
-                                this.set_background(style::BG1);
+                                this.set_background(theme::BG1);
                             }
                             AnimationState::Pause | AnimationState::Stop => {
-                                this.set_background(style::RED);
+                                this.set_background(theme::RED);
                             }
                         }
                     }
@@ -232,15 +231,15 @@ fn main() {
 
     let window = window::default_window(
         Label::from("Animation"),
-        ui().clamp().ext().background(style::BG0),
+        ui().clamp().style().background(theme::BG0),
     );
 
     client.new_window(
         Demo::default(),
         window
-            .background(style::BG2)
+            .background(theme::BG2)
             .alternate_background(0xff58514F)
-            .border(style::BG2, 2.),
+            .border(theme::BG2, 2.),
         &event_queue.handle(),
     );
 
