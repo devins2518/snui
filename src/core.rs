@@ -53,9 +53,7 @@ impl<W: Geometry> Geometry for Proxy<W> {
 impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         match self.damage {
-            Damage::None => {
-                RenderNode::None
-            }
+            Damage::None => RenderNode::None,
             _ => {
                 self.damage = Damage::None;
                 self.inner.create_node(transform)
@@ -75,7 +73,7 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
 
 use widgets::shapes::Style;
 
-impl <W: Style> Style for Proxy<W> {
+impl<W: Style> Style for Proxy<W> {
     fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
         self.inner.set_background(texture);
     }
@@ -108,10 +106,9 @@ pub trait Flex<G>: Geometry + Sized {
 }
 
 pub trait Wrapped: Sized + Geometry {
-    fn ext(self) -> WidgetExt<Self>;
+    fn style(self) -> WidgetStyle<Self>;
     fn clamp(self) -> WidgetBox<Self>;
     fn child(self) -> Positioner<Proxy<Self>>;
-    fn pad(self, padding: f32) -> Padding<Self>;
     fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where
         F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer);
@@ -158,14 +155,11 @@ impl<W> Wrapped for W
 where
     W: Geometry,
 {
-    fn pad(self, padding: f32) -> Padding<Self> {
-        Padding::new(self).even_padding(padding)
-    }
     fn clamp(self) -> WidgetBox<Self> {
         WidgetBox::new(self)
     }
-    fn ext(self) -> WidgetExt<Self> {
-        WidgetExt::new(self)
+    fn style(self) -> WidgetStyle<Self> {
+        WidgetStyle::new(self)
     }
     fn child(self) -> Positioner<Proxy<Self>> {
         Positioner::new(Proxy::new(self))

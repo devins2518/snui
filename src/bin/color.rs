@@ -1,10 +1,10 @@
+use snui::context::*;
 use snui::data::*;
 use snui::scene::*;
-use snui::context::*;
 use snui::wayland::shell::*;
 use snui::widgets::window::WindowRequest;
 use snui::widgets::{shapes::*, text::*, *};
-use snui::{style::*, *};
+use snui::{theme::*, *};
 
 #[derive(Clone, Debug)]
 struct Color {
@@ -116,19 +116,15 @@ fn main() {
     let listener = Listener::new("", ());
     let window = window::default_window(
         listener,
-        body().clamp().ext().even_padding(10.).background(BG0),
+        body().clamp().style().even_padding(10.).background(BG0),
     );
 
     client.new_window(
         Color {
             sync: false,
-            color: tiny_skia::Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
+            color: tiny_skia::Color::WHITE,
         },
-        window
-            .background(BG2)
-            .border(BG2, 2.)
-            .even_radius(5.)
-            .with_width(300.),
+        window.background(BG2).border(BG2, 2.).even_radius(5.),
         &event_queue.handle(),
     );
 
@@ -137,31 +133,31 @@ fn main() {
     }
 }
 
-fn sliders() -> WidgetLayout<impl Widget<Color>> {
-    [RED, GRN, BLU, BG0]
+fn sliders() -> SimpleLayout<impl Widget<Color>> {
+    [RED, GRN, BLU, BG2]
         .iter()
         .map(|color| {
             let message = match *color {
                 RED => Channel::Red,
                 BLU => Channel::Blue,
                 GRN => Channel::Green,
-                BG0 => Channel::Alpha,
+                BG2 => Channel::Alpha,
                 _ => unreachable!(),
             };
             widgets::slider::Slider::new(200, 8)
                 .message(message)
                 .background(*color)
-                .ext()
-                .background(BG2)
+                .style()
+                .border(BG2, 1.)
                 .even_radius(3.)
         })
-        .collect::<WidgetLayout<WidgetExt<Slider<Channel>>>>()
+        .collect::<SimpleLayout<WidgetStyle<Slider<Channel>>>>()
         .spacing(10.)
         .orientation(Orientation::Vertical)
 }
 
-fn body() -> WidgetLayout<impl Widget<Color>> {
-    let mut layout = WidgetLayout::new(15.).orientation(Orientation::Vertical);
+fn body() -> SimpleLayout<impl Widget<Color>> {
+    let mut layout = SimpleLayout::new(15.).orientation(Orientation::Vertical);
 
     let listener = Listener::new("", ())
         .clamp()
@@ -169,13 +165,13 @@ fn body() -> WidgetLayout<impl Widget<Color>> {
         .anchor(CENTER, START)
         .constraint(Constraint::Downward);
 
-    let mut indicator = LayoutBox::new().orientation(Orientation::Vertical);
+    let mut indicator = DynamicLayout::new().orientation(Orientation::Vertical);
 
     indicator.add(listener);
     indicator.add(ColorBlock {
         width: 200.,
         height: 200.,
-        color: tiny_skia::Color::from_rgba(0.5, 0.5, 0.5, 0.5).unwrap(),
+        color: tiny_skia::Color::WHITE,
     });
 
     layout.add(indicator);

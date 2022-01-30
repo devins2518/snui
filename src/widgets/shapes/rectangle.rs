@@ -87,7 +87,7 @@ impl Rectangle {
             ShapeStyle::Border(_, _) => false,
         }
     }
-    pub fn path(&self) -> Option<Path> {
+    pub fn path(&self, mut pb: PathBuilder) -> Option<Path> {
         let mut width = self.width;
         let mut height = self.height;
         let (mut x, mut y) = (0., 0.);
@@ -98,7 +98,6 @@ impl Rectangle {
             height += size;
         }
         let mut cursor = Coords::new(x, y);
-        let mut pb = PathBuilder::new();
 
         let (tl, tr, br, bl) = self.radius;
 
@@ -264,7 +263,8 @@ impl Primitive for Rectangle {
         transform: tiny_skia::Transform,
         clip: Option<&tiny_skia::ClipMask>,
     ) {
-        if let Some(path) = self.path() {
+        let pb = ctx.path_builder();
+        if let Some(path) = self.path(pb) {
             let width = self.width;
             let (x, y) = (0., 0.);
             if let Backend::Pixmap(dt) = ctx.deref_mut() {
@@ -369,7 +369,7 @@ impl Primitive for Rectangle {
                                         )
                                     }
                                     &Texture::Composite(_) => {
-                                        panic!("Composite texture cannot be used for border.")
+                                        panic!("Composite texture cannot be used to draw borders.")
                                     }
                                     _ => Shader::SolidColor(Color::TRANSPARENT),
                                 },
@@ -384,6 +384,9 @@ impl Primitive for Rectangle {
                     }
                 }
             }
+            ctx.reset(path.clear());
+        } else {
+            ctx.reset(PathBuilder::new());
         }
     }
 }

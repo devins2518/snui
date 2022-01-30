@@ -1,7 +1,7 @@
 pub mod button;
-pub mod container;
 pub mod extra;
 pub mod image;
+pub mod layout;
 pub mod shapes;
 pub mod slider;
 pub mod text;
@@ -11,7 +11,7 @@ use crate::scene::Coords;
 pub use crate::widgets::image::InnerImage;
 use crate::*;
 pub use button::Button;
-pub use container::*;
+pub use layout::*;
 pub use shapes::Style;
 pub use slider::Slider;
 use std::ops::{Deref, DerefMut};
@@ -35,7 +35,7 @@ fn blend_f32(texture: f32, foreground: f32, alpha_fg: f32) -> f32 {
     foreground * alpha_fg + texture * (1. - alpha_fg)
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Alignment {
     Start,
     Center,
@@ -119,6 +119,7 @@ impl Default for Spacer {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Padding<W> {
     pub padding: (f32, f32, f32, f32),
     pub widget: W,
@@ -203,6 +204,7 @@ impl<W> DerefMut for Padding<W> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct WidgetBox<W> {
     pub(crate) widget: W,
     coords: Coords,

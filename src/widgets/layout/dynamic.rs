@@ -1,26 +1,25 @@
-use crate::widgets::container::*;
+use crate::widgets::layout::*;
 use crate::widgets::shapes::Rectangle;
 use crate::*;
 use scene::Instruction;
 use scene::RenderNode;
 
-pub struct LayoutBox<W> {
-    size: (f32, f32),
+pub struct DynamicLayout<W> {
     orientation: Orientation,
     widgets: Vec<Positioner<Proxy<W>>>,
 }
 
-impl<W> FromIterator<W> for LayoutBox<W> {
+impl<W> FromIterator<W> for DynamicLayout<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
-        let mut layoutbox = LayoutBox::new();
+        let mut this = DynamicLayout::new();
         for widget in iter {
-            layoutbox.widgets.push(child(widget));
+            this.widgets.push(child(widget));
         }
-        layoutbox
+        this
     }
 }
 
-impl<D, W> Container<D, W> for LayoutBox<W>
+impl<D, W> Container<D, W> for DynamicLayout<W>
 where
     W: Widget<D>,
 {
@@ -41,45 +40,39 @@ where
     }
 }
 
-impl<W: Geometry> Geometry for LayoutBox<W> {
+impl<W: Geometry> Geometry for DynamicLayout<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width != self.size.0 {
-            let size = (width / self.widgets.len() as f32).ceil();
-            match self.orientation {
-                Orientation::Horizontal => {
-                    let mut fixed = Vec::new();
-                    for i in 0..self.widgets.len() {
-                        apply_width(&mut self.widgets, &mut fixed, i, size);
-                    }
+        let size = (width / self.widgets.len() as f32).ceil();
+        match self.orientation {
+            Orientation::Horizontal => {
+                let mut fixed = Vec::new();
+                for i in 0..self.widgets.len() {
+                    apply_width(&mut self.widgets, &mut fixed, i, size);
                 }
-                Orientation::Vertical => return Err(self.width()),
+                if fixed.len() == self.widgets.len() {
+                    Err(self.width())
+                } else {
+                    Ok(())
+                }
             }
-            self.size.0 = self.width();
-        }
-        if self.size.0 == width {
-            Ok(())
-        } else {
-            Err(self.size.0)
+            Orientation::Vertical => return Err(self.width()),
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height != self.size.1 {
-            let size = (height / self.widgets.len() as f32).ceil();
-            match self.orientation {
-                Orientation::Horizontal => {
-                    let mut fixed = Vec::new();
-                    for i in 0..self.widgets.len() {
-                        apply_height(&mut self.widgets, &mut fixed, i, size);
-                    }
+        let size = (height / self.widgets.len() as f32).ceil();
+        match self.orientation {
+            Orientation::Horizontal => {
+                let mut fixed = Vec::new();
+                for i in 0..self.widgets.len() {
+                    apply_height(&mut self.widgets, &mut fixed, i, size);
                 }
-                Orientation::Vertical => return Err(self.height()),
+                if fixed.len() == self.widgets.len() {
+                    Err(self.height())
+                } else {
+                    Ok(())
+                }
             }
-            self.size.1 = self.height();
-        }
-        if self.size.1 == height {
-            Ok(())
-        } else {
-            Err(self.size.1)
+            Orientation::Vertical => return Err(self.height()),
         }
     }
     fn width(&self) -> f32 {
@@ -116,11 +109,10 @@ impl<W: Geometry> Geometry for LayoutBox<W> {
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for LayoutBox<W> {
+impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
-        self.size = (sw, sh);
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container(
             Instruction::new(transform, Rectangle::empty(sw, sh)),
@@ -147,34 +139,32 @@ impl<D, W: Widget<D>> Widget<D> for LayoutBox<W> {
         )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        let mut damage = Damage::None;
-        for child in self.widgets.iter_mut() {
-            damage = damage.max(child.sync(ctx, event));
-        }
-        damage
+        self.widgets
+            .iter_mut()
+            .map(|widget| widget.sync(ctx, event))
+            .max()
+            .unwrap_or_default()
     }
 }
 
-impl<D> Default for LayoutBox<Box<dyn Widget<D>>> {
+impl<D> Default for DynamicLayout<Box<dyn Widget<D>>> {
     fn default() -> Self {
         Self {
-            size: (0., 0.),
             widgets: Vec::new(),
             orientation: Orientation::Horizontal,
         }
     }
 }
 
-impl<D> LayoutBox<Box<dyn Widget<D>>> {
+impl<D> DynamicLayout<Box<dyn Widget<D>>> {
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
         self.widgets.push(child(Box::new(widget)));
     }
 }
 
-impl<W> LayoutBox<W> {
+impl<W> DynamicLayout<W> {
     pub fn new() -> Self {
         Self {
-            size: (0., 0.),
             widgets: Vec::new(),
             orientation: Orientation::Horizontal,
         }

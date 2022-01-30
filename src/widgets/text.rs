@@ -1,5 +1,5 @@
 pub use crate::cache::font::FontProperty;
-use crate::{style::FG0, *};
+use crate::{theme::FG0, *};
 pub use fontdue::{
     layout,
     layout::{
@@ -9,7 +9,6 @@ pub use fontdue::{
 };
 use scene::Instruction;
 use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
 use tiny_skia::*;
 
 const DEFAULT_FONT_SIZE: f32 = 15.;
@@ -21,16 +20,22 @@ pub struct Label {
     pub(crate) color: Color,
     pub(crate) settings: LayoutSettings,
     pub(crate) fonts: Vec<FontProperty>,
-    pub(crate) layout: Option<Rc<[GlyphPosition]>>,
-    pub(crate) size: (f32, f32),
+    pub(crate) size: Option<(f32, f32)>,
 }
 
 impl Label {
+    pub fn as_str(&self) -> &str {
+        self.text.as_str()
+    }
     pub fn max_width(&self) -> f32 {
-        self.settings.max_width.unwrap_or(self.size.0)
+        self.settings
+            .max_width
+            .unwrap_or(self.size.unwrap_or_default().0)
     }
     pub fn max_height(&self) -> f32 {
-        self.settings.max_height.unwrap_or(self.size.1)
+        self.settings
+            .max_height
+            .unwrap_or(self.size.unwrap_or_default().1)
     }
     pub fn set_color(&mut self, color: u32) {
         self.color = u32_to_source(color);
@@ -75,8 +80,7 @@ impl Label {
             fonts: Vec::new(),
             settings: LayoutSettings::default(),
             color: u32_to_source(FG0),
-            layout: None,
-            size: (0., 0.),
+            size: None,
         }
     }
     pub fn font<F: Into<FontProperty>>(mut self, font: F) -> Self {
@@ -102,47 +106,39 @@ impl Label {
             settings: LayoutSettings::default(),
             fonts: vec![FontProperty::new("sans serif")],
             color: u32_to_source(FG0),
-            layout: None,
-            size: (0., 0.),
+            size: None,
         }
     }
 }
 
 impl Geometry for Label {
     fn width(&self) -> f32 {
-        self.size.0
+        self.size.unwrap_or_default().0
     }
     fn height(&self) -> f32 {
-        self.size.1
+        self.size.unwrap_or_default().1
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         self.settings.max_width = Some(width);
-        Err(self.size.0)
+        Err(self.width())
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.settings.max_height = Some(height);
-        Err(self.size.1)
+        Err(self.height())
     }
 }
 
 impl<D> Widget<D> for Label {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let scale = transform.sx.max(transform.sy);
-        if scale != 1. {
-            let mut label = self
-                .clone()
-                .font_size(scale * self.font_size);
-            label.layout = None;
-            Instruction::new(transform, label).into()
-        } else {
-            Instruction::new(transform, self.clone()).into()
-        }
+        let label = self.clone().font_size(scale * self.font_size);
+        Instruction::new(transform, label).into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _event: Event<'d>) -> Damage {
-        if self.layout.is_none() {
-            let layout = ctx.font_cache().layout(self).clone();
-            self.size = cache::font::get_size(&layout);
-            self.layout = Some(layout.into());
+        if self.size.is_none() {
+            let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
+            let layout = fc.layout(self).clone();
+            self.size = Some(cache::font::get_size(&layout));
             Damage::Partial
         } else {
             Damage::None
@@ -153,7 +149,6 @@ impl<D> Widget<D> for Label {
 pub struct Text {
     label: Label,
     buffer: Option<String>,
-    layout: Layout,
 }
 
 impl From<Label> for Text {
@@ -161,7 +156,6 @@ impl From<Label> for Text {
         Text {
             label,
             buffer: None,
-            layout: Layout::new(CoordinateSystem::PositiveYDown),
         }
     }
 }
@@ -186,7 +180,7 @@ impl Text {
     pub fn edit<S: ToString>(&mut self, s: S) {
         let s = s.to_string();
         if s.ne(self.label.text.as_str()) {
-            self.label.layout = None;
+            self.label.size = None;
         }
         self.buffer = None;
         self.label.text = s;
@@ -213,17 +207,11 @@ impl<D> Widget<D> for Text {
         Widget::<()>::create_node(&mut self.label, transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+        let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
         if let Some(string) = &self.buffer {
-            ctx.font_cache()
-                .write(&mut self.layout, &self.label, string);
-            let glyphs = self.layout.glyphs().clone();
-            self.label.size = cache::font::get_size(&glyphs);
-            self.label.layout = Some(glyphs.into());
-            self.buffer = None;
-            Damage::Partial
-        } else {
-            self.label.sync(ctx, event)
+            fc.write(&self.label, string);
         }
+        self.label.sync(ctx, event)
     }
 }
 

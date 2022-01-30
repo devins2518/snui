@@ -53,6 +53,15 @@ where
     pool: Option<MultiPool<wl_surface::WlSurface>>,
 }
 
+impl<D> AsMut<Cache> for WaylandClient<D>
+where
+    D: Data + Clone + 'static,
+{
+    fn as_mut(&mut self) -> &mut Cache {
+        &mut self.cache
+    }
+}
+
 impl<D> WaylandClient<D>
 where
     D: Data + Clone,
@@ -105,7 +114,7 @@ where
             }
         }
     }
-    pub fn fwd_event(&mut self, event: Event, qh: &QueueHandle<Self>) {
+    pub fn send_event(&mut self, event: Event, qh: &QueueHandle<Self>) {
         if let Some(i) = self.current {
             self.applications[i].update_scene(
                 self.pool.as_mut().unwrap(),
@@ -138,7 +147,7 @@ where
             globals: self.globals.clone(),
             widget: Box::new(widget),
             clipmask: ClipMask::new(),
-            surface: surface.unwrap(),
+            surface: surface.expect("Failed to create an XdgSurface"),
         };
 
         application.sync(&mut conn, &mut self.cache, Event::Prepare);
@@ -163,7 +172,7 @@ where
             globals: self.globals.clone(),
             clipmask: ClipMask::new(),
             widget: Box::new(widget),
-            surface: surface.unwrap(),
+            surface: surface.expect("Failed to create a LayerSurface"),
         };
 
         application.sync(&mut conn, &mut self.cache, Event::Prepare);
@@ -769,6 +778,7 @@ where
                     self.current = Some(i);
                     if let Some(c_output) = application.surface.output.as_ref() {
                         if c_output.scale != output.scale {
+                            application.surface.output = Some(output.clone());
                             application.state.render_node = RenderNode::None;
                             application.update_scene(
                                 self.pool.as_mut().unwrap(),
@@ -778,8 +788,9 @@ where
                                 qh,
                             );
                         }
+                    } else {
+                        application.surface.output = Some(output.clone());
                     }
-                    application.surface.output = Some(output.clone());
                 }
             }
         }
@@ -810,11 +821,12 @@ where
                     // The application is rendered prior and the changes are commited here
                     let frame_time = (callback_data - application.state.time).min(20);
                     application.state.time = callback_data;
-                    let scale = if let Some(output) = &application.surface.output {
-                        output.scale
-                    } else {
-                        1
-                    };
+                    let scale = application
+                        .surface
+                        .output
+                        .as_ref()
+                        .map(|o| o.scale)
+                        .unwrap_or(1);
                     // Send a callback event with the timeout the application
                     let width = application.state.render_node.width() / scale as f32;
                     let height = application.state.render_node.height() / scale as f32;

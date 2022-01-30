@@ -1,20 +1,20 @@
-use crate::widgets::container::{child, Container, Positioner};
+use crate::widgets::layout::{child, Container, Positioner};
 use crate::widgets::shapes::Rectangle;
 use crate::widgets::Alignment;
 use crate::*;
 use scene::Instruction;
 use scene::RenderNode;
 
-pub struct WidgetLayout<W> {
+pub struct SimpleLayout<W> {
     spacing: f32,
     widgets: Vec<Positioner<Proxy<W>>>,
     alignment: Alignment,
     orientation: Orientation,
 }
 
-impl<W> FromIterator<W> for WidgetLayout<W> {
+impl<W> FromIterator<W> for SimpleLayout<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
-        let mut layout = WidgetLayout::new(0.);
+        let mut layout = SimpleLayout::new(0.);
         for widget in iter {
             layout.widgets.push(child(widget));
         }
@@ -22,7 +22,7 @@ impl<W> FromIterator<W> for WidgetLayout<W> {
     }
 }
 
-impl<D, W> Container<D, W> for WidgetLayout<W>
+impl<D, W> Container<D, W> for SimpleLayout<W>
 where
     W: Widget<D>,
 {
@@ -43,7 +43,7 @@ where
     }
 }
 
-impl<W: Geometry> Geometry for WidgetLayout<W> {
+impl<W: Geometry> Geometry for SimpleLayout<W> {
     fn width(&self) -> f32 {
         let mut width = 0.;
         match self.orientation {
@@ -80,9 +80,9 @@ impl<W: Geometry> Geometry for WidgetLayout<W> {
     }
 }
 
-impl<D> Default for WidgetLayout<Box<dyn Widget<D>>> {
+impl<D> Default for SimpleLayout<Box<dyn Widget<D>>> {
     fn default() -> Self {
-        WidgetLayout {
+        SimpleLayout {
             spacing: 0.,
             widgets: Vec::new(),
             alignment: Alignment::Start,
@@ -91,15 +91,15 @@ impl<D> Default for WidgetLayout<Box<dyn Widget<D>>> {
     }
 }
 
-impl<D> WidgetLayout<Box<dyn Widget<D>>> {
+impl<D> SimpleLayout<Box<dyn Widget<D>>> {
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
         self.widgets.push(child(Box::new(widget)));
     }
 }
 
-impl<W> WidgetLayout<W> {
+impl<W> SimpleLayout<W> {
     pub fn new<S: Into<f32>>(spacing: S) -> Self {
-        WidgetLayout {
+        SimpleLayout {
             spacing: spacing.into(),
             widgets: Vec::new(),
             alignment: Alignment::Start,
@@ -128,7 +128,7 @@ impl<W> WidgetLayout<W> {
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for WidgetLayout<W> {
+impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let sw = self.width();
         let sh = self.height();
@@ -172,10 +172,10 @@ impl<D, W: Widget<D>> Widget<D> for WidgetLayout<W> {
         )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        let mut damage = Damage::None;
-        for child in self.widgets.iter_mut() {
-            damage = damage.max(child.sync(ctx, event));
-        }
-        damage
+        self.widgets
+            .iter_mut()
+            .map(|widget| widget.sync(ctx, event))
+            .max()
+            .unwrap_or_default()
     }
 }

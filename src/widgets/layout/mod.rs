@@ -1,13 +1,13 @@
-pub mod center_box;
-pub mod layout_box;
-pub mod widget_layout;
+pub mod center;
+pub mod dynamic;
+pub mod simple;
 
 use crate::*;
+pub use center::CenterBox;
+pub use dynamic::DynamicLayout;
 use scene::Coords;
+pub use simple::SimpleLayout;
 use widgets::Style;
-pub use center_box::CenterBox;
-pub use layout_box::LayoutBox;
-pub use widget_layout::WidgetLayout;
 
 pub trait Container<D, W>: Geometry
 where

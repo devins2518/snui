@@ -21,7 +21,7 @@ pub trait SimplePost<M, D, U>: Post<M, D, U> {
 
 impl<M, U, T> SimplePost<M, (), U> for T
 where
-    T: Post<M, (), U>
+    T: Post<M, (), U>,
 {
     fn send(&mut self, message: M) -> Option<U> {
         Post::send(self, message, ())

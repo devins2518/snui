@@ -185,7 +185,7 @@ impl<D> Widget<D> for FrameRate {
 }
 
 fn ui() -> impl Widget<Demo> {
-    let mut ui = WidgetLayout::new(0.).orientation(Orientation::Vertical);
+    let mut ui = SimpleLayout::new(0.).orientation(Orientation::Vertical);
     ui.add(
         FrameRate {
             text: "frame rate".into(),

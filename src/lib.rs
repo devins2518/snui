@@ -1,23 +1,23 @@
-pub mod core;
 pub mod cache;
 pub mod context;
+pub mod core;
 pub mod data;
 pub mod scene;
 #[cfg(feature = "wayland")]
 pub mod wayland;
 pub mod widgets;
 
+pub use crate::core::*;
 use context::*;
 use scene::RenderNode;
 use std::ops::{Deref, DerefMut};
 pub use tiny_skia::*;
-pub use crate::core::*;
 use widgets::button::Button;
-use widgets::container::Positioner;
-use widgets::shapes::WidgetExt;
-use widgets::{Padding, WidgetBox};
+use widgets::layout::Positioner;
+use widgets::shapes::WidgetStyle;
+use widgets::WidgetBox;
 
-pub mod style {
+pub mod theme {
     use crate::scene::Texture;
     pub const FG0: u32 = 0xff_C8_BA_A4;
     pub const FG1: u32 = 0xff_cd_c0_ad;
@@ -49,6 +49,12 @@ pub enum Damage {
     /// Damage then request a new frame.
     /// Usefull for animations
     Frame,
+}
+
+impl Default for Damage {
+    fn default() -> Self {
+        Damage::None
+    }
 }
 
 impl Damage {
@@ -305,4 +311,3 @@ pub trait Widget<D>: Geometry {
     /// Interface to communicate with the controller and retained mode draw operation
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
 }
-

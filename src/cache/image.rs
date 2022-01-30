@@ -61,6 +61,12 @@ impl AsRef<[u8]> for RawImage {
 }
 
 impl ImageCache {
+    pub fn get_ref<P>(&self, path: P) -> Option<&RawImage>
+    where
+        P: AsRef<Path>,
+    {
+        self.cache.get(path.as_ref())
+    }
     pub fn get<P>(&mut self, path: P) -> Result<RawImage, Box<dyn std::error::Error>>
     where
         P: AsRef<Path>,

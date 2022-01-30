@@ -183,6 +183,7 @@ pub struct SyncContext<'c, D> {
 }
 
 pub struct DrawContext<'c> {
+    pub path_builder: PathBuilder,
     pub(crate) backend: Backend<'c>,
     pub(crate) cache: &'c mut Cache,
     pub(crate) pending_damage: Vec<Region>,
@@ -233,9 +234,6 @@ impl<'c, D> SyncContext<'c, D> {
     pub fn window_request(&mut self, window_request: WindowRequest) {
         self.window_request = Some(window_request);
     }
-    pub fn font_cache(&mut self) -> &mut FontCache {
-        &mut self.cache.font_cache
-    }
 }
 
 impl<'c, D> Deref for SyncContext<'c, D> {
@@ -251,16 +249,28 @@ impl<'c, D> DerefMut for SyncContext<'c, D> {
     }
 }
 
+impl<'c, D> AsMut<Cache> for SyncContext<'c, D> {
+    fn as_mut(&mut self) -> &mut Cache {
+        self.cache
+    }
+}
+
 impl<'c> DrawContext<'c> {
-    pub fn new(
-        backend: Backend<'c>,
-        cache: &'c mut Cache,
-    ) -> Self {
+    pub fn new(backend: Backend<'c>, cache: &'c mut Cache) -> Self {
         Self {
-            backend,
             cache,
+            backend,
             pending_damage: Vec::new(),
+            path_builder: PathBuilder::new(),
         }
+    }
+    /// Replaces the inner PathBuilder.
+    /// Must be reset.
+    pub fn path_builder(&mut self) -> PathBuilder {
+        std::mem::replace(&mut self.path_builder, PathBuilder::with_capacity(0, 0))
+    }
+    pub fn reset(&mut self, path_builder: PathBuilder) {
+        self.path_builder = path_builder;
     }
     pub fn commit(&mut self, region: Region) {
         if let Some(r) = self.pending_damage.last_mut() {
@@ -387,16 +397,10 @@ impl<'c> DrawContext<'c> {
         self.pending_damage.as_slice()
     }
     pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
-        let layout;
         let font_cache = &mut self.cache.font_cache;
         for gp in {
-            if let Some(layout) = &label.layout {
-                layout.as_ref()
-            } else {
-                font_cache.layout(label);
-                layout = font_cache.layout.glyphs();
-                layout
-            }
+            font_cache.layout(label);
+            font_cache.layout.glyphs()
         } {
             if let Some(glyph_cache) = font_cache
                 .fonts

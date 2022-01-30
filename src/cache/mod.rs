@@ -9,6 +9,12 @@ pub struct Cache {
     pub(crate) image_cache: ImageCache,
 }
 
+impl AsRef<ImageCache> for Cache {
+    fn as_ref(&self) -> &ImageCache {
+        &self.image_cache
+    }
+}
+
 impl AsMut<FontCache> for Cache {
     fn as_mut(&mut self) -> &mut FontCache {
         &mut self.font_cache
@@ -28,4 +34,12 @@ impl Default for Cache {
             image_cache: ImageCache::default(),
         }
     }
+}
+
+pub fn get_image<C, P>(cache: &mut C, path: P) -> Option<RawImage>
+where
+    C: AsMut<Cache>,
+    P: AsRef<std::path::Path>,
+{
+    cache.as_mut().image_cache.get(path).ok()
 }

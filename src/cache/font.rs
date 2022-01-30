@@ -110,7 +110,7 @@ impl FontCache {
             }
         }
     }
-    pub fn write(&mut self, layout: &mut Layout, label: &Label, string: &str) {
+    pub fn write(&mut self, label: &Label, string: &str) {
         for font in &label.fonts {
             self.load_font(font);
         }
@@ -118,10 +118,8 @@ impl FontCache {
         for c in string.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
-                    layout.append(
-                        &fonts,
-                        &TextStyle::new(&c.to_string(), label.get_font_size(), i),
-                    );
+                    self.layout
+                        .append(&fonts, &TextStyle::new(&c.to_string(), label.font_size, i));
                     break;
                 }
             }
@@ -133,13 +131,11 @@ impl FontCache {
         }
         let fonts = Self::get_fonts(&self.fonts, &label.fonts);
         self.layout.reset(&label.settings);
-        for c in label.get_text().chars() {
+        for c in label.as_str().chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
-                    self.layout.append(
-                        &fonts,
-                        &TextStyle::new(&c.to_string(), label.get_font_size(), i),
-                    );
+                    self.layout
+                        .append(&fonts, &TextStyle::new(&c.to_string(), label.font_size, i));
                     break;
                 }
             }

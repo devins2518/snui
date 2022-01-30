@@ -1,7 +1,7 @@
 use crate::*;
 use crate::{
     scene::{Instruction, Texture},
-    widgets::{container::*, shapes::*, *},
+    widgets::{layout::*, shapes::*, *},
 };
 use std::ops::{Deref, DerefMut};
 
@@ -35,7 +35,7 @@ impl<D> Widget<D> for Close {
         let width = self.width() * FRAC_1_SQRT_2;
         let height = self.height() * FRAC_1_SQRT_2;
 
-        let r = Rectangle::empty(width, height).background(style::RED);
+        let r = Rectangle::empty(width, height).background(theme::RED);
 
         canvas.draw_at_angle(
             (self.width() - width) / 2.,
@@ -87,7 +87,7 @@ impl<D> Widget<D> for Maximize {
                 primitive: Rectangle::new(
                     self.width(),
                     self.height(),
-                    ShapeStyle::solid(style::BLU),
+                    ShapeStyle::solid(theme::BLU),
                 )
                 .into(),
             }
@@ -100,7 +100,7 @@ impl<D> Widget<D> for Maximize {
                     self.width() - 2. * thickness,
                     self.height() - 2. * thickness,
                 )
-                .border(style::BLU, thickness)
+                .border(theme::BLU, thickness)
                 .into(),
             }
             .into()
@@ -154,7 +154,7 @@ impl<D> Widget<D> for Minimize {
         let width = self.width() * FRAC_1_SQRT_2;
         let height = self.height() * FRAC_1_SQRT_2;
 
-        let r = Rectangle::empty(width, height).background(style::YEL);
+        let r = Rectangle::empty(width, height).background(theme::YEL);
 
         canvas.draw_at_angle(
             (self.width() - width) / 2.,
@@ -188,7 +188,7 @@ fn wm_button<D>() -> impl Widget<D>
 where
     D: 'static,
 {
-    let mut l = WidgetLayout::default().spacing(15.);
+    let mut l = SimpleLayout::default().spacing(15.);
     l.add(Minimize {});
     l.add(Maximize { maximized: false });
     l.add(Close {});
@@ -197,7 +197,7 @@ where
 }
 
 fn headerbar<D: 'static>(widget: impl Widget<D> + 'static) -> impl Widget<D> {
-    let mut l = LayoutBox::new();
+    let mut l = DynamicLayout::new();
     l.add(widget.clamp().anchor(START, CENTER));
     l.add(wm_button().clamp().anchor(END, CENTER));
     l
@@ -273,9 +273,7 @@ where
         if !h.is_none() {
             self.body.set_coords(0., h.height());
         }
-        let c = self
-            .body
-            .create_node(transform);
+        let c = self.body.create_node(transform);
         if c.is_none() && h.is_none() {
             return c;
         }
@@ -458,8 +456,8 @@ where
 {
     let header = Header {
         widget: headerbar(header)
-            .ext()
-            .background(style::BG2)
+            .style()
+            .background(theme::BG2)
             .even_padding(10.),
     };
 
@@ -469,7 +467,7 @@ where
         positioned: false,
         body: widget.child(),
         radius: (0., 0., 0., 0.),
-        background: style::BG2.into(),
+        background: theme::BG2.into(),
         alternate: None,
     }
 }

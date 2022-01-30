@@ -242,14 +242,14 @@ where
                                 let width = self.width();
                                 let _ = self.slider.set_width(ratio * self.size);
                                 if width != ratio * self.size {
-                                    return Damage::Partial
+                                    return Damage::Partial;
                                 }
                             }
                             Orientation::Vertical => {
                                 let height = self.height();
                                 let _ = self.slider.set_height(ratio * self.size);
                                 if height != ratio * self.size {
-                                    return Damage::Partial
+                                    return Damage::Partial;
                                 }
                             }
                         }
