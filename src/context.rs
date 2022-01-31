@@ -231,8 +231,26 @@ impl<'c, D> SyncContext<'c, D> {
             cache,
         }
     }
-    pub fn window_request(&mut self, window_request: WindowRequest) {
-        self.window_request = Some(window_request);
+    /// Close the application window
+    pub fn close(&mut self) {
+        self.window_request = Some(WindowRequest::Close);
+    }
+    pub fn minimize(&mut self) {
+        self.window_request = Some(WindowRequest::Minimize);
+    }
+    pub fn maximize(&mut self) {
+        self.window_request = Some(WindowRequest::Maximize);
+    }
+    /// Launch a system menu
+    pub fn menu(&mut self, x: f32, y: f32, serial: u32) {
+        self.window_request = Some(WindowRequest::Menu(x, y, serial));
+    }
+    /// Move the application window
+    pub fn drag(&mut self, serial: u32) {
+        self.window_request = Some(WindowRequest::Move(serial));
+    }
+    pub fn set_title<S: ToString>(&mut self, title: S) {
+        self.window_request = Some(WindowRequest::Title(title.to_string()));
     }
 }
 

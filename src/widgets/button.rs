@@ -89,11 +89,17 @@ where
     fn set_border_size(&mut self, size: f32) {
         self.proxy.set_border_size(size);
     }
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.proxy.set_radius(tl, tr, br, bl);
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.proxy.set_radius_top_left(radius);
     }
-    fn set_even_radius(&mut self, radius: f32) {
-        self.proxy.set_even_radius(radius);
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.proxy.set_radius_top_right(radius);
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.proxy.set_radius_bottom_right(radius);
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.proxy.set_radius(radius);
     }
 }
 

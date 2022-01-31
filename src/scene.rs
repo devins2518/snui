@@ -1,9 +1,8 @@
 use crate::*;
-use context::DrawContext;
-use std::mem;
 use std::rc::Rc;
 pub use tiny_skia::*;
 use widgets::blend;
+use context::DrawContext;
 
 use widgets::shapes::*;
 use widgets::text::*;
@@ -412,6 +411,15 @@ pub struct Instruction {
     pub(crate) primitive: PrimitiveType,
 }
 
+impl From<Region> for Instruction {
+    fn from(region: Region) -> Self {
+        Instruction {
+            transform: Transform::from_translate(region.x, region.y),
+            primitive: Rectangle::empty(region.width, region.height).into()
+        }
+    }
+}
+
 impl Instruction {
     pub fn other<P: 'static + Primitive>(mut transform: Transform, primitive: P) -> Instruction {
         transform.tx = transform.tx.round();
@@ -432,12 +440,6 @@ impl Instruction {
     pub fn transform(mut self, tranform: Transform) -> Instruction {
         self.transform = self.transform.post_concat(tranform);
         self
-    }
-    pub fn empty(x: f32, y: f32, width: f32, height: f32) -> Instruction {
-        Instruction {
-            primitive: Rectangle::empty(width, height).into(),
-            transform: Transform::from_translate(x, y),
-        }
     }
     fn contains(&self, other: &Self) -> bool {
         let region = Region::new(
@@ -711,19 +713,23 @@ impl RenderNode {
     pub fn merge<'r>(&'r mut self, other: Self) {
         match self {
             RenderNode::Container(t_region, t_nodes) => match other {
-                RenderNode::Container(region, mut nodes) => {
+                RenderNode::Container(region, nodes) => {
                     *t_region = region;
-                    *t_nodes = (0..nodes.len())
-                        .map(|i| {
-                            if let Some(node) = t_nodes.get_mut(i) {
-                                let mut node = mem::take(node);
-                                node.merge(mem::take(&mut nodes[i]));
-                                node
+                    let len = nodes.len();
+                    let clear = t_nodes.len() > nodes.len();
+                    for (i, node) in nodes
+                    	.into_iter()
+                    	.enumerate()
+                	{
+                            if let Some(t_node) = t_nodes.get_mut(i) {
+                                t_node.merge(node);
                             } else {
-                                mem::take(&mut nodes[i])
+                                t_nodes.push(node)
                             }
-                        })
-                        .collect();
+                    }
+                    if clear {
+                        t_nodes.truncate(len);
+                    }
                 }
                 RenderNode::None => {}
                 _ => {
@@ -811,27 +817,31 @@ impl RenderNode {
                 self.render(ctx, clip);
             }
             RenderNode::Container(t_region, t_nodes) => match other {
-                RenderNode::Container(region, mut nodes) => {
+                RenderNode::Container(region, nodes) => {
                     *t_region = region;
                     if !shape.contains(&t_region) {
                         return Err(t_region.region());
                     } else {
-                        *t_nodes = (0..nodes.len())
-                            .map(|i| {
-                                if let Some(node) = t_nodes.get_mut(i) {
-                                    let mut node = mem::take(node);
-                                    if let Err(region) =
-                                        node.draw_merge(mem::take(&mut nodes[i]), ctx, shape, clip)
-                                    {
-                                        ctx.damage_region(&Texture::from(shape), region, false);
-                                        node.render(ctx, clip);
-                                    }
-                                    node
-                                } else {
-                                    mem::take(&mut nodes[i])
+                        let len = nodes.len();
+                        let clear = t_nodes.len() > nodes.len();
+                        for (i, node) in nodes
+                        	.into_iter()
+                        	.enumerate()
+                    	{
+                            if let Some(t_node) = t_nodes.get_mut(i) {
+                                if let Err(region) =
+                                    t_node.draw_merge(node, ctx, shape, clip)
+                                {
+                                    ctx.damage_region(&Texture::from(shape), region, false);
+                                    t_node.render(ctx, clip);
                                 }
-                            })
-                            .collect();
+                            } else {
+                                t_nodes.push(node);
+                            }
+                    	}
+                    	if clear {
+                        	t_nodes.truncate(len);
+                    	}
                     }
                 }
                 RenderNode::None => {}
@@ -1059,6 +1069,12 @@ impl Region {
     }
     pub fn scale(&self, sx: f32, sy: f32) -> Self {
         Self::new(self.x * sx, self.y * sy, self.width * sx, self.height * sy)
+    }
+    pub fn rect(&self) -> (Transform, Rectangle) {
+        (
+            Transform::from_translate(self.x, self.y),
+            Rectangle::empty(self.width, self.height)
+        )
     }
     pub fn null(&self) -> bool {
         self.width == 0. || self.height == 0.

@@ -1,4 +1,4 @@
-use crate::data::*;
+use crate::post::*;
 use crate::*;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::Style;
@@ -66,26 +66,10 @@ impl<M> Geometry for Slider<M> {
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        match &self.orientation {
-            Orientation::Horizontal => {
-                self.size = width.max(0.);
-            }
-            Orientation::Vertical => {
-                self.slider.set_width(width.max(0.)).unwrap();
-            }
-        }
-        Ok(())
+        self.slider.set_width(width)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        match &self.orientation {
-            Orientation::Vertical => {
-                self.size = height.max(0.);
-            }
-            Orientation::Horizontal => {
-                self.slider.set_height(height.max(0.)).unwrap();
-            }
-        }
-        Ok(())
+        self.slider.set_height(height)
     }
 }
 
@@ -263,14 +247,23 @@ where
 }
 
 impl<M> Style for Slider<M> {
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.slider.set_radius_top_left(radius);
+    }
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.slider.set_radius_top_right(radius);
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.slider.set_radius_bottom_right(radius);
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.slider.set_radius_bottom_left(radius);
+    }
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.slider.set_background(background);
     }
     fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
         self.slider.set_border_texture(texture);
-    }
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.slider.set_radius(tl, tr, br, bl);
     }
     fn set_border_size(&mut self, size: f32) {
         self.slider.set_border_size(size);

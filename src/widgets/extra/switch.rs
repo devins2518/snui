@@ -1,4 +1,4 @@
-use crate::data::*;
+use crate::post::*;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::{Rectangle, Style};
 use crate::*;
@@ -157,8 +157,17 @@ impl<M> Style for Switch<M> {
     fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
         self.toggle.set_border_texture(texture);
     }
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.toggle.set_radius(tl, tr, br, bl);
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.toggle.set_radius_top_left(radius);
+    }
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.toggle.set_radius_top_right(radius);
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.toggle.set_radius_bottom_right(radius);
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.toggle.set_radius_bottom_left(radius);
     }
     fn set_border_size(&mut self, size: f32) {
         self.toggle.set_border_size(size);

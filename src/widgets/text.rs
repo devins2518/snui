@@ -228,7 +228,7 @@ impl DerefMut for Text {
     }
 }
 
-use crate::data::*;
+use crate::post::*;
 
 /// Updates text on Post or on Prepare events.
 pub struct Listener<M> {

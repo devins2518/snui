@@ -56,7 +56,7 @@ impl<D> Widget<D> for Close {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        ctx.window_request(WindowRequest::Close);
+                        ctx.close();
                     }
                 }
             }
@@ -117,7 +117,7 @@ impl<D> Widget<D> for Maximize {
                 {
                     if self.contains(x, y) {
                         if button.is_left() && pressed {
-                            ctx.window_request(WindowRequest::Maximize);
+                            ctx.maximize()
                         }
                     }
                 }
@@ -175,7 +175,7 @@ impl<D> Widget<D> for Minimize {
             {
                 if self.contains(x, y) {
                     if button.is_left() && pressed {
-                        ctx.window_request(WindowRequest::Minimize);
+                        ctx.minimize();
                     }
                 }
             }
@@ -309,8 +309,7 @@ where
                         | WindowState::Maximized
                         | WindowState::Fullscreen => {
                             positioned = true;
-                            self.body.set_even_radius(0.);
-                            self.header.set_even_radius(0.);
+                            self.set_radius(0.);
                         }
                         _ => {}
                     }
@@ -324,7 +323,10 @@ where
                 }
                 if !positioned && self.positioned {
                     self.positioned = false;
-                    self.set_radius(self.radius.0, self.radius.1, self.radius.2, self.radius.3);
+                    self.set_radius_top_left(self.radius.0);
+                    self.set_radius_top_right(self.radius.1);
+                    self.set_radius_bottom_right(self.radius.2);
+                    self.set_radius_bottom_left(self.radius.3);
                 }
                 self.activated = activated;
                 self.positioned = positioned;
@@ -356,18 +358,20 @@ where
         self.header.set_border_texture(texture.clone());
         self.body.set_border_texture(texture);
     }
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.header.set_radius_top_left(radius);
+    }
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.header.set_radius_top_right(radius);
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.body.set_radius_bottom_right(radius);
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.body.set_radius_bottom_left(radius);
+    }
     fn set_border_size(&mut self, size: f32) {
         self.body.set_border_size(size);
-    }
-    fn set_even_radius(&mut self, radius: f32) {
-        self.radius = (radius, radius, radius, radius);
-        self.body.set_radius(0., 0., radius, radius);
-        self.header.set_radius(radius, radius, 0., 0.);
-    }
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.radius = (tl, tr, br, bl);
-        self.body.set_radius(0., 0., br, bl);
-        self.header.set_radius(tl, tr, 0., 0.);
     }
 }
 
@@ -431,9 +435,9 @@ impl<D, W: Widget<D>> Widget<D> for Header<W> {
                             serial,
                         } => {
                             if button.is_left() && pressed {
-                                ctx.window_request(WindowRequest::Move(serial));
+                                ctx.drag(serial);
                             } else if button.is_right() && pressed {
-                                ctx.window_request(WindowRequest::Menu(x, y, serial));
+                                ctx.menu(x, y, serial);
                             }
                         }
                         _ => {}
@@ -458,7 +462,7 @@ where
         widget: headerbar(header)
             .style()
             .background(theme::BG2)
-            .even_padding(10.),
+            .padding(10.),
     };
 
     Window {

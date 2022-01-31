@@ -1,6 +1,6 @@
 use scene::Instruction;
-use snui::data::*;
-use snui::wayland::shell::*;
+use snui::post::*;
+use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 use snui::widgets::shapes::*;
 use snui::{
@@ -8,6 +8,7 @@ use snui::{
     *,
 };
 
+// The state of the animations in the Demo
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AnimationState {
     Stop,
@@ -15,12 +16,15 @@ enum AnimationState {
     Pause,
 }
 
+// Our Data.
+// Holds the state and is responsible for communicating changes across the widget tree
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Demo {
     sync: bool,
     state: AnimationState,
 }
 
+// The message sent to the Demo when the want to change its animation state
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Remote {}
 
@@ -33,11 +37,14 @@ impl Default for Demo {
     }
 }
 
+// Needed for the Switch to change the state of our Demo
 impl Post<Remote, bool, bool> for Demo {
     fn get(&self, _: Remote) -> Option<bool> {
         None
     }
     fn send(&mut self, _: Remote, data: bool) -> Option<bool> {
+        // When the state of the animation is changed,
+        // we want our Data to be shared again to the widgets so they are aware of the new state
         self.sync = true;
         match data {
             true => self.start(),
@@ -70,6 +77,7 @@ impl Demo {
     }
 }
 
+// Moves a rectangle across a box
 struct Animate<E: Easer> {
     start: bool,
     cursor: f32,
@@ -124,6 +132,9 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
                     self.start = false;
                 }
             },
+            Event::Prepare => {
+                ctx.set_title("Animation");
+            }
             _ => {}
         }
         Damage::None
@@ -152,6 +163,7 @@ impl Animate<Sinus> {
     }
 }
 
+// Displays the frame rate of the animation
 struct FrameRate {
     text: Text,
 }
@@ -183,6 +195,7 @@ impl<D> Widget<D> for FrameRate {
     }
 }
 
+// Creates our user interface
 fn ui() -> impl Widget<Demo> {
     let mut ui = SimpleLayout::new(0.).orientation(Orientation::Vertical);
     ui.add(
@@ -200,7 +213,7 @@ fn ui() -> impl Widget<Demo> {
             .duration(600)
             .style()
             .background(theme::BG1)
-            .even_radius(3.)
+            .radius(3.)
             .button::<Demo, _>(move |this, ctx, p| match p {
                 Pointer::MouseClick {
                     serial: _,

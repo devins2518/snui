@@ -9,6 +9,10 @@ use scene::Coords;
 pub use simple::SimpleLayout;
 use widgets::Style;
 
+/// Here are provide widgets you can use to layout others.
+///
+/// Additionally there are traits and functions which can also help you implement your own layout widgets.
+
 pub trait Container<D, W>: Geometry
 where
     W: Widget<D>,
@@ -136,8 +140,17 @@ impl<W: Style> Style for Positioner<W> {
     fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
         self.widget.set_border_texture(texture)
     }
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.widget.set_radius(tl, tr, br, bl)
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.widget.set_radius_top_left(radius);
+    }
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.widget.set_radius_top_right(radius);
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.widget.set_radius_bottom_right(radius);
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.widget.set_radius_bottom_left(radius);
     }
 }
 

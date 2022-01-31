@@ -392,8 +392,17 @@ impl Primitive for Rectangle {
 }
 
 impl Style for Rectangle {
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.radius = (tl, tr, br, bl);
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.radius.0 = radius;
+    }
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.radius.1 = radius;
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.radius.2 = radius;
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.radius.3 = radius;
     }
     fn set_background<B: Into<Texture>>(&mut self, background: B) {
         let mut background = background.into();

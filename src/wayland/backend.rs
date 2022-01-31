@@ -1,15 +1,11 @@
 use crate::cache::*;
 use crate::context::DrawContext;
-use crate::data::Data;
+use crate::post::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
 use crate::*;
 use tiny_skia::Transform;
-// use smithay_client_toolkit::reexports::calloop::{EventLoop, LoopHandle, RegistrationToken};
-// use smithay_client_toolkit::seat::keyboard::ModifiersState;
-// use smithay_client_toolkit::shm::AutoMemPool;
-// use smithay_client_toolkit::WaylandSource;
 
 use std::cell::RefCell;
 use std::mem::take;
@@ -36,6 +32,7 @@ use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1},
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
+use wayland_cursor::CursorTheme;
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
 use smithay_client_toolkit::shm::pool::raw::RawPool;
 use smithay_client_toolkit::shm::pool::{AsPool, PoolHandle};
@@ -47,7 +44,7 @@ where
     cache: Cache,
     current: Option<usize>,
     connection: Connection,
-    event_buffer: Event<'static>,
+    event: Event<'static>,
     globals: Rc<RefCell<GlobalManager>>,
     applications: Vec<Application<D>>,
     pool: Option<MultiPool<wl_surface::WlSurface>>,
@@ -55,7 +52,7 @@ where
 
 impl<D> AsMut<Cache> for WaylandClient<D>
 where
-    D: Data + Clone + 'static,
+    D: Data + Clone,
 {
     fn as_mut(&mut self) -> &mut Cache {
         &mut self.cache
@@ -83,7 +80,7 @@ where
             cache: Cache::default(),
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
             connection: conn,
-            event_buffer: Event::default(),
+            event: Event::default(),
             applications: Vec::new(),
         };
 
@@ -93,19 +90,19 @@ where
 
         Some((wl_client, event_queue))
     }
-    fn flush_ev_buffer(&mut self, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
+    fn flush_event(&mut self, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
         if let Some(i) = self.current {
             // Forward the event to the Application
             self.applications[i].update_scene(
                 self.pool.as_mut().unwrap(),
                 &mut self.cache,
-                self.event_buffer,
+                self.event,
                 conn,
                 qh,
             );
             if !self.applications[i].state.configured {
                 self.current = None;
-                self.event_buffer = Event::default();
+                self.event = Event::default();
                 let application = self.applications.remove(i);
                 self.pool
                     .as_mut()
@@ -320,11 +317,13 @@ where
                         }
                     }
                 }
-                WindowRequest::Title(title) => match &self.surface.shell {
-                    Shell::Xdg { toplevel, .. } => {
+                WindowRequest::Title(title) => match self.surface.shell {
+                    Shell::Xdg { ref toplevel, .. } => {
                         toplevel.set_title(conn, title);
                     }
-                    _ => {}
+                    Shell::LayerShell { ref mut config, .. } => {
+                        config.namespace = title;
+                    }
                 },
             }
         }
@@ -412,7 +411,7 @@ where
                 if let Err(region) = self.state.render_node.draw_merge(
                     render_node,
                     &mut ctx,
-                    &Instruction::empty(0., 0., width, height),
+                    &region.into(),
                     &mut ClipRegion::new(region, Some(&mut self.clipmask)),
                 ) {
                     ctx.damage_region(&Texture::Transparent, region, false);
@@ -427,7 +426,7 @@ where
         } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
             surface.wl_surface.commit(conn);
             self.state.pending_cb = true;
-        // If this is a case it means the callback failed so pending_cb callback should be reset
+        // If this is the case it means the callback failed so pending_cb callback should be reset
         } else if let Damage::Frame = damage {
             self.state.pending_cb = false;
         }
@@ -470,7 +469,7 @@ impl GlobalManager {
         let toplevel = xdg_surface.get_toplevel(conn, qh, ()).ok()?;
 
         toplevel.set_app_id(conn, "snui".to_string());
-        toplevel.set_title(conn, "test window".to_string());
+        toplevel.set_title(conn, "default".to_string());
 
         wl_surface.commit(conn);
 
@@ -633,6 +632,7 @@ where
                         .bind::<wl_shm::WlShm, _>(conn, name, 1, qh, ())
                         .ok();
                     if let Some(ref shm) = self.globals.borrow().shm {
+                        self.globals.borrow_mut().cursor_theme = CursorTheme::load(conn, shm.clone(), 32).ok();
                         self.pool = Some(RawPool::new(1 << 10, shm, conn, qh, ()).unwrap().into());
                     }
                 }
@@ -1192,7 +1192,7 @@ where
                     seat.capabilities = capabilities;
                     if let WEnum::Value(capabilities) = capabilities {
                         if capabilities & Capability::Pointer == Capability::Pointer {
-                            seat.seat.get_pointer(conn, qh, ()).unwrap();
+                            seat.pointer = seat.seat.get_pointer(conn, qh, ()).ok();
                         }
                     }
                 }
@@ -1230,7 +1230,7 @@ where
                     button,
                     state,
                 } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                    if let Event::Pointer(_, _, p) = &mut self.event {
                         *p = Pointer::MouseClick {
                             serial,
                             button: MouseButton::new(button),
@@ -1247,7 +1247,7 @@ where
                     axis,
                     value,
                 } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                    if let Event::Pointer(_, _, p) = &mut self.event {
                         if let WEnum::Value(axis) = axis {
                             *p = Pointer::Scroll {
                                 orientation: match axis {
@@ -1261,7 +1261,7 @@ where
                     }
                 }
                 wl_pointer::Event::AxisDiscrete { axis, discrete } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                    if let Event::Pointer(_, _, p) = &mut self.event {
                         if let WEnum::Value(axis) = axis {
                             *p = Pointer::Scroll {
                                 orientation: match axis {
@@ -1279,18 +1279,17 @@ where
                     surface_x,
                     surface_y,
                 } => {
-                    self.event_buffer =
+                    self.event =
                         Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
                 }
                 wl_pointer::Event::Frame => {
-                    // Call dispatch method of the Application
-                    self.flush_ev_buffer(conn, qh);
+                    self.flush_event(conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event_buffer {
+                    if let Event::Pointer(_, _, p) = &mut self.event {
                         *p = Pointer::Leave;
                     }
-                    self.flush_ev_buffer(conn, qh);
+                    self.flush_event(conn, qh);
                     self.current = None;
                 }
                 _ => {}

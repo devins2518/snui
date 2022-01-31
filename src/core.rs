@@ -1,5 +1,68 @@
 use crate::*;
 
+/// Cursor mimetype
+pub enum Cursor {
+    Arrow,
+    TopLeftCorner,
+    TopRightCorner,
+    BottomRightCorner,
+    BottomLeftCorner,
+    TopSide,
+    BottomSide,
+    RightSide,
+    LeftSide,
+    Cross,
+    PointCenter,
+    PointLeft,
+    ColumnResize,
+    RowResize,
+    CrossHair,
+    DragDropMove,
+    DragDropNone,
+    ArrowUp,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    Draft,
+    Help,
+    Kill,
+    Blocked,
+    Hand,
+}
+
+impl Cursor {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Arrow => "arrow",
+            Self::TopLeftCorner => "top_left_corner",
+            Self::TopRightCorner => "top_right_corner",
+            Self::BottomRightCorner => "bottom_right_corner",
+            Self::BottomLeftCorner => "bottom_left_corner",
+            Self::TopSide => "top_side",
+            Self::BottomSide => "bottom_side",
+            Self::RightSide => "right_side",
+            Self::LeftSide => "left_side",
+            Self::Cross => "cross",
+            Self::PointCenter => "center_ptr",
+            Self::PointLeft => "left_ptr",
+            Self::ColumnResize => "",
+            Self::RowResize => "",
+            Self::CrossHair => "crosshair",
+            Self::DragDropMove => "",
+            Self::DragDropNone => "",
+            Self::ArrowUp => "up_arrow",
+            Self::ArrowDown => "down_arror",
+            Self::ArrowLeft => "left_arrow",
+            Self::ArrowRight => "right_arrow",
+            Self::Draft => "draft_large",
+            Self::Help => "help",
+            Self::Kill => "kill",
+            Self::Blocked => "block",
+            Self::Hand => "hand1",
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindowState {
     Maximized,
@@ -83,8 +146,17 @@ impl<W: Style> Style for Proxy<W> {
     fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
         self.inner.set_border_texture(texture);
     }
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32) {
-        self.inner.set_radius(tl, tr, br, bl);
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.inner.set_radius_top_left(radius);
+    }
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.inner.set_radius_top_right(radius);
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.inner.set_radius_bottom_right(radius);
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.inner.set_radius_bottom_left(radius);
     }
 }
 

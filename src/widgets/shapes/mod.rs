@@ -6,10 +6,6 @@ pub use rectangle::Rectangle;
 pub use style::WidgetStyle;
 
 pub trait Style: Sized {
-    fn set_radius(&mut self, tl: f32, tr: f32, br: f32, bl: f32);
-    fn set_even_radius(&mut self, radius: f32) {
-        self.set_radius(radius, radius, radius, radius);
-    }
     fn set_background<B: Into<Texture>>(&mut self, texture: B);
     fn set_border_size(&mut self, size: f32);
     fn set_border_texture<T: Into<Texture>>(&mut self, texture: T);
@@ -17,12 +13,35 @@ pub trait Style: Sized {
         self.set_border_texture(texture);
         self.set_border_size(size);
     }
-    fn radius(mut self, tl: f32, tr: f32, br: f32, bl: f32) -> Self {
-        self.set_radius(tl, tr, br, bl);
+    fn set_radius_top_left(&mut self, radius: f32);
+    fn set_radius_top_right(&mut self, radius: f32);
+    fn set_radius_bottom_right(&mut self, radius: f32);
+    fn set_radius_bottom_left(&mut self, radius: f32);
+    fn set_radius(&mut self, radius: f32) {
+        self.set_radius_top_left(radius);
+        self.set_radius_top_right(radius);
+        self.set_radius_bottom_right(radius);
+        self.set_radius_bottom_left(radius);
+    }
+    fn radius(mut self, radius: f32) -> Self {
+        self.set_radius(radius);
         self
     }
-    fn even_radius(self, radius: f32) -> Self {
-        self.radius(radius, radius, radius, radius)
+    fn radius_top_left(mut self, radius: f32) -> Self {
+        self.set_radius_top_left(radius);
+        self
+    }
+    fn radius_top_right(mut self, radius: f32) -> Self {
+        self.set_radius_top_right(radius);
+        self
+    }
+    fn radius_bottom_right(mut self, radius: f32) -> Self {
+        self.set_radius_bottom_right(radius);
+        self
+    }
+    fn radius_bottom_left(mut self, radius: f32) -> Self {
+        self.set_radius_bottom_left(radius);
+        self
     }
     fn background<B: Into<Texture>>(mut self, texture: B) -> Self {
         self.set_background(texture);

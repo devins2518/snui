@@ -17,6 +17,12 @@ pub use slider::Slider;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
+/// Widgets are composable UI components.
+/// You start with a root widget which you add others to build the widget tree.
+/// The `widget` tree is turned into a `RenderNode` which builds a _scene graph_ of the GUI.
+///
+/// This module provides general purpose widgets that can be use to build most applications.
+
 pub const START: Alignment = Alignment::Start;
 pub const CENTER: Alignment = Alignment::Center;
 pub const END: Alignment = Alignment::End;
@@ -28,7 +34,7 @@ pub fn blend(pix_a: &Color, pix_b: &Color) -> Color {
     let green = blend_f32(g_a, g_b, a_b);
     let blue = blend_f32(b_a, b_b, a_b);
 
-    Color::from_rgba(red, green, blue, 1.).unwrap()
+    Color::from_rgba(red, green, blue, a_b).unwrap()
 }
 
 fn blend_f32(texture: f32, foreground: f32, alpha_fg: f32) -> f32 {
@@ -44,11 +50,11 @@ pub enum Alignment {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Constraint {
-    // Size remains the same regardless
+    /// Size remains the same regardless
     Fixed,
-    // The size is the maximum size the widget can take
+    /// The size is the maximum size the widget can take
     Upward,
-    // The size is the minimum size the widget can take
+    /// The size is the minimum size the widget can take
     Downward,
 }
 
@@ -90,7 +96,7 @@ impl<D> Widget<D> for Spacer {
     fn create_node(&mut self, _: Transform) -> RenderNode {
         RenderNode::None
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<D>, _event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
 }
@@ -176,18 +182,43 @@ impl<W> Padding<W> {
             padding: (0., 0., 0., 0.),
         }
     }
-    pub fn set_padding(&mut self, top: f32, right: f32, bottom: f32, left: f32) {
-        self.padding = (top, right, bottom, left);
+    pub fn set_padding_top(&mut self, padding: f32) {
+        self.padding.0 = padding;
     }
-    pub fn padding(mut self, top: f32, right: f32, bottom: f32, left: f32) -> Self {
-        self.set_padding(top, right, bottom, left);
+    pub fn set_padding_right(&mut self, padding: f32) {
+        self.padding.1 = padding;
+    }
+    pub fn set_padding_bottom(&mut self, padding: f32) {
+        self.padding.2 = padding;
+    }
+    pub fn set_padding_left(&mut self, padding: f32) {
+        self.padding.3 = padding;
+    }
+    pub fn padding_top(mut self, padding: f32) -> Self {
+        self.set_padding_top(padding);
         self
     }
-    pub fn even_padding(self, padding: f32) -> Self {
-        self.padding(padding, padding, padding, padding)
+    pub fn padding_right(mut self, padding: f32) -> Self {
+        self.set_padding_right(padding);
+        self
     }
-    pub fn set_even_padding(&mut self, padding: f32) {
-        self.set_padding(padding, padding, padding, padding);
+    pub fn padding_bottom(mut self, padding: f32) -> Self {
+        self.set_padding_bottom(padding);
+        self
+    }
+    pub fn padding_left(mut self, padding: f32) -> Self {
+        self.set_padding_left(padding);
+        self
+    }
+    pub fn set_padding(&mut self, padding: f32) {
+        self.set_padding_top(padding);
+        self.set_padding_right(padding);
+        self.set_padding_bottom(padding);
+        self.set_padding_left(padding);
+    }
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.set_padding(padding);
+        self
     }
 }
 
@@ -309,8 +340,8 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
                 "Position: {} x {}\nWidgetBox exceeded bounds: {} x {}",
                 transform.tx,
                 transform.ty,
-                self.width(),
-                self.height()
+                self.width() * transform.sx,
+                self.height()* transform.sy
             );
             return RenderNode::None;
         }

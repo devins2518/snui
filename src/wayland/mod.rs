@@ -1,4 +1,4 @@
-pub mod shell;
+pub mod backend;
 
 pub use smithay_client_toolkit::reexports::client::{
     protocol::wl_buffer::WlBuffer,
@@ -9,6 +9,8 @@ pub use smithay_client_toolkit::reexports::client::{
     protocol::wl_seat::{Capability, WlSeat},
     protocol::wl_shm::{Format, WlShm},
     protocol::wl_shm_pool::WlShmPool,
+    protocol::wl_pointer::WlPointer,
+    protocol::wl_keyboard::WlKeyboard,
     protocol::wl_subcompositor::WlSubcompositor,
     protocol::wl_surface::WlSurface,
     ConnectionHandle, Dispatch, QueueHandle, WEnum,
@@ -20,6 +22,7 @@ use smithay_client_toolkit::reexports::protocols::{
     },
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
+use wayland_cursor::CursorTheme;
 
 use crate::context::Backend;
 use crate::PixmapMut;
@@ -91,7 +94,7 @@ impl Default for LayerShellConfig {
             anchor: Some(Anchor::all()),
             exclusive: false,
             interactivity: KeyboardInteractivity::None,
-            namespace: "".to_string(),
+            namespace: String::from("snui"),
             margin: [0; 4],
         }
     }
@@ -169,6 +172,8 @@ impl Output {
 pub struct Seat {
     pub seat: WlSeat,
     pub name: String,
+    pub pointer: Option<WlPointer>,
+    pub keyboard: Option<WlKeyboard>,
     pub capabilities: WEnum<Capability>,
 }
 
@@ -176,6 +181,8 @@ impl Seat {
     fn new(seat: WlSeat) -> Self {
         Self {
             seat,
+            pointer: None,
+            keyboard: None,
             name: String::new(),
             capabilities: WEnum::Unknown(0),
         }
@@ -188,6 +195,7 @@ pub struct GlobalManager {
     shm: Option<WlShm>,
     registry: WlRegistry,
     compositor: Option<WlCompositor>,
+    cursor_theme: Option<CursorTheme>,
     subcompositor: Option<WlSubcompositor>,
     wm_base: Option<xdg_wm_base::XdgWmBase>,
     layer_shell: Option<ZwlrLayerShellV1>,
@@ -200,6 +208,7 @@ impl GlobalManager {
             seats: Vec::new(),
             shm: None,
             registry,
+            cursor_theme: None,
             compositor: None,
             subcompositor: None,
             wm_base: None,

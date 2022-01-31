@@ -1,8 +1,7 @@
 use snui::context::*;
-use snui::data::*;
+use snui::post::*;
 use snui::scene::*;
-use snui::wayland::shell::*;
-use snui::widgets::window::WindowRequest;
+use snui::wayland::backend::*;
 use snui::widgets::{shapes::*, text::*, *};
 use snui::{theme::*, *};
 
@@ -96,48 +95,25 @@ impl Widget<Color> for ColorBlock {
         Widget::<()>::create_node(
             &mut Rectangle::empty(self.width, self.height)
                 .background(self.color)
-                .even_radius(5.),
+                .radius(5.),
             transform,
         )
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         if let Event::Sync = event {
             self.color = ctx.color;
-            ctx.window_request(WindowRequest::Title(ctx.as_string()));
+            ctx.set_title(ctx.as_string());
             return Damage::Partial;
         }
         Damage::None
     }
 }
 
-fn main() {
-    let (mut client, mut event_queue) = WaylandClient::new().unwrap();
-
-    let listener = Listener::new("", ());
-    let window = window::default_window(
-        listener,
-        body().clamp().style().even_padding(10.).background(BG0),
-    );
-
-    client.new_window(
-        Color {
-            sync: false,
-            color: tiny_skia::Color::WHITE,
-        },
-        window.background(BG2).border(BG2, 2.).even_radius(5.),
-        &event_queue.handle(),
-    );
-
-    while client.has_application() {
-        event_queue.blocking_dispatch(&mut client).unwrap();
-    }
-}
-
 fn sliders() -> SimpleLayout<impl Widget<Color>> {
     [RED, GRN, BLU, BG2]
-        .iter()
+        .into_iter()
         .map(|color| {
-            let message = match *color {
+            let message = match color {
                 RED => Channel::Red,
                 BLU => Channel::Blue,
                 GRN => Channel::Green,
@@ -146,17 +122,17 @@ fn sliders() -> SimpleLayout<impl Widget<Color>> {
             };
             widgets::slider::Slider::new(200, 8)
                 .message(message)
-                .background(*color)
+                .background(color)
                 .style()
                 .border(BG2, 1.)
-                .even_radius(3.)
+                .radius(3.)
         })
         .collect::<SimpleLayout<WidgetStyle<Slider<Channel>>>>()
         .spacing(10.)
         .orientation(Orientation::Vertical)
 }
 
-fn body() -> SimpleLayout<impl Widget<Color>> {
+fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
     let mut layout = SimpleLayout::new(15.).orientation(Orientation::Vertical);
 
     let listener = Listener::new("", ())
@@ -179,4 +155,27 @@ fn body() -> SimpleLayout<impl Widget<Color>> {
     layout.justify(CENTER);
 
     layout
+}
+
+fn main() {
+    let (mut client, mut event_queue) = WaylandClient::new().unwrap();
+
+    let listener = Listener::new("", ());
+    let window = window::default_window(
+        listener,
+        ui_builder().clamp().style().padding(10.).background(BG0),
+    );
+
+    client.new_window(
+        Color {
+            sync: false,
+            color: tiny_skia::Color::WHITE,
+        },
+        window.background(BG2).border(BG2, 1.).radius(5.),
+        &event_queue.handle(),
+    );
+
+    while client.has_application() {
+        event_queue.blocking_dispatch(&mut client).unwrap();
+    }
 }
