@@ -118,16 +118,10 @@ impl FontCache {
         for c in label.text.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
-                    self.layout
-                        .append(
-                            &fonts,
-                            &TextStyle::with_user_data(
-                                &c.to_string(),
-                                label.font_size,
-                                i,
-                                label.color
-                            )
-                        );
+                    self.layout.append(
+                        &fonts,
+                        &TextStyle::with_user_data(&c.to_string(), label.font_size, i, label.color),
+                    );
                     break;
                 }
             }
@@ -142,16 +136,10 @@ impl FontCache {
         for c in label.text.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
-                    self.layout
-                        .append(
-                            &fonts,
-                            &TextStyle::with_user_data(
-                                &c.to_string(),
-                                label.font_size,
-                                i,
-                                label.color
-                            )
-                        );
+                    self.layout.append(
+                        &fonts,
+                        &TextStyle::with_user_data(&c.to_string(), label.font_size, i, label.color),
+                    );
                     break;
                 }
             }

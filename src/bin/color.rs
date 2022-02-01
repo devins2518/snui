@@ -2,7 +2,7 @@ use snui::context::*;
 use snui::post::*;
 use snui::scene::*;
 use snui::wayland::backend::*;
-use snui::widgets::{shapes::*, label::*, *};
+use snui::widgets::{label::*, shapes::*, *};
 use snui::{theme::*, *};
 
 #[derive(Clone, Debug)]
@@ -121,7 +121,7 @@ fn sliders() -> SimpleLayout<impl Widget<Color>> {
                 _ => unreachable!(),
             };
             widgets::slider::Slider::new(message)
-            	.with_size(200., 8.)
+                .with_size(200., 8.)
                 .background(color)
                 .style()
                 .border(BG2, 1.)
@@ -160,10 +160,7 @@ fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let listener = Listener::new(
-        "",
-        (),
-        |s| s);
+    let listener = Listener::new("", (), |s| s);
     let window = window::default_window(
         listener,
         ui_builder().clamp().style().padding(10.).background(BG0),

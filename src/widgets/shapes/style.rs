@@ -1,7 +1,7 @@
-use crate::*;
 use crate::scene::*;
-use crate::widgets::shapes::Style;
 pub use crate::widgets::shapes::rectangle::Rectangle;
+use crate::widgets::shapes::Style;
+use crate::*;
 use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::{Deref, DerefMut};
 use widgets::Padding;
@@ -127,7 +127,12 @@ impl<W: Style> WidgetStyle<W> {
         self.widget.padding.1 = self.widget.padding.1.max(delta);
         self.widget.padding.2 = self.widget.padding.2.max(delta);
         self.widget.padding.3 = self.widget.padding.3.max(delta);
-        self.radius = (radius + delta, radius + delta, radius + delta, radius + delta);
+        self.radius = (
+            radius + delta,
+            radius + delta,
+            radius + delta,
+            radius + delta,
+        );
     }
     pub fn radius(mut self, radius: f32) -> Self {
         WidgetStyle::set_radius(&mut self, radius);
@@ -230,10 +235,10 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
                     Some(Instruction::new(
                         transform,
                         Rectangle::empty(width, height)
-                        	.radius_top_left(self.radius.0)
-                        	.radius_top_right(self.radius.1)
-                        	.radius_bottom_right(self.radius.2)
-                        	.radius_bottom_left(self.radius.3)
+                            .radius_top_left(self.radius.0)
+                            .radius_top_right(self.radius.1)
+                            .radius_bottom_right(self.radius.2)
+                            .radius_bottom_left(self.radius.3)
                             .border(border_texture, border_size),
                     ))
                 } else {
@@ -247,7 +252,7 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
                     .radius_top_left(minimum_radius(self.radius.0, border_size))
                     .radius_top_right(minimum_radius(self.radius.1, border_size))
                     .radius_bottom_right(minimum_radius(self.radius.2, border_size))
-                    .radius_bottom_left(minimum_radius(self.radius.3, border_size))
+                    .radius_bottom_left(minimum_radius(self.radius.3, border_size)),
             ),
         }
     }

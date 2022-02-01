@@ -108,7 +108,7 @@ impl Label {
             text: self.text.as_str(),
             font_size: self.font_size,
             settings: &self.settings,
-            fonts: self.fonts.as_slice()
+            fonts: self.fonts.as_slice(),
         }
     }
     pub fn write(&mut self, s: &str) {
@@ -180,16 +180,16 @@ use crate::post::*;
 /// Updates text on Post or on Prepare events.
 pub struct Listener<M, F>
 where
-    F: Fn(String) -> String
+    F: Fn(String) -> String,
 {
     message: M,
-    label: Label,
+    label: Proxy<Label>,
     format: F,
 }
 
 impl<M, F> Geometry for Listener<M, F>
 where
-    F: Fn(String) -> String
+    F: Fn(String) -> String,
 {
     fn width(&self) -> f32 {
         self.label.width()
@@ -230,20 +230,20 @@ where
 
 impl<M, F> Listener<M, F>
 where
-    F: Fn(String) -> String
+    F: Fn(String) -> String,
 {
     pub fn new<T: Into<Label>>(label: T, message: M, format: F) -> Self {
         Self {
             message,
-            label: label.into(),
-            format
+            label: Proxy::new(label.into()),
+            format,
         }
     }
 }
 
 impl<M, F> Deref for Listener<M, F>
 where
-    F: Fn(String) -> String
+    F: Fn(String) -> String,
 {
     type Target = Label;
     fn deref(&self) -> &Self::Target {
@@ -253,7 +253,7 @@ where
 
 impl<M, F> DerefMut for Listener<M, F>
 where
-    F: Fn(String) -> String
+    F: Fn(String) -> String,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.label

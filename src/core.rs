@@ -29,7 +29,7 @@ pub enum Cursor {
     Blocked,
     Hand,
     OpenHand,
-    Wait
+    Wait,
 }
 
 impl Cursor {

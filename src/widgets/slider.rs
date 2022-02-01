@@ -170,7 +170,10 @@ where
                                     }
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
-                                            ctx.send(self.message, self.slider.height() / self.size);
+                                            ctx.send(
+                                                self.message,
+                                                self.slider.height() / self.size,
+                                            );
                                         }
                                     }
                                 }

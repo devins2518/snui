@@ -1,10 +1,11 @@
 pub mod button;
 pub mod extra;
 pub mod image;
+pub mod label;
 pub mod layout;
+pub mod scroll;
 pub mod shapes;
 pub mod slider;
-pub mod label;
 pub mod window;
 
 use crate::scene::Coords;
@@ -341,7 +342,7 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
                 transform.tx,
                 transform.ty,
                 self.width() * transform.sx,
-                self.height()* transform.sy
+                self.height() * transform.sy
             );
             return RenderNode::None;
         }

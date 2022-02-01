@@ -89,8 +89,14 @@ impl<W> Positioner<W> {
             coords: Coords::new(0., 0.),
         }
     }
+    pub fn swap(&mut self, coords: Coords) {
+        self.coords = coords;
+    }
     pub fn set_coords(&mut self, x: f32, y: f32) {
         self.coords = Coords::new(x, y);
+    }
+    pub fn coords(&self) -> Coords {
+        self.coords
     }
 }
 

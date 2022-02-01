@@ -32,10 +32,10 @@ use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1},
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
-use wayland_cursor::CursorTheme;
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
 use smithay_client_toolkit::shm::pool::raw::RawPool;
 use smithay_client_toolkit::shm::pool::{AsPool, PoolHandle};
+use wayland_cursor::CursorTheme;
 
 pub struct WaylandClient<D>
 where
@@ -254,7 +254,13 @@ impl<D> Application<D>
 where
     D: Data + std::clone::Clone,
 {
-    fn sync(&mut self, cache: &mut Cache, event: Event, conn: &mut ConnectionHandle, qh: &QueueHandle<WaylandClient<D>>) -> Damage {
+    fn sync(
+        &mut self,
+        cache: &mut Cache,
+        event: Event,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<WaylandClient<D>>,
+    ) -> Damage {
         let mut damage = if event.is_configure() {
             Damage::Partial
         } else {
@@ -331,9 +337,16 @@ where
         }
 
         if let Some(cursor) = ctx.cursor.take() {
-            let mut globals = self.globals.borrow_mut();
-            let surface = globals.create_surface(conn, qh).expect("Failed to create cursor surface");
-            let seats = globals.seats.clone();
+            let globals = &mut *self.globals.borrow_mut();
+            let surface = if let Some(surface) = globals.pointer_surface.as_ref() {
+                surface
+            } else {
+                globals.pointer_surface = Some(globals
+                    .create_surface(conn, qh)
+                    .expect("Failed to create cursor surface"));
+                globals.pointer_surface.as_ref().unwrap()
+            };
+            let seats = &globals.seats;
             let cursor_theme = globals.cursor_theme.as_mut();
             if let Some(cursor_theme) = cursor_theme {
                 for seat in seats {
@@ -343,15 +356,15 @@ where
                         surface.attach(conn, Some(&buffer), 0, 0);
                         surface.commit(conn);
                         seat.pointer
-                        	.as_ref()
-                        	.expect("Failed to retreive the pointer")
-                        	.set_cursor(
-                            	conn,
-                            	self.state.enter_serial,
-                            	Some(&surface),
-                            	hotspot_x as i32,
-                            	hotspot_y as i32
-                        	);
+                            .as_ref()
+                            .expect("Failed to retreive the pointer")
+                            .set_cursor(
+                                conn,
+                                self.state.enter_serial,
+                                Some(&surface),
+                                hotspot_x as i32,
+                                hotspot_y as i32,
+                            );
                     }
                 }
             } else {
@@ -1322,8 +1335,7 @@ where
                     surface_x,
                     surface_y,
                 } => {
-                    self.event =
-                        Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
+                    self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
                 }
                 wl_pointer::Event::Frame => {
                     self.flush_event(conn, qh);
@@ -1335,17 +1347,21 @@ where
                     self.flush_event(conn, qh);
                     self.current = None;
                 }
-                wl_pointer::Event::Enter { serial, surface_x, surface_y, .. } => {
+                wl_pointer::Event::Enter {
+                    serial,
+                    surface_x,
+                    surface_y,
+                    ..
+                } => {
                     self.applications[index].state.enter_serial = serial;
-                    self.event =
-                        Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
+                    self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
                     self.flush_event(conn, qh);
                 }
                 _ => {}
             }
         } else {
             match event {
-                wl_pointer::Event::Enter { ref surface, .. }=> {
+                wl_pointer::Event::Enter { ref surface, .. } => {
                     self.current = (0..self.applications.len())
                         .find(|i| self.applications[*i].eq_surface(surface));
                     self.event(pointer, event, data, conn, qh);

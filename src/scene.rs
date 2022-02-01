@@ -1,11 +1,11 @@
 use crate::*;
+use context::DrawContext;
 use std::rc::Rc;
 pub use tiny_skia::*;
 use widgets::blend;
-use context::DrawContext;
 
-use widgets::shapes::*;
 use widgets::label::*;
+use widgets::shapes::*;
 use widgets::InnerImage as Image;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -415,7 +415,7 @@ impl From<Region> for Instruction {
     fn from(region: Region) -> Self {
         Instruction {
             transform: Transform::from_translate(region.x, region.y),
-            primitive: Rectangle::empty(region.width, region.height).into()
+            primitive: Rectangle::empty(region.width, region.height).into(),
         }
     }
 }
@@ -717,15 +717,12 @@ impl RenderNode {
                     *t_region = region;
                     let len = nodes.len();
                     let clear = t_nodes.len() > nodes.len();
-                    for (i, node) in nodes
-                    	.into_iter()
-                    	.enumerate()
-                	{
-                            if let Some(t_node) = t_nodes.get_mut(i) {
-                                t_node.merge(node);
-                            } else {
-                                t_nodes.push(node)
-                            }
+                    for (i, node) in nodes.into_iter().enumerate() {
+                        if let Some(t_node) = t_nodes.get_mut(i) {
+                            t_node.merge(node);
+                        } else {
+                            t_nodes.push(node)
+                        }
                     }
                     if clear {
                         t_nodes.truncate(len);
@@ -795,7 +792,7 @@ impl RenderNode {
                     if b.ne(a) {
                         let region = b.region();
                         if shape.contains(b) {
-                            let merge = a.region().merge(&region);
+                            let merge = clip.crop(&a.region().merge(&region));
                             if clip.intersect(&merge) {
                                 ctx.damage_region(&Texture::from(shape), merge, false);
                                 b.render(ctx, clip.clipmask());
@@ -809,7 +806,7 @@ impl RenderNode {
                 }
                 RenderNode::None => {}
                 _ => {
-                    other.clear(ctx, &Texture::from(shape), Some(&a.region()));
+                    other.clear(ctx, &Texture::from(shape), Some(&clip.crop(&a.region())));
                     *self = other;
                     self.render(ctx, clip);
                 }
@@ -827,24 +824,19 @@ impl RenderNode {
                     } else {
                         let len = nodes.len();
                         let clear = t_nodes.len() > nodes.len();
-                        for (i, node) in nodes
-                        	.into_iter()
-                        	.enumerate()
-                    	{
+                        for (i, node) in nodes.into_iter().enumerate() {
                             if let Some(t_node) = t_nodes.get_mut(i) {
-                                if let Err(region) =
-                                    t_node.draw_merge(node, ctx, shape, clip)
-                                {
+                                if let Err(region) = t_node.draw_merge(node, ctx, shape, clip) {
                                     ctx.damage_region(&Texture::from(shape), region, false);
                                     t_node.render(ctx, clip);
                                 }
                             } else {
                                 t_nodes.push(node);
                             }
-                    	}
-                    	if clear {
-                        	t_nodes.truncate(len);
-                    	}
+                        }
+                        if clear {
+                            t_nodes.truncate(len);
+                        }
                     }
                 }
                 RenderNode::None => {}
@@ -884,14 +876,16 @@ impl RenderNode {
                             let merge = instruction
                                 .region()
                                 .merge(&border.as_ref().unwrap_or(&background).region());
-                            t_node.merge(*node);
-                            *t_border = border;
-                            *t_background = background;
-                            if !contains {
-                                return Err(merge);
+                            if clip.intersect(&merge) {
+                                t_node.merge(*node);
+                                *t_border = border;
+                                *t_background = background;
+                                if !contains {
+                                    return Err(merge);
+                                }
+                                ctx.damage_region(&Texture::from(shape), clip.crop(&merge), false);
+                                self.render(ctx, clip);
                             }
-                            ctx.damage_region(&Texture::from(shape), merge, false);
-                            self.render(ctx, clip);
                         }
                     }
                     RenderNode::None => {}
@@ -899,7 +893,7 @@ impl RenderNode {
                         other.clear(
                             ctx,
                             &Texture::from(shape),
-                            Some(&t_border.as_ref().unwrap_or(&t_background).region()),
+                            Some(&clip.crop(&t_border.as_ref().unwrap_or(&t_background).region())),
                         );
                         self.merge(other);
                         self.render(ctx, clip);
@@ -921,7 +915,7 @@ impl RenderNode {
                     RenderNode::None => {}
                     _ => {
                         let region = t_region.region();
-                        self.clear(ctx, &Texture::from(shape), Some(&region));
+                        self.clear(ctx, &Texture::from(shape), Some(&clip.crop(&region)));
                         self.merge(other);
                         self.render(ctx, clip);
                     }
@@ -1076,7 +1070,7 @@ impl Region {
     pub fn rect(&self) -> (Transform, Rectangle) {
         (
             Transform::from_translate(self.x, self.y),
-            Rectangle::empty(self.width, self.height)
+            Rectangle::empty(self.width, self.height),
         )
     }
     pub fn null(&self) -> bool {

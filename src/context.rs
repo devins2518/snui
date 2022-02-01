@@ -424,10 +424,7 @@ impl<'c> DrawContext<'c> {
         let font_cache = &mut self.cache.font_cache;
         let layout = font_cache.layout.glyphs();
         for gp in layout {
-            if let Some(glyph_cache) = font_cache
-                .fonts
-                .get_mut(&fonts[gp.font_index])
-            {
+            if let Some(glyph_cache) = font_cache.fonts.get_mut(&fonts[gp.font_index]) {
                 if let Some(pixmap) = glyph_cache.render_glyph(gp) {
                     if let Some(pixmap) = PixmapRef::from_bytes(
                         unsafe {
@@ -463,10 +460,7 @@ impl<'c> DrawContext<'c> {
             font_cache.layout(label);
             font_cache.layout.glyphs()
         } {
-            if let Some(glyph_cache) = font_cache
-                .fonts
-                .get_mut(&label.fonts[gp.font_index])
-            {
+            if let Some(glyph_cache) = font_cache.fonts.get_mut(&label.fonts[gp.font_index]) {
                 if let Some(pixmap) = glyph_cache.render_glyph(gp) {
                     if let Some(pixmap) = PixmapRef::from_bytes(
                         unsafe {
