@@ -5,7 +5,7 @@ use widgets::blend;
 use context::DrawContext;
 
 use widgets::shapes::*;
-use widgets::text::*;
+use widgets::label::*;
 use widgets::InnerImage as Image;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -342,7 +342,7 @@ impl Primitive for PrimitiveType {
     ) {
         match self {
             Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
-            Self::Label(l) => ctx.draw_label(l, transform.tx, transform.ty),
+            Self::Label(l) => ctx.draw_label(transform.tx, transform.ty, l.as_ref()),
             Self::Other(primitive) => primitive.draw_with_transform_clip(ctx, transform, clip),
         }
     }
@@ -468,7 +468,7 @@ impl Instruction {
             PrimitiveType::Label(l) => {
                 let x = self.transform.tx;
                 let y = self.transform.ty;
-                ctx.draw_label(l, x, y);
+                ctx.draw_label(x, y, l.as_ref());
             }
         }
         ctx.commit(self.region());
@@ -793,14 +793,17 @@ impl RenderNode {
             RenderNode::Instruction(a) => match other {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
-                        let r = b.region();
+                        let region = b.region();
                         if shape.contains(b) {
-                            ctx.damage_region(&Texture::from(shape), a.region().merge(&r), false);
-                            b.render(ctx, clip.clipmask());
+                            let merge = a.region().merge(&region);
+                            if clip.intersect(&merge) {
+                                ctx.damage_region(&Texture::from(shape), merge, false);
+                                b.render(ctx, clip.clipmask());
+                            }
                             *self = other;
                         } else {
                             *self = other;
-                            return Err(r);
+                            return Err(region);
                         }
                     }
                 }

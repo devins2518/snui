@@ -4,7 +4,7 @@ pub mod image;
 pub mod layout;
 pub mod shapes;
 pub mod slider;
-pub mod text;
+pub mod label;
 pub mod window;
 
 use crate::scene::Coords;

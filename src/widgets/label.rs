@@ -23,6 +23,15 @@ pub struct Label {
     pub(crate) size: Option<(f32, f32)>,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub struct LabelRef<'s> {
+    pub text: &'s str,
+    pub font_size: f32,
+    pub color: Color,
+    pub settings: &'s LayoutSettings,
+    pub fonts: &'s [FontProperty],
+}
+
 impl Label {
     pub fn as_str(&self) -> &str {
         self.text.as_str()
@@ -83,6 +92,36 @@ impl Label {
             size: None,
         }
     }
+    pub fn default<T: Into<String>>(text: T) -> Label {
+        Label {
+            text: text.into(),
+            font_size: DEFAULT_FONT_SIZE,
+            settings: LayoutSettings::default(),
+            fonts: vec![FontProperty::new("sans serif")],
+            color: u32_to_source(FG0),
+            size: None,
+        }
+    }
+    pub fn as_ref(&self) -> LabelRef {
+        LabelRef {
+            color: self.color,
+            text: self.text.as_str(),
+            font_size: self.font_size,
+            settings: &self.settings,
+            fonts: self.fonts.as_slice()
+        }
+    }
+    pub fn write(&mut self, s: &str) {
+        self.text.push_str(s);
+        self.size = None;
+    }
+    pub fn edit<S: ToString>(&mut self, s: S) {
+        let s = s.to_string();
+        if s.ne(self.text.as_str()) {
+            self.text = s;
+            self.size = None;
+        }
+    }
     pub fn font<F: Into<FontProperty>>(mut self, font: F) -> Self {
         self.fonts.push(font.into());
         self
@@ -98,16 +137,6 @@ impl Label {
     pub fn settings(mut self, settings: LayoutSettings) -> Self {
         self.settings = settings;
         self
-    }
-    pub fn default<T: Into<String>>(text: T) -> Label {
-        Label {
-            text: text.into(),
-            font_size: DEFAULT_FONT_SIZE,
-            settings: LayoutSettings::default(),
-            fonts: vec![FontProperty::new("sans serif")],
-            color: u32_to_source(FG0),
-            size: None,
-        }
     }
 }
 
@@ -137,7 +166,7 @@ impl<D> Widget<D> for Label {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _event: Event<'d>) -> Damage {
         if self.size.is_none() {
             let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
-            let layout = fc.layout(self).clone();
+            let layout = fc.layout(self.as_ref()).clone();
             self.size = Some(cache::font::get_size(&layout));
             Damage::Partial
         } else {
@@ -146,53 +175,27 @@ impl<D> Widget<D> for Label {
     }
 }
 
-pub struct Text {
+use crate::post::*;
+
+/// Updates text on Post or on Prepare events.
+pub struct Listener<M, F>
+where
+    F: Fn(String) -> String
+{
+    message: M,
     label: Label,
-    buffer: Option<String>,
+    format: F,
 }
 
-impl From<Label> for Text {
-    fn from(label: Label) -> Self {
-        Text {
-            label,
-            buffer: None,
-        }
-    }
-}
-
-impl From<&str> for Text {
-    fn from(text: &str) -> Self {
-        let label: Label = text.into();
-        label.into()
-    }
-}
-
-impl Text {
-    pub fn write<S: ToString>(&mut self, s: S) {
-        let s = s.to_string();
-        self.label.text.push_str(&s);
-        if let Some(buf) = self.buffer.as_mut() {
-            buf.push_str(&s);
-        } else {
-            self.buffer = Some(s);
-        }
-    }
-    pub fn edit<S: ToString>(&mut self, s: S) {
-        let s = s.to_string();
-        if s.ne(self.label.text.as_str()) {
-            self.label.size = None;
-        }
-        self.buffer = None;
-        self.label.text = s;
-    }
-}
-
-impl Geometry for Text {
-    fn height(&self) -> f32 {
-        self.label.height()
-    }
+impl<M, F> Geometry for Listener<M, F>
+where
+    F: Fn(String) -> String
+{
     fn width(&self) -> f32 {
         self.label.width()
+    }
+    fn height(&self) -> f32 {
+        self.label.height()
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         self.label.set_width(width)
@@ -202,104 +205,57 @@ impl Geometry for Text {
     }
 }
 
-impl<D> Widget<D> for Text {
+impl<M, F, D> Widget<D> for Listener<M, F>
+where
+    M: Clone + Copy,
+    F: Fn(String) -> String,
+    D: Post<M, (), String>,
+{
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(&mut self.label, transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
-        if let Some(string) = &self.buffer {
-            fc.write(&self.label, string);
+        match event {
+            Event::Sync | Event::Prepare => {
+                if let Some(string) = ctx.get(self.message) {
+                    let fmt = &self.format;
+                    self.label.edit(fmt(string));
+                }
+            }
+            _ => {}
         }
         self.label.sync(ctx, event)
     }
 }
 
-impl Deref for Text {
+impl<M, F> Listener<M, F>
+where
+    F: Fn(String) -> String
+{
+    pub fn new<T: Into<Label>>(label: T, message: M, format: F) -> Self {
+        Self {
+            message,
+            label: label.into(),
+            format
+        }
+    }
+}
+
+impl<M, F> Deref for Listener<M, F>
+where
+    F: Fn(String) -> String
+{
     type Target = Label;
     fn deref(&self) -> &Self::Target {
         &self.label
     }
 }
 
-impl DerefMut for Text {
+impl<M, F> DerefMut for Listener<M, F>
+where
+    F: Fn(String) -> String
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.label
-    }
-}
-
-use crate::post::*;
-
-/// Updates text on Post or on Prepare events.
-pub struct Listener<M> {
-    message: M,
-    text: Text,
-    format: Option<String>,
-}
-
-impl<M> Geometry for Listener<M> {
-    fn width(&self) -> f32 {
-        self.text.width()
-    }
-    fn height(&self) -> f32 {
-        self.text.height()
-    }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.text.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.text.set_height(height)
-    }
-}
-
-impl<M, D> Widget<D> for Listener<M>
-where
-    M: Clone + Copy,
-    D: Post<M, (), String>,
-{
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        Widget::<()>::create_node(&mut self.text, transform)
-    }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        match event {
-            Event::Sync | Event::Prepare => {
-                if let Some(string) = ctx.get(self.message) {
-                    if let Some(format) = self.format.as_ref() {
-                        self.text.edit(format.replace("{}", &string));
-                    } else {
-                        self.text.edit(format!("{}", string));
-                    }
-                }
-            }
-            _ => {}
-        }
-        self.text.sync(ctx, event)
-    }
-}
-
-impl<M> Listener<M> {
-    pub fn new<T: Into<Text>>(text: T, message: M) -> Self {
-        Self {
-            message,
-            text: text.into(),
-            format: None,
-        }
-    }
-    pub fn format(mut self, format: &str) -> Self {
-        self.format = Some(format.to_string());
-        self
-    }
-}
-
-impl<M> Deref for Listener<M> {
-    type Target = Text;
-    fn deref(&self) -> &Self::Target {
-        &self.text
-    }
-}
-
-impl<M> DerefMut for Listener<M> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.text
     }
 }

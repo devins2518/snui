@@ -4,7 +4,7 @@ use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 use snui::widgets::shapes::*;
 use snui::{
-    widgets::{text::*, *},
+    widgets::{label::*, *},
     *,
 };
 
@@ -165,32 +165,32 @@ impl Animate<Sinus> {
 
 // Displays the frame rate of the animation
 struct FrameRate {
-    text: Text,
+    label: Label,
 }
 
 impl Geometry for FrameRate {
     fn width(&self) -> f32 {
-        self.text.width()
+        self.label.width()
     }
     fn height(&self) -> f32 {
-        self.text.height()
+        self.label.height()
     }
 }
 
 impl<D> Widget<D> for FrameRate {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
-        Widget::<()>::create_node(&mut self.text, transform)
+        Widget::<()>::create_node(&mut self.label, transform)
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if frame_time > 0 {
                     let frame_rate = 1000 / frame_time;
-                    self.text.edit(frame_rate);
+                    self.label.edit(frame_rate);
                 }
-                self.text.sync(ctx, event)
+                self.label.sync(ctx, event)
             }
-            _ => self.text.sync(ctx, event),
+            _ => self.label.sync(ctx, event),
         }
     }
 }
@@ -200,7 +200,7 @@ fn ui() -> impl Widget<Demo> {
     let mut ui = SimpleLayout::new(0.).orientation(Orientation::Vertical);
     ui.add(
         FrameRate {
-            text: "frame rate".into(),
+            label: "frame rate".into(),
         }
         .clamp()
         .with_size(40., 20.),

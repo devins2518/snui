@@ -5,7 +5,7 @@ use widgets::shapes::Style;
 
 pub struct Slider<M> {
     step: f32,
-    message: Option<M>,
+    message: M,
     flip: bool,
     size: f32,
     pressed: bool,
@@ -14,26 +14,15 @@ pub struct Slider<M> {
 }
 
 impl<M> Slider<M> {
-    pub fn new(width: u32, height: u32) -> Self {
-        let orientation = if height > width {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
+    pub fn new(message: M) -> Self {
         Slider {
             step: 5.,
-            message: None,
+            message: message,
             flip: false,
-            size: match &orientation {
-                Orientation::Horizontal => width as f32,
-                Orientation::Vertical => height as f32,
-            },
+            size: 100.,
             pressed: false,
-            slider: match &orientation {
-                Orientation::Horizontal => Rectangle::empty(width as f32 / 2., height as f32),
-                Orientation::Vertical => Rectangle::empty(width as f32, height as f32 / 2.),
-            },
-            orientation,
+            slider: Rectangle::empty(50., 10.),
+            orientation: Orientation::Horizontal,
         }
     }
     pub fn flip(mut self) -> Self {
@@ -41,7 +30,7 @@ impl<M> Slider<M> {
         self
     }
     pub fn message(mut self, message: M) -> Self {
-        self.message = Some(message);
+        self.message = message;
         self
     }
     pub fn orientation(mut self, orientation: Orientation) -> Self {
@@ -66,10 +55,22 @@ impl<M> Geometry for Slider<M> {
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.slider.set_width(width)
+        if let Orientation::Horizontal = &self.orientation {
+            let ratio = self.slider.width() / self.size;
+            self.size = width.max(0.);
+            self.slider.set_width(width * ratio)
+        } else {
+            self.slider.set_width(width)
+        }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.slider.set_height(height)
+        if let Orientation::Vertical = &self.orientation {
+            let ratio = self.slider.height() / self.size;
+            self.size = height.max(0.);
+            self.slider.set_height(height * ratio)
+        } else {
+            self.slider.set_height(height)
+        }
     }
 }
 
@@ -116,13 +117,16 @@ where
                                     }
                                 }
                             }
+                            if pressed && button.is_left() {
+                                ctx.set_cursor(Cursor::Hand);
+                            } else {
+                                ctx.set_cursor(Cursor::Arrow);
+                            }
                             let ratio = match &self.orientation {
                                 Orientation::Horizontal => self.slider.width() / self.size,
                                 Orientation::Vertical => self.slider.height() / self.size,
                             };
-                            if let Some(message) = self.message {
-                                ctx.send(message, ratio);
-                            }
+                            ctx.send(self.message, ratio);
                             return Damage::Partial;
                         }
                         Pointer::Scroll {
@@ -153,9 +157,7 @@ where
                                     self.slider.height() / self.size
                                 }
                             };
-                            if let Some(message) = self.message {
-                                ctx.send(message, ratio);
-                            }
+                            ctx.send(self.message, ratio);
                             return Damage::Partial;
                         }
                         Pointer::Hover => {
@@ -163,16 +165,12 @@ where
                                 match &self.orientation {
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
-                                            if let Some(message) = self.message {
-                                                ctx.send(message, self.slider.width() / self.size);
-                                            }
+                                            ctx.send(self.message, self.slider.width() / self.size);
                                         }
                                     }
                                     Orientation::Vertical => {
                                         if let Ok(_) = self.slider.set_width(y.round()) {
-                                            if let Some(message) = self.message {
-                                                ctx.send(message, self.slider.height() / self.size);
-                                            }
+                                            ctx.send(self.message, self.slider.height() / self.size);
                                         }
                                     }
                                 }
@@ -190,24 +188,25 @@ where
                         } => {
                             if button.is_left() {
                                 self.pressed = pressed;
+                                if pressed {
+                                    ctx.set_cursor(Cursor::Hand);
+                                } else {
+                                    ctx.set_cursor(Cursor::Arrow);
+                                }
                                 return Damage::Partial;
                             }
                         }
                         Pointer::Hover => match &self.orientation {
                             Orientation::Horizontal => {
                                 if let Ok(_) = self.slider.set_width(x.min(self.size)) {
-                                    if let Some(message) = self.message {
-                                        ctx.send(message, self.slider.width() / self.size);
-                                    }
+                                    ctx.send(self.message, self.slider.width() / self.size);
                                     return Damage::Partial;
                                 }
                             }
                             Orientation::Vertical => {
                                 if let Ok(_) = self.slider.set_height(y.min(self.size)) {
-                                    if let Some(message) = self.message {
-                                        ctx.send(message, self.slider.height() / self.size);
-                                        return Damage::Partial;
-                                    }
+                                    ctx.send(self.message, self.slider.height() / self.size);
+                                    return Damage::Partial;
                                 }
                             }
                         },
@@ -219,22 +218,20 @@ where
                 }
             }
             Event::Configure(_) | Event::Sync => {
-                if let Some(message) = self.message {
-                    if let Some(ratio) = ctx.get(message) {
-                        match &self.orientation {
-                            Orientation::Horizontal => {
-                                let width = self.width();
-                                let _ = self.slider.set_width(ratio * self.size);
-                                if width != ratio * self.size {
-                                    return Damage::Partial;
-                                }
+                if let Some(ratio) = ctx.get(self.message) {
+                    match &self.orientation {
+                        Orientation::Horizontal => {
+                            let width = self.width();
+                            let _ = self.slider.set_width(ratio * self.size);
+                            if width != ratio * self.size {
+                                return Damage::Partial;
                             }
-                            Orientation::Vertical => {
-                                let height = self.height();
-                                let _ = self.slider.set_height(ratio * self.size);
-                                if height != ratio * self.size {
-                                    return Damage::Partial;
-                                }
+                        }
+                        Orientation::Vertical => {
+                            let height = self.height();
+                            let _ = self.slider.set_height(ratio * self.size);
+                            if height != ratio * self.size {
+                                return Damage::Partial;
                             }
                         }
                     }

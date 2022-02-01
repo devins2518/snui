@@ -287,6 +287,12 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
+            Event::Pointer(_, _, p) => {
+                if let Pointer::Enter = p {
+                    ctx.set_cursor(Cursor::Arrow);
+                }
+                self.header.sync(ctx, event).max(self.body.sync(ctx, event))
+            }
             Event::Configure(state) => {
                 let mut activated = false;
                 let mut positioned = false;

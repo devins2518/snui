@@ -1,4 +1,4 @@
-use crate::widgets::text::Label;
+use crate::widgets::label::LabelRef;
 use fontconfig::Fontconfig;
 pub use fontdue::{
     layout,
@@ -68,7 +68,7 @@ impl FontProperty {
 /// If a font cannot be found it will load it if possible.
 pub struct FontCache {
     pub(crate) fc: Option<Fontconfig>,
-    pub(crate) layout: Layout,
+    pub(crate) layout: Layout<Color>,
     pub(crate) fonts: HashMap<FontProperty, GlyphCache>,
 }
 
@@ -110,32 +110,48 @@ impl FontCache {
             }
         }
     }
-    pub fn write(&mut self, label: &Label, string: &str) {
-        for font in &label.fonts {
+    pub fn write(&mut self, label: &LabelRef) {
+        for font in label.fonts {
             self.load_font(font);
         }
         let fonts = Self::get_fonts(&self.fonts, &label.fonts);
-        for c in string.chars() {
+        for c in label.text.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
                     self.layout
-                        .append(&fonts, &TextStyle::new(&c.to_string(), label.font_size, i));
+                        .append(
+                            &fonts,
+                            &TextStyle::with_user_data(
+                                &c.to_string(),
+                                label.font_size,
+                                i,
+                                label.color
+                            )
+                        );
                     break;
                 }
             }
         }
     }
-    pub fn layout(&mut self, label: &Label) -> &Vec<GlyphPosition> {
-        for font in &label.fonts {
+    pub fn layout(&mut self, label: LabelRef) -> &Vec<GlyphPosition<Color>> {
+        for font in label.fonts {
             self.load_font(font);
         }
         let fonts = Self::get_fonts(&self.fonts, &label.fonts);
-        self.layout.reset(&label.settings);
-        for c in label.as_str().chars() {
+        self.layout.reset(label.settings);
+        for c in label.text.chars() {
             for (i, font) in fonts.iter().enumerate() {
                 if font.lookup_glyph_index(c) != 0 {
                     self.layout
-                        .append(&fonts, &TextStyle::new(&c.to_string(), label.font_size, i));
+                        .append(
+                            &fonts,
+                            &TextStyle::with_user_data(
+                                &c.to_string(),
+                                label.font_size,
+                                i,
+                                label.color
+                            )
+                        );
                     break;
                 }
             }
@@ -169,7 +185,7 @@ impl GlyphCache {
             Err(_) => FontResult::Err("Invalid path"),
         }
     }
-    pub fn render_glyph(&mut self, glyph: &GlyphPosition, source: Color) -> Option<Vec<u32>> {
+    pub fn render_glyph(&mut self, glyph: &GlyphPosition<Color>) -> Option<Vec<u32>> {
         if !glyph.char_data.is_missing() {
             let pixmap: Vec<u32>;
             if let Some(coverage) = self.glyphs.get(&glyph.key) {
@@ -179,7 +195,7 @@ impl GlyphCache {
                         if a == &0 {
                             0
                         } else {
-                            let mut color = source;
+                            let mut color = glyph.user_data;
                             color.apply_opacity(*a as f32 / 255.);
                             color.premultiply().to_color_u8().get()
                         }
@@ -193,7 +209,7 @@ impl GlyphCache {
                         if a == &0 {
                             0
                         } else {
-                            let mut color = source;
+                            let mut color = glyph.user_data;
                             color.apply_opacity(*a as f32 / 255.);
                             color.premultiply().to_color_u8().get()
                         }

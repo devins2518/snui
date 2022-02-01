@@ -147,7 +147,7 @@ where
             surface: surface.expect("Failed to create an XdgSurface"),
         };
 
-        application.sync(&mut conn, &mut self.cache, Event::Prepare);
+        application.sync(&mut self.cache, Event::Prepare, &mut conn, qh);
 
         self.applications.push(application);
     }
@@ -172,7 +172,7 @@ where
             surface: surface.expect("Failed to create a LayerSurface"),
         };
 
-        application.sync(&mut conn, &mut self.cache, Event::Prepare);
+        application.sync(&mut self.cache, Event::Prepare, &mut conn, qh);
 
         self.applications.push(application);
     }
@@ -210,6 +210,7 @@ struct State {
     offset: usize,
     configured: bool,
     pending_cb: bool,
+    enter_serial: u32,
     window_state: Vec<WindowState>,
     render_node: RenderNode,
 }
@@ -219,6 +220,7 @@ impl Default for State {
         Self {
             time: 0,
             offset: 0,
+            enter_serial: 0,
             configured: false,
             pending_cb: false,
             window_state: Vec::new(),
@@ -252,7 +254,7 @@ impl<D> Application<D>
 where
     D: Data + std::clone::Clone,
 {
-    fn sync(&mut self, conn: &mut ConnectionHandle, cache: &mut Cache, event: Event) -> Damage {
+    fn sync(&mut self, cache: &mut Cache, event: Event, conn: &mut ConnectionHandle, qh: &QueueHandle<WaylandClient<D>>) -> Damage {
         let mut damage = if event.is_configure() {
             Damage::Partial
         } else {
@@ -265,7 +267,7 @@ where
             damage = damage.max(self.widget.sync(&mut ctx, Event::Sync));
         }
 
-        if let Some(request) = take(&mut ctx.window_request) {
+        if let Some(request) = ctx.window_request.take() {
             match request {
                 WindowRequest::Close => {
                     // The WaylandClient will check if it's configured
@@ -328,6 +330,35 @@ where
             }
         }
 
+        if let Some(cursor) = ctx.cursor.take() {
+            let mut globals = self.globals.borrow_mut();
+            let surface = globals.create_surface(conn, qh).expect("Failed to create cursor surface");
+            let seats = globals.seats.clone();
+            let cursor_theme = globals.cursor_theme.as_mut();
+            if let Some(cursor_theme) = cursor_theme {
+                for seat in seats {
+                    if let Some(cursor) = cursor_theme.get_cursor(conn, cursor.as_str()) {
+                        let buffer = &cursor[0];
+                        let (hotspot_x, hotspot_y) = buffer.hotspot();
+                        surface.attach(conn, Some(&buffer), 0, 0);
+                        surface.commit(conn);
+                        seat.pointer
+                        	.as_ref()
+                        	.expect("Failed to retreive the pointer")
+                        	.set_cursor(
+                            	conn,
+                            	self.state.enter_serial,
+                            	Some(&surface),
+                            	hotspot_x as i32,
+                            	hotspot_y as i32
+                        	);
+                    }
+                }
+            } else {
+                surface.destroy(conn);
+            }
+        }
+
         damage
     }
     fn update_scene(
@@ -345,11 +376,11 @@ where
         };
         let width = self.state.render_node.width() / scale as f32;
         let height = self.state.render_node.height() / scale as f32;
-        match self.sync(conn, cache, event) {
+        match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     if width != self.width() * scale as f32 || height != self.height() {
-                        self.sync(conn, cache, Event::Prepare);
+                        self.sync(cache, Event::Prepare, conn, qh);
                     }
                     let render_node = self
                         .widget
@@ -361,7 +392,7 @@ where
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
                         if width != self.width() || height != self.height() {
-                            self.sync(conn, cache, Event::Prepare);
+                            self.sync(cache, Event::Prepare, conn, qh);
                         }
                         let render_node = self
                             .widget
@@ -482,6 +513,17 @@ impl GlobalManager {
             },
             None,
         ))
+    }
+    fn create_surface<D>(
+        &self,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<WaylandClient<D>>,
+    ) -> Option<wl_surface::WlSurface>
+    where
+        D: Data + Clone,
+    {
+        let compositor = self.compositor.as_ref()?;
+        compositor.create_surface(conn, qh, ()).ok()
     }
     fn create_layer_surface<D>(
         &self,
@@ -628,12 +670,13 @@ where
                         .ok();
                 }
                 "wl_shm" => {
-                    self.globals.borrow_mut().shm = registry
+                    let mut globals = self.globals.borrow_mut();
+                    globals.shm = registry
                         .bind::<wl_shm::WlShm, _>(conn, name, 1, qh, ())
                         .ok();
-                    if let Some(ref shm) = self.globals.borrow().shm {
-                        self.globals.borrow_mut().cursor_theme = CursorTheme::load(conn, shm.clone(), 32).ok();
-                        self.pool = Some(RawPool::new(1 << 10, shm, conn, qh, ()).unwrap().into());
+                    if let Some(shm) = globals.shm.clone() {
+                        self.pool = Some(RawPool::new(1 << 10, &shm, conn, qh, ()).unwrap().into());
+                        globals.cursor_theme = CursorTheme::load(conn, shm, 24).ok();
                     }
                 }
                 "wl_seat" => {
@@ -830,10 +873,10 @@ where
                     // Send a callback event with the timeout the application
                     let width = application.state.render_node.width() / scale as f32;
                     let height = application.state.render_node.height() / scale as f32;
-                    match application.sync(conn, cache, Event::Callback(frame_time)) {
+                    match application.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, cache, Event::Prepare);
+                                application.sync(cache, Event::Prepare, conn, qh);
                             }
                             let render_node = application
                                 .widget
@@ -851,7 +894,7 @@ where
                         Damage::Frame => {
                             cb = Some(i);
                             if width != application.width() || height != application.height() {
-                                application.sync(conn, cache, Event::Prepare);
+                                application.sync(cache, Event::Prepare, conn, qh);
                             }
                             let render_node = application
                                 .widget
@@ -1222,7 +1265,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<Self>,
     ) {
-        if self.current.is_some() {
+        if let Some(index) = self.current {
             match event {
                 wl_pointer::Event::Button {
                     serial,
@@ -1292,11 +1335,17 @@ where
                     self.flush_event(conn, qh);
                     self.current = None;
                 }
+                wl_pointer::Event::Enter { serial, surface_x, surface_y, .. } => {
+                    self.applications[index].state.enter_serial = serial;
+                    self.event =
+                        Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
+                    self.flush_event(conn, qh);
+                }
                 _ => {}
             }
         } else {
             match event {
-                wl_pointer::Event::Enter { ref surface, .. } => {
+                wl_pointer::Event::Enter { ref surface, .. }=> {
                     self.current = (0..self.applications.len())
                         .find(|i| self.applications[*i].eq_surface(surface));
                     self.event(pointer, event, data, conn, qh);

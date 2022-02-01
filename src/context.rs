@@ -2,7 +2,7 @@ use crate::cache::*;
 use crate::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
-use widgets::text::Label;
+use widgets::label::LabelRef;
 use widgets::window::WindowRequest;
 
 pub(crate) mod canvas {
@@ -178,6 +178,7 @@ pub enum Backend<'b> {
 
 pub struct SyncContext<'c, D> {
     data: &'c mut D,
+    pub(crate) cursor: Option<Cursor>,
     pub(crate) window_request: Option<WindowRequest>,
     pub(crate) cache: &'c mut Cache,
 }
@@ -226,9 +227,10 @@ impl<'c> DerefMut for Backend<'c> {
 impl<'c, D> SyncContext<'c, D> {
     pub fn new(data: &'c mut D, cache: &'c mut Cache) -> Self {
         Self {
-            window_request: None,
             data,
             cache,
+            cursor: None,
+            window_request: None,
         }
     }
     /// Close the application window
@@ -251,6 +253,9 @@ impl<'c, D> SyncContext<'c, D> {
     }
     pub fn set_title<S: ToString>(&mut self, title: S) {
         self.window_request = Some(WindowRequest::Title(title.to_string()));
+    }
+    pub fn set_cursor(&mut self, cursor: Cursor) {
+        self.cursor = Some(cursor);
     }
 }
 
@@ -414,7 +419,45 @@ impl<'c> DrawContext<'c> {
     pub fn damage_queue(&self) -> &[Region] {
         self.pending_damage.as_slice()
     }
-    pub fn draw_label(&mut self, label: &Label, x: f32, y: f32) {
+    /// Empties the text layout to render it.
+    pub fn finish(&mut self, x: f32, y: f32, fonts: &[FontProperty]) {
+        let font_cache = &mut self.cache.font_cache;
+        let layout = font_cache.layout.glyphs();
+        for gp in layout {
+            if let Some(glyph_cache) = font_cache
+                .fonts
+                .get_mut(&fonts[gp.font_index])
+            {
+                if let Some(pixmap) = glyph_cache.render_glyph(gp) {
+                    if let Some(pixmap) = PixmapRef::from_bytes(
+                        unsafe {
+                            std::slice::from_raw_parts(
+                                pixmap.as_ptr() as *mut u8,
+                                pixmap.len() * std::mem::size_of::<u32>(),
+                            )
+                        },
+                        gp.width as u32,
+                        gp.height as u32,
+                    ) {
+                        match &mut self.backend {
+                            Backend::Pixmap(dt) => {
+                                dt.draw_pixmap(
+                                    (x.round() + gp.x) as i32,
+                                    (y.round() + gp.y) as i32,
+                                    pixmap,
+                                    &TEXT,
+                                    Transform::identity(),
+                                    None,
+                                );
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
+        }
+    }
+    pub fn draw_label(&mut self, x: f32, y: f32, label: LabelRef) {
         let font_cache = &mut self.cache.font_cache;
         for gp in {
             font_cache.layout(label);
@@ -422,9 +465,9 @@ impl<'c> DrawContext<'c> {
         } {
             if let Some(glyph_cache) = font_cache
                 .fonts
-                .get_mut(&label.fonts.as_slice()[gp.font_index])
+                .get_mut(&label.fonts[gp.font_index])
             {
-                if let Some(pixmap) = glyph_cache.render_glyph(gp, label.color) {
+                if let Some(pixmap) = glyph_cache.render_glyph(gp) {
                     if let Some(pixmap) = PixmapRef::from_bytes(
                         unsafe {
                             std::slice::from_raw_parts(

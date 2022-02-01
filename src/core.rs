@@ -28,6 +28,8 @@ pub enum Cursor {
     Kill,
     Blocked,
     Hand,
+    OpenHand,
+    Wait
 }
 
 impl Cursor {
@@ -59,6 +61,8 @@ impl Cursor {
             Self::Kill => "kill",
             Self::Blocked => "block",
             Self::Hand => "hand1",
+            Self::OpenHand => "hand2",
+            Self::Wait => "wait",
         }
     }
 }
