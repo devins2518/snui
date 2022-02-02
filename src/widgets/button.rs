@@ -8,7 +8,7 @@ where
     F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
 {
     cb: F,
-    focused: bool,
+    entered: bool,
     proxy: Proxy<W>,
     _data: PhantomData<D>,
 }
@@ -20,7 +20,7 @@ where
     pub fn new(child: W, cb: F) -> Self {
         Self {
             cb,
-            focused: false,
+            entered: false,
             proxy: Proxy::new(child),
             _data: PhantomData,
         }
@@ -60,14 +60,14 @@ where
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, pointer) = event {
             if self.contains(x, y) {
-                if self.focused {
+                if self.entered {
                     (self.cb)(&mut self.proxy, ctx, pointer);
                 } else {
-                    self.focused = true;
+                    self.entered = true;
                     (self.cb)(&mut self.proxy, ctx, Pointer::Enter);
                 }
-            } else if self.focused {
-                self.focused = false;
+            } else if self.entered {
+                self.entered = false;
                 (self.cb)(&mut self.proxy, ctx, Pointer::Leave);
             }
         }

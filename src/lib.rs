@@ -18,6 +18,7 @@ use widgets::shapes::WidgetStyle;
 use widgets::WidgetBox;
 
 pub mod theme {
+    //! Colors from the Chocolate theme
     use crate::scene::Texture;
     pub const FG0: u32 = 0xff_C8_BA_A4;
     pub const FG1: u32 = 0xff_cd_c0_ad;

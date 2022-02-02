@@ -81,8 +81,9 @@ pub enum WindowState {
 }
 
 pub struct Proxy<W> {
-    pub(crate) inner: W,
     damage: Damage,
+    entered: bool,
+    pub(crate) inner: W,
 }
 
 impl<W> Deref for Proxy<W> {
@@ -129,6 +130,18 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.damage = self.damage.max(match event {
+            Event::Pointer(x, y, _) => {
+                if self.contains(x, y) {
+                    self.entered = true;
+                    self.inner.sync(ctx, event)
+                } else if self.entered {
+                    let e = self.inner.sync(ctx, event);
+                    self.entered = self.contains(x, y) || e.is_some();
+                    e
+                } else {
+                    Damage::None
+                }
+            }
             Event::Configure(_) | Event::Prepare => {
                 Damage::Partial.max(self.inner.sync(ctx, event))
             }
@@ -168,6 +181,7 @@ impl<W> Proxy<W> {
     pub fn new(inner: W) -> Self {
         Proxy {
             inner,
+            entered: false,
             damage: Damage::Partial,
         }
     }
