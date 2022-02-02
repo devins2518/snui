@@ -6,6 +6,7 @@ use crate::*;
 pub use center::CenterBox;
 pub use dynamic::DynamicLayout;
 use scene::Coords;
+use std::ops::{Deref, DerefMut};
 pub use simple::SimpleLayout;
 use widgets::Style;
 
@@ -157,6 +158,43 @@ impl<W: Style> Style for Positioner<W> {
     }
     fn set_radius_bottom_left(&mut self, radius: f32) {
         self.widget.set_radius_bottom_left(radius);
+    }
+}
+
+use widgets::scroll::Scrollable;
+
+impl<W: Scrollable> Scrollable for Positioner<W> {
+    fn forward(&mut self, step: Option<f32>) {
+        self.widget.forward(step)
+    }
+    fn backward(&mut self, step: Option<f32>) {
+        self.widget.backward(step)
+    }
+    fn inner_height(&self) -> f32 {
+        self.widget.inner_height()
+    }
+    fn inner_width(&self) -> f32 {
+        self.widget.inner_width()
+    }
+    fn orientation(&self) -> Orientation {
+        self.widget.orientation()
+    }
+    fn position(&self) -> f32 {
+        self.widget.position()
+    }
+}
+
+
+impl<W> Deref for Positioner<W> {
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        &self.widget
+    }
+}
+
+impl<W> DerefMut for Positioner<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.widget
     }
 }
 

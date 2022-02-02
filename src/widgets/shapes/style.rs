@@ -201,59 +201,60 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
         let x = transform.tx;
         let y = transform.ty;
         let (border_texture, border_size) = self.border.clone();
-        let node = self
+        if let Some(node) = self
             .widget
-            .create_node(transform.pre_translate(border_size, border_size));
-        let width = self.inner_width();
-        let height = self.inner_height();
-        match &mut self.background {
-            Texture::Image(coords, _) => {
-                coords.x = x + border_size;
-                coords.y = y + border_size;
-            }
-            Texture::LinearGradient {
-                start,
-                end,
-                angle,
-                stops: _,
-                mode: _,
-            } => {
-                start.x = x + border_size;
-                start.y = y + border_size;
-                end.x = start.x + width;
-                end.y = start.y + height * angle.tan();
-            }
-            _ => {}
-        }
-        if node.is_none() {
-            return RenderNode::None;
-        }
-        RenderNode::Extension {
-            node: Box::new(node),
-            border: {
-                if border_texture != Texture::Transparent || border_size > 0. {
-                    Some(Instruction::new(
-                        transform,
-                        Rectangle::empty(width, height)
-                            .radius_top_left(self.radius.0)
-                            .radius_top_right(self.radius.1)
-                            .radius_bottom_right(self.radius.2)
-                            .radius_bottom_left(self.radius.3)
-                            .border(border_texture, border_size),
-                    ))
-                } else {
-                    None
+            .create_node(transform.pre_translate(border_size, border_size))
+            .as_option()
+        {
+            let width = self.inner_width();
+            let height = self.inner_height();
+            match &mut self.background {
+                Texture::Image(coords, _) => {
+                    coords.x = x + border_size;
+                    coords.y = y + border_size;
                 }
-            },
-            background: Instruction::new(
-                transform.pre_translate(border_size, border_size),
-                Rectangle::empty(width, height)
-                    .background(self.background.clone())
-                    .radius_top_left(minimum_radius(self.radius.0, border_size))
-                    .radius_top_right(minimum_radius(self.radius.1, border_size))
-                    .radius_bottom_right(minimum_radius(self.radius.2, border_size))
-                    .radius_bottom_left(minimum_radius(self.radius.3, border_size)),
-            ),
+                Texture::LinearGradient {
+                    start,
+                    end,
+                    angle,
+                    ..
+                } => {
+                    start.x = x + border_size;
+                    start.y = y + border_size;
+                    end.x = start.x + width;
+                    end.y = start.y + height * angle.tan();
+                }
+                _ => {}
+            }
+            RenderNode::Decoration {
+                node: Box::new(node),
+                border: {
+                    if border_texture != Texture::Transparent || border_size > 0. {
+                        Some(Instruction::new(
+                            transform,
+                            Rectangle::empty(width, height)
+                                .radius_top_left(self.radius.0)
+                                .radius_top_right(self.radius.1)
+                                .radius_bottom_right(self.radius.2)
+                                .radius_bottom_left(self.radius.3)
+                                .border(border_texture, border_size),
+                        ))
+                    } else {
+                        None
+                    }
+                },
+                background: Instruction::new(
+                    transform.pre_translate(border_size, border_size),
+                    Rectangle::empty(width, height)
+                        .background(self.background.clone())
+                        .radius_top_left(minimum_radius(self.radius.0, border_size))
+                        .radius_top_right(minimum_radius(self.radius.1, border_size))
+                        .radius_bottom_right(minimum_radius(self.radius.2, border_size))
+                        .radius_bottom_left(minimum_radius(self.radius.3, border_size)),
+                ),
+            }
+        } else {
+            return RenderNode::None;
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {

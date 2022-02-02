@@ -14,7 +14,7 @@ use crate::*;
 pub use button::Button;
 pub use layout::*;
 pub use shapes::Style;
-pub use slider::Slider;
+pub use scroll::Scrollable;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
@@ -173,6 +173,27 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
         } else {
             self.widget.sync(ctx, event)
         }
+    }
+}
+
+impl<W: Scrollable> Scrollable for Padding<W> {
+    fn forward(&mut self, step: Option<f32>) {
+        self.widget.forward(step)
+    }
+    fn backward(&mut self, step: Option<f32>) {
+        self.widget.backward(step)
+    }
+    fn inner_height(&self) -> f32 {
+        self.widget.inner_height()
+    }
+    fn inner_width(&self) -> f32 {
+        self.widget.inner_width()
+    }
+    fn orientation(&self) -> Orientation {
+        self.widget.orientation()
+    }
+    fn position(&self) -> f32 {
+        self.widget.position()
     }
 }
 

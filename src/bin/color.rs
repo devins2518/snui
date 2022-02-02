@@ -2,6 +2,7 @@ use snui::context::*;
 use snui::mail::*;
 use snui::scene::*;
 use snui::wayland::backend::*;
+use snui::widgets::slider::Slider;
 use snui::widgets::{label::*, shapes::*, *};
 use snui::{theme::*, *};
 
@@ -138,8 +139,7 @@ fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
     let listener = Listener::new("", ())
         .clamp()
         .with_size(200., 30.)
-        .anchor(CENTER, START)
-        .constraint(Constraint::Downward);
+        .anchor(CENTER, START);
 
     let mut indicator = DynamicLayout::new().orientation(Orientation::Vertical);
 

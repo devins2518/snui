@@ -380,11 +380,6 @@ impl PrimitiveType {
         let background = self.get_texture().merge(background);
         other.apply_texture(background)
     }
-    fn instruction(&self, region: Region) -> Instruction {
-        let mut p = self.clone();
-        let _ = p.set_size(region.width, region.height);
-        Instruction::new(Transform::from_translate(region.x, region.y), p)
-    }
 }
 
 impl Default for PrimitiveType {
@@ -524,21 +519,31 @@ impl<'c> ClipRegion<'c> {
     pub fn new(region: Region, clipmask: Option<&'c mut ClipMask>) -> Self {
         Self { region, clipmask }
     }
-    fn set_region(&mut self, width: f32, height: f32, region: Region) -> Option<()> {
-        if region == Region::new(0., 0., width, height) {
+    fn set_region(&mut self, ctx: &mut DrawContext, region: Region) -> Option<()> {
+        if region == Region::new(0., 0., ctx.width(), ctx.height()) {
             self.region = region;
             self.clear();
             None
         } else {
             self.region = region;
+            let mut pb = ctx.path_builder();
+            pb.push_rect(
+                region.x,
+                region.y,
+                region.width,
+                region.height,
+            );
+            let path = pb.finish().unwrap();
             if let Some(clipmask) = &mut self.clipmask {
                 clipmask.set_path(
-                    width as u32,
-                    height as u32,
-                    &PathBuilder::from_rect(region.into()),
+                    ctx.width() as u32,
+                    ctx.height() as u32,
+                    &path,
                     FillRule::Winding,
                     false,
-                )
+                );
+                ctx.reset(path.clear());
+                Some(())
             } else {
                 None
             }
@@ -567,7 +572,7 @@ impl<'c> ClipRegion<'c> {
 pub enum RenderNode {
     None,
     Instruction(Instruction),
-    Extension {
+    Decoration {
         background: Instruction,
         border: Option<Instruction>,
         node: Box<RenderNode>,
@@ -581,7 +586,7 @@ impl Geometry for RenderNode {
         match self {
             RenderNode::Container(_) => self.region().unwrap_or(Region::default()).width,
             RenderNode::Instruction(instruction) => instruction.width(),
-            RenderNode::Extension {
+            RenderNode::Decoration {
                 background,
                 border,
                 node: _,
@@ -594,7 +599,7 @@ impl Geometry for RenderNode {
         match self {
             RenderNode::Container(_) => self.region().unwrap_or(Region::default()).height,
             RenderNode::Instruction(instruction) => instruction.height(),
-            RenderNode::Extension {
+            RenderNode::Decoration {
                 background,
                 border,
                 node: _,
@@ -639,7 +644,7 @@ impl RenderNode {
                 .iter()
                 .filter_map(|node| node.region())
                 .reduce(|merge, node| merge.merge(&node)),
-            Self::Extension {
+            Self::Decoration {
                 background, border, ..
             } => Some(border.as_ref().unwrap_or(background).region()),
             Self::Instruction(instruction) => Some(instruction.region()),
@@ -654,7 +659,7 @@ impl RenderNode {
                     n.render(ctx, clip);
                 }
             }
-            Self::Extension {
+            Self::Decoration {
                 background,
                 border,
                 node,
@@ -668,11 +673,11 @@ impl RenderNode {
             Self::Clip(region, node) => {
                 let previous = clip.region;
                 if clip
-                    .set_region(ctx.width(), ctx.height(), region.region())
+                    .set_region(ctx, region.region())
                     .is_some()
                 {
                     node.render(ctx, clip);
-                    clip.set_region(ctx.width(), ctx.height(), previous);
+                    clip.set_region(ctx, previous);
                 }
             }
             _ => {}
@@ -700,7 +705,7 @@ impl RenderNode {
                     *self = other;
                 }
             },
-            Self::Extension {
+            Self::Decoration {
                 background,
                 border,
                 node,
@@ -709,7 +714,7 @@ impl RenderNode {
                 let this_border = border;
                 let this_background = background;
                 match other {
-                    RenderNode::Extension {
+                    RenderNode::Decoration {
                         background,
                         border,
                         node,
@@ -812,7 +817,7 @@ impl RenderNode {
                     self.render(ctx, clip);
                 }
             },
-            RenderNode::Extension {
+            RenderNode::Decoration {
                 background,
                 border,
                 node,
@@ -822,7 +827,7 @@ impl RenderNode {
                 let t_background = background;
 
                 match other {
-                    RenderNode::Extension {
+                    RenderNode::Decoration {
                         background,
                         border,
                         node,
@@ -833,7 +838,12 @@ impl RenderNode {
                                 shape.primitive.merge(background.primitive.clone()),
                             );
                             if let Err(region) = t_node.draw_merge(*node, ctx, &instruction, clip) {
-                                shape.primitive.instruction(region).render(ctx, None);
+                                ctx.damage_region(
+                                    &Texture::from(shape),
+                                    clip.crop(&instruction.region().merge(&region)),
+                                    false
+                                );
+                                instruction.render(ctx, clip.clipmask());
                                 self.render(ctx, clip);
                             };
                         } else {
@@ -873,10 +883,10 @@ impl RenderNode {
                 match other {
                     RenderNode::Clip(region, node) => {
                         *t_region = region;
-                        clip.set_region(ctx.width(), ctx.height(), t_region.region());
-                        if let Err(region) = t_node.draw_merge(*node, ctx, shape, clip) {
-                            clip.set_region(ctx.width(), ctx.height(), previous);
-                            return Err(region);
+                        clip.set_region(ctx, t_region.region());
+                        if let Err(_) = t_node.draw_merge(*node, ctx, shape, clip) {
+                            self.render(ctx, clip);
+                            clip.set_region(ctx, previous);
                         }
                     }
                     RenderNode::None => {}
@@ -888,7 +898,7 @@ impl RenderNode {
                     }
                 }
 
-                clip.set_region(ctx.width(), ctx.height(), previous);
+                clip.set_region(ctx, previous);
             }
         }
         Ok(())

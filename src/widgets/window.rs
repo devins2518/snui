@@ -269,15 +269,15 @@ where
     W: Widget<D> + Style,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let h = self.header.create_node(transform);
-        if !h.is_none() {
-            self.body.set_coords(0., h.height());
+        let header = self.header.create_node(transform);
+        if !header.is_none() {
+            self.body.set_coords(0., header.height());
         }
-        let c = self.body.create_node(transform);
-        if c.is_none() && h.is_none() {
-            return c;
+        let body = self.body.create_node(transform);
+        if header.is_none() && body.is_none() {
+            return RenderNode::None;
         }
-        RenderNode::Container(vec![h, c])
+        RenderNode::Container(vec![header, body])
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
@@ -309,7 +309,10 @@ where
                         | WindowState::Maximized
                         | WindowState::Fullscreen => {
                             positioned = true;
-                            self.set_radius(0.);
+                            self.header.set_radius_top_left(0.);
+                            self.header.set_radius_top_right(0.);
+                            self.body.set_radius_bottom_right(0.);
+                            self.body.set_radius_bottom_left(0.);
                         }
                         _ => {}
                     }
@@ -359,15 +362,19 @@ where
         self.body.set_border_texture(texture);
     }
     fn set_radius_top_left(&mut self, radius: f32) {
+        self.radius.0 = radius;
         self.header.set_radius_top_left(radius);
     }
     fn set_radius_top_right(&mut self, radius: f32) {
+        self.radius.1 = radius;
         self.header.set_radius_top_right(radius);
     }
     fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.radius.2 = radius;
         self.body.set_radius_bottom_right(radius);
     }
     fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.radius.3 = radius;
         self.body.set_radius_bottom_left(radius);
     }
     fn set_border_size(&mut self, size: f32) {

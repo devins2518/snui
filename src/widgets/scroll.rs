@@ -1,6 +1,7 @@
 use crate::*;
 use scene::Region;
 use widgets::layout::child;
+use std::ops::{Deref, DerefMut};
 use widgets::*;
 
 /// For widgets that move linearly within in a region.
@@ -47,7 +48,7 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
                     Some(delta) => coords.x -= delta,
                     None => coords.x -= 10.,
                 }
-                if coords.x.abs() < self.size {
+                if coords.x.abs() <= 0. {
                     self.widget.swap(coords);
                 }
             }
@@ -70,7 +71,7 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
                     Some(delta) => coords.x -= delta,
                     None => coords.x -= 10.,
                 }
-                if coords.x.abs() < self.size {
+                if coords.x.abs() < self.inner_height() - self.size {
                     self.widget.swap(coords);
                 }
             }
@@ -79,7 +80,7 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
                     Some(delta) => coords.y -= delta,
                     None => coords.y -= 10.,
                 }
-                if coords.y.abs() < self.size {
+                if coords.y.abs() < self.inner_height() - self.size {
                     self.widget.swap(coords);
                 }
             }
@@ -148,8 +149,16 @@ where
     W: Widget<D>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let region = Region::transform(transform, self.width(), self.height());
-        RenderNode::Clip(region.into(), Box::new(self.widget.create_node(transform)))
+        if let Some(node) = self
+        	.widget
+        	.create_node(transform)
+        	.as_option()
+    	{
+            let region = Region::transform(transform, self.width(), self.height());
+            RenderNode::Clip(region.into(), Box::new(node))
+    	} else {
+        	RenderNode::None
+    	}
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
@@ -188,5 +197,42 @@ where
             },
             _ => self.widget.sync(ctx, event),
         }
+    }
+}
+
+impl<W> Deref for ScrollBox<W> {
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        self.widget.deref().deref()
+    }
+}
+
+impl<W> DerefMut for ScrollBox<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.widget.deref_mut().deref_mut()
+    }
+}
+
+impl<W: Style> Style for ScrollBox<W> {
+    fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
+        self.widget.set_background(texture)
+    }
+    fn set_radius_bottom_left(&mut self, radius: f32) {
+        self.widget.set_radius_bottom_left(radius)
+    }
+    fn set_radius_top_right(&mut self, radius: f32) {
+        self.widget.set_radius_top_right(radius)
+    }
+    fn set_radius_top_left(&mut self, radius: f32) {
+        self.widget.set_radius_top_left(radius)
+    }
+    fn set_radius_bottom_right(&mut self, radius: f32) {
+        self.widget.set_radius_bottom_right(radius)
+    }
+    fn set_border_size(&mut self, size: f32) {
+        self.widget.set_border_size(size)
+    }
+    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
+        self.widget.set_border_texture(texture)
     }
 }

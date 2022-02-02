@@ -177,6 +177,29 @@ impl<W: Style> Style for Proxy<W> {
     }
 }
 
+use widgets::scroll::Scrollable;
+
+impl<W: Scrollable> Scrollable for Proxy<W> {
+    fn forward(&mut self, step: Option<f32>) {
+        self.inner.forward(step)
+    }
+    fn backward(&mut self, step: Option<f32>) {
+        self.inner.backward(step)
+    }
+    fn inner_height(&self) -> f32 {
+        self.inner.inner_height()
+    }
+    fn inner_width(&self) -> f32 {
+        self.inner.inner_width()
+    }
+    fn orientation(&self) -> Orientation {
+        self.inner.orientation()
+    }
+    fn position(&self) -> f32 {
+        self.inner.position()
+    }
+}
+
 impl<W> Proxy<W> {
     pub fn new(inner: W) -> Self {
         Proxy {
