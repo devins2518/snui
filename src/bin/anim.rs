@@ -1,5 +1,5 @@
 use scene::Instruction;
-use snui::post::*;
+use snui::mail::*;
 use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 use snui::widgets::shapes::*;

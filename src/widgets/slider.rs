@@ -1,4 +1,4 @@
-use crate::post::*;
+use crate::mail::*;
 use crate::*;
 use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::Style;

@@ -174,7 +174,7 @@ impl<D> Widget<D> for Label {
     }
 }
 
-use crate::post::*;
+use crate::mail::*;
 
 /// Updates text on Sync or on Prepare events.
 pub struct Listener<M> {

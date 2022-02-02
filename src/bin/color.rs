@@ -1,5 +1,5 @@
 use snui::context::*;
-use snui::post::*;
+use snui::mail::*;
 use snui::scene::*;
 use snui::wayland::backend::*;
 use snui::widgets::{label::*, shapes::*, *};

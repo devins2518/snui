@@ -1,7 +1,7 @@
 pub mod cache;
 pub mod context;
 pub mod core;
-pub mod post;
+pub mod mail;
 pub mod scene;
 #[cfg(feature = "wayland")]
 pub mod wayland;

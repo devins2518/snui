@@ -1,6 +1,6 @@
 use crate::cache::*;
 use crate::context::DrawContext;
-use crate::post::Data;
+use crate::mail::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
