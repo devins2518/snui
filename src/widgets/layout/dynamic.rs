@@ -1,7 +1,5 @@
 use crate::widgets::layout::*;
-use crate::widgets::shapes::Rectangle;
 use crate::*;
-use scene::Instruction;
 use scene::RenderNode;
 
 pub struct DynamicLayout<W> {
@@ -115,7 +113,6 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
         let sh = self.height();
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container(
-            Instruction::new(transform, Rectangle::empty(sw, sh)),
             self.widgets
                 .iter_mut()
                 .map(|child| {

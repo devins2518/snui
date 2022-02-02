@@ -70,7 +70,6 @@ impl std::fmt::Debug for Label {
             .field("font_size", &self.font_size)
             .field("color", &self.color)
             .field("fonts", &self.fonts)
-            .field("dimension", &self.size)
             .finish()
     }
 }
@@ -177,20 +176,13 @@ impl<D> Widget<D> for Label {
 
 use crate::post::*;
 
-/// Updates text on Post or on Prepare events.
-pub struct Listener<M, F>
-where
-    F: Fn(String) -> String,
-{
+/// Updates text on Sync or on Prepare events.
+pub struct Listener<M> {
     message: M,
     label: Proxy<Label>,
-    format: F,
 }
 
-impl<M, F> Geometry for Listener<M, F>
-where
-    F: Fn(String) -> String,
-{
+impl<M> Geometry for Listener<M> {
     fn width(&self) -> f32 {
         self.label.width()
     }
@@ -205,11 +197,10 @@ where
     }
 }
 
-impl<M, F, D> Widget<D> for Listener<M, F>
+impl<M, D> Widget<D> for Listener<M>
 where
     M: Clone + Copy,
-    F: Fn(String) -> String,
-    D: Post<M, (), String>,
+    D: Mail<M, (), String>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(&mut self.label, transform)
@@ -218,8 +209,7 @@ where
         match event {
             Event::Sync | Event::Prepare => {
                 if let Some(string) = ctx.get(self.message) {
-                    let fmt = &self.format;
-                    self.label.edit(fmt(string));
+                    self.label.edit(string);
                 }
             }
             _ => {}
@@ -228,33 +218,23 @@ where
     }
 }
 
-impl<M, F> Listener<M, F>
-where
-    F: Fn(String) -> String,
-{
-    pub fn new<T: Into<Label>>(label: T, message: M, format: F) -> Self {
+impl<M> Listener<M> {
+    pub fn new<T: Into<Label>>(label: T, message: M) -> Self {
         Self {
             message,
             label: Proxy::new(label.into()),
-            format,
         }
     }
 }
 
-impl<M, F> Deref for Listener<M, F>
-where
-    F: Fn(String) -> String,
-{
+impl<M> Deref for Listener<M> {
     type Target = Label;
     fn deref(&self) -> &Self::Target {
         &self.label
     }
 }
 
-impl<M, F> DerefMut for Listener<M, F>
-where
-    F: Fn(String) -> String,
-{
+impl<M> DerefMut for Listener<M> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.label
     }

@@ -572,14 +572,14 @@ pub enum RenderNode {
         border: Option<Instruction>,
         node: Box<RenderNode>,
     },
-    Container(Instruction, Vec<RenderNode>),
+    Container(Vec<RenderNode>),
     Clip(Instruction, Box<RenderNode>),
 }
 
 impl Geometry for RenderNode {
     fn width(&self) -> f32 {
         match self {
-            RenderNode::Container(region, _) => region.width(),
+            RenderNode::Container(_) => self.region().unwrap_or(Region::default()).width,
             RenderNode::Instruction(instruction) => instruction.width(),
             RenderNode::Extension {
                 background,
@@ -592,7 +592,7 @@ impl Geometry for RenderNode {
     }
     fn height(&self) -> f32 {
         match self {
-            RenderNode::Container(region, _) => region.height(),
+            RenderNode::Container(_) => self.region().unwrap_or(Region::default()).height,
             RenderNode::Instruction(instruction) => instruction.height(),
             RenderNode::Extension {
                 background,
@@ -621,7 +621,7 @@ impl RenderNode {
     pub fn is_none(&self) -> bool {
         match self {
             Self::None => true,
-            Self::Container(_, v) => v.is_empty(),
+            Self::Container(v) => v.is_empty(),
             _ => false,
         }
     }
@@ -635,7 +635,10 @@ impl RenderNode {
     pub fn region(&self) -> Option<Region> {
         match self {
             Self::Clip(region, _) => Some(region.region()),
-            Self::Container(region, _) => Some(region.region()),
+            Self::Container(node) => node
+                .iter()
+                .filter_map(|node| node.region())
+                .reduce(|merge, node| merge.merge(&node)),
             Self::Extension {
                 background, border, ..
             } => Some(border.as_ref().unwrap_or(background).region()),
@@ -646,7 +649,7 @@ impl RenderNode {
     pub fn render(&self, ctx: &mut DrawContext, clip: &mut ClipRegion) {
         match self {
             Self::Instruction(instruction) => instruction.render(ctx, clip.clipmask()),
-            Self::Container(_, nodes) => {
+            Self::Container(nodes) => {
                 for n in nodes {
                     n.render(ctx, clip);
                 }
@@ -677,9 +680,8 @@ impl RenderNode {
     }
     pub fn merge<'r>(&'r mut self, other: Self) {
         match self {
-            RenderNode::Container(t_region, t_nodes) => match other {
-                RenderNode::Container(region, nodes) => {
-                    *t_region = region;
+            RenderNode::Container(t_nodes) => match other {
+                RenderNode::Container(nodes) => {
                     let len = nodes.len();
                     let clear = t_nodes.len() > nodes.len();
                     for (i, node) in nodes.into_iter().enumerate() {
@@ -784,36 +786,27 @@ impl RenderNode {
                 *self = other;
                 self.render(ctx, clip);
             }
-            RenderNode::Container(t_region, t_nodes) => match other {
-                RenderNode::Container(region, nodes) => {
-                    *t_region = region;
-                    if !shape.contains(&t_region) {
-                        return Err(t_region.region());
-                    } else {
-                        let len = nodes.len();
-                        let clear = t_nodes.len() > nodes.len();
-                        for (i, node) in nodes.into_iter().enumerate() {
-                            if let Some(t_node) = t_nodes.get_mut(i) {
-                                if let Err(region) = t_node.draw_merge(node, ctx, shape, clip) {
-                                    ctx.damage_region(
-                                        &Texture::from(shape),
-                                        clip.crop(&region),
-                                        false,
-                                    );
-                                    t_node.render(ctx, clip);
-                                }
-                            } else {
-                                t_nodes.push(node);
+            RenderNode::Container(t_nodes) => match other {
+                RenderNode::Container(nodes) => {
+                    let len = nodes.len();
+                    let clear = t_nodes.len() > nodes.len();
+                    for (i, node) in nodes.into_iter().enumerate() {
+                        if let Some(t_node) = t_nodes.get_mut(i) {
+                            if let Err(region) = t_node.draw_merge(node, ctx, shape, clip) {
+                                ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
+                                t_node.render(ctx, clip);
                             }
+                        } else {
+                            t_nodes.push(node);
                         }
-                        if clear {
-                            t_nodes.truncate(len);
-                        }
+                    }
+                    if clear {
+                        t_nodes.truncate(len);
                     }
                 }
                 RenderNode::None => {}
                 _ => {
-                    let region = t_region.region().merge(&other.region().unwrap());
+                    let region = self.region().unwrap().merge(&other.region().unwrap());
                     ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
                     self.merge(other);
                     self.render(ctx, clip);
@@ -925,6 +918,12 @@ impl From<&Region> for Rect {
 impl From<Region> for Rect {
     fn from(r: Region) -> Self {
         Rect::from_xywh(r.x, r.y, r.width, r.height).unwrap()
+    }
+}
+
+impl Default for Region {
+    fn default() -> Self {
+        Region::new(0., 0., 0., 0.)
     }
 }
 

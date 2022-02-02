@@ -1,8 +1,6 @@
 use crate::widgets::layout::{child, Container, Positioner};
-use crate::widgets::shapes::Rectangle;
 use crate::widgets::Alignment;
 use crate::*;
-use scene::Instruction;
 use scene::RenderNode;
 
 pub struct SimpleLayout<W> {
@@ -137,7 +135,6 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
         let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container(
-            Instruction::new(transform, Rectangle::empty(sw, sh)),
             self.widgets
                 .iter_mut()
                 .map(|child| {

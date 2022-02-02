@@ -17,7 +17,7 @@ impl<M> Slider<M> {
     pub fn new(message: M) -> Self {
         Slider {
             step: 5.,
-            message: message,
+            message,
             flip: false,
             size: 100.,
             pressed: false,
@@ -77,7 +77,7 @@ impl<M> Geometry for Slider<M> {
 impl<M, D> Widget<D> for Slider<M>
 where
     M: Clone + Copy,
-    D: Post<M, f32, f32>,
+    D: Mail<M, f32, f32>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let transform = if self.flip {
@@ -166,6 +166,7 @@ where
                                     Orientation::Horizontal => {
                                         if let Ok(_) = self.slider.set_width(x.round()) {
                                             ctx.send(self.message, self.slider.width() / self.size);
+                                            return Damage::Partial;
                                         }
                                     }
                                     Orientation::Vertical => {
@@ -174,10 +175,10 @@ where
                                                 self.message,
                                                 self.slider.height() / self.size,
                                             );
+                                            return Damage::Partial;
                                         }
                                     }
                                 }
-                                return Damage::Partial;
                             }
                         }
                         _ => {}
@@ -224,16 +225,16 @@ where
                 if let Some(ratio) = ctx.get(self.message) {
                     match &self.orientation {
                         Orientation::Horizontal => {
-                            let width = self.width();
+                            let width = self.slider.width();
                             let _ = self.slider.set_width(ratio * self.size);
-                            if width != ratio * self.size {
+                            if width.round() != (ratio * self.size).round() {
                                 return Damage::Partial;
                             }
                         }
                         Orientation::Vertical => {
-                            let height = self.height();
+                            let height = self.slider.height();
                             let _ = self.slider.set_height(ratio * self.size);
-                            if height != ratio * self.size {
+                            if height.round() != (ratio * self.size).round() {
                                 return Damage::Partial;
                             }
                         }

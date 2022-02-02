@@ -277,13 +277,7 @@ where
         if c.is_none() && h.is_none() {
             return c;
         }
-        RenderNode::Container(
-            scene::Instruction::new(
-                transform,
-                Rectangle::empty(c.width().max(h.width()), h.height() + c.height()),
-            ),
-            vec![h, c],
-        )
+        RenderNode::Container(vec![h, c])
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
@@ -391,6 +385,24 @@ impl<H, W> Deref for Window<H, W> {
 impl<H, W> DerefMut for Window<H, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.body.widget.deref_mut()
+    }
+}
+
+impl<H, W> Window<H, W>
+where
+    H: Geometry + Style,
+    W: Geometry + Style,
+{
+    pub fn new(header: H, widget: W) -> Self {
+        Window {
+            header: Header { widget: header },
+            activated: false,
+            positioned: false,
+            body: widget.child(),
+            radius: (0., 0., 0., 0.),
+            background: theme::BG2.into(),
+            alternate: None,
+        }
     }
 }
 

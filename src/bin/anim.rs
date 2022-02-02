@@ -38,7 +38,7 @@ impl Default for Demo {
 }
 
 // Needed for the Switch to change the state of our Demo
-impl Post<Remote, bool, bool> for Demo {
+impl Mail<Remote, bool, bool> for Demo {
     fn get(&self, _: Remote) -> Option<bool> {
         None
     }

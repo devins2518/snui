@@ -19,7 +19,7 @@ enum Channel {
     Alpha,
 }
 
-impl Post<Channel, f32, f32> for Color {
+impl Mail<Channel, f32, f32> for Color {
     fn get(&self, message: Channel) -> Option<f32> {
         Some(match message {
             Channel::Alpha => self.color.alpha(),
@@ -40,7 +40,7 @@ impl Post<Channel, f32, f32> for Color {
     }
 }
 
-impl Post<(), (), String> for Color {
+impl Mail<(), (), String> for Color {
     fn get(&self, _: ()) -> Option<String> {
         Some(self.as_string())
     }
@@ -135,7 +135,7 @@ fn sliders() -> SimpleLayout<impl Widget<Color>> {
 fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
     let mut layout = SimpleLayout::new(15.).orientation(Orientation::Vertical);
 
-    let listener = Listener::new("", (), |s| s)
+    let listener = Listener::new("", ())
         .clamp()
         .with_size(200., 30.)
         .anchor(CENTER, START)
@@ -160,7 +160,7 @@ fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let listener = Listener::new("", (), |s| s);
+    let listener = Listener::new("", ());
     let window = window::default_window(
         listener,
         ui_builder().clamp().style().padding(10.).background(BG0),
