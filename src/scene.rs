@@ -471,7 +471,6 @@ impl Instruction {
                 ctx.draw_label(x, y, l.as_ref());
             }
         }
-        ctx.commit(self.region());
     }
     fn region(&self) -> Region {
         Region::new(
@@ -633,6 +632,17 @@ impl RenderNode {
             Some(self)
         }
     }
+    pub fn region(&self) -> Option<Region> {
+        match self {
+            Self::Clip(region, _) => Some(region.region()),
+            Self::Container(region, _) => Some(region.region()),
+            Self::Extension {
+                background, border, ..
+            } => Some(border.as_ref().unwrap_or(background).region()),
+            Self::Instruction(instruction) => Some(instruction.region()),
+            Self::None => None,
+        }
+    }
     pub fn render(&self, ctx: &mut DrawContext, clip: &mut ClipRegion) {
         match self {
             Self::Instruction(instruction) => instruction.render(ctx, clip.clipmask()),
@@ -663,51 +673,6 @@ impl RenderNode {
                 }
             }
             _ => {}
-        }
-    }
-    fn clear(&self, ctx: &mut DrawContext, texture: &Texture, other: Option<&Region>) {
-        match self {
-            RenderNode::Instruction(instruction) => {
-                let region = instruction.region();
-                let region = match other {
-                    Some(other) => region.merge(other),
-                    None => region,
-                };
-                ctx.damage_region(texture, region, false);
-            }
-            RenderNode::Extension {
-                background,
-                border,
-                node: _,
-            } => {
-                let region = border.as_ref().unwrap_or(background).region();
-                let region = match other {
-                    Some(other) => region.merge(other),
-                    None => region,
-                };
-                ctx.damage_region(texture, region, false);
-            }
-            RenderNode::Container(region, _) => {
-                let region = region.region();
-                let region = match other {
-                    Some(other) => region.merge(other),
-                    None => region,
-                };
-                ctx.damage_region(texture, region, false);
-            }
-            RenderNode::Clip(region, ..) => {
-                let region = region.region();
-                let region = match other {
-                    Some(other) => region.merge(other),
-                    None => region,
-                };
-                ctx.damage_region(texture, region, false);
-            }
-            RenderNode::None => {
-                if let Some(region) = other {
-                    ctx.damage_region(texture, *region, false);
-                }
-            }
         }
     }
     pub fn merge<'r>(&'r mut self, other: Self) {
@@ -806,14 +771,17 @@ impl RenderNode {
                 }
                 RenderNode::None => {}
                 _ => {
-                    other.clear(ctx, &Texture::from(shape), Some(&clip.crop(&a.region())));
+                    let region = a.region().merge(&other.region().unwrap());
+                    ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
                     *self = other;
                     self.render(ctx, clip);
                 }
             },
             RenderNode::None => {
+                if let Some(region) = other.region() {
+                    ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
+                }
                 *self = other;
-                self.clear(ctx, &Texture::from(shape), None);
                 self.render(ctx, clip);
             }
             RenderNode::Container(t_region, t_nodes) => match other {
@@ -827,7 +795,11 @@ impl RenderNode {
                         for (i, node) in nodes.into_iter().enumerate() {
                             if let Some(t_node) = t_nodes.get_mut(i) {
                                 if let Err(region) = t_node.draw_merge(node, ctx, shape, clip) {
-                                    ctx.damage_region(&Texture::from(shape), region, false);
+                                    ctx.damage_region(
+                                        &Texture::from(shape),
+                                        clip.crop(&region),
+                                        false,
+                                    );
                                     t_node.render(ctx, clip);
                                 }
                             } else {
@@ -841,7 +813,8 @@ impl RenderNode {
                 }
                 RenderNode::None => {}
                 _ => {
-                    other.clear(ctx, &Texture::from(shape), Some(&t_region.region()));
+                    let region = t_region.region().merge(&other.region().unwrap());
+                    ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
                     self.merge(other);
                     self.render(ctx, clip);
                 }
@@ -890,11 +863,12 @@ impl RenderNode {
                     }
                     RenderNode::None => {}
                     _ => {
-                        other.clear(
-                            ctx,
-                            &Texture::from(shape),
-                            Some(&clip.crop(&t_border.as_ref().unwrap_or(&t_background).region())),
-                        );
+                        let region = t_border
+                            .as_ref()
+                            .unwrap_or(&t_background)
+                            .region()
+                            .merge(&other.region().unwrap());
+                        ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
                         self.merge(other);
                         self.render(ctx, clip);
                     }
@@ -914,8 +888,8 @@ impl RenderNode {
                     }
                     RenderNode::None => {}
                     _ => {
-                        let region = t_region.region();
-                        self.clear(ctx, &Texture::from(shape), Some(&clip.crop(&region)));
+                        let region = t_region.region().merge(&other.region().unwrap());
+                        ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
                         self.merge(other);
                         self.render(ctx, clip);
                     }

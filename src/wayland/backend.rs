@@ -341,9 +341,11 @@ where
             let surface = if let Some(surface) = globals.pointer_surface.as_ref() {
                 surface
             } else {
-                globals.pointer_surface = Some(globals
-                    .create_surface(conn, qh)
-                    .expect("Failed to create cursor surface"));
+                globals.pointer_surface = Some(
+                    globals
+                        .create_surface(conn, qh)
+                        .expect("Failed to create cursor surface"),
+                );
                 globals.pointer_surface.as_ref().unwrap()
             };
             let seats = &globals.seats;
