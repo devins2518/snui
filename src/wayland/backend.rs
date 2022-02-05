@@ -384,11 +384,12 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) {
-        let scale = if let Some(output) = &self.surface.output {
-            output.scale
-        } else {
-            1
-        };
+        let scale = self
+            .surface
+            .output
+            .as_ref()
+            .map(|output| output.scale)
+            .unwrap_or(1);
         let width = self.state.render_node.width() / scale as f32;
         let height = self.state.render_node.height() / scale as f32;
         match self.sync(cache, event, conn, qh) {
@@ -1017,24 +1018,26 @@ where
                     height,
                     states,
                 } => {
-                    application.state.window_state = list_states(states);
-                    let r_width = application.widget.set_width(width as f32);
-                    let r_height = application.widget.set_height(height as f32);
-                    if r_width.is_err() && r_height.is_err() {
-                        if let Shell::Xdg { toplevel, .. } = &application.surface.shell {
-                            let r_width = r_width.unwrap_err();
-                            let r_height = r_height.unwrap_err();
-                            if width < r_width as i32 && height < r_height as i32 {
-                                toplevel.set_min_size(conn, r_width as i32, r_height as i32);
-                            } else if width > r_width as i32 && height > r_height as i32 {
-                                toplevel.set_max_size(conn, r_width as i32, r_height as i32);
+                    if width * height > 0 {
+                        application.state.window_state = list_states(states);
+                        let r_width = application.widget.set_width(width as f32);
+                        let r_height = application.widget.set_height(height as f32);
+                        if r_width.is_err() && r_height.is_err() {
+                            if let Shell::Xdg { toplevel, .. } = &application.surface.shell {
+                                let r_width = r_width.unwrap_err();
+                                let r_height = r_height.unwrap_err();
+                                if width < r_width as i32 && height < r_height as i32 {
+                                    toplevel.set_min_size(conn, r_width as i32, r_height as i32);
+                                } else if width > r_width as i32 && height > r_height as i32 {
+                                    toplevel.set_max_size(conn, r_width as i32, r_height as i32);
+                                }
                             }
                         }
+                        let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
+                        application
+                            .widget
+                            .sync(&mut ctx, Event::Configure(&application.state.window_state));
                     }
-                    let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
-                    application
-                        .widget
-                        .sync(&mut ctx, Event::Configure(&application.state.window_state));
                 }
                 xdg_toplevel::Event::Close => {
                     application.surface.destroy(conn);

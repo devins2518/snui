@@ -260,6 +260,24 @@ pub trait Geometry {
             }
         }
     }
+    fn minimum_width(&self) -> f32 {
+        self.width()
+    }
+    fn minimum_height(&self) -> f32 {
+        self.height()
+    }
+    fn maximum_width(&self) -> f32 {
+        self.width()
+    }
+    fn maximum_height(&self) -> f32 {
+        self.height()
+    }
+    fn horizontal_range(&self) -> f32 {
+        self.maximum_width() - self.minimum_width()
+    }
+    fn vertical_range(&self) -> f32 {
+        self.maximum_height() - self.minimum_height()
+    }
     fn create_canvas(&self, transform: Transform) -> context::canvas::Canvas {
         context::canvas::Canvas::new(transform, self.width(), self.height())
     }
@@ -309,6 +327,5 @@ pub trait Widget<D>: Geometry {
     /// Creates the RenderNode of the widget.
     /// Widgets are expected to compute their layout when this method is invoked.
     fn create_node(&mut self, transform: Transform) -> RenderNode;
-    /// Interface to communicate with the controller and retained mode draw operation
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
 }

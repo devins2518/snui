@@ -1,7 +1,7 @@
 use crate::*;
 use scene::Region;
-use widgets::layout::child;
 use std::ops::{Deref, DerefMut};
+use widgets::layout::child;
 use widgets::*;
 
 /// For widgets that move linearly within in a region.
@@ -149,16 +149,12 @@ where
     W: Widget<D>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if let Some(node) = self
-        	.widget
-        	.create_node(transform)
-        	.as_option()
-    	{
-            let region = Region::transform(transform, self.width(), self.height());
+        if let Some(node) = self.widget.create_node(transform).as_option() {
+            let region = Region::from_transform(transform, self.width(), self.height());
             RenderNode::Clip(region.into(), Box::new(node))
-    	} else {
-        	RenderNode::None
-    	}
+        } else {
+            RenderNode::None
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {

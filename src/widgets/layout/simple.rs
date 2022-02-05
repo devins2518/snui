@@ -12,7 +12,7 @@ pub struct SimpleLayout<W> {
 
 impl<W> FromIterator<W> for SimpleLayout<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
-        let mut layout = SimpleLayout::new(0.);
+        let mut layout = SimpleLayout::new();
         for widget in iter {
             layout.widgets.push(child(widget));
         }
@@ -43,38 +43,38 @@ where
 
 impl<W: Geometry> Geometry for SimpleLayout<W> {
     fn width(&self) -> f32 {
-        let mut width = 0.;
         match self.orientation {
             Orientation::Horizontal => {
-                for w in &self.widgets {
-                    width += w.width() + self.spacing;
-                }
-                width -= self.spacing.min(width);
+                self.widgets
+                    .iter()
+                    .map(|widget| widget.width())
+                    .sum::<f32>()
+                    + (self.widgets.len() as f32 - 1.) * self.spacing
             }
-            Orientation::Vertical => {
-                for w in &self.widgets {
-                    width = width.max(w.width());
-                }
-            }
+            Orientation::Vertical => self
+                .widgets
+                .iter()
+                .map(|widget| widget.width())
+                .reduce(|previous, current| previous.max(current))
+                .unwrap_or_default(),
         }
-        width
     }
     fn height(&self) -> f32 {
-        let mut height = 0.;
         match self.orientation {
             Orientation::Vertical => {
-                for w in &self.widgets {
-                    height += w.height() + self.spacing;
-                }
-                height -= self.spacing.min(height);
+                self.widgets
+                    .iter()
+                    .map(|widget| widget.height())
+                    .sum::<f32>()
+                    + (self.widgets.len() as f32 - 1.) * self.spacing
             }
-            Orientation::Horizontal => {
-                for w in &self.widgets {
-                    height = height.max(w.height());
-                }
-            }
+            Orientation::Horizontal => self
+                .widgets
+                .iter()
+                .map(|widget| widget.height())
+                .reduce(|previous, current| previous.max(current))
+                .unwrap_or_default(),
         }
-        height
     }
 }
 
@@ -96,9 +96,9 @@ impl<D> SimpleLayout<Box<dyn Widget<D>>> {
 }
 
 impl<W> SimpleLayout<W> {
-    pub fn new<S: Into<f32>>(spacing: S) -> Self {
+    pub fn new() -> Self {
         SimpleLayout {
-            spacing: spacing.into(),
+            spacing: 0.,
             widgets: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,

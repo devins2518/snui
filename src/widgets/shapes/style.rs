@@ -88,6 +88,18 @@ impl<W: Geometry> Geometry for WidgetStyle<W> {
     fn height(&self) -> f32 {
         self.inner_height() + 2. * self.border.1
     }
+    fn maximum_height(&self) -> f32 {
+        self.widget.maximum_height()
+    }
+    fn minimum_height(&self) -> f32 {
+        self.widget.minimum_height()
+    }
+    fn maximum_width(&self) -> f32 {
+        self.widget.maximum_width()
+    }
+    fn minimum_width(&self) -> f32 {
+        self.widget.minimum_width()
+    }
 }
 
 impl<W: Style> WidgetStyle<W> {
@@ -214,10 +226,7 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
                     coords.y = y + border_size;
                 }
                 Texture::LinearGradient {
-                    start,
-                    end,
-                    angle,
-                    ..
+                    start, end, angle, ..
                 } => {
                     start.x = x + border_size;
                     start.y = y + border_size;

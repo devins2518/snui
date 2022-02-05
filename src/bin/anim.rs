@@ -37,7 +37,7 @@ impl Default for Demo {
     }
 }
 
-// Needed for the Switch to change the state of our Demo
+// The Switch will use this trait to change the state of our Demo
 impl Mail<Remote, bool, bool> for Demo {
     fn get(&self, _: Remote) -> Option<bool> {
         None
@@ -57,6 +57,7 @@ impl Mail<Remote, bool, bool> for Demo {
 impl Data for Demo {
     fn sync(&mut self) -> bool {
         if self.sync {
+            // Demo.sync is reset to false if true
             self.sync = false;
             true
         } else {
@@ -197,16 +198,16 @@ impl<D> Widget<D> for FrameRate {
 
 // Creates our user interface
 fn ui() -> impl Widget<Demo> {
-    let mut ui = SimpleLayout::new(0.).orientation(Orientation::Vertical);
+    let mut ui = DynamicLayout::new().orientation(Orientation::Vertical);
     ui.add(
         FrameRate {
             label: "frame rate".into(),
         }
         .clamp()
-        .with_size(40., 20.),
+        .with_height(20.),
     );
-    ui.add(Animate::quadratic());
-    ui.add(Animate::sinus());
+    ui.add(Animate::quadratic().clamp());
+    ui.add(Animate::sinus().clamp());
 
     ui.add(
         Switch::new(Remote {})
@@ -232,10 +233,9 @@ fn ui() -> impl Widget<Demo> {
                     }
                 }
                 _ => {}
-            }),
+            })
+            .clamp(),
     );
-    ui.justify(CENTER);
-
     ui
 }
 

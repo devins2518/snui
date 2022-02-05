@@ -84,12 +84,9 @@ impl<D> Widget<D> for Maximize {
         if self.maximized {
             Instruction {
                 transform,
-                primitive: Rectangle::new(
-                    self.width(),
-                    self.height(),
-                    ShapeStyle::solid(theme::BLU),
-                )
-                .into(),
+                primitive: Rectangle::empty(self.width(), self.height())
+                    .background(theme::BLU)
+                    .into(),
             }
             .into()
         } else {

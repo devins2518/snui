@@ -1,4 +1,4 @@
-use crate::widgets::layout::*;
+use crate::widgets::{layout::*, Alignment, CENTER, END, START};
 use crate::*;
 use scene::RenderNode;
 
@@ -40,70 +40,120 @@ where
 
 impl<W: Geometry> Geometry for DynamicLayout<W> {
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        let size = (width / self.widgets.len() as f32).ceil();
+        let real_width: f32;
         match self.orientation {
             Orientation::Horizontal => {
-                let mut fixed = Vec::new();
-                for i in 0..self.widgets.len() {
-                    apply_width(&mut self.widgets, &mut fixed, i, size);
-                }
-                if fixed.len() == self.widgets.len() {
-                    Err(self.width())
-                } else {
-                    Ok(())
-                }
+                real_width = apply_width(&mut self.widgets, width);
             }
-            Orientation::Vertical => return Err(self.width()),
+            Orientation::Vertical => {
+                real_width = self
+                    .widgets
+                    .iter_mut()
+                    .map(|widget| widget.set_width(width).err().unwrap_or(width))
+                    .reduce(|acc, width| acc.max(width))
+                    .unwrap_or_default();
+            }
         }
+        real_width.eq(&width).then(|| ()).ok_or(real_width)
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let size = (height / self.widgets.len() as f32).ceil();
+        let real_height: f32;
         match self.orientation {
-            Orientation::Horizontal => {
-                let mut fixed = Vec::new();
-                for i in 0..self.widgets.len() {
-                    apply_height(&mut self.widgets, &mut fixed, i, size);
-                }
-                if fixed.len() == self.widgets.len() {
-                    Err(self.height())
-                } else {
-                    Ok(())
-                }
+            Orientation::Vertical => {
+                real_height = apply_height(&mut self.widgets, height);
             }
-            Orientation::Vertical => return Err(self.height()),
+            Orientation::Horizontal => {
+                real_height = self
+                    .widgets
+                    .iter_mut()
+                    .map(|widget| widget.set_height(height).err().unwrap_or(height))
+                    .reduce(|acc, width| acc.max(width))
+                    .unwrap_or_default();
+            }
         }
+        real_height.eq(&height).then(|| ()).ok_or(real_height)
     }
     fn width(&self) -> f32 {
-        let mut width = 0.;
         match self.orientation {
-            Orientation::Horizontal => {
-                for w in &self.widgets {
-                    width += w.width();
-                }
-            }
-            Orientation::Vertical => {
-                for w in &self.widgets {
-                    width = width.max(w.width());
-                }
-            }
+            Orientation::Horizontal => self.widgets.iter().map(|widget| widget.width()).sum(),
+            Orientation::Vertical => self
+                .widgets
+                .iter()
+                .map(|widget| widget.width())
+                .reduce(|previous, current| previous.max(current))
+                .unwrap_or_default(),
         }
-        width.ceil()
     }
     fn height(&self) -> f32 {
-        let mut height = 0.;
         match self.orientation {
-            Orientation::Vertical => {
-                for w in &self.widgets {
-                    height += w.height();
-                }
-            }
-            Orientation::Horizontal => {
-                for w in &self.widgets {
-                    height = height.max(w.height());
-                }
-            }
+            Orientation::Vertical => self.widgets.iter().map(|widget| widget.height()).sum(),
+            Orientation::Horizontal => self
+                .widgets
+                .iter()
+                .map(|widget| widget.height())
+                .reduce(|previous, current| previous.max(current))
+                .unwrap_or_default(),
         }
-        height.ceil()
+    }
+    fn maximum_height(&self) -> f32 {
+        match self.orientation {
+            Orientation::Vertical => self
+                .widgets
+                .iter()
+                .map(|widget| widget.maximum_height())
+                .sum(),
+            Orientation::Horizontal => self
+                .widgets
+                .iter()
+                .map(|widget| widget.maximum_height())
+                .reduce(|accum, height| accum.max(height))
+                .unwrap_or_default(),
+        }
+    }
+    fn maximum_width(&self) -> f32 {
+        match self.orientation {
+            Orientation::Horizontal => self
+                .widgets
+                .iter()
+                .map(|widget| widget.maximum_width())
+                .sum(),
+            Orientation::Vertical => self
+                .widgets
+                .iter()
+                .map(|widget| widget.width())
+                .reduce(|accum, width| accum.max(width))
+                .unwrap_or_default(),
+        }
+    }
+    fn minimum_height(&self) -> f32 {
+        match self.orientation {
+            Orientation::Vertical => self
+                .widgets
+                .iter()
+                .map(|widget| widget.minimum_height())
+                .sum(),
+            Orientation::Horizontal => self
+                .widgets
+                .iter()
+                .map(|widget| widget.minimum_height())
+                .reduce(|accum, height| accum.max(height))
+                .unwrap_or_default(),
+        }
+    }
+    fn minimum_width(&self) -> f32 {
+        match self.orientation {
+            Orientation::Horizontal => self
+                .widgets
+                .iter()
+                .map(|widget| widget.minimum_width())
+                .sum(),
+            Orientation::Vertical => self
+                .widgets
+                .iter()
+                .map(|widget| widget.width())
+                .reduce(|accum, width| accum.max(width))
+                .unwrap_or_default(),
+        }
     }
 }
 
@@ -156,6 +206,35 @@ impl<D> Default for DynamicLayout<Box<dyn Widget<D>>> {
 impl<D> DynamicLayout<Box<dyn Widget<D>>> {
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
         self.widgets.push(child(Box::new(widget)));
+    }
+}
+
+impl<W: Geometry> DynamicLayout<WidgetBox<W>> {
+    pub fn set_alignment(&mut self, alignment: Alignment) {
+        match self.orientation {
+            Orientation::Horizontal => {
+                for widget in &mut self.widgets {
+                    match alignment {
+                        Alignment::Start => widget.set_anchor(START, CENTER),
+                        Alignment::Center => widget.set_anchor(CENTER, CENTER),
+                        Alignment::End => widget.set_anchor(END, CENTER),
+                    }
+                }
+            }
+            Orientation::Vertical => {
+                for widget in &mut self.widgets {
+                    match alignment {
+                        Alignment::Start => widget.set_anchor(CENTER, START),
+                        Alignment::Center => widget.set_anchor(CENTER, CENTER),
+                        Alignment::End => widget.set_anchor(CENTER, END),
+                    }
+                }
+            }
+        }
+    }
+    pub fn align(mut self, alignment: Alignment) -> Self {
+        self.set_alignment(alignment);
+        self
     }
 }
 

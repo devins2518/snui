@@ -81,14 +81,6 @@ impl Geometry for ColorBlock {
     fn width(&self) -> f32 {
         self.width
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.width = width.max(0.);
-        Ok(())
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.height = height.max(0.);
-        Ok(())
-    }
 }
 
 impl Widget<Color> for ColorBlock {
@@ -133,26 +125,30 @@ fn sliders() -> SimpleLayout<impl Widget<Color>> {
         .orientation(Orientation::Vertical)
 }
 
-fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
-    let mut layout = SimpleLayout::new(15.).orientation(Orientation::Vertical);
+fn ui_builder() -> DynamicLayout<impl Widget<Color>> {
+    let mut layout = DynamicLayout::new().orientation(Orientation::Vertical);
 
     let listener = Listener::new("", ())
         .clamp()
-        .with_size(200., 30.)
-        .anchor(CENTER, START);
+        .anchor(CENTER, START)
+        .with_height(20.);
 
     let mut indicator = DynamicLayout::new().orientation(Orientation::Vertical);
 
     indicator.add(listener);
-    indicator.add(ColorBlock {
-        width: 200.,
-        height: 200.,
-        color: tiny_skia::Color::WHITE,
-    });
+    indicator.add(
+        ColorBlock {
+            width: 200.,
+            height: 200.,
+            color: tiny_skia::Color::WHITE,
+        }
+        .style()
+        .padding(10.)
+        .clamp(),
+    );
 
     layout.add(indicator);
-    layout.add(sliders());
-    layout.justify(CENTER);
+    layout.add(sliders().clamp());
 
     layout
 }

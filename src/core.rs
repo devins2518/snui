@@ -116,6 +116,18 @@ impl<W: Geometry> Geometry for Proxy<W> {
     fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
         self.inner.set_size(width, height)
     }
+    fn maximum_height(&self) -> f32 {
+        self.inner.maximum_height()
+    }
+    fn minimum_height(&self) -> f32 {
+        self.inner.minimum_height()
+    }
+    fn maximum_width(&self) -> f32 {
+        self.inner.maximum_width()
+    }
+    fn minimum_width(&self) -> f32 {
+        self.inner.minimum_width()
+    }
 }
 
 impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
@@ -212,7 +224,7 @@ impl<W> Proxy<W> {
         &mut self.inner
     }
 }
-pub trait Flex<G>: Geometry + Sized {
+pub trait GeometryExt<G>: Geometry + Sized {
     fn with_width(self, width: f32) -> Self;
     fn with_height(self, height: f32) -> Self;
     fn with_size(self, width: f32, height: f32) -> Self;
@@ -234,7 +246,7 @@ pub trait DynEq {
     }
 }
 
-impl<G> Flex<G> for G
+impl<G> GeometryExt<G> for G
 where
     G: Geometry,
 {
@@ -297,6 +309,18 @@ impl<D> Geometry for Box<dyn Widget<D>> {
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.as_mut().set_height(height)
+    }
+    fn maximum_height(&self) -> f32 {
+        self.as_ref().maximum_height()
+    }
+    fn minimum_height(&self) -> f32 {
+        self.as_ref().minimum_height()
+    }
+    fn maximum_width(&self) -> f32 {
+        self.as_ref().maximum_width()
+    }
+    fn minimum_width(&self) -> f32 {
+        self.as_ref().minimum_width()
     }
 }
 

@@ -154,6 +154,12 @@ impl Geometry for Label {
         self.settings.max_height = Some(height);
         Err(self.height())
     }
+    fn maximum_width(&self) -> f32 {
+        std::f32::INFINITY
+    }
+    fn maximum_height(&self) -> f32 {
+        std::f32::INFINITY
+    }
 }
 
 impl<D> Widget<D> for Label {

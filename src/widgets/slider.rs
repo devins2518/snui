@@ -202,16 +202,14 @@ where
                         }
                         Pointer::Hover => match &self.orientation {
                             Orientation::Horizontal => {
-                                if let Ok(_) = self.slider.set_width(x.min(self.size)) {
-                                    ctx.send(self.message, self.slider.width() / self.size);
-                                    return Damage::Partial;
-                                }
+                                let _ = self.slider.set_width(x.min(self.size));
+                                ctx.send(self.message, self.slider.width() / self.size);
+                                return Damage::Partial;
                             }
                             Orientation::Vertical => {
-                                if let Ok(_) = self.slider.set_height(y.min(self.size)) {
-                                    ctx.send(self.message, self.slider.height() / self.size);
-                                    return Damage::Partial;
-                                }
+                                let _ = self.slider.set_height(y.min(self.size));
+                                ctx.send(self.message, self.slider.height() / self.size);
+                                return Damage::Partial;
                             }
                         },
                         Pointer::Leave => {

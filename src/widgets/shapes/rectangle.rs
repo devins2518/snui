@@ -4,15 +4,8 @@ use scene::RenderNode;
 use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::DerefMut;
 use tiny_skia::*;
-use widgets::u32_to_source;
 
 impl ShapeStyle {
-    pub fn solid(color: u32) -> Self {
-        ShapeStyle::Background(Texture::Color(u32_to_source(color)))
-    }
-    pub fn border(color: u32, size: f32) -> Self {
-        ShapeStyle::Border(u32_to_source(color).into(), size)
-    }
     pub fn background(&self) -> Texture {
         match self {
             ShapeStyle::Background(background) => background.clone(),
@@ -216,7 +209,11 @@ impl Geometry for Rectangle {
             .max(self.radius.1)
             .max(self.radius.2)
             .max(self.radius.3);
-        return Ok(());
+        if self.width == width {
+            return Ok(());
+        } else {
+            Err(self.width)
+        }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         if height.is_sign_negative() {
@@ -225,11 +222,27 @@ impl Geometry for Rectangle {
         self.height = self
             .radius
             .0
-            .max(height.round())
+            .max(height)
             .max(self.radius.1)
             .max(self.radius.2)
             .max(self.radius.3);
-        return Ok(());
+        if self.height == height {
+            return Ok(());
+        } else {
+            Err(self.height)
+        }
+    }
+    fn minimum_height(&self) -> f32 {
+        self.radius.0 + self.radius.2
+    }
+    fn maximum_height(&self) -> f32 {
+        std::f32::INFINITY
+    }
+    fn minimum_width(&self) -> f32 {
+        self.radius.1 + self.radius.3
+    }
+    fn maximum_width(&self) -> f32 {
+        std::f32::INFINITY
     }
 }
 

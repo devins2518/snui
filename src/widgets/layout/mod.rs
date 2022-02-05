@@ -1,13 +1,11 @@
-pub mod center;
 pub mod dynamic;
 pub mod simple;
 
 use crate::*;
-pub use center::CenterBox;
 pub use dynamic::DynamicLayout;
 use scene::Coords;
-use std::ops::{Deref, DerefMut};
 pub use simple::SimpleLayout;
+use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
 /// Here are provide widgets you can use to layout others.
@@ -30,54 +28,113 @@ where
     fn widgets(&mut self) -> Vec<&mut W>;
 }
 
-pub fn apply_width<W: Geometry>(
-    widgets: &mut [W],
-    fixed: &mut Vec<usize>,
-    index: usize,
-    width: f32,
-) {
-    match fixed.binary_search(&index) {
-        Ok(index) => {
-            if index > 0 {
-                apply_width(widgets, fixed, index - 1, width);
-            }
-        }
-        Err(pos) => {
-            if let Err(w) = widgets[index].set_width(width) {
-                fixed.insert(pos, index);
-                let delta = width - w;
-                if index > 0 {
-                    apply_width(widgets, fixed, index - 1, width + delta);
-                }
-            }
+#[derive(Clone, Debug, PartialEq, Copy)]
+enum Size {
+    Set(f32),
+    Var(f32),
+}
+
+impl From<Size> for f32 {
+    fn from(s: Size) -> f32 {
+        match s {
+            Size::Set(f) => f,
+            Size::Var(f) => f,
         }
     }
 }
 
-pub fn apply_height<W: Geometry>(
-    widgets: &mut [W],
-    fixed: &mut Vec<usize>,
-    index: usize,
-    height: f32,
-) {
-    match fixed.binary_search(&index) {
-        Ok(index) => {
-            if index > 0 {
-                apply_height(widgets, fixed, index - 1, height);
-            }
-        }
-        Err(pos) => {
-            if let Err(w) = widgets[index].set_height(height) {
-                fixed.insert(pos, index);
-                let delta = height - w;
-                if index > 0 {
-                    apply_height(widgets, fixed, index - 1, height + delta);
-                }
-            }
+impl Size {
+    fn is_set(&self) -> bool {
+        match self {
+            Self::Set(_) => true,
+            _ => false,
         }
     }
 }
 
+pub fn apply_width<W: Geometry>(widgets: &mut [W], width: f32) -> f32 {
+    let mut delta: f32;
+    let mut c_width;
+    let mut extra = 0.;
+    let mut layout = widgets
+        .iter()
+        .map(|widget| Size::Var(widget.minimum_width()))
+        .collect::<Vec<Size>>();
+    let mut count = widgets.len();
+    let mut iter = widgets.iter().enumerate().cycle();
+    while {
+        c_width = layout.iter().map(|s| f32::from(*s)).sum();
+        delta = width - c_width;
+        delta > 0. && count > 0
+    } {
+        if let Some((i, widget)) = iter.next() {
+            match layout[i] {
+                Size::Var(size) => {
+                    let u_width = (delta / widgets.len() as f32) + size + extra;
+                    let size = (u_width)
+                        .clamp(widget.minimum_width(), widget.maximum_width())
+                        .round();
+                    if u_width >= widget.maximum_width() {
+                        layout[i] = Size::Set(size);
+                        count -= 1;
+                        extra = 0.;
+                    } else {
+                        layout[i] = Size::Var(size);
+                        extra = u_width - size;
+                    }
+                }
+                Size::Set(_) => {}
+            }
+        }
+    }
+    for (i, width) in layout.into_iter().enumerate() {
+        let _ = widgets[i].set_width(width.into());
+    }
+    c_width
+}
+
+pub fn apply_height<W: Geometry>(widgets: &mut [W], height: f32) -> f32 {
+    let mut delta: f32;
+    let mut c_height;
+    let mut extra = 0.;
+    let mut layout = widgets
+        .iter()
+        .map(|widget| Size::Var(widget.minimum_height()))
+        .collect::<Vec<Size>>();
+    let mut count = widgets.len();
+    let mut iter = widgets.iter().enumerate().cycle();
+    while {
+        c_height = layout.iter().map(|s| f32::from(*s)).sum();
+        delta = height - c_height;
+        delta > 0. && count > 0
+    } {
+        if let Some((i, widget)) = iter.next() {
+            match layout[i] {
+                Size::Var(size) => {
+                    let u_height = (delta / widgets.len() as f32) + size + extra;
+                    let size = (u_height)
+                        .clamp(widget.minimum_height(), widget.maximum_height())
+                        .round();
+                    if u_height >= widget.maximum_height() {
+                        layout[i] = Size::Set(size);
+                        count -= 1;
+                        extra = 0.;
+                    } else {
+                        layout[i] = Size::Var(size);
+                        extra = u_height - size;
+                    }
+                }
+                Size::Set(_) => {}
+            }
+        }
+    }
+    for (i, height) in layout.into_iter().enumerate() {
+        let _ = widgets[i].set_height(height.into());
+    }
+    c_height
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Positioner<W> {
     coords: Coords,
     pub(crate) widget: W,
@@ -116,6 +173,18 @@ impl<W: Geometry> Geometry for Positioner<W> {
     }
     fn contains(&self, x: f32, y: f32) -> bool {
         self.widget.contains(x + self.coords.x, y + self.coords.y)
+    }
+    fn maximum_height(&self) -> f32 {
+        self.widget.maximum_height()
+    }
+    fn minimum_height(&self) -> f32 {
+        self.widget.minimum_height()
+    }
+    fn maximum_width(&self) -> f32 {
+        self.widget.maximum_width()
+    }
+    fn minimum_width(&self) -> f32 {
+        self.widget.minimum_width()
     }
 }
 
@@ -183,7 +252,6 @@ impl<W: Scrollable> Scrollable for Positioner<W> {
         self.widget.position()
     }
 }
-
 
 impl<W> Deref for Positioner<W> {
     type Target = W;

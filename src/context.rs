@@ -176,15 +176,16 @@ pub enum Backend<'b> {
     Dummy,
 }
 
+/// Holds the state of the application
 pub struct SyncContext<'c, D> {
     data: &'c mut D,
+    pub(crate) cache: &'c mut Cache,
     pub(crate) cursor: Option<Cursor>,
     pub(crate) window_request: Option<WindowRequest>,
-    pub(crate) cache: &'c mut Cache,
 }
 
 pub struct DrawContext<'c> {
-    pub path_builder: PathBuilder,
+    path_builder: PathBuilder,
     pub(crate) backend: Backend<'c>,
     pub(crate) cache: &'c mut Cache,
     pub(crate) pending_damage: Vec<Region>,

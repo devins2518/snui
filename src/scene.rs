@@ -527,12 +527,7 @@ impl<'c> ClipRegion<'c> {
         } else {
             self.region = region;
             let mut pb = ctx.path_builder();
-            pb.push_rect(
-                region.x,
-                region.y,
-                region.width,
-                region.height,
-            );
+            pb.push_rect(region.x, region.y, region.width, region.height);
             let path = pb.finish().unwrap();
             if let Some(clipmask) = &mut self.clipmask {
                 clipmask.set_path(
@@ -672,10 +667,7 @@ impl RenderNode {
             }
             Self::Clip(region, node) => {
                 let previous = clip.region;
-                if clip
-                    .set_region(ctx, region.region())
-                    .is_some()
-                {
+                if clip.set_region(ctx, region.region()).is_some() {
                     node.render(ctx, clip);
                     clip.set_region(ctx, previous);
                 }
@@ -841,7 +833,7 @@ impl RenderNode {
                                 ctx.damage_region(
                                     &Texture::from(shape),
                                     clip.crop(&instruction.region().merge(&region)),
-                                    false
+                                    false,
                                 );
                                 instruction.render(ctx, clip.clipmask());
                                 self.render(ctx, clip);
@@ -851,6 +843,7 @@ impl RenderNode {
                             let contains = shape.contains(instruction);
                             let merge = instruction
                                 .region()
+                                .merge(node.region().as_ref().unwrap())
                                 .merge(&border.as_ref().unwrap_or(&background).region());
                             if clip.intersect(&merge) {
                                 t_node.merge(*node);
@@ -870,6 +863,7 @@ impl RenderNode {
                             .as_ref()
                             .unwrap_or(&t_background)
                             .region()
+                            .merge(node.region().as_ref().unwrap())
                             .merge(&other.region().unwrap());
                         ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
                         self.merge(other);
@@ -956,6 +950,7 @@ impl Region {
             height: start.y.max(end.y) - y,
         }
     }
+    /// Returns the region other instersect Self
     pub fn crop(&self, other: &Self) -> Region {
         let x = self.x.max(other.x);
         let y = self.y.max(other.y);
@@ -1010,6 +1005,7 @@ impl Region {
             ),
         ]
     }
+    /// Combines two region into a single that occupies the space of both
     pub fn merge(&self, other: &Self) -> Self {
         let x = self.x.min(other.x);
         let y = self.y.min(other.y);
@@ -1023,7 +1019,7 @@ impl Region {
             height: fy - y,
         }
     }
-    pub fn transform(transform: Transform, width: f32, height: f32) -> Self {
+    pub fn from_transform(transform: Transform, width: f32, height: f32) -> Self {
         Self::new(
             transform.tx,
             transform.ty,
@@ -1044,6 +1040,7 @@ impl Region {
     pub fn fit(&self, other: &Self) -> bool {
         other.rfit(self)
     }
+    /// Checks if a point fits in a Region
     pub fn contains(&self, x: f32, y: f32) -> bool {
         self.x <= x && x - self.x < self.width && self.y <= y && y - self.y < self.height
     }
