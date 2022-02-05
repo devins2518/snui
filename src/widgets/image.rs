@@ -175,6 +175,18 @@ impl Geometry for InnerImage {
         }
         Err(self.height as f32)
     }
+    fn minimum_height(&self) -> f32 {
+        0.
+    }
+    fn maximum_height(&self) -> f32 {
+        std::f32::INFINITY
+    }
+    fn minimum_width(&self) -> f32 {
+        0.
+    }
+    fn maximum_width(&self) -> f32 {
+        std::f32::INFINITY
+    }
 }
 
 impl<D> Widget<D> for InnerImage {

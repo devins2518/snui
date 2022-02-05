@@ -480,20 +480,11 @@ where
     D: 'static,
     W: Widget<D> + Style,
 {
-    let header = Header {
-        widget: headerbar(header)
+    let header = 
+        headerbar(header)
             .style()
             .background(theme::BG2)
-            .padding(10.),
-    };
+            .padding(10.);
 
-    Window {
-        header,
-        activated: false,
-        positioned: false,
-        body: widget.child(),
-        radius: (0., 0., 0., 0.),
-        background: theme::BG2.into(),
-        alternate: None,
-    }
+    Window::new(header, widget)
 }

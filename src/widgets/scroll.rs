@@ -110,36 +110,62 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
             _ => self.widget.width(),
         }
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        match self.orientation {
-            Orientation::Horizontal => {
-                if width.is_sign_positive() {
-                    self.size = width;
-                    Ok(())
-                } else {
-                    Err(self.size)
-                }
-            }
-            _ => self.widget.set_width(width),
-        }
-    }
     fn height(&self) -> f32 {
         match self.orientation {
             Orientation::Vertical => self.size,
             _ => self.widget.height(),
         }
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+        let c_width = width.clamp(
+            self.minimum_width(),
+            self.maximum_width()
+        );
         match self.orientation {
-            Orientation::Vertical => {
-                if height.is_sign_positive() {
-                    self.size = height;
-                    Ok(())
+            Orientation::Horizontal => {
+                self.size = c_width;
+                if c_width != width {
+                    return Err(c_width)
                 } else {
-                    Err(self.size)
+                    Ok(())
                 }
             }
-            _ => self.widget.set_height(height),
+            Orientation::Vertical => return self.widget.set_width(c_width)
+        }
+    }
+    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+        let c_height = height.clamp(
+            self.minimum_height(),
+            self.maximum_height()
+        );
+        match self.orientation {
+            Orientation::Vertical => {
+                self.size = c_height;
+                if c_height != height {
+                    return Err(c_height)
+                } else {
+                    Ok(())
+                }
+            }
+            Orientation::Horizontal => return self.widget.set_height(c_height)
+        }
+    }
+    fn maximum_height(&self) -> f32 {
+        std::f32::INFINITY
+    }
+    fn minimum_height(&self) -> f32 {
+        match self.orientation {
+            Orientation::Vertical => 0.,
+            _ => self.widget.width()
+        }
+    }
+    fn maximum_width(&self) -> f32 {
+        std::f32::INFINITY
+    }
+    fn minimum_width(&self) -> f32 {
+        match self.orientation {
+            Orientation::Horizontal => 0.,
+            _ => self.widget.height()
         }
     }
 }

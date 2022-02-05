@@ -89,16 +89,20 @@ impl<W: Geometry> Geometry for WidgetStyle<W> {
         self.inner_height() + 2. * self.border.1
     }
     fn maximum_height(&self) -> f32 {
-        self.widget.maximum_height()
+        let border = self.border.1;
+        self.widget.maximum_height() + border * 2.
     }
     fn minimum_height(&self) -> f32 {
-        self.widget.minimum_height()
+        let border = self.border.1;
+        self.widget.minimum_height() + border * 2.
     }
     fn maximum_width(&self) -> f32 {
-        self.widget.maximum_width()
+        let border = self.border.1;
+        self.widget.maximum_width() + border * 2.
     }
     fn minimum_width(&self) -> f32 {
-        self.widget.minimum_width()
+        let border = self.border.1;
+        self.widget.minimum_width() + border * 2.
     }
 }
 

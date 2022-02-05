@@ -1033,11 +1033,11 @@ where
                                 }
                             }
                         }
-                        let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
-                        application
-                            .widget
-                            .sync(&mut ctx, Event::Configure(&application.state.window_state));
                     }
+                    let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
+                    application
+                        .widget
+                        .sync(&mut ctx, Event::Configure(&application.state.window_state));
                 }
                 xdg_toplevel::Event::Close => {
                     application.surface.destroy(conn);

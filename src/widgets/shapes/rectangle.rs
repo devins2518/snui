@@ -199,35 +199,17 @@ impl Geometry for Rectangle {
             }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width.is_sign_negative() {
-            return Err(self.width());
-        }
-        self.width = self
-            .radius
-            .0
-            .max(width.round())
-            .max(self.radius.1)
-            .max(self.radius.2)
-            .max(self.radius.3);
-        if self.width == width {
-            return Ok(());
+        if width >= self.minimum_width() {
+            self.width = width.round();
+            Ok(())
         } else {
             Err(self.width)
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height.is_sign_negative() {
-            return Err(self.height());
-        }
-        self.height = self
-            .radius
-            .0
-            .max(height)
-            .max(self.radius.1)
-            .max(self.radius.2)
-            .max(self.radius.3);
-        if self.height == height {
-            return Ok(());
+        if height >= self.minimum_height() {
+            self.height = height.round();
+            Ok(())
         } else {
             Err(self.height)
         }
