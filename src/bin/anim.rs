@@ -204,7 +204,7 @@ fn ui() -> impl Widget<Demo> {
             label: "frame rate".into(),
         }
         .clamp()
-        .with_height(20.),
+        .with_size(40., 20.),
     );
     ui.add(Animate::quadratic().clamp());
     ui.add(Animate::sinus().clamp());

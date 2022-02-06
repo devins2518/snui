@@ -287,14 +287,14 @@ impl Geometry for PrimitiveType {
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         match self {
             Self::Other(primitive) => primitive.set_height(height),
-            Self::Label(l) => l.set_height(height),
+            Self::Label(l) => Ok(l.set_height(height)),
             Self::Rectangle(r) => r.set_height(height),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         match self {
             Self::Other(primitive) => primitive.set_width(width),
-            Self::Label(l) => l.set_width(width),
+            Self::Label(l) => Ok(l.set_width(width)),
             Self::Rectangle(r) => r.set_width(width),
         }
     }

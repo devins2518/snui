@@ -131,15 +131,15 @@ where
                         }
                         Pointer::Scroll {
                             orientation: _,
-                            value,
+                            step,
                         } => {
                             let ratio = match &self.orientation {
                                 Orientation::Horizontal => {
                                     let _ = self.slider.set_width(
                                         (self.slider.width()
-                                            - match value {
-                                                Move::Value(v) => v,
-                                                Move::Step(s) => s as f32 * self.step,
+                                            - match step {
+                                                Step::Value(v) => v,
+                                                Step::Increment(s) => s as f32 * self.step,
                                             })
                                         .clamp(0., self.width()),
                                     );
@@ -148,9 +148,9 @@ where
                                 Orientation::Vertical => {
                                     let _ = self.slider.set_height(
                                         (self.slider.height()
-                                            - match value {
-                                                Move::Value(v) => v,
-                                                Move::Step(s) => s as f32 * self.step,
+                                            - match step {
+                                                Step::Value(v) => v,
+                                                Step::Increment(s) => s as f32 * self.step,
                                             })
                                         .clamp(0., self.height()),
                                     );

@@ -138,9 +138,9 @@ pub struct Key<'k> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Move {
+pub enum Step {
     Value(f32),
-    Step(i32),
+    Increment(i32),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -152,7 +152,7 @@ pub enum Pointer {
     },
     Scroll {
         orientation: Orientation,
-        value: Move,
+        step: Step,
     },
     Hover,
     Enter,

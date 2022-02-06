@@ -117,37 +117,31 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        let c_width = width.clamp(
-            self.minimum_width(),
-            self.maximum_width()
-        );
+        let c_width = width.clamp(self.minimum_width(), self.maximum_width());
         match self.orientation {
             Orientation::Horizontal => {
                 self.size = c_width;
                 if c_width != width {
-                    return Err(c_width)
+                    return Err(c_width);
                 } else {
                     Ok(())
                 }
             }
-            Orientation::Vertical => return self.widget.set_width(c_width)
+            Orientation::Vertical => return self.widget.set_width(c_width),
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let c_height = height.clamp(
-            self.minimum_height(),
-            self.maximum_height()
-        );
+        let c_height = height.clamp(self.minimum_height(), self.maximum_height());
         match self.orientation {
             Orientation::Vertical => {
                 self.size = c_height;
                 if c_height != height {
-                    return Err(c_height)
+                    return Err(c_height);
                 } else {
                     Ok(())
                 }
             }
-            Orientation::Horizontal => return self.widget.set_height(c_height)
+            Orientation::Horizontal => return self.widget.set_height(c_height),
         }
     }
     fn maximum_height(&self) -> f32 {
@@ -156,7 +150,7 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
     fn minimum_height(&self) -> f32 {
         match self.orientation {
             Orientation::Vertical => 0.,
-            _ => self.widget.width()
+            _ => self.widget.width(),
         }
     }
     fn maximum_width(&self) -> f32 {
@@ -165,7 +159,7 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
     fn minimum_width(&self) -> f32 {
         match self.orientation {
             Orientation::Horizontal => 0.,
-            _ => self.widget.height()
+            _ => self.widget.height(),
         }
     }
 }
@@ -185,12 +179,12 @@ where
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(_, _, p) => match p {
-                Pointer::Scroll { orientation, value } => {
+                Pointer::Scroll { orientation, step } => {
                     let coords = self.widget.coords();
                     let damage = self.widget.sync(ctx, event);
                     if damage.is_none() && orientation == self.orientation {
-                        match value {
-                            Move::Step(i) => {
+                        match step {
+                            Step::Increment(i) => {
                                 if i.is_positive() {
                                     for _ in 0..i {
                                         self.forward(None);
@@ -201,7 +195,7 @@ where
                                     }
                                 }
                             }
-                            Move::Value(value) => {
+                            Step::Value(value) => {
                                 if value.is_sign_positive() {
                                     self.forward(Some(value.abs()));
                                 } else {

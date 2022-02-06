@@ -144,23 +144,9 @@ impl Geometry for Minimize {
 
 impl<D> Widget<D> for Minimize {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let mut canvas = self.create_canvas(transform);
+        let r = Rectangle::empty(self.width(), 4.).background(theme::YEL);
 
-        use std::f32::consts::FRAC_1_SQRT_2;
-
-        let width = self.width() * FRAC_1_SQRT_2;
-        let height = self.height() * FRAC_1_SQRT_2;
-
-        let r = Rectangle::empty(width, height).background(theme::YEL);
-
-        canvas.draw_at_angle(
-            (self.width() - width) / 2.,
-            (self.height() - height) / 2.,
-            r,
-            -45.,
-        );
-
-        canvas.finish()
+        Instruction::new(transform.pre_translate(0., 5.), r).into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
@@ -257,6 +243,18 @@ where
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.body.set_height(height - self.header.height())
+    }
+    fn minimum_width(&self) -> f32 {
+        self.header.minimum_width().max(self.body.minimum_width())
+    }
+    fn maximum_width(&self) -> f32 {
+        self.header.maximum_width().max(self.body.maximum_width())
+    }
+    fn minimum_height(&self) -> f32 {
+        self.header.minimum_height() + self.body.minimum_height()
+    }
+    fn maximum_height(&self) -> f32 {
+        self.header.maximum_height() + self.body.maximum_height()
     }
 }
 
@@ -440,6 +438,18 @@ impl<W: Geometry> Geometry for Header<W> {
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         self.widget.set_height(height)
     }
+    fn minimum_width(&self) -> f32 {
+        self.widget.minimum_width()
+    }
+    fn maximum_width(&self) -> f32 {
+        self.widget.maximum_width()
+    }
+    fn minimum_height(&self) -> f32 {
+        self.widget.minimum_height()
+    }
+    fn maximum_height(&self) -> f32 {
+        self.widget.maximum_height()
+    }
 }
 
 impl<D, W: Widget<D>> Widget<D> for Header<W> {
@@ -480,11 +490,10 @@ where
     D: 'static,
     W: Widget<D> + Style,
 {
-    let header = 
-        headerbar(header)
-            .style()
-            .background(theme::BG2)
-            .padding(10.);
+    let header = headerbar(header)
+        .style()
+        .background(theme::BG2)
+        .padding(10.);
 
     Window::new(header, widget)
 }

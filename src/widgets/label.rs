@@ -36,16 +36,6 @@ impl Label {
     pub fn as_str(&self) -> &str {
         self.text.as_str()
     }
-    pub fn max_width(&self) -> f32 {
-        self.settings
-            .max_width
-            .unwrap_or(self.size.unwrap_or_default().0)
-    }
-    pub fn max_height(&self) -> f32 {
-        self.settings
-            .max_height
-            .unwrap_or(self.size.unwrap_or_default().1)
-    }
     pub fn set_color(&mut self, color: u32) {
         self.color = u32_to_source(color);
     }
@@ -137,6 +127,29 @@ impl Label {
         self.settings = settings;
         self
     }
+    pub fn set_width(&mut self, width: f32) {
+        self.settings.max_width = Some(width);
+    }
+    pub fn set_height(&mut self, height: f32) {
+        self.settings.max_height = Some(height);
+    }
+    pub fn set_size(&mut self, width: f32, height: f32) {
+        self.set_width(width);
+        self.set_height(height);
+    }
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.set_width(width);
+        self
+    }
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.set_height(height);
+        self
+    }
+    pub fn with_size(mut self, width: f32, height: f32) -> Self {
+        self.set_width(width);
+        self.set_height(height);
+        self
+    }
 }
 
 impl Geometry for Label {
@@ -145,20 +158,6 @@ impl Geometry for Label {
     }
     fn height(&self) -> f32 {
         self.size.unwrap_or_default().1
-    }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.settings.max_width = Some(width);
-        Err(self.width())
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.settings.max_height = Some(height);
-        Err(self.height())
-    }
-    fn maximum_width(&self) -> f32 {
-        std::f32::INFINITY
-    }
-    fn maximum_height(&self) -> f32 {
-        std::f32::INFINITY
     }
 }
 
@@ -195,12 +194,6 @@ impl<M> Geometry for Listener<M> {
     fn height(&self) -> f32 {
         self.label.height()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        self.label.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.label.set_height(height)
-    }
 }
 
 impl<M, D> Widget<D> for Listener<M>
@@ -230,6 +223,29 @@ impl<M> Listener<M> {
             message,
             label: Proxy::new(label.into()),
         }
+    }
+    pub fn set_width(&mut self, width: f32) {
+        Label::set_width(&mut self.label, width)
+    }
+    pub fn set_height(&mut self, height: f32) {
+        Label::set_height(&mut self.label, height)
+    }
+    pub fn set_size(&mut self, width: f32, height: f32) {
+        self.set_width(width);
+        self.set_height(height);
+    }
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.set_width(width);
+        self
+    }
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.set_height(height);
+        self
+    }
+    pub fn with_size(mut self, width: f32, height: f32) -> Self {
+        self.set_width(width);
+        self.set_height(height);
+        self
     }
 }
 

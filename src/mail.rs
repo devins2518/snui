@@ -1,3 +1,5 @@
+//! Traits that are core to snui.
+
 /// Mail refers to the idea of a mailing service.
 ///
 /// In the scope of snui, a Mail is an interface widgets can use exchange messages with the application.

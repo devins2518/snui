@@ -5,6 +5,7 @@ use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::window::WindowRequest;
 use crate::*;
+use smithay_client_toolkit::reexports::client::Proxy;
 use tiny_skia::Transform;
 
 use std::cell::RefCell;
@@ -26,7 +27,8 @@ use smithay_client_toolkit::reexports::client::{
     protocol::wl_subcompositor,
     protocol::wl_subsurface,
     protocol::wl_surface,
-    Connection, ConnectionHandle, DelegateDispatch, Dispatch, EventQueue, QueueHandle, WEnum,
+    Connection, ConnectionHandle, DelegateDispatch, DelegateDispatchBase, Dispatch, EventQueue,
+    QueueHandle, WEnum,
 };
 use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1},
@@ -1019,21 +1021,26 @@ where
                     states,
                 } => {
                     if width * height > 0 {
-                        application.state.window_state = list_states(states);
-                        let r_width = application.widget.set_width(width as f32);
-                        let r_height = application.widget.set_height(height as f32);
-                        if r_width.is_err() && r_height.is_err() {
-                            if let Shell::Xdg { toplevel, .. } = &application.surface.shell {
-                                let r_width = r_width.unwrap_err();
-                                let r_height = r_height.unwrap_err();
-                                if width < r_width as i32 && height < r_height as i32 {
-                                    toplevel.set_min_size(conn, r_width as i32, r_height as i32);
-                                } else if width > r_width as i32 && height > r_height as i32 {
-                                    toplevel.set_max_size(conn, r_width as i32, r_height as i32);
-                                }
+                        if let Err((width, height)) =
+                            application.widget.set_size(width as f32, height as f32)
+                        {
+                            if height < application.widget.minimum_width()
+                                && height < application.widget.minimum_height()
+                            {
+                                toplevel.set_min_size(conn, width as i32, height as i32);
+                            } else if width > application.widget.maximum_width()
+                                && height > application.widget.maximum_height()
+                            {
+                                toplevel.set_max_size(conn, width as i32, height as i32);
                             }
                         }
+                    } else {
+                        let _ = application.widget.set_size(
+                            application.widget.minimum_width(),
+                            application.widget.minimum_height(),
+                        );
                     }
+                    application.state.window_state = list_states(states);
                     let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
                     application
                         .widget
@@ -1051,7 +1058,6 @@ where
                 _ => {}
             }
         }
-        // wl_region has no event
     }
 }
 
@@ -1059,18 +1065,12 @@ fn list_states(states: Vec<u8>) -> Vec<WindowState> {
     states
         .chunks(4)
         .filter_map(|endian| {
-            if endian.len() == 4 {
-                if let Ok(state) = xdg_toplevel::State::try_from(u32::from_ne_bytes([
-                    endian[0], endian[1], endian[2], endian[3],
-                ])) {
-                    Some(WindowState::from(state))
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+            xdg_toplevel::State::try_from(u32::from_ne_bytes([
+                endian[0], endian[1], endian[2], endian[3],
+            ]))
+            .ok()
         })
+        .map(|state| WindowState::from(state))
         .collect()
 }
 
@@ -1316,7 +1316,7 @@ where
                                     Axis::HorizontalScroll => Orientation::Horizontal,
                                     _ => unreachable!(),
                                 },
-                                value: Move::Value(value as f32),
+                                step: Step::Value(value as f32),
                             };
                         }
                     }
@@ -1330,7 +1330,7 @@ where
                                     Axis::HorizontalScroll => Orientation::Horizontal,
                                     _ => unreachable!(),
                                 },
-                                value: Move::Step(discrete),
+                                step: Step::Increment(discrete),
                             };
                         }
                     }
@@ -1435,5 +1435,38 @@ where
             .outputs
             .push(Output::new(output.clone()));
         self.event(output, event, data, conn, qh);
+    }
+}
+
+impl<D, I> DelegateDispatchBase<I> for WaylandClient<D>
+where
+    I: Proxy,
+    D: Data + Clone,
+{
+    type UserData = ();
+}
+
+impl<D, I> DelegateDispatch<I, WaylandClient<D>> for WaylandClient<D>
+where
+    I: Proxy,
+    D: Data + Clone,
+    Self: Dispatch<I,UserData = Self::UserData>
+{
+    fn event(
+        data: &mut WaylandClient<D>,
+        proxy: &I,
+        event: <I as Proxy>::Event,
+        udata: &Self::UserData,
+        connhandle: &mut ConnectionHandle,
+        qhandle: &QueueHandle<WaylandClient<D>>
+    ) {
+        Dispatch::event(
+            data,
+            proxy,
+            event,
+            udata,
+            connhandle,
+            qhandle
+        )
     }
 }

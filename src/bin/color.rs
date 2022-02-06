@@ -102,7 +102,7 @@ impl Widget<Color> for ColorBlock {
     }
 }
 
-fn sliders() -> SimpleLayout<impl Widget<Color>> {
+fn sliders() -> DynamicLayout<impl Widget<Color>> {
     [RED, GRN, BLU, BG2]
         .into_iter()
         .map(|color| {
@@ -113,15 +113,18 @@ fn sliders() -> SimpleLayout<impl Widget<Color>> {
                 BG2 => Channel::Alpha,
                 _ => unreachable!(),
             };
-            widgets::slider::Slider::new(message)
-                .with_size(200., 8.)
-                .background(color)
-                .style()
-                .border(BG2, 1.)
-                .radius(3.)
+            Padding::new(
+                widgets::slider::Slider::new(message)
+                    .with_size(200., 8.)
+                    .background(color)
+                    .style()
+                    .border(BG2, 1.)
+                    .radius(3.),
+            )
+            .padding_top(5.)
+            .padding_bottom(5.)
         })
-        .collect::<SimpleLayout<WidgetStyle<Slider<Channel>>>>()
-        .spacing(10.)
+        .collect::<DynamicLayout<Padding<WidgetStyle<Slider<Channel>>>>>()
         .orientation(Orientation::Vertical)
 }
 
