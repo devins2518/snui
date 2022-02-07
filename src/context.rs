@@ -455,7 +455,7 @@ impl<'c> DrawContext<'c> {
             }
         }
     }
-    pub fn draw_label(&mut self, x: f32, y: f32, label: LabelRef) {
+    pub fn draw_label(&mut self, x: f32, y: f32, label: LabelRef, clip_mask: Option<&ClipMask>) {
         let font_cache = &mut self.cache.font_cache;
         for gp in {
             font_cache.layout(label);
@@ -481,7 +481,7 @@ impl<'c> DrawContext<'c> {
                                     pixmap,
                                     &TEXT,
                                     Transform::identity(),
-                                    None,
+                                    clip_mask,
                                 );
                             }
                             _ => (),

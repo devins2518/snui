@@ -7,6 +7,7 @@ use snui::{
     widgets::{label::*, *},
     *,
 };
+use tiny_skia::*;
 
 // The state of the animations in the Demo
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -242,15 +243,12 @@ fn ui() -> impl Widget<Demo> {
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let window = window::default_window(
-        Label::from("Animation"),
-        ui().clamp().style().background(theme::BG0),
-    );
+    let window = window::default_window(Label::from("Animation"), ui().clamp().style());
 
     client.new_window(
         Demo::default(),
         window
-            .background(theme::BG2)
+            .background(theme::BG0)
             .alternate_background(0xff58514F)
             .border(theme::BG2, 2.),
         &event_queue.handle(),

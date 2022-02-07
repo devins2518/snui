@@ -3,6 +3,7 @@ use crate::widgets::Alignment;
 use crate::*;
 use scene::RenderNode;
 
+#[derive(Debug)]
 pub struct SimpleLayout<W> {
     spacing: f32,
     widgets: Vec<Positioner<Proxy<W>>>,
@@ -55,7 +56,7 @@ impl<W: Geometry> Geometry for SimpleLayout<W> {
                 .widgets
                 .iter()
                 .map(|widget| widget.width())
-                .reduce(|previous, current| previous.max(current))
+                .reduce(|accum, width| accum.max(width))
                 .unwrap_or_default(),
         }
     }
@@ -72,7 +73,7 @@ impl<W: Geometry> Geometry for SimpleLayout<W> {
                 .widgets
                 .iter()
                 .map(|widget| widget.height())
-                .reduce(|previous, current| previous.max(current))
+                .reduce(|accum, height| accum.max(height))
                 .unwrap_or_default(),
         }
     }

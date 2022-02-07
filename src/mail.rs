@@ -1,4 +1,4 @@
-//! Traits that are core to snui.
+//! Traits to share data in snui.
 
 /// Mail refers to the idea of a mailing service.
 ///
@@ -12,6 +12,12 @@
 /// This is additional data you can attach to your message.
 ///
 /// U: The type you want the Mail to return.
+///
+/// # Usage
+///
+/// ```
+///	/// This example is inspired by the slider
+/// ```
 pub trait Mail<M, D, U> {
     fn get(&self, message: M) -> Option<U>;
     fn send(&mut self, message: M, data: D) -> Option<U>;

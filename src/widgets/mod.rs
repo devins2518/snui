@@ -286,17 +286,12 @@ pub struct WidgetBox<W> {
 
 impl<W: Geometry> Geometry for WidgetBox<W> {
     fn width(&self) -> f32 {
-        self.size.0
+        self.size.0.max(self.minimum_width())
     }
     fn height(&self) -> f32 {
-        self.size.1
+        self.size.1.max(self.minimum_height())
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if self.width.is_none() {
-            self.size.0 = width;
-            self.width = Some(width);
-            return Ok(());
-        }
         let c_width = width.clamp(self.minimum_width(), self.maximum_width());
         self.size.0 = c_width;
         if c_width == width {
@@ -306,11 +301,6 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if self.height.is_none() {
-            self.size.1 = height;
-            self.height = Some(height);
-            return Ok(());
-        }
         let c_height = height.clamp(self.minimum_height(), self.maximum_height());
         self.size.1 = c_height;
         if c_height == height {
@@ -359,6 +349,15 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
     }
 }
 
+impl<W> GeometryExt for WidgetBox<W> {
+    fn apply_width(&mut self, width: f32) {
+        self.width = Some(width);
+    }
+    fn apply_height(&mut self, height: f32) {
+        self.height = Some(height);
+    }
+}
+
 impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         self.widget.sync(ctx, event)
@@ -369,16 +368,21 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
         {
             return RenderNode::None;
         }
+        let width = self.widget.width();
+        let height = self.widget.height();
+        // if self.size == (0., 0.) {
+        //     self.set_size(width, height);
+        // }
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
             Alignment::Start => 0.,
-            Alignment::Center => ((self.width() - self.widget.width()) / 2.).floor(),
-            Alignment::End => (self.width() - self.widget.width()).floor(),
+            Alignment::Center => ((self.width() - width) / 2.).floor(),
+            Alignment::End => (self.width() - width).floor(),
         };
         let dy = match vertical {
             Alignment::Start => 0.,
-            Alignment::Center => ((self.height() - self.widget.height()) / 2.).floor(),
-            Alignment::End => (self.height() - self.widget.height()).floor(),
+            Alignment::Center => ((self.height() - height) / 2.).floor(),
+            Alignment::End => (self.height() - height).floor(),
         };
         self.widget.set_coords(dx, dy);
         self.widget.create_node(transform)

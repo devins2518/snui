@@ -80,6 +80,7 @@ pub enum WindowState {
     TiledTop,
 }
 
+#[derive(Debug)]
 pub struct Proxy<W> {
     damage: Damage,
     entered: bool,
@@ -163,32 +164,6 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     }
 }
 
-use widgets::shapes::Style;
-
-impl<W: Style> Style for Proxy<W> {
-    fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
-        self.inner.set_background(texture);
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.inner.set_border_size(size);
-    }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.inner.set_border_texture(texture);
-    }
-    fn set_radius_top_left(&mut self, radius: f32) {
-        self.inner.set_radius_top_left(radius);
-    }
-    fn set_radius_top_right(&mut self, radius: f32) {
-        self.inner.set_radius_top_right(radius);
-    }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
-        self.inner.set_radius_bottom_right(radius);
-    }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
-        self.inner.set_radius_bottom_left(radius);
-    }
-}
-
 use widgets::scroll::Scrollable;
 
 impl<W: Scrollable> Scrollable for Proxy<W> {
@@ -224,13 +199,8 @@ impl<W> Proxy<W> {
         &mut self.inner
     }
 }
-pub trait GeometryExt<G>: Geometry + Sized {
-    fn with_width(self, width: f32) -> Self;
-    fn with_height(self, height: f32) -> Self;
-    fn with_size(self, width: f32, height: f32) -> Self;
-}
 
-pub trait Wrapped: Sized + Geometry {
+pub trait WidgetExt: Sized + Geometry {
     fn style(self) -> WidgetStyle<Self>;
     fn clamp(self) -> WidgetBox<Self>;
     fn child(self) -> Positioner<Proxy<Self>>;
@@ -239,28 +209,32 @@ pub trait Wrapped: Sized + Geometry {
         F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer);
 }
 
+/// For widgets who's size can be determined at runtime
+pub trait GeometryExt: Sized {
+    fn apply_width(&mut self, width: f32);
+    fn apply_height(&mut self, height: f32);
+    fn apply_size(&mut self, width: f32, height: f32) {
+        self.apply_width(width);
+        self.apply_height(height);
+    }
+    fn with_width(mut self, width: f32) -> Self {
+        self.apply_width(width);
+        self
+    }
+    fn with_height(mut self, height: f32) -> Self {
+        self.apply_height(height);
+        self
+    }
+    fn with_size(mut self, width: f32, height: f32) -> Self {
+        self.apply_size(width, height);
+        self
+    }
+}
+
 pub trait DynEq {
     fn same(&self, other: &dyn std::any::Any) -> bool;
     fn not_same(&self, other: &dyn std::any::Any) -> bool {
         !self.same(other)
-    }
-}
-
-impl<G> GeometryExt<G> for G
-where
-    G: Geometry,
-{
-    fn with_width(mut self, width: f32) -> Self {
-        let _ = self.set_width(width);
-        self
-    }
-    fn with_height(mut self, height: f32) -> Self {
-        let _ = self.set_height(height);
-        self
-    }
-    fn with_size(mut self, width: f32, height: f32) -> Self {
-        let _ = self.set_size(width, height);
-        self
     }
 }
 
@@ -276,7 +250,7 @@ where
     }
 }
 
-impl<W> Wrapped for W
+impl<W> WidgetExt for W
 where
     W: Geometry,
 {

@@ -714,7 +714,7 @@ where
                 }
                 "xdg_wm_base" => {
                     self.globals.borrow_mut().wm_base = registry
-                        .bind::<xdg_wm_base::XdgWmBase, _>(conn, name, 1, qh, ())
+                        .bind::<xdg_wm_base::XdgWmBase, _>(conn, name, 2, qh, ())
                         .ok();
                 }
                 _ => {}
@@ -1024,21 +1024,16 @@ where
                         if let Err((width, height)) =
                             application.widget.set_size(width as f32, height as f32)
                         {
-                            if height < application.widget.minimum_width()
-                                && height < application.widget.minimum_height()
+                            if width <= application.widget.minimum_width()
+                                && height <= application.widget.minimum_height()
                             {
                                 toplevel.set_min_size(conn, width as i32, height as i32);
-                            } else if width > application.widget.maximum_width()
-                                && height > application.widget.maximum_height()
+                            } else if width >= application.widget.maximum_width()
+                                && height >= application.widget.maximum_height()
                             {
                                 toplevel.set_max_size(conn, width as i32, height as i32);
                             }
                         }
-                    } else {
-                        let _ = application.widget.set_size(
-                            application.widget.minimum_width(),
-                            application.widget.minimum_height(),
-                        );
                     }
                     application.state.window_state = list_states(states);
                     let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
@@ -1450,7 +1445,7 @@ impl<D, I> DelegateDispatch<I, WaylandClient<D>> for WaylandClient<D>
 where
     I: Proxy,
     D: Data + Clone,
-    Self: Dispatch<I,UserData = Self::UserData>
+    Self: Dispatch<I, UserData = Self::UserData>,
 {
     fn event(
         data: &mut WaylandClient<D>,
@@ -1458,15 +1453,8 @@ where
         event: <I as Proxy>::Event,
         udata: &Self::UserData,
         connhandle: &mut ConnectionHandle,
-        qhandle: &QueueHandle<WaylandClient<D>>
+        qhandle: &QueueHandle<WaylandClient<D>>,
     ) {
-        Dispatch::event(
-            data,
-            proxy,
-            event,
-            udata,
-            connhandle,
-            qhandle
-        )
+        Dispatch::event(data, proxy, event, udata, connhandle, qhandle)
     }
 }

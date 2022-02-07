@@ -37,7 +37,7 @@ The most notable ones being `ext` and `button` which respectively  wrap the widg
 
 ```rust
 fn button() -> impl Widget {
-	Label::default("click me")
+	Label::default("click me", 15.)
 	.ext()
 	.background(BG2)
 	.button(|this, _, pointer| match pointer {

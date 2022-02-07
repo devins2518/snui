@@ -242,7 +242,8 @@ where
         }
     }
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        self.body.set_height(height - self.header.height())
+        let err = self.body.set_height(height - self.header.height());
+        err
     }
     fn minimum_width(&self) -> f32 {
         self.header.minimum_width().max(self.body.minimum_width())
@@ -288,12 +289,11 @@ where
                 for state in state.iter().rev() {
                     match state {
                         WindowState::Activated => {
+                            activated = true;
                             if self.alternate.is_some() {
-                                activated = true;
                                 if !self.activated {
-                                    self.body.set_border_texture(self.background.clone());
                                     self.header.set_background(self.background.clone());
-                                    self.header.set_border_texture(self.background.clone());
+                                    self.body.set_border_texture(self.background.clone());
                                 }
                             }
                         }
@@ -304,27 +304,32 @@ where
                         | WindowState::Maximized
                         | WindowState::Fullscreen => {
                             positioned = true;
-                            self.header.set_radius_top_left(0.);
-                            self.header.set_radius_top_right(0.);
-                            self.body.set_radius_bottom_right(0.);
-                            self.body.set_radius_bottom_left(0.);
+                            self.header.set_top_left_radius(0.);
+                            self.header.set_top_right_radius(0.);
+                            self.body.set_bottom_right_radius(0.);
+                            self.body.set_bottom_left_radius(0.);
                         }
                         _ => {}
                     }
                 }
                 if !activated {
                     if let Some(ref texture) = self.alternate {
-                        self.body.set_border_texture(texture.clone());
-                        self.header.set_border_texture(texture.clone());
                         self.header.set_background(texture.clone());
+                        self.body.set_border_texture(texture.clone());
                     }
+                }
+                if !self.activated && !activated {
+                    self.set_top_left_radius(self.radius.0);
+                    self.set_top_right_radius(self.radius.1);
+                    self.set_bottom_right_radius(self.radius.2);
+                    self.set_bottom_left_radius(self.radius.3);
                 }
                 if !positioned && self.positioned {
                     self.positioned = false;
-                    self.set_radius_top_left(self.radius.0);
-                    self.set_radius_top_right(self.radius.1);
-                    self.set_radius_bottom_right(self.radius.2);
-                    self.set_radius_bottom_left(self.radius.3);
+                    self.set_top_left_radius(self.radius.0);
+                    self.set_top_right_radius(self.radius.1);
+                    self.set_bottom_right_radius(self.radius.2);
+                    self.set_bottom_left_radius(self.radius.3);
                 }
                 self.activated = activated;
                 self.positioned = positioned;
@@ -348,29 +353,29 @@ where
     W: Style,
 {
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
-        self.background = background.into();
-        self.header.set_background(self.background.clone());
+        self.body.set_background(background.into());
     }
     fn set_border_texture<T: Into<Texture>>(&mut self, texture: T) {
         let texture = texture.into();
-        self.header.set_border_texture(texture.clone());
+        self.background = texture.clone();
+        self.header.set_background(texture.clone());
         self.body.set_border_texture(texture);
     }
-    fn set_radius_top_left(&mut self, radius: f32) {
+    fn set_top_left_radius(&mut self, radius: f32) {
         self.radius.0 = radius;
-        self.header.set_radius_top_left(radius);
+        self.header.set_top_left_radius(radius);
     }
-    fn set_radius_top_right(&mut self, radius: f32) {
+    fn set_top_right_radius(&mut self, radius: f32) {
         self.radius.1 = radius;
-        self.header.set_radius_top_right(radius);
+        self.header.set_top_right_radius(radius);
     }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
+    fn set_bottom_right_radius(&mut self, radius: f32) {
         self.radius.2 = radius;
-        self.body.set_radius_bottom_right(radius);
+        self.body.set_bottom_right_radius(radius);
     }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
+    fn set_bottom_left_radius(&mut self, radius: f32) {
         self.radius.3 = radius;
-        self.body.set_radius_bottom_left(radius);
+        self.body.set_bottom_left_radius(radius);
     }
     fn set_border_size(&mut self, size: f32) {
         self.body.set_border_size(size);

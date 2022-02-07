@@ -43,48 +43,34 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
     fn forward(&mut self, step: Option<f32>) {
         let mut coords = self.widget.coords();
         match self.orientation {
-            Orientation::Horizontal => {
-                match step {
-                    Some(delta) => coords.x -= delta,
-                    None => coords.x -= 10.,
-                }
-                if coords.x.abs() <= 0. {
-                    self.widget.swap(coords);
-                }
-            }
-            Orientation::Vertical => {
-                match step {
-                    Some(delta) => coords.y += delta,
-                    None => coords.y += 10.,
-                }
-                if coords.y <= 0. {
-                    self.widget.swap(coords);
-                }
-            }
+            Orientation::Horizontal => match step {
+                Some(delta) => coords.x = (coords.x + delta).min(0.),
+                None => coords.x = (coords.x + 10.).min(0.),
+            },
+            Orientation::Vertical => match step {
+                Some(delta) => coords.y = (coords.y + delta).min(0.),
+                None => coords.y = (coords.y + 10.).min(0.),
+            },
         }
+        self.widget.swap(coords);
     }
     fn backward(&mut self, step: Option<f32>) {
         let mut coords = self.widget.coords();
         match self.orientation {
-            Orientation::Horizontal => {
-                match step {
-                    Some(delta) => coords.x -= delta,
-                    None => coords.x -= 10.,
+            Orientation::Horizontal => match step {
+                Some(delta) => {
+                    coords.x = (coords.x - delta).max((self.size - self.inner_width()).min(0.))
                 }
-                if coords.x.abs() < self.inner_height() - self.size {
-                    self.widget.swap(coords);
+                None => coords.x = (coords.x - 10.).min((self.size - self.inner_width()).min(0.)),
+            },
+            Orientation::Vertical => match step {
+                Some(delta) => {
+                    coords.y = (coords.y - delta).max((self.size - self.inner_height()).min(0.))
                 }
-            }
-            Orientation::Vertical => {
-                match step {
-                    Some(delta) => coords.y -= delta,
-                    None => coords.y -= 10.,
-                }
-                if coords.y.abs() < self.inner_height() - self.size {
-                    self.widget.swap(coords);
-                }
-            }
+                None => coords.y = (coords.y - 10.).min((self.size - self.inner_height()).min(0.)),
+            },
         }
+        self.widget.swap(coords);
     }
     fn position(&self) -> f32 {
         match self.orientation {
@@ -100,6 +86,25 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
     }
     fn orientation(&self) -> Orientation {
         self.orientation
+    }
+}
+
+impl<W: Geometry> GeometryExt for ScrollBox<W> {
+    fn apply_width(&mut self, width: f32) {
+        match self.orientation {
+            Orientation::Horizontal => self.size = width,
+            _ => {
+                let _ = self.widget.set_width(width);
+            }
+        }
+    }
+    fn apply_height(&mut self, height: f32) {
+        match self.orientation {
+            Orientation::Vertical => self.size = height,
+            _ => {
+                let _ = self.widget.set_height(height);
+            }
+        }
     }
 }
 
@@ -145,21 +150,27 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
         }
     }
     fn maximum_height(&self) -> f32 {
-        std::f32::INFINITY
+        match self.orientation {
+            Orientation::Vertical => std::f32::INFINITY,
+            _ => self.widget.maximum_height(),
+        }
     }
     fn minimum_height(&self) -> f32 {
         match self.orientation {
             Orientation::Vertical => 0.,
-            _ => self.widget.width(),
+            _ => self.widget.minimum_height(),
         }
     }
     fn maximum_width(&self) -> f32 {
-        std::f32::INFINITY
+        match self.orientation {
+            Orientation::Horizontal => std::f32::INFINITY,
+            _ => self.widget.maximum_width(),
+        }
     }
     fn minimum_width(&self) -> f32 {
         match self.orientation {
             Orientation::Horizontal => 0.,
-            _ => self.widget.height(),
+            _ => self.widget.minimum_width(),
         }
     }
 }
@@ -182,7 +193,7 @@ where
                 Pointer::Scroll { orientation, step } => {
                     let coords = self.widget.coords();
                     let damage = self.widget.sync(ctx, event);
-                    if damage.is_none() && orientation == self.orientation {
+                    if orientation == self.orientation {
                         match step {
                             Step::Increment(i) => {
                                 if i.is_positive() {
@@ -233,17 +244,17 @@ impl<W: Style> Style for ScrollBox<W> {
     fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
         self.widget.set_background(texture)
     }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
-        self.widget.set_radius_bottom_left(radius)
+    fn set_bottom_left_radius(&mut self, radius: f32) {
+        self.widget.set_bottom_left_radius(radius)
     }
-    fn set_radius_top_right(&mut self, radius: f32) {
-        self.widget.set_radius_top_right(radius)
+    fn set_top_right_radius(&mut self, radius: f32) {
+        self.widget.set_top_right_radius(radius)
     }
-    fn set_radius_top_left(&mut self, radius: f32) {
-        self.widget.set_radius_top_left(radius)
+    fn set_top_left_radius(&mut self, radius: f32) {
+        self.widget.set_top_left_radius(radius)
     }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
-        self.widget.set_radius_bottom_right(radius)
+    fn set_bottom_right_radius(&mut self, radius: f32) {
+        self.widget.set_bottom_right_radius(radius)
     }
     fn set_border_size(&mut self, size: f32) {
         self.widget.set_border_size(size)

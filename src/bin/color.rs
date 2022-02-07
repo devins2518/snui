@@ -84,7 +84,7 @@ impl Geometry for ColorBlock {
 }
 
 impl Widget<Color> for ColorBlock {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
+    fn create_node(&mut self, transform: tiny_skia::Transform) -> RenderNode {
         Widget::<()>::create_node(
             &mut Rectangle::empty(self.width, self.height)
                 .background(self.color)
@@ -128,8 +128,8 @@ fn sliders() -> DynamicLayout<impl Widget<Color>> {
         .orientation(Orientation::Vertical)
 }
 
-fn ui_builder() -> DynamicLayout<impl Widget<Color>> {
-    let mut layout = DynamicLayout::new().orientation(Orientation::Vertical);
+fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
+    let mut layout = SimpleLayout::new().orientation(Orientation::Vertical);
 
     let listener = Listener::new("", ())
         .clamp()
@@ -152,6 +152,7 @@ fn ui_builder() -> DynamicLayout<impl Widget<Color>> {
 
     layout.add(indicator);
     layout.add(sliders().clamp());
+    layout.justify(CENTER);
 
     layout
 }
@@ -160,17 +161,14 @@ fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
     let listener = Listener::new("", ());
-    let window = window::default_window(
-        listener,
-        ui_builder().clamp().style().padding(10.).background(BG0),
-    );
+    let window = window::default_window(listener, ui_builder().clamp().style().padding(10.));
 
     client.new_window(
         Color {
             sync: false,
             color: tiny_skia::Color::WHITE,
         },
-        window.background(BG2).border(BG2, 1.).radius(5.),
+        window.background(BG0).border(BG2, 1.).radius(5.),
         &event_queue.handle(),
     );
 

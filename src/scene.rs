@@ -1,7 +1,7 @@
 use crate::*;
 use context::DrawContext;
 use std::rc::Rc;
-pub use tiny_skia::*;
+use tiny_skia::*;
 use widgets::blend;
 
 use widgets::label::*;
@@ -287,14 +287,14 @@ impl Geometry for PrimitiveType {
     fn set_height(&mut self, height: f32) -> Result<(), f32> {
         match self {
             Self::Other(primitive) => primitive.set_height(height),
-            Self::Label(l) => Ok(l.set_height(height)),
+            Self::Label(l) => Geometry::set_height(l, height),
             Self::Rectangle(r) => r.set_height(height),
         }
     }
     fn set_width(&mut self, width: f32) -> Result<(), f32> {
         match self {
             Self::Other(primitive) => primitive.set_width(width),
-            Self::Label(l) => Ok(l.set_width(width)),
+            Self::Label(l) => Geometry::set_width(l, width),
             Self::Rectangle(r) => r.set_width(width),
         }
     }
@@ -342,7 +342,7 @@ impl Primitive for PrimitiveType {
     ) {
         match self {
             Self::Rectangle(rectangle) => rectangle.draw_with_transform_clip(ctx, transform, clip),
-            Self::Label(l) => ctx.draw_label(transform.tx, transform.ty, l.as_ref()),
+            Self::Label(l) => ctx.draw_label(transform.tx, transform.ty, l.as_ref(), clip),
             Self::Other(primitive) => primitive.draw_with_transform_clip(ctx, transform, clip),
         }
     }
@@ -463,7 +463,7 @@ impl Instruction {
             PrimitiveType::Label(l) => {
                 let x = self.transform.tx;
                 let y = self.transform.ty;
-                ctx.draw_label(x, y, l.as_ref());
+                ctx.draw_label(x, y, l.as_ref(), clip);
             }
         }
     }

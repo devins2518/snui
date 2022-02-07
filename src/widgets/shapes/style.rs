@@ -8,6 +8,7 @@ use widgets::Padding;
 
 /// Main type used for styling.
 /// Any widget can be wrapped in a WidgetStyle and take advantage of the Style trait.
+#[derive(Debug)]
 pub struct WidgetStyle<W> {
     widget: Padding<W>,
     radius: (f32, f32, f32, f32),
@@ -107,30 +108,30 @@ impl<W: Geometry> Geometry for WidgetStyle<W> {
 }
 
 impl<W: Style> WidgetStyle<W> {
-    pub fn set_radius_top_left(&mut self, radius: f32) {
+    pub fn set_top_left_radius(&mut self, radius: f32) {
         self.radius.0 = radius;
-        self.widget.set_radius_top_left(radius);
+        self.widget.set_top_left_radius(radius);
         let delta = minimum_padding(self.radius);
         self.widget.padding.0 = self.widget.padding.0.max(delta);
         self.radius.0 += delta;
     }
-    pub fn set_radius_top_right(&mut self, radius: f32) {
+    pub fn set_top_right_radius(&mut self, radius: f32) {
         self.radius.1 = radius;
-        self.widget.set_radius_top_right(radius);
+        self.widget.set_top_right_radius(radius);
         let delta = minimum_padding(self.radius);
         self.widget.padding.1 = self.widget.padding.1.max(delta);
         self.radius.1 += delta;
     }
-    pub fn set_radius_bottom_right(&mut self, radius: f32) {
+    pub fn set_bottom_right_radius(&mut self, radius: f32) {
         self.radius.2 = radius;
-        self.widget.set_radius_bottom_right(radius);
+        self.widget.set_bottom_right_radius(radius);
         let delta = minimum_padding(self.radius);
         self.widget.padding.2 = self.widget.padding.2.max(delta);
         self.radius.2 += delta;
     }
-    pub fn set_radius_bottom_left(&mut self, radius: f32) {
+    pub fn set_bottom_left_radius(&mut self, radius: f32) {
         self.radius.3 = radius;
-        self.widget.set_radius_bottom_left(radius);
+        self.widget.set_bottom_left_radius(radius);
         let delta = minimum_padding(self.radius);
         self.widget.padding.3 = self.widget.padding.3.max(delta);
         self.radius.3 += delta;
@@ -154,20 +155,20 @@ impl<W: Style> WidgetStyle<W> {
         WidgetStyle::set_radius(&mut self, radius);
         self
     }
-    pub fn radius_top_left(mut self, radius: f32) -> Self {
-        WidgetStyle::set_radius_top_left(&mut self, radius);
+    pub fn top_left_radius(mut self, radius: f32) -> Self {
+        WidgetStyle::set_top_left_radius(&mut self, radius);
         self
     }
-    pub fn radius_top_right(mut self, radius: f32) -> Self {
-        WidgetStyle::set_radius_top_right(&mut self, radius);
+    pub fn top_right_radius(mut self, radius: f32) -> Self {
+        WidgetStyle::set_top_right_radius(&mut self, radius);
         self
     }
-    pub fn radius_bottom_right(mut self, radius: f32) -> Self {
-        WidgetStyle::set_radius_bottom_right(&mut self, radius);
+    pub fn bottom_right_radius(mut self, radius: f32) -> Self {
+        WidgetStyle::set_bottom_right_radius(&mut self, radius);
         self
     }
-    pub fn radius_bottom_left(mut self, radius: f32) -> Self {
-        WidgetStyle::set_radius_bottom_left(&mut self, radius);
+    pub fn bottom_left_radius(mut self, radius: f32) -> Self {
+        WidgetStyle::set_bottom_left_radius(&mut self, radius);
         self
     }
 }
@@ -181,24 +182,24 @@ impl<W> Style for WidgetStyle<W> {
         self.widget.padding.3 = self.widget.padding.3.max(delta);
         self.radius = (radius, radius, radius, radius);
     }
-    fn set_radius_top_left(&mut self, radius: f32) {
+    fn set_top_left_radius(&mut self, radius: f32) {
         let delta = minimum_padding(self.radius);
         self.widget.padding.0 = self.widget.padding.0.max(delta);
         self.radius.0 = radius;
     }
-    fn set_radius_top_right(&mut self, radius: f32) {
+    fn set_top_right_radius(&mut self, radius: f32) {
         let delta = minimum_padding(self.radius);
-        self.widget.padding.1 = self.widget.padding.1.max(delta);
+        self.widget.padding.0 = self.widget.padding.1.max(delta);
         self.radius.1 = radius;
     }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
+    fn set_bottom_right_radius(&mut self, radius: f32) {
         let delta = minimum_padding(self.radius);
         self.widget.padding.2 = self.widget.padding.2.max(delta);
         self.radius.2 = radius;
     }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
+    fn set_bottom_left_radius(&mut self, radius: f32) {
         let delta = minimum_padding(self.radius);
-        self.widget.padding.3 = self.widget.padding.3.max(delta);
+        self.widget.padding.2 = self.widget.padding.3.max(delta);
         self.radius.3 = radius;
     }
     fn set_background<B: Into<Texture>>(&mut self, texture: B) {
@@ -246,10 +247,10 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
                         Some(Instruction::new(
                             transform,
                             Rectangle::empty(width, height)
-                                .radius_top_left(self.radius.0)
-                                .radius_top_right(self.radius.1)
-                                .radius_bottom_right(self.radius.2)
-                                .radius_bottom_left(self.radius.3)
+                                .top_left_radius(self.radius.0)
+                                .top_right_radius(self.radius.1)
+                                .bottom_right_radius(self.radius.2)
+                                .bottom_left_radius(self.radius.3)
                                 .border(border_texture, border_size),
                         ))
                     } else {
@@ -260,10 +261,10 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
                     transform.pre_translate(border_size, border_size),
                     Rectangle::empty(width, height)
                         .background(self.background.clone())
-                        .radius_top_left(minimum_radius(self.radius.0, border_size))
-                        .radius_top_right(minimum_radius(self.radius.1, border_size))
-                        .radius_bottom_right(minimum_radius(self.radius.2, border_size))
-                        .radius_bottom_left(minimum_radius(self.radius.3, border_size)),
+                        .top_left_radius(minimum_radius(self.radius.0, border_size))
+                        .top_right_radius(minimum_radius(self.radius.1, border_size))
+                        .bottom_right_radius(minimum_radius(self.radius.2, border_size))
+                        .bottom_left_radius(minimum_radius(self.radius.3, border_size)),
                 ),
             }
         } else {

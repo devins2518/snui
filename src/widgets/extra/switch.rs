@@ -157,17 +157,17 @@ impl<M> Style for Switch<M> {
     fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
         self.toggle.set_border_texture(texture);
     }
-    fn set_radius_top_left(&mut self, radius: f32) {
-        self.toggle.set_radius_top_left(radius);
+    fn set_top_left_radius(&mut self, radius: f32) {
+        self.toggle.set_top_left_radius(radius);
     }
-    fn set_radius_top_right(&mut self, radius: f32) {
-        self.toggle.set_radius_top_right(radius);
+    fn set_top_right_radius(&mut self, radius: f32) {
+        self.toggle.set_top_right_radius(radius);
     }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
-        self.toggle.set_radius_bottom_right(radius);
+    fn set_bottom_right_radius(&mut self, radius: f32) {
+        self.toggle.set_bottom_right_radius(radius);
     }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
-        self.toggle.set_radius_bottom_left(radius);
+    fn set_bottom_left_radius(&mut self, radius: f32) {
+        self.toggle.set_bottom_left_radius(radius);
     }
     fn set_border_size(&mut self, size: f32) {
         self.toggle.set_border_size(size);

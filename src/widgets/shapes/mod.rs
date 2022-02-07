@@ -13,34 +13,34 @@ pub trait Style: Sized {
         self.set_border_texture(texture);
         self.set_border_size(size);
     }
-    fn set_radius_top_left(&mut self, radius: f32);
-    fn set_radius_top_right(&mut self, radius: f32);
-    fn set_radius_bottom_right(&mut self, radius: f32);
-    fn set_radius_bottom_left(&mut self, radius: f32);
+    fn set_top_left_radius(&mut self, radius: f32);
+    fn set_top_right_radius(&mut self, radius: f32);
+    fn set_bottom_right_radius(&mut self, radius: f32);
+    fn set_bottom_left_radius(&mut self, radius: f32);
     fn set_radius(&mut self, radius: f32) {
-        self.set_radius_top_left(radius);
-        self.set_radius_top_right(radius);
-        self.set_radius_bottom_right(radius);
-        self.set_radius_bottom_left(radius);
+        self.set_top_left_radius(radius);
+        self.set_top_right_radius(radius);
+        self.set_bottom_right_radius(radius);
+        self.set_bottom_left_radius(radius);
     }
     fn radius(mut self, radius: f32) -> Self {
         self.set_radius(radius);
         self
     }
-    fn radius_top_left(mut self, radius: f32) -> Self {
-        self.set_radius_top_left(radius);
+    fn top_left_radius(mut self, radius: f32) -> Self {
+        self.set_top_left_radius(radius);
         self
     }
-    fn radius_top_right(mut self, radius: f32) -> Self {
-        self.set_radius_top_right(radius);
+    fn top_right_radius(mut self, radius: f32) -> Self {
+        self.set_top_right_radius(radius);
         self
     }
-    fn radius_bottom_right(mut self, radius: f32) -> Self {
-        self.set_radius_bottom_right(radius);
+    fn bottom_right_radius(mut self, radius: f32) -> Self {
+        self.set_bottom_right_radius(radius);
         self
     }
-    fn radius_bottom_left(mut self, radius: f32) -> Self {
-        self.set_radius_bottom_left(radius);
+    fn bottom_left_radius(mut self, radius: f32) -> Self {
+        self.set_bottom_left_radius(radius);
         self
     }
     fn background<B: Into<Texture>>(mut self, texture: B) -> Self {

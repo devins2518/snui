@@ -127,29 +127,6 @@ impl Label {
         self.settings = settings;
         self
     }
-    pub fn set_width(&mut self, width: f32) {
-        self.settings.max_width = Some(width);
-    }
-    pub fn set_height(&mut self, height: f32) {
-        self.settings.max_height = Some(height);
-    }
-    pub fn set_size(&mut self, width: f32, height: f32) {
-        self.set_width(width);
-        self.set_height(height);
-    }
-    pub fn with_width(mut self, width: f32) -> Self {
-        self.set_width(width);
-        self
-    }
-    pub fn with_height(mut self, height: f32) -> Self {
-        self.set_height(height);
-        self
-    }
-    pub fn with_size(mut self, width: f32, height: f32) -> Self {
-        self.set_width(width);
-        self.set_height(height);
-        self
-    }
 }
 
 impl Geometry for Label {
@@ -161,13 +138,22 @@ impl Geometry for Label {
     }
 }
 
+impl GeometryExt for Label {
+    fn apply_width(&mut self, width: f32) {
+        self.settings.max_width = Some(width);
+    }
+    fn apply_height(&mut self, height: f32) {
+        self.settings.max_height = Some(height);
+    }
+}
+
 impl<D> Widget<D> for Label {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let scale = transform.sx.max(transform.sy);
         let label = self.clone().font_size(scale * self.font_size);
         Instruction::new(transform, label).into()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _event: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
             let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
             let layout = fc.layout(self.as_ref()).clone();
@@ -193,6 +179,15 @@ impl<M> Geometry for Listener<M> {
     }
     fn height(&self) -> f32 {
         self.label.height()
+    }
+}
+
+impl<M> GeometryExt for Listener<M> {
+    fn apply_width(&mut self, width: f32) {
+        GeometryExt::apply_width(self.label.get_mut(), width)
+    }
+    fn apply_height(&mut self, height: f32) {
+        GeometryExt::apply_height(self.label.get_mut(), height)
     }
 }
 
@@ -223,29 +218,6 @@ impl<M> Listener<M> {
             message,
             label: Proxy::new(label.into()),
         }
-    }
-    pub fn set_width(&mut self, width: f32) {
-        Label::set_width(&mut self.label, width)
-    }
-    pub fn set_height(&mut self, height: f32) {
-        Label::set_height(&mut self.label, height)
-    }
-    pub fn set_size(&mut self, width: f32, height: f32) {
-        self.set_width(width);
-        self.set_height(height);
-    }
-    pub fn with_width(mut self, width: f32) -> Self {
-        self.set_width(width);
-        self
-    }
-    pub fn with_height(mut self, height: f32) -> Self {
-        self.set_height(height);
-        self
-    }
-    pub fn with_size(mut self, width: f32, height: f32) -> Self {
-        self.set_width(width);
-        self.set_height(height);
-        self
     }
 }
 

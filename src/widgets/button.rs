@@ -101,16 +101,16 @@ where
     fn set_border_size(&mut self, size: f32) {
         self.proxy.set_border_size(size);
     }
-    fn set_radius_top_left(&mut self, radius: f32) {
-        self.proxy.set_radius_top_left(radius);
+    fn set_top_left_radius(&mut self, radius: f32) {
+        self.proxy.set_top_left_radius(radius);
     }
-    fn set_radius_top_right(&mut self, radius: f32) {
-        self.proxy.set_radius_top_right(radius);
+    fn set_top_right_radius(&mut self, radius: f32) {
+        self.proxy.set_top_right_radius(radius);
     }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
-        self.proxy.set_radius_bottom_right(radius);
+    fn set_bottom_right_radius(&mut self, radius: f32) {
+        self.proxy.set_bottom_right_radius(radius);
     }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
+    fn set_bottom_left_radius(&mut self, radius: f32) {
         self.proxy.set_radius(radius);
     }
 }

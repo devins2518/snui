@@ -245,18 +245,37 @@ where
     }
 }
 
+impl<M> GeometryExt for Slider<M> {
+    fn apply_width(&mut self, width: f32) {
+        match self.orientation {
+            Orientation::Horizontal => self.size = width,
+            _ => {
+                let _ = self.slider.set_width(width);
+            }
+        }
+    }
+    fn apply_height(&mut self, height: f32) {
+        match self.orientation {
+            Orientation::Vertical => self.size = height,
+            _ => {
+                let _ = self.slider.set_height(height);
+            }
+        }
+    }
+}
+
 impl<M> Style for Slider<M> {
-    fn set_radius_top_left(&mut self, radius: f32) {
-        self.slider.set_radius_top_left(radius);
+    fn set_top_left_radius(&mut self, radius: f32) {
+        self.slider.set_top_left_radius(radius);
     }
-    fn set_radius_top_right(&mut self, radius: f32) {
-        self.slider.set_radius_top_right(radius);
+    fn set_top_right_radius(&mut self, radius: f32) {
+        self.slider.set_top_right_radius(radius);
     }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
-        self.slider.set_radius_bottom_right(radius);
+    fn set_bottom_right_radius(&mut self, radius: f32) {
+        self.slider.set_bottom_right_radius(radius);
     }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
-        self.slider.set_radius_bottom_left(radius);
+    fn set_bottom_left_radius(&mut self, radius: f32) {
+        self.slider.set_bottom_left_radius(radius);
     }
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.slider.set_background(background);

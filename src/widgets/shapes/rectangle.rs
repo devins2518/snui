@@ -228,6 +228,15 @@ impl Geometry for Rectangle {
     }
 }
 
+impl GeometryExt for Rectangle {
+    fn apply_width(&mut self, width: f32) {
+        let _ = self.set_width(width);
+    }
+    fn apply_height(&mut self, height: f32) {
+        let _ = self.set_height(height);
+    }
+}
+
 impl Primitive for Rectangle {
     fn apply_texture(&self, texture: scene::Texture) -> scene::PrimitiveType {
         let mut rect = self.clone();
@@ -387,16 +396,16 @@ impl Primitive for Rectangle {
 }
 
 impl Style for Rectangle {
-    fn set_radius_top_left(&mut self, radius: f32) {
+    fn set_top_left_radius(&mut self, radius: f32) {
         self.radius.0 = radius;
     }
-    fn set_radius_top_right(&mut self, radius: f32) {
+    fn set_top_right_radius(&mut self, radius: f32) {
         self.radius.1 = radius;
     }
-    fn set_radius_bottom_right(&mut self, radius: f32) {
+    fn set_bottom_right_radius(&mut self, radius: f32) {
         self.radius.2 = radius;
     }
-    fn set_radius_bottom_left(&mut self, radius: f32) {
+    fn set_bottom_left_radius(&mut self, radius: f32) {
         self.radius.3 = radius;
     }
     fn set_background<B: Into<Texture>>(&mut self, background: B) {
