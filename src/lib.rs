@@ -9,13 +9,13 @@ pub mod widgets;
 
 pub use crate::core::*;
 use context::*;
-use scene::RenderNode;
-use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
+use scene::RenderNode;
+use widgets::WidgetBox;
 use widgets::button::Button;
 use widgets::layout::Positioner;
 use widgets::shapes::WidgetStyle;
-use widgets::WidgetBox;
+use std::ops::{Deref, DerefMut};
 
 pub mod theme {
     //! Colors from the Chocolate theme
@@ -159,6 +159,49 @@ pub enum Pointer {
     Leave,
 }
 
+impl Pointer {
+    pub fn left_button_click(self) -> Option<u32> {
+        match self {
+            Self::MouseClick { serial, button, pressed } => if button.is_left() && pressed {
+                Some(serial)
+            } else {
+                None
+            }
+            _ => None
+        }
+    }
+    pub fn left_button_release(self) -> Option<u32> {
+        match self {
+            Self::MouseClick { serial, button, pressed } => if button.is_left() && !pressed {
+                Some(serial)
+            } else {
+                None
+            }
+            _ => None
+        }
+    }
+    pub fn right_button_click(self) -> Option<u32> {
+        match self {
+            Self::MouseClick { serial, button, pressed } => if button.is_right() && pressed {
+                Some(serial)
+            } else {
+                None
+            }
+            _ => None
+        }
+    }
+    pub fn right_button_release(self) -> Option<u32> {
+        match self {
+            Self::MouseClick { serial, button, pressed } => if button.is_right() && !pressed {
+                Some(serial)
+            } else {
+                None
+            }
+            _ => None
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MouseButton {
     Left,
@@ -271,12 +314,6 @@ pub trait Geometry {
     }
     fn maximum_height(&self) -> f32 {
         self.height()
-    }
-    fn horizontal_range(&self) -> f32 {
-        self.maximum_width() - self.minimum_width()
-    }
-    fn vertical_range(&self) -> f32 {
-        self.maximum_height() - self.minimum_height()
     }
     fn create_canvas(&self, transform: Transform) -> context::canvas::Canvas {
         context::canvas::Canvas::new(transform, self.width(), self.height())

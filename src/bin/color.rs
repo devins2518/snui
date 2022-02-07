@@ -85,12 +85,12 @@ impl Geometry for ColorBlock {
 
 impl Widget<Color> for ColorBlock {
     fn create_node(&mut self, transform: tiny_skia::Transform) -> RenderNode {
-        Widget::<()>::create_node(
-            &mut Rectangle::empty(self.width, self.height)
+        Instruction::new(
+            transform,
+            Rectangle::empty(self.width, self.height)
                 .background(self.color)
                 .radius(5.),
-            transform,
-        )
+        ).into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         if let Event::Sync = event {

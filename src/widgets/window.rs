@@ -144,9 +144,9 @@ impl Geometry for Minimize {
 
 impl<D> Widget<D> for Minimize {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let r = Rectangle::empty(self.width(), 4.).background(theme::YEL);
+        let r = Rectangle::empty(self.width(), 3.).background(theme::YEL);
 
-        Instruction::new(transform.pre_translate(0., 5.), r).into()
+        Instruction::new(transform.pre_translate(0., 6.), r).into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
@@ -465,19 +465,10 @@ impl<D, W: Widget<D>> Widget<D> for Header<W> {
         match event {
             Event::Pointer(x, y, p) => {
                 if self.contains(x, y) {
-                    match p {
-                        Pointer::MouseClick {
-                            button,
-                            pressed,
-                            serial,
-                        } => {
-                            if button.is_left() && pressed {
-                                ctx.drag(serial);
-                            } else if button.is_right() && pressed {
-                                ctx.menu(x, y, serial);
-                            }
-                        }
-                        _ => {}
+                    if let Some(serial) = p.left_button_click() {
+                        ctx.drag(serial);
+                    } else if let Some(serial) = p.right_button_click() {
+                        ctx.menu(x, y, serial);
                     }
                 }
             }

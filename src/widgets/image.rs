@@ -69,6 +69,27 @@ impl Geometry for Image {
             Err(0.)
         }
     }
+    fn minimum_width(&self) -> f32 {
+        0.
+    }
+    fn minimum_height(&self) -> f32 {
+        0.
+    }
+    fn maximum_width(&self) -> f32 {
+        std::f32::INFINITY
+    }
+    fn maximum_height(&self) -> f32 {
+        std::f32::INFINITY
+    }
+}
+
+impl GeometryExt for Image {
+    fn apply_width(&mut self, width: f32) {
+        let _ = self.set_width(width);
+    }
+    fn apply_height(&mut self, height: f32) {
+        let _ = self.set_height(height);
+    }
 }
 
 impl<D> Widget<D> for Image {

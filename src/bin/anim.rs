@@ -216,24 +216,17 @@ fn ui() -> impl Widget<Demo> {
             .style()
             .background(theme::BG1)
             .radius(3.)
-            .button::<Demo, _>(move |this, ctx, p| match p {
-                Pointer::MouseClick {
-                    serial: _,
-                    button,
-                    pressed,
-                } => {
-                    if button.is_left() && pressed {
-                        match ctx.state {
-                            AnimationState::Start => {
-                                this.set_background(theme::BG1);
-                            }
-                            AnimationState::Pause | AnimationState::Stop => {
-                                this.set_background(theme::RED);
-                            }
+            .button::<Demo, _>(move |this, ctx, p| {
+                if p.left_button_click().is_some() {
+                    match ctx.state {
+                        AnimationState::Start => {
+                            this.set_background(theme::BG1);
+                        }
+                        AnimationState::Pause | AnimationState::Stop => {
+                            this.set_background(theme::RED);
                         }
                     }
                 }
-                _ => {}
             })
             .clamp(),
     );
@@ -249,6 +242,7 @@ fn main() {
         Demo::default(),
         window
             .background(theme::BG0)
+            .radius(5.)
             .alternate_background(0xff58514F)
             .border(theme::BG2, 2.),
         &event_queue.handle(),
