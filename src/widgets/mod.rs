@@ -140,21 +140,13 @@ impl<W: Geometry> Geometry for Padding<W> {
         let (top, _, bottom, _) = self.padding;
         self.widget.height() + top + bottom
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         let (_, right, _, left) = self.padding;
-        if let Err(width) = self.widget.set_width(width - right - left) {
-            Err(width + right + left)
-        } else {
-            Ok(())
-        }
+        self.widget.set_width(width - right - left)
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         let (top, _, bottom, _) = self.padding;
-        if let Err(height) = self.widget.set_height(height - top - bottom) {
-            Err(height + top + bottom)
-        } else {
-            Ok(())
-        }
+        self.widget.set_height(height - top - bottom)
     }
     fn maximum_height(&self) -> f32 {
         let (top, _, bottom, _) = self.padding;
@@ -291,23 +283,13 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
     fn height(&self) -> f32 {
         self.size.1.max(self.minimum_height())
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         let c_width = width.clamp(self.minimum_width(), self.maximum_width());
         self.size.0 = c_width;
-        if c_width == width {
-            Ok(())
-        } else {
-            Err(c_width)
-        }
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         let c_height = height.clamp(self.minimum_height(), self.maximum_height());
         self.size.1 = c_height;
-        if c_height == height {
-            Ok(())
-        } else {
-            Err(c_height)
-        }
     }
     fn maximum_height(&self) -> f32 {
         match self.height {

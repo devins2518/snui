@@ -90,7 +90,8 @@ impl Widget<Color> for ColorBlock {
             Rectangle::empty(self.width, self.height)
                 .background(self.color)
                 .radius(5.),
-        ).into()
+        )
+        .into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         if let Event::Sync = event {

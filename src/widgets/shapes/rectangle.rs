@@ -198,21 +198,11 @@ impl Geometry for Rectangle {
                 0.
             }
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width >= self.minimum_width() {
-            self.width = width.round();
-            Ok(())
-        } else {
-            Err(self.width)
-        }
+    fn set_width(&mut self, width: f32) {
+        self.width = width.round().max(self.minimum_width());
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height >= self.minimum_height() {
-            self.height = height.round();
-            Ok(())
-        } else {
-            Err(self.height)
-        }
+    fn set_height(&mut self, height: f32) {
+        self.height = height.round().max(self.minimum_height());
     }
     fn minimum_height(&self) -> f32 {
         self.radius.0 + self.radius.2
@@ -230,10 +220,10 @@ impl Geometry for Rectangle {
 
 impl GeometryExt for Rectangle {
     fn apply_width(&mut self, width: f32) {
-        let _ = self.set_width(width);
+        self.set_width(width);
     }
     fn apply_height(&mut self, height: f32) {
-        let _ = self.set_height(height);
+        self.set_height(height);
     }
 }
 
@@ -411,11 +401,11 @@ impl Style for Rectangle {
     fn set_background<B: Into<Texture>>(&mut self, background: B) {
         let mut background = background.into();
         if let Texture::Image(_, img) = &mut background {
-            img.set_size(self.width(), self.height()).unwrap();
+            img.set_size(self.width(), self.height());
         }
         match &mut background {
             Texture::Image(_, image) => {
-                image.set_size(self.width(), self.height()).unwrap();
+                image.set_size(self.width(), self.height());
             }
             _ => {}
         }
@@ -445,7 +435,7 @@ impl<D> Widget<D> for Rectangle {
                     Texture::Image(coords, image) => {
                         coords.x = transform.tx;
                         coords.y = transform.ty;
-                        image.set_size(self.width, self.height).unwrap();
+                        image.set_size(self.width, self.height);
                     }
                     Texture::LinearGradient {
                         start,

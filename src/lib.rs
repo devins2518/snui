@@ -9,13 +9,13 @@ pub mod widgets;
 
 pub use crate::core::*;
 use context::*;
-use tiny_skia::*;
 use scene::RenderNode;
-use widgets::WidgetBox;
+use std::ops::{Deref, DerefMut};
+use tiny_skia::*;
 use widgets::button::Button;
 use widgets::layout::Positioner;
 use widgets::shapes::WidgetStyle;
-use std::ops::{Deref, DerefMut};
+use widgets::WidgetBox;
 
 pub mod theme {
     //! Colors from the Chocolate theme
@@ -162,42 +162,66 @@ pub enum Pointer {
 impl Pointer {
     pub fn left_button_click(self) -> Option<u32> {
         match self {
-            Self::MouseClick { serial, button, pressed } => if button.is_left() && pressed {
-                Some(serial)
-            } else {
-                None
+            Self::MouseClick {
+                serial,
+                button,
+                pressed,
+            } => {
+                if button.is_left() && pressed {
+                    Some(serial)
+                } else {
+                    None
+                }
             }
-            _ => None
+            _ => None,
         }
     }
     pub fn left_button_release(self) -> Option<u32> {
         match self {
-            Self::MouseClick { serial, button, pressed } => if button.is_left() && !pressed {
-                Some(serial)
-            } else {
-                None
+            Self::MouseClick {
+                serial,
+                button,
+                pressed,
+            } => {
+                if button.is_left() && !pressed {
+                    Some(serial)
+                } else {
+                    None
+                }
             }
-            _ => None
+            _ => None,
         }
     }
     pub fn right_button_click(self) -> Option<u32> {
         match self {
-            Self::MouseClick { serial, button, pressed } => if button.is_right() && pressed {
-                Some(serial)
-            } else {
-                None
+            Self::MouseClick {
+                serial,
+                button,
+                pressed,
+            } => {
+                if button.is_right() && pressed {
+                    Some(serial)
+                } else {
+                    None
+                }
             }
-            _ => None
+            _ => None,
         }
     }
     pub fn right_button_release(self) -> Option<u32> {
         match self {
-            Self::MouseClick { serial, button, pressed } => if button.is_right() && !pressed {
-                Some(serial)
-            } else {
-                None
+            Self::MouseClick {
+                serial,
+                button,
+                pressed,
+            } => {
+                if button.is_right() && !pressed {
+                    Some(serial)
+                } else {
+                    None
+                }
             }
-            _ => None
+            _ => None,
         }
     }
 }
@@ -279,29 +303,11 @@ impl<'d> Event<'d> {
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
-    fn set_width(&mut self, _width: f32) -> Result<(), f32> {
-        Err(self.width())
-    }
-    fn set_height(&mut self, _height: f32) -> Result<(), f32> {
-        Err(self.height())
-    }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        let err_width = self.set_width(width);
-        let err_height = self.set_height(height);
-
-        if let Err(width) = err_width {
-            if let Err(height) = err_height {
-                Err((width, height))
-            } else {
-                Err((width, height))
-            }
-        } else {
-            if let Err(height) = err_height {
-                Err((width, height))
-            } else {
-                Ok(())
-            }
-        }
+    fn set_width(&mut self, _width: f32) {}
+    fn set_height(&mut self, _height: f32) {}
+    fn set_size(&mut self, width: f32, height: f32) {
+        self.set_width(width);
+        self.set_height(height);
     }
     fn minimum_width(&self) -> f32 {
         self.width()

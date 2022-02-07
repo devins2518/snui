@@ -38,14 +38,11 @@ where
     fn height(&self) -> f32 {
         self.proxy.height()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         self.proxy.set_width(width)
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         self.proxy.set_height(height)
-    }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
-        self.proxy.set_size(width, height)
     }
     fn maximum_height(&self) -> f32 {
         self.proxy.maximum_height()

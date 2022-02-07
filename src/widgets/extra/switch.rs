@@ -35,21 +35,11 @@ impl<M> Geometry for Switch<M> {
             self.toggle.height()
         }
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         self.apply_width(width);
-        if self.width() == width {
-            Ok(())
-        } else {
-            Err(self.width())
-        }
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         self.apply_height(height);
-        if self.height() == height {
-            Ok(())
-        } else {
-            Err(self.height())
-        }
     }
     fn minimum_width(&self) -> f32 {
         self.toggle.minimum_width()
@@ -68,15 +58,15 @@ impl<M> Geometry for Switch<M> {
 impl<M> GeometryExt for Switch<M> {
     fn apply_width(&mut self, width: f32) {
         let _ = self.toggle.set_width(match self.orientation {
-            Orientation::Horizontal => width/2.,
-            _ => width
+            Orientation::Horizontal => width / 2.,
+            _ => width,
         });
         self.easer.set_amplitude(width - self.toggle.width())
     }
     fn apply_height(&mut self, height: f32) {
         let _ = self.toggle.set_height(match self.orientation {
-            Orientation::Vertical => height/2.,
-            _ => height
+            Orientation::Vertical => height / 2.,
+            _ => height,
         });
         self.easer.set_amplitude(height - self.toggle.height())
     }

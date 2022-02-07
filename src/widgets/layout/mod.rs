@@ -58,28 +58,31 @@ pub fn apply_width<W: Geometry>(widgets: &mut [W], width: f32) -> f32 {
     let mut extra = 0.;
     let mut layout = widgets
         .iter()
-        .map(|widget| Size::Var(widget.minimum_width()))
-        .collect::<Vec<Size>>();
+        .map(
+            |widget|
+            (Size::Var(widget.minimum_width()), widget.maximum_width()))
+        .collect::<Vec<(Size, f32)>>();
     let mut count = widgets.len();
     let mut iter = widgets.iter().enumerate().cycle();
     while {
-        c_width = layout.iter().map(|s| f32::from(*s)).sum();
+        c_width = layout.iter().map(|(s,_)| f32::from(*s)).sum();
         delta = width - c_width;
         delta > 0. && count > 0
     } {
         if let Some((i, widget)) = iter.next() {
-            match layout[i] {
+            let (size, max) = layout[i];
+            match size {
                 Size::Var(size) => {
                     let u_width = (delta / widgets.len() as f32) + size + extra;
                     let size = (u_width)
                         .clamp(widget.minimum_width(), widget.maximum_width())
                         .round();
-                    if u_width >= widget.maximum_width() {
-                        layout[i] = Size::Set(size);
+                    if u_width >= max {
+                        layout[i].0 = Size::Set(size);
                         count -= 1;
                         extra = 0.;
                     } else {
-                        layout[i] = Size::Var(size);
+                        layout[i].0 = Size::Var(size);
                         extra = u_width - size;
                     }
                 }
@@ -87,7 +90,7 @@ pub fn apply_width<W: Geometry>(widgets: &mut [W], width: f32) -> f32 {
             }
         }
     }
-    for (i, width) in layout.into_iter().enumerate() {
+    for (i, (width,_)) in layout.into_iter().enumerate() {
         let _ = widgets[i].set_width(width.into());
     }
     c_width
@@ -99,28 +102,31 @@ pub fn apply_height<W: Geometry>(widgets: &mut [W], height: f32) -> f32 {
     let mut extra = 0.;
     let mut layout = widgets
         .iter()
-        .map(|widget| Size::Var(widget.minimum_height()))
-        .collect::<Vec<Size>>();
+        .map(
+            |widget|
+            (Size::Var(widget.minimum_height()), widget.maximum_height()))
+        .collect::<Vec<(Size, f32)>>();
     let mut count = widgets.len();
     let mut iter = widgets.iter().enumerate().cycle();
     while {
-        c_height = layout.iter().map(|s| f32::from(*s)).sum();
+        c_height = layout.iter().map(|(s,_)| f32::from(*s)).sum();
         delta = height - c_height;
         delta > 0. && count > 0
     } {
         if let Some((i, widget)) = iter.next() {
-            match layout[i] {
+            let (size, max) = layout[i];
+            match size {
                 Size::Var(size) => {
                     let u_height = (delta / widgets.len() as f32) + size + extra;
                     let size = (u_height)
                         .clamp(widget.minimum_height(), widget.maximum_height())
                         .round();
-                    if u_height >= widget.maximum_height() {
-                        layout[i] = Size::Set(size);
+                    if u_height >= max {
+                        layout[i].0 = Size::Set(size);
                         count -= 1;
                         extra = 0.;
                     } else {
-                        layout[i] = Size::Var(size);
+                        layout[i].0 = Size::Var(size);
                         extra = u_height - size;
                     }
                 }
@@ -128,7 +134,7 @@ pub fn apply_height<W: Geometry>(widgets: &mut [W], height: f32) -> f32 {
             }
         }
     }
-    for (i, height) in layout.into_iter().enumerate() {
+    for (i, (height,_)) in layout.into_iter().enumerate() {
         let _ = widgets[i].set_height(height.into());
     }
     c_height
@@ -165,10 +171,10 @@ impl<W: Geometry> Geometry for Positioner<W> {
     fn height(&self) -> f32 {
         self.widget.height()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         self.widget.set_width(width)
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         self.widget.set_height(height)
     }
     fn contains(&self, x: f32, y: f32) -> bool {

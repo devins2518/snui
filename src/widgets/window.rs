@@ -221,29 +221,20 @@ where
     W: Geometry,
 {
     fn width(&self) -> f32 {
-        self.header.width()
+        self.header.width().max(self.body.width())
     }
     fn height(&self) -> f32 {
         self.body.height() + self.header.height()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if let Err(width) = self.body.set_width(width) {
-            if let Err(width) = self.header.set_width(width) {
-                self.body.set_width(width)
-            } else {
-                Ok(())
-            }
-        } else {
-            if let Err(width) = self.header.set_width(width) {
-                self.body.set_width(width)
-            } else {
-                Ok(())
-            }
-        }
+    fn set_width(&mut self, width: f32) {
+        let c_width = width
+            .max(self.header.minimum_width())
+            .max(self.body.minimum_width());
+        self.body.set_width(c_width);
+        self.header.set_width(c_width);
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let err = self.body.set_height(height - self.header.height());
-        err
+    fn set_height(&mut self, height: f32) {
+        self.body.set_height(height - self.header.height())
     }
     fn minimum_width(&self) -> f32 {
         self.header.minimum_width().max(self.body.minimum_width())
@@ -336,11 +327,8 @@ where
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
             Event::Prepare => {
-                if self.set_width(self.width()).is_ok() {
-                    self.header.sync(ctx, event).max(self.body.sync(ctx, event))
-                } else {
-                    Damage::None
-                }
+                self.set_width(self.width());
+                self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
             _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
         }
@@ -434,13 +422,13 @@ impl<W: Geometry> Geometry for Header<W> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         self.widget.set_width(width)
     }
     fn height(&self) -> f32 {
         self.widget.height()
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         self.widget.set_height(height)
     }
     fn minimum_width(&self) -> f32 {

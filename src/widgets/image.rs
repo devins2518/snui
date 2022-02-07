@@ -55,18 +55,14 @@ impl Geometry for Image {
             0.
         }
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         if let Some(image) = self.inner.as_mut() {
             image.set_width(width)
-        } else {
-            Err(0.)
         }
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         if let Some(image) = self.inner.as_mut() {
             image.set_height(height)
-        } else {
-            Err(0.)
         }
     }
     fn minimum_width(&self) -> f32 {
@@ -85,10 +81,10 @@ impl Geometry for Image {
 
 impl GeometryExt for Image {
     fn apply_width(&mut self, width: f32) {
-        let _ = self.set_width(width);
+        self.set_width(width);
     }
     fn apply_height(&mut self, height: f32) {
-        let _ = self.set_height(height);
+        self.set_height(height);
     }
 }
 
@@ -182,19 +178,11 @@ impl Geometry for InnerImage {
     fn height(&self) -> f32 {
         self.height as f32
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        if width.is_sign_positive() {
-            self.width = width;
-            return Ok(());
-        }
-        Err(self.width as f32)
+    fn set_width(&mut self, width: f32) {
+        self.width = width.max(0.);
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        if height.is_sign_positive() {
-            self.height = height;
-            return Ok(());
-        }
-        Err(self.height as f32)
+    fn set_height(&mut self, height: f32) {
+        self.height = height.max(0.);
     }
     fn minimum_height(&self) -> f32 {
         0.

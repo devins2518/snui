@@ -94,7 +94,7 @@ impl<W: Geometry> GeometryExt for ScrollBox<W> {
         match self.orientation {
             Orientation::Horizontal => self.size = width,
             _ => {
-                let _ = self.widget.set_width(width);
+                self.widget.set_width(width);
             }
         }
     }
@@ -102,7 +102,7 @@ impl<W: Geometry> GeometryExt for ScrollBox<W> {
         match self.orientation {
             Orientation::Vertical => self.size = height,
             _ => {
-                let _ = self.widget.set_height(height);
+                self.widget.set_height(height);
             }
         }
     }
@@ -121,32 +121,22 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
             _ => self.widget.height(),
         }
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         let c_width = width.clamp(self.minimum_width(), self.maximum_width());
         match self.orientation {
             Orientation::Horizontal => {
                 self.size = c_width;
-                if c_width != width {
-                    return Err(c_width);
-                } else {
-                    Ok(())
-                }
             }
-            Orientation::Vertical => return self.widget.set_width(c_width),
+            Orientation::Vertical => self.widget.set_width(c_width),
         }
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         let c_height = height.clamp(self.minimum_height(), self.maximum_height());
         match self.orientation {
             Orientation::Vertical => {
                 self.size = c_height;
-                if c_height != height {
-                    return Err(c_height);
-                } else {
-                    Ok(())
-                }
             }
-            Orientation::Horizontal => return self.widget.set_height(c_height),
+            Orientation::Horizontal => self.widget.set_height(c_height),
         }
     }
     fn maximum_height(&self) -> f32 {

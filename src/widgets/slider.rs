@@ -54,7 +54,7 @@ impl<M> Geometry for Slider<M> {
             self.slider.height()
         }
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         if let Orientation::Horizontal = &self.orientation {
             let ratio = self.slider.width() / self.size;
             self.size = width.max(0.);
@@ -63,7 +63,7 @@ impl<M> Geometry for Slider<M> {
             self.slider.set_width(width)
         }
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         if let Orientation::Vertical = &self.orientation {
             let ratio = self.slider.height() / self.size;
             self.size = height.max(0.);
@@ -110,10 +110,10 @@ where
                             if self.pressed && button.is_left() {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
-                                        let _ = self.slider.set_width(x.round());
+                                        self.slider.set_width(x.round());
                                     }
                                     Orientation::Vertical => {
-                                        let _ = self.slider.set_height(y.round());
+                                        self.slider.set_height(y.round());
                                     }
                                 }
                             }
@@ -135,7 +135,7 @@ where
                         } => {
                             let ratio = match &self.orientation {
                                 Orientation::Horizontal => {
-                                    let _ = self.slider.set_width(
+                                    self.slider.set_width(
                                         (self.slider.width()
                                             - match step {
                                                 Step::Value(v) => v,
@@ -146,7 +146,7 @@ where
                                     self.slider.width() / self.size
                                 }
                                 Orientation::Vertical => {
-                                    let _ = self.slider.set_height(
+                                    self.slider.set_height(
                                         (self.slider.height()
                                             - match step {
                                                 Step::Value(v) => v,
@@ -164,19 +164,14 @@ where
                             if self.pressed {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
-                                        if let Ok(_) = self.slider.set_width(x.round()) {
-                                            ctx.send(self.message, self.slider.width() / self.size);
-                                            return Damage::Partial;
-                                        }
+                                        self.slider.set_width(x.round());
+                                        ctx.send(self.message, self.slider.width() / self.size);
+                                        return Damage::Partial;
                                     }
                                     Orientation::Vertical => {
-                                        if let Ok(_) = self.slider.set_width(y.round()) {
-                                            ctx.send(
-                                                self.message,
-                                                self.slider.height() / self.size,
-                                            );
-                                            return Damage::Partial;
-                                        }
+                                        self.slider.set_width(y.round());
+                                        ctx.send(self.message, self.slider.height() / self.size);
+                                        return Damage::Partial;
                                     }
                                 }
                             }

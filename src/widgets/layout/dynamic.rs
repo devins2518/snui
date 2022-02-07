@@ -39,39 +39,29 @@ where
 }
 
 impl<W: Geometry> Geometry for DynamicLayout<W> {
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
-        let real_width: f32;
+    fn set_width(&mut self, width: f32) {
         match self.orientation {
             Orientation::Horizontal => {
-                real_width = apply_width(&mut self.widgets, width);
+                apply_width(&mut self.widgets, width);
             }
             Orientation::Vertical => {
-                real_width = self
-                    .widgets
-                    .iter_mut()
-                    .map(|widget| widget.set_width(width).err().unwrap_or(width))
-                    .reduce(|acc, width| acc.max(width))
-                    .unwrap_or_default();
+                for widget in &mut self.widgets {
+                    widget.set_width(width)
+                }
             }
         }
-        real_width.eq(&width).then(|| ()).ok_or(real_width)
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
-        let real_height: f32;
+    fn set_height(&mut self, height: f32) {
         match self.orientation {
             Orientation::Vertical => {
-                real_height = apply_height(&mut self.widgets, height);
+                apply_height(&mut self.widgets, height);
             }
             Orientation::Horizontal => {
-                real_height = self
-                    .widgets
-                    .iter_mut()
-                    .map(|widget| widget.set_height(height).err().unwrap_or(height))
-                    .reduce(|acc, width| acc.max(width))
-                    .unwrap_or_default();
+                for widget in &mut self.widgets {
+                    widget.set_height(height)
+                }
             }
         }
-        real_height.eq(&height).then(|| ()).ok_or(real_height)
     }
     fn width(&self) -> f32 {
         match self.orientation {

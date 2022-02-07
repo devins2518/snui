@@ -108,13 +108,13 @@ impl<W: Geometry> Geometry for Proxy<W> {
     fn height(&self) -> f32 {
         self.inner.height()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         self.inner.set_width(width)
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         self.inner.set_height(height)
     }
-    fn set_size(&mut self, width: f32, height: f32) -> Result<(), (f32, f32)> {
+    fn set_size(&mut self, width: f32, height: f32) {
         self.inner.set_size(width, height)
     }
     fn maximum_height(&self) -> f32 {
@@ -278,10 +278,10 @@ impl<D> Geometry for Box<dyn Widget<D>> {
     fn width(&self) -> f32 {
         self.as_ref().width()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         self.as_mut().set_width(width)
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         self.as_mut().set_height(height)
     }
     fn maximum_height(&self) -> f32 {

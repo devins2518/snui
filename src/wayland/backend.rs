@@ -239,10 +239,7 @@ where
         self.surface.wl_surface.eq(surface)
     }
     fn set_size(&mut self, conn: &mut ConnectionHandle, width: f32, height: f32) {
-        let (width, height) = Geometry::set_size(self, width, height)
-            .err()
-            .unwrap_or((width, height));
-
+        Geometry::set_size(self, width, height);
         self.surface.set_size(conn, width as u32, height as u32)
     }
     pub unsafe fn globals(&self) -> Rc<GlobalManager> {
@@ -492,10 +489,10 @@ where
     fn width(&self) -> f32 {
         self.widget.width()
     }
-    fn set_width(&mut self, width: f32) -> Result<(), f32> {
+    fn set_width(&mut self, width: f32) {
         self.widget.set_width(width)
     }
-    fn set_height(&mut self, height: f32) -> Result<(), f32> {
+    fn set_height(&mut self, height: f32) {
         self.widget.set_height(height)
     }
 }
@@ -1020,21 +1017,20 @@ where
                     height,
                     states,
                 } => {
-                    if width * height > 0 {
-                        if let Err((width, height)) =
-                            application.widget.set_size(width as f32, height as f32)
-                        {
-                            if width <= application.widget.minimum_width()
-                                && height <= application.widget.minimum_height()
-                            {
-                                toplevel.set_min_size(conn, width as i32, height as i32);
-                            } else if width >= application.widget.maximum_width()
-                                && height >= application.widget.maximum_height()
-                            {
-                                toplevel.set_max_size(conn, width as i32, height as i32);
-                            }
-                        }
+                    if width > 0 {
+                        application.widget.set_width(width as f32);
                     }
+                    if height > 0 {
+                        application.widget.set_height(height as f32);
+                    }
+                    toplevel.set_min_size(
+                        conn,
+                        application.widget.minimum_width() as i32,
+                        application.widget.minimum_height() as i32);
+                    toplevel.set_max_size(
+                        conn,
+                        application.widget.maximum_width() as i32,
+                        application.widget.maximum_height() as i32);
                     application.state.window_state = list_states(states);
                     let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
                     application
