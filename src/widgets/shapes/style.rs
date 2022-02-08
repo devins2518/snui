@@ -238,7 +238,7 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
                     if border_texture != Texture::Transparent || border_size > 0. {
                         Some(Instruction::new(
                             transform,
-                            Rectangle::empty(width, height)
+                            Rectangle::new(width, height)
                                 .top_left_radius(self.radius.0)
                                 .top_right_radius(self.radius.1)
                                 .bottom_right_radius(self.radius.2)
@@ -251,7 +251,7 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
                 },
                 background: Instruction::new(
                     transform.pre_translate(border_size, border_size),
-                    Rectangle::empty(width, height)
+                    Rectangle::new(width, height)
                         .background(self.background.clone())
                         .top_left_radius(minimum_radius(self.radius.0, border_size))
                         .top_right_radius(minimum_radius(self.radius.1, border_size))

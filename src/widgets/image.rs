@@ -81,10 +81,16 @@ impl Geometry for Image {
 
 impl GeometryExt for Image {
     fn apply_width(&mut self, width: f32) {
-        self.set_width(width);
+        match self.size.as_mut() {
+            Some(size) => size.0 = width as u32,
+            None => self.size = Some((width as u32, width as u32))
+        }
     }
     fn apply_height(&mut self, height: f32) {
-        self.set_height(height);
+        match self.size.as_mut() {
+            Some(size) => size.1 = height as u32,
+            None => self.size = Some((height as u32, height as u32))
+        }
     }
 }
 
@@ -105,7 +111,8 @@ impl<D> Widget<D> for Image {
                 }
                 self.inner = Some(inner);
             } else {
-                self.inner = Some(InnerImage::from_raw(Vec::new(), 0, 0));
+                // Creates an empty InnerImage so we don't request an image again.
+                self.inner = Some(InnerImage::from_raw(Vec::with_capacity(0), 0, 0));
             }
         }
         Damage::None
@@ -201,7 +208,7 @@ impl Geometry for InnerImage {
 impl<D> Widget<D> for InnerImage {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(
-            &mut Rectangle::empty(self.width(), self.height()).background(self.clone()),
+            &mut Rectangle::new(self.width(), self.height()).background(self.clone()),
             transform,
         )
     }

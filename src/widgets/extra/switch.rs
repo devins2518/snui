@@ -147,7 +147,7 @@ impl<M> Switch<M> {
         Self {
             start: false,
             position: 0.,
-            toggle: Rectangle::empty(20., 20.).background(theme::BG2),
+            toggle: Rectangle::new(20., 20.).background(theme::BG2),
             easer: Sinus::new(0., 0.5, 20.),
             orientation: Orientation::Horizontal,
             message,

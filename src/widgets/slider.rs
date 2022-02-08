@@ -19,7 +19,7 @@ impl<M> Slider<M> {
             flip: false,
             size: 100.,
             pressed: false,
-            slider: Rectangle::empty(50., 10.),
+            slider: Rectangle::new(50., 10.),
             orientation: Orientation::Horizontal,
         }
     }

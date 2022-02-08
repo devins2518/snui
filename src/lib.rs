@@ -340,7 +340,7 @@ pub trait Geometry {
 /// Drawable objects.
 ///
 /// They are given access to the drawing backend.
-pub trait Primitive: Geometry + std::fmt::Debug + DynEq + std::any::Any {
+pub trait Drawable: Geometry + std::fmt::Debug + DynEq + std::any::Any {
     fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
         self.draw_with_transform_clip(ctx, tiny_skia::Transform::from_translate(x, y), None);
     }
@@ -370,11 +370,11 @@ pub trait Primitive: Geometry + std::fmt::Debug + DynEq + std::any::Any {
     );
     fn get_texture(&self) -> scene::Texture;
     /// Returns a clone of the primitive with the applied texture.
-    fn apply_texture(&self, texture: scene::Texture) -> scene::PrimitiveType;
+    fn apply_texture(&self, texture: scene::Texture) -> scene::Primitive;
     /// Returns true if the region can fit inside the primitive.
     /// The coordinates will be relative to it
     fn contains(&self, region: &scene::Region) -> bool;
-    fn primitive_type(&self) -> scene::PrimitiveType;
+    fn primitive(&self) -> scene::Primitive;
 }
 
 pub trait Widget<D>: Geometry {

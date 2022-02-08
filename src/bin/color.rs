@@ -92,7 +92,7 @@ impl Widget<Color> for ColorBlock {
     fn create_node(&mut self, transform: tiny_skia::Transform) -> RenderNode {
         Instruction::new(
             transform,
-            Rectangle::empty(self.width, self.height)
+            Rectangle::new(self.width, self.height)
                 .background(self.color)
                 .radius(5.),
         )

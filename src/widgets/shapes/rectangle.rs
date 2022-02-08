@@ -40,44 +40,20 @@ impl From<Region> for Rectangle {
 }
 
 impl Rectangle {
-    pub fn square(size: f32, style: ShapeStyle) -> Self {
+    pub fn square(size: f32) -> Self {
         Rectangle {
             width: size,
             height: size,
-            style,
             radius: (0., 0., 0., 0.),
+            style: ShapeStyle::Background(Texture::Transparent),
         }
     }
-    pub fn new(width: f32, height: f32, style: ShapeStyle) -> Self {
-        Rectangle {
-            width,
-            height,
-            style,
-            radius: (0., 0., 0., 0.),
-        }
-    }
-    pub fn empty(width: f32, height: f32) -> Self {
+    pub fn new(width: f32, height: f32) -> Self {
         Rectangle {
             width,
             height,
             radius: (0., 0., 0., 0.),
             style: ShapeStyle::Background(Texture::Transparent),
-        }
-    }
-    pub fn get_style(&self) -> &ShapeStyle {
-        &self.style
-    }
-    pub fn get_radius(&self) -> (f32, f32, f32, f32) {
-        self.radius
-    }
-    pub fn is_opaque(&self) -> bool {
-        match &self.style {
-            ShapeStyle::Background(background) => match background {
-                Texture::Transparent => false,
-                Texture::Color(source) => source.is_opaque(),
-                _ => false,
-            },
-            ShapeStyle::Border(_, _) => false,
         }
     }
     fn path(&self, mut pb: PathBuilder) -> Option<Path> {
@@ -227,8 +203,8 @@ impl GeometryExt for Rectangle {
     }
 }
 
-impl Primitive for Rectangle {
-    fn apply_texture(&self, texture: scene::Texture) -> scene::PrimitiveType {
+impl Drawable for Rectangle {
+    fn apply_texture(&self, texture: scene::Texture) -> scene::Primitive {
         let mut rect = self.clone();
         match &mut rect.style {
             ShapeStyle::Border(border, _) => *border = texture,
@@ -239,7 +215,7 @@ impl Primitive for Rectangle {
     fn get_texture(&self) -> scene::Texture {
         self.style.texture()
     }
-    fn primitive_type(&self) -> scene::PrimitiveType {
+    fn primitive(&self) -> scene::Primitive {
         self.clone().into()
     }
     fn contains(&self, region: &scene::Region) -> bool {

@@ -39,7 +39,7 @@ impl<D> Widget<D> for Close {
         let width = self.width() * FRAC_1_SQRT_2;
         let height = self.height() * FRAC_1_SQRT_2;
 
-        let r = Rectangle::empty(width, height).background(theme::RED);
+        let r = Rectangle::new(width, height).background(theme::RED);
 
         canvas.draw_at_angle(
             (self.width() - width) / 2.,
@@ -88,7 +88,7 @@ impl<D> Widget<D> for Maximize {
         if self.maximized {
             Instruction {
                 transform,
-                primitive: Rectangle::empty(self.width(), self.height())
+                primitive: Rectangle::new(self.width(), self.height())
                     .background(theme::BLU)
                     .into(),
             }
@@ -97,7 +97,7 @@ impl<D> Widget<D> for Maximize {
             let thickness = 2.;
             Instruction {
                 transform,
-                primitive: Rectangle::empty(
+                primitive: Rectangle::new(
                     self.width() - 2. * thickness,
                     self.height() - 2. * thickness,
                 )
@@ -148,7 +148,7 @@ impl Geometry for Minimize {
 
 impl<D> Widget<D> for Minimize {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let r = Rectangle::empty(self.width(), 3.).background(theme::YEL);
+        let r = Rectangle::new(self.width(), 3.).background(theme::YEL);
 
         Instruction::new(transform.pre_translate(0., 6.), r).into()
     }

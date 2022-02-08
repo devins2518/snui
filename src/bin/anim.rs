@@ -4,7 +4,11 @@ use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 use snui::widgets::shapes::*;
 use snui::{
-    widgets::{label::*, *},
+    widgets::{
+        label::*,
+        layout::dynamic::DynamicLayout,
+        *
+    },
     *,
 };
 use tiny_skia::*;
@@ -100,7 +104,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
     fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
         Instruction::new(
             transform.pre_translate(self.position, 0.),
-            Rectangle::empty(self.cursor, 30.).background(theme::RED),
+            Rectangle::new(self.cursor, 30.).background(theme::RED),
         )
         .into()
     }
@@ -134,7 +138,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
                     self.start = false;
                 }
             },
-            Event::Prepare => {
+            Event::Draw => {
                 ctx.set_title("Animation");
             }
             _ => {}

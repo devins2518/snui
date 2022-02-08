@@ -154,7 +154,7 @@ where
 impl From<Instruction> for Texture {
     fn from(instruction: Instruction) -> Self {
         match instruction.primitive {
-            PrimitiveType::Rectangle(r) => r.get_style().background(),
+            Primitive::Rectangle(r) => r.style.background(),
             _ => Texture::Transparent,
         }
     }
@@ -163,7 +163,7 @@ impl From<Instruction> for Texture {
 impl From<&Instruction> for Texture {
     fn from(instruction: &Instruction) -> Self {
         match &instruction.primitive {
-            PrimitiveType::Rectangle(r) => r.get_style().background(),
+            Primitive::Rectangle(r) => r.style.background(),
             _ => Texture::Transparent,
         }
     }
@@ -263,13 +263,13 @@ impl Texture {
 }
 
 #[derive(Debug)]
-pub enum PrimitiveType {
+pub enum Primitive {
     Label(Label),
     Rectangle(Rectangle),
-    Other(Box<dyn Primitive>),
+    Other(Box<dyn Drawable>),
 }
 
-impl Geometry for PrimitiveType {
+impl Geometry for Primitive {
     fn width(&self) -> f32 {
         match self {
             Self::Other(primitive) => primitive.width(),
@@ -300,17 +300,17 @@ impl Geometry for PrimitiveType {
     }
 }
 
-impl Clone for PrimitiveType {
+impl Clone for Primitive {
     fn clone(&self) -> Self {
         match self {
             Self::Label(label) => label.clone().into(),
-            Self::Rectangle(rect) => rect.primitive_type(),
-            Self::Other(primitive) => primitive.primitive_type(),
+            Self::Rectangle(rect) => rect.primitive(),
+            Self::Other(primitive) => primitive.primitive(),
         }
     }
 }
 
-impl Primitive for PrimitiveType {
+impl Drawable for Primitive {
     fn get_texture(&self) -> Texture {
         match self {
             Self::Rectangle(rectangle) => rectangle.get_texture(),
@@ -321,7 +321,7 @@ impl Primitive for PrimitiveType {
     fn apply_texture(&self, background: Texture) -> Self {
         match self {
             Self::Rectangle(rectangle) => rectangle.apply_texture(background),
-            Self::Label(_) => Rectangle::empty(self.width(), self.height())
+            Self::Label(_) => Rectangle::new(self.width(), self.height())
                 .background(background)
                 .into(),
             Self::Other(primitive) => primitive.apply_texture(background),
@@ -329,8 +329,8 @@ impl Primitive for PrimitiveType {
     }
     fn contains(&self, region: &Region) -> bool {
         match &self {
-            PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
-            PrimitiveType::Other(primitive) => Primitive::contains(&**primitive, &region),
+            Primitive::Rectangle(rect) => Drawable::contains(rect, &region),
+            Primitive::Other(primitive) => Drawable::contains(&**primitive, &region),
             _ => true,
         }
     }
@@ -346,26 +346,26 @@ impl Primitive for PrimitiveType {
             Self::Other(primitive) => primitive.draw_with_transform_clip(ctx, transform, clip),
         }
     }
-    fn primitive_type(&self) -> scene::PrimitiveType {
+    fn primitive(&self) -> scene::Primitive {
         self.clone()
     }
 }
 
-impl PartialEq for PrimitiveType {
+impl PartialEq for Primitive {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            PrimitiveType::Rectangle(s) => {
-                if let PrimitiveType::Rectangle(o) = other {
+            Primitive::Rectangle(s) => {
+                if let Primitive::Rectangle(o) = other {
                     return s.eq(o);
                 }
             }
-            PrimitiveType::Label(s) => {
-                if let PrimitiveType::Label(o) = other {
+            Primitive::Label(s) => {
+                if let Primitive::Label(o) = other {
                     return s.eq(o);
                 }
             }
-            PrimitiveType::Other(t_primitive) => {
-                if let PrimitiveType::Other(primitive) = other {
+            Primitive::Other(t_primitive) => {
+                if let Primitive::Other(primitive) = other {
                     return primitive.as_ref().same(&*t_primitive);
                 }
             }
@@ -374,7 +374,7 @@ impl PartialEq for PrimitiveType {
     }
 }
 
-impl PrimitiveType {
+impl Primitive {
     fn merge(&self, other: Self) -> Self {
         let background = other.get_texture();
         let background = self.get_texture().merge(background);
@@ -382,49 +382,49 @@ impl PrimitiveType {
     }
 }
 
-impl Default for PrimitiveType {
+impl Default for Primitive {
     fn default() -> Self {
-        Rectangle::empty(0., 0.).into()
+        Rectangle::new(0., 0.).into()
     }
 }
 
-impl From<Rectangle> for PrimitiveType {
+impl From<Rectangle> for Primitive {
     fn from(r: Rectangle) -> Self {
-        PrimitiveType::Rectangle(r)
+        Primitive::Rectangle(r)
     }
 }
 
-impl From<Label> for PrimitiveType {
+impl From<Label> for Primitive {
     fn from(l: Label) -> Self {
-        PrimitiveType::Label(l)
+        Primitive::Label(l)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Instruction {
     pub(crate) transform: Transform,
-    pub(crate) primitive: PrimitiveType,
+    pub(crate) primitive: Primitive,
 }
 
 impl From<Region> for Instruction {
     fn from(region: Region) -> Self {
         Instruction {
             transform: Transform::from_translate(region.x, region.y),
-            primitive: Rectangle::empty(region.width, region.height).into(),
+            primitive: Rectangle::new(region.width, region.height).into(),
         }
     }
 }
 
 impl Instruction {
-    pub fn other<P: 'static + Primitive>(mut transform: Transform, primitive: P) -> Instruction {
+    pub fn other<P: 'static + Drawable>(mut transform: Transform, primitive: P) -> Instruction {
         transform.tx = transform.tx.round();
         transform.ty = transform.ty.round();
         Instruction {
             transform,
-            primitive: PrimitiveType::Other(Box::new(primitive)),
+            primitive: Primitive::Other(Box::new(primitive)),
         }
     }
-    pub fn new<P: Into<PrimitiveType>>(mut transform: Transform, primitive: P) -> Instruction {
+    pub fn new<P: Into<Primitive>>(mut transform: Transform, primitive: P) -> Instruction {
         transform.tx = transform.tx.round();
         transform.ty = transform.ty.round();
         Instruction {
@@ -445,7 +445,7 @@ impl Instruction {
         )
         .relative_to(self.transform.tx, self.transform.ty);
         match &self.primitive {
-            PrimitiveType::Rectangle(rect) => Primitive::contains(rect, &region),
+            Primitive::Rectangle(rect) => Drawable::contains(rect, &region),
             _ => true,
         }
     }
@@ -454,13 +454,13 @@ impl Instruction {
 impl Instruction {
     fn render(&self, ctx: &mut DrawContext, clip: Option<&ClipMask>) {
         match &self.primitive {
-            PrimitiveType::Other(primitive) => {
+            Primitive::Other(primitive) => {
                 primitive.draw_with_transform_clip(ctx, self.transform, clip);
             }
-            PrimitiveType::Rectangle(r) => {
+            Primitive::Rectangle(r) => {
                 r.draw_with_transform_clip(ctx, self.transform, clip);
             }
-            PrimitiveType::Label(l) => {
+            Primitive::Label(l) => {
                 let x = self.transform.tx;
                 let y = self.transform.ty;
                 ctx.draw_label(x, y, l.as_ref(), clip);
@@ -480,16 +480,16 @@ impl Instruction {
 impl Geometry for Instruction {
     fn width(&self) -> f32 {
         match &self.primitive {
-            PrimitiveType::Rectangle(r) => r.width(),
-            PrimitiveType::Label(l) => l.width(),
-            PrimitiveType::Other(primitive) => primitive.width(),
+            Primitive::Rectangle(r) => r.width(),
+            Primitive::Label(l) => l.width(),
+            Primitive::Other(primitive) => primitive.width(),
         }
     }
     fn height(&self) -> f32 {
         match &self.primitive {
-            PrimitiveType::Rectangle(r) => r.height(),
-            PrimitiveType::Label(l) => l.height(),
-            PrimitiveType::Other(primitive) => primitive.height(),
+            Primitive::Rectangle(r) => r.height(),
+            Primitive::Label(l) => l.height(),
+            Primitive::Other(primitive) => primitive.height(),
         }
     }
 }
@@ -1054,7 +1054,7 @@ impl Region {
     pub fn rect(&self) -> (Transform, Rectangle) {
         (
             Transform::from_translate(self.x, self.y),
-            Rectangle::empty(self.width, self.height),
+            Rectangle::new(self.width, self.height),
         )
     }
     pub fn null(&self) -> bool {

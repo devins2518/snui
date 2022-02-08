@@ -199,11 +199,11 @@ pub struct View<D>
 where
     D: Data,
 {
-    state: State,
     data: D,
+    state: State,
     surface: Surface,
-    widget: Box<dyn Widget<D>>,
     clipmask: ClipMask,
+    widget: Box<dyn Widget<D>>,
     globals: Rc<RefCell<GlobalManager>>,
 }
 

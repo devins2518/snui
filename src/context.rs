@@ -58,13 +58,13 @@ pub(crate) mod canvas {
                 panic!("Canvas' transformations can only be scale and translate")
             }
         }
-        pub fn draw<P: Into<PrimitiveType>>(&mut self, transform: Transform, p: P) {
+        pub fn draw<P: Into<Primitive>>(&mut self, transform: Transform, p: P) {
             self.inner.steps.push(Instruction {
                 transform,
                 primitive: p.into(),
             })
         }
-        pub fn draw_at<P: Into<PrimitiveType>>(&mut self, x: f32, y: f32, p: P) {
+        pub fn draw_at<P: Into<Primitive>>(&mut self, x: f32, y: f32, p: P) {
             self.inner.steps.push(Instruction {
                 transform: Transform::from_translate(x, y),
                 primitive: p.into(),
@@ -77,13 +77,13 @@ pub(crate) mod canvas {
             height: f32,
             texture: B,
         ) {
-            let rect = Rectangle::empty(width, height).background(texture);
+            let rect = Rectangle::new(width, height).background(texture);
             self.inner.steps.push(Instruction {
                 transform,
                 primitive: rect.into(),
             })
         }
-        pub fn draw_at_angle<P: Into<PrimitiveType> + Primitive>(
+        pub fn draw_at_angle<P: Into<Primitive> + Drawable>(
             &mut self,
             x: f32,
             y: f32,
@@ -129,9 +129,9 @@ pub(crate) mod canvas {
         }
     }
 
-    impl Primitive for InnerCanvas {
-        fn apply_texture(&self, _: scene::Texture) -> scene::PrimitiveType {
-            PrimitiveType::Other(Box::new(self.clone()))
+    impl Drawable for InnerCanvas {
+        fn apply_texture(&self, _: scene::Texture) -> scene::Primitive {
+            Primitive::Other(Box::new(self.clone()))
         }
         fn draw_with_transform_clip(
             &self,
@@ -147,8 +147,8 @@ pub(crate) mod canvas {
         fn contains(&self, region: &scene::Region) -> bool {
             Region::new(0., 0., self.width, self.height).rfit(&region)
         }
-        fn primitive_type(&self) -> scene::PrimitiveType {
-            PrimitiveType::Other(Box::new(self.clone()))
+        fn primitive(&self) -> scene::Primitive {
+            Primitive::Other(Box::new(self.clone()))
         }
         fn get_texture(&self) -> scene::Texture {
             Texture::Transparent
