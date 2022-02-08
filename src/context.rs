@@ -176,7 +176,10 @@ pub enum Backend<'b> {
     Dummy,
 }
 
-/// Holds the state of the application
+/// A context provided to the sync methods of widgets.
+///
+/// The context dereferences the Data so widgets can interact with it.
+/// It also contains the cache which is used for text layouting and fetching images.
 pub struct SyncContext<'c, D> {
     data: &'c mut D,
     pub(crate) cache: &'c mut Cache,
@@ -184,8 +187,11 @@ pub struct SyncContext<'c, D> {
     pub(crate) window_request: Option<WindowRequest>,
 }
 
+/// A context provided to primitives during draw.
+///
+/// It does all the text rendering along and gives access to the backend which primitive can use to draw.
 pub struct DrawContext<'c> {
-    path_builder: PathBuilder,
+    path_builder: Option<PathBuilder>,
     pub(crate) backend: Backend<'c>,
     pub(crate) cache: &'c mut Cache,
     pub(crate) pending_damage: Vec<Region>,
@@ -285,16 +291,17 @@ impl<'c> DrawContext<'c> {
             cache,
             backend,
             pending_damage: Vec::new(),
-            path_builder: PathBuilder::new(),
+            path_builder: Some(PathBuilder::new()),
         }
     }
-    /// Replaces the inner PathBuilder.
-    /// Must be reset.
+    /// Returns the PathBuilder.
     pub fn path_builder(&mut self) -> PathBuilder {
-        std::mem::replace(&mut self.path_builder, PathBuilder::with_capacity(0, 0))
+        self.path_builder
+            .take()
+            .expect("Please reset the path_builder once you're finished.")
     }
     pub fn reset(&mut self, path_builder: PathBuilder) {
-        self.path_builder = path_builder;
+        self.path_builder = Some(path_builder);
     }
     pub fn commit(&mut self, region: Region) {
         if let Some(r) = self.pending_damage.last_mut() {
@@ -308,7 +315,7 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
-    /// Damages a region of the buffer in preparation of a draw.
+    /// This method is usually called when you want to clean up an area to draw on it.
     pub fn damage_region(&mut self, texture: &Texture, region: Region, composite: bool) {
         if !composite {
             if let Some(last) = self.pending_damage.last() {
@@ -330,7 +337,7 @@ impl<'c> DrawContext<'c> {
                         region.into(),
                         &Paint {
                             shader: Shader::SolidColor(*color),
-                            blend_mode: BlendMode::SourceOver,
+                            blend_mode: BlendMode::Source,
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },
@@ -359,7 +366,7 @@ impl<'c> DrawContext<'c> {
                             region.into(),
                             &Paint {
                                 shader: grad,
-                                blend_mode: BlendMode::SourceOver,
+                                blend_mode: BlendMode::Source,
                                 anti_alias: false,
                                 force_hq_pipeline: false,
                             },
@@ -387,7 +394,7 @@ impl<'c> DrawContext<'c> {
                             ),
                             anti_alias: false,
                             force_hq_pipeline: false,
-                            blend_mode: BlendMode::SourceOver,
+                            blend_mode: BlendMode::Source,
                         },
                         Transform::identity(),
                         None,
@@ -420,7 +427,11 @@ impl<'c> DrawContext<'c> {
     pub fn damage_queue(&self) -> &[Region] {
         self.pending_damage.as_slice()
     }
-    /// Empties the text layout to render it.
+    pub fn set_font_settings(&mut self, label: &LabelRef) {
+        let font_cache = &mut self.cache.font_cache;
+        font_cache.layout.reset(&label.settings);
+    }
+    /// Renders the current text layout.
     pub fn finish(&mut self, x: f32, y: f32, fonts: &[FontProperty]) {
         let font_cache = &mut self.cache.font_cache;
         let layout = font_cache.layout.glyphs();

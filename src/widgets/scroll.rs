@@ -5,8 +5,6 @@ use widgets::layout::child;
 use widgets::*;
 
 /// For widgets that move linearly within in a region.
-/// If the step is None, the Scrollable is free to determine it.
-/// If the step is Some, the Scrollable has to be shifted by that value.
 pub trait Scrollable {
     fn forward(&mut self, step: Option<f32>);
     fn backward(&mut self, step: Option<f32>);
@@ -205,7 +203,7 @@ where
                             }
                         }
                         if coords != self.widget.coords() {
-                            return self.widget.sync(ctx, Event::Prepare).max(damage);
+                            return self.widget.sync(ctx, Event::Draw).max(damage);
                         }
                     }
                     damage

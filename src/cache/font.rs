@@ -7,20 +7,17 @@ pub use fontdue::{
     },
     Font, FontResult, FontSettings,
 };
-use std::clone::Clone;
 use std::collections::HashMap;
 use std::fs::read;
 use std::path::Path;
 use tiny_skia::*;
 
 pub fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
-    let mut width = 0;
-    let mut height = 0;
-    for gp in glyphs {
-        width = width.max(gp.width + gp.x as usize);
-        height = height.max(gp.height + gp.y as usize)
-    }
-    (width as f32, height as f32)
+    glyphs
+        .iter()
+        .map(|gp| (gp.width as f32 + gp.x, gp.height as f32 + gp.y))
+        .reduce(|(acc_w, acc_h), (w, h)| (acc_w.max(w), acc_h.max(h)))
+        .unwrap_or_default()
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -115,15 +112,21 @@ impl FontCache {
             self.load_font(font);
         }
         let fonts = Self::get_fonts(&self.fonts, &label.fonts);
-        for c in label.text.chars() {
-            for (i, font) in fonts.iter().enumerate() {
-                if font.lookup_glyph_index(c) != 0 {
-                    self.layout.append(
-                        &fonts,
-                        &TextStyle::with_user_data(&c.to_string(), label.font_size, i, label.color),
-                    );
-                    break;
-                }
+        for (i, c) in label.text.chars().enumerate() {
+            if let Some((font_index, _)) = fonts
+                .iter()
+                .enumerate()
+                .find(|(_, f)| f.lookup_glyph_index(c) > 0 || c.is_ascii_control())
+            {
+                self.layout.append(
+                    &fonts,
+                    &TextStyle::with_user_data(
+                        &label.text[i..][..1],
+                        label.font_size,
+                        font_index,
+                        label.color,
+                    ),
+                );
             }
         }
     }
@@ -133,15 +136,21 @@ impl FontCache {
         }
         let fonts = Self::get_fonts(&self.fonts, &label.fonts);
         self.layout.reset(label.settings);
-        for c in label.text.chars() {
-            for (i, font) in fonts.iter().enumerate() {
-                if font.lookup_glyph_index(c) != 0 {
-                    self.layout.append(
-                        &fonts,
-                        &TextStyle::with_user_data(&c.to_string(), label.font_size, i, label.color),
-                    );
-                    break;
-                }
+        for (i, c) in label.text.chars().enumerate() {
+            if let Some((font_index, _)) = fonts
+                .iter()
+                .enumerate()
+                .find(|(_, f)| f.lookup_glyph_index(c) > 0 || c.is_ascii_control())
+            {
+                self.layout.append(
+                    &fonts,
+                    &TextStyle::with_user_data(
+                        &label.text[i..][..1],
+                        label.font_size,
+                        font_index,
+                        label.color,
+                    ),
+                );
             }
         }
         self.layout.glyphs()

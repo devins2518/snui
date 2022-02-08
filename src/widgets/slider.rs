@@ -4,7 +4,6 @@ use widgets::shapes::rectangle::Rectangle;
 use widgets::shapes::Style;
 
 pub struct Slider<M> {
-    step: f32,
     message: M,
     flip: bool,
     size: f32,
@@ -16,7 +15,6 @@ pub struct Slider<M> {
 impl<M> Slider<M> {
     pub fn new(message: M) -> Self {
         Slider {
-            step: 5.,
             message,
             flip: false,
             size: 100.,
@@ -135,26 +133,24 @@ where
                         } => {
                             let ratio = match &self.orientation {
                                 Orientation::Horizontal => {
-                                    self.slider.set_width(
-                                        (self.slider.width()
-                                            - match step {
-                                                Step::Value(v) => v,
-                                                Step::Increment(s) => s as f32 * self.step,
-                                            })
-                                        .clamp(0., self.width()),
-                                    );
-                                    self.slider.width() / self.size
+                                    let width = (self.slider.width()
+                                        - match step {
+                                            Step::Value(v) => v,
+                                            Step::Increment(s) => (s as f32 * self.size) / 100.,
+                                        })
+                                    .clamp(0., self.size);
+                                    self.slider.set_width(width);
+                                    width / self.size
                                 }
                                 Orientation::Vertical => {
-                                    self.slider.set_height(
-                                        (self.slider.height()
-                                            - match step {
-                                                Step::Value(v) => v,
-                                                Step::Increment(s) => s as f32 * self.step,
-                                            })
-                                        .clamp(0., self.height()),
-                                    );
-                                    self.slider.height() / self.size
+                                    let height = (self.slider.height()
+                                        - match step {
+                                            Step::Value(v) => v,
+                                            Step::Increment(s) => (s as f32 * self.size) / 100.,
+                                        })
+                                    .clamp(0., self.size);
+                                    self.slider.set_height(height);
+                                    height / self.size
                                 }
                             };
                             ctx.send(self.message, ratio);
@@ -164,13 +160,15 @@ where
                             if self.pressed {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
+                                        let width = x.clamp(0., self.size);
                                         self.slider.set_width(x.round());
-                                        ctx.send(self.message, self.slider.width() / self.size);
+                                        ctx.send(self.message, width / self.size);
                                         return Damage::Partial;
                                     }
                                     Orientation::Vertical => {
-                                        self.slider.set_width(y.round());
-                                        ctx.send(self.message, self.slider.height() / self.size);
+                                        let height = y.clamp(0., self.size);
+                                        self.slider.set_width(height);
+                                        ctx.send(self.message, height / self.size);
                                         return Damage::Partial;
                                     }
                                 }
@@ -197,13 +195,15 @@ where
                         }
                         Pointer::Hover => match &self.orientation {
                             Orientation::Horizontal => {
-                                let _ = self.slider.set_width(x.min(self.size));
-                                ctx.send(self.message, self.slider.width() / self.size);
+                                let width = x.clamp(0., self.size);
+                                self.slider.set_width(x.round());
+                                ctx.send(self.message, width / self.size);
                                 return Damage::Partial;
                             }
                             Orientation::Vertical => {
-                                let _ = self.slider.set_height(y.min(self.size));
-                                ctx.send(self.message, self.slider.height() / self.size);
+                                let height = y.clamp(0., self.size);
+                                self.slider.set_width(height);
+                                ctx.send(self.message, height / self.size);
                                 return Damage::Partial;
                             }
                         },

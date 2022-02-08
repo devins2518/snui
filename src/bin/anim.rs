@@ -248,7 +248,7 @@ fn main() {
         &event_queue.handle(),
     );
 
-    while client.has_application() {
+    while client.has_view() {
         event_queue.blocking_dispatch(&mut client).unwrap();
     }
 }

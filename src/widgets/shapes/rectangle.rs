@@ -80,7 +80,7 @@ impl Rectangle {
             ShapeStyle::Border(_, _) => false,
         }
     }
-    pub fn path(&self, mut pb: PathBuilder) -> Option<Path> {
+    fn path(&self, mut pb: PathBuilder) -> Option<Path> {
         let mut width = self.width;
         let mut height = self.height;
         let (mut x, mut y) = (0., 0.);
@@ -327,6 +327,9 @@ impl Primitive for Rectangle {
                                 );
                             }
                         }
+                        &Texture::Composite(_) => {
+                            panic!("Composite texture cannot be used to draw")
+                        }
                         _ => {}
                     },
                     ShapeStyle::Border(texture, border) => {
@@ -363,7 +366,7 @@ impl Primitive for Rectangle {
                                         )
                                     }
                                     &Texture::Composite(_) => {
-                                        panic!("Composite texture cannot be used to draw borders.")
+                                        panic!("Composite texture cannot be used to draw")
                                     }
                                     _ => Shader::SolidColor(Color::TRANSPARENT),
                                 },

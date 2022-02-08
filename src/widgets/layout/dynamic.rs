@@ -1,3 +1,5 @@
+//! A layout widget that supports interactive resize.
+
 use crate::widgets::{layout::*, Alignment, CENTER, END, START};
 use crate::*;
 use scene::RenderNode;

@@ -10,7 +10,7 @@ use tiny_skia::Transform;
 
 use std::cell::RefCell;
 use std::mem::take;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 use std::rc::Rc;
 
 use smithay_client_toolkit::reexports::client::{
@@ -48,7 +48,7 @@ where
     connection: Connection,
     event: Event<'static>,
     globals: Rc<RefCell<GlobalManager>>,
-    applications: Vec<Application<D>>,
+    views: Vec<View<D>>,
     pool: Option<MultiPool<wl_surface::WlSurface>>,
 }
 
@@ -83,7 +83,7 @@ where
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
             connection: conn,
             event: Event::default(),
-            applications: Vec::new(),
+            views: Vec::new(),
         };
 
         for _ in 0..2 {
@@ -94,41 +94,41 @@ where
     }
     fn flush_event(&mut self, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
         if let Some(i) = self.current {
-            // Forward the event to the Application
-            self.applications[i].update_scene(
+            // Forward the event to the View
+            self.views[i].update_scene(
                 self.pool.as_mut().unwrap(),
                 &mut self.cache,
                 self.event,
                 conn,
                 qh,
             );
-            if !self.applications[i].state.configured {
+            if !self.views[i].state.configured {
                 self.current = None;
                 self.event = Event::default();
-                let application = self.applications.remove(i);
+                let view = self.views.remove(i);
                 self.pool
                     .as_mut()
                     .unwrap()
-                    .remove(&application.surface.wl_surface);
+                    .remove(&view.surface.wl_surface);
             }
         }
     }
     pub fn send_event(&mut self, event: Event, qh: &QueueHandle<Self>) {
         if let Some(i) = self.current {
-            self.applications[i].update_scene(
+            self.views[i].update_scene(
                 self.pool.as_mut().unwrap(),
                 &mut self.cache,
                 event,
                 &mut self.connection.handle(),
                 qh,
             );
-            if !self.applications[i].state.configured {
+            if !self.views[i].state.configured {
                 self.current = None;
-                let application = self.applications.remove(i);
+                let view = self.views.remove(i);
                 self.pool
                     .as_mut()
                     .unwrap()
-                    .remove(&application.surface.wl_surface);
+                    .remove(&view.surface.wl_surface);
             }
         }
     }
@@ -140,7 +140,7 @@ where
     ) {
         let mut conn = self.connection.handle();
         let surface = self.globals.borrow().create_xdg_surface(&mut conn, qh);
-        let mut application = Application {
+        let mut view = View {
             state: State::default(),
             data,
             globals: self.globals.clone(),
@@ -149,9 +149,9 @@ where
             surface: surface.expect("Failed to create an XdgSurface"),
         };
 
-        application.sync(&mut self.cache, Event::Prepare, &mut conn, qh);
+        view.sync(&mut self.cache, Event::Draw, &mut conn, qh);
 
-        self.applications.push(application);
+        self.views.push(view);
     }
     pub fn new_widget(
         &mut self,
@@ -165,7 +165,7 @@ where
             .globals
             .borrow()
             .create_layer_surface(&mut conn, config, qh);
-        let mut application = Application {
+        let mut view = View {
             state: State::default(),
             data,
             globals: self.globals.clone(),
@@ -174,12 +174,12 @@ where
             surface: surface.expect("Failed to create a LayerSurface"),
         };
 
-        application.sync(&mut self.cache, Event::Prepare, &mut conn, qh);
+        view.sync(&mut self.cache, Event::Draw, &mut conn, qh);
 
-        self.applications.push(application);
+        self.views.push(view);
     }
-    pub fn has_application(&self) -> bool {
-        !self.applications.is_empty()
+    pub fn has_view(&self) -> bool {
+        !self.views.is_empty()
     }
     pub fn cache(&mut self) -> &mut Cache {
         &mut self.cache
@@ -195,7 +195,7 @@ where
     }
 }
 
-pub struct Application<D>
+pub struct View<D>
 where
     D: Data,
 {
@@ -231,7 +231,7 @@ impl Default for State {
     }
 }
 
-impl<D> Application<D>
+impl<D> View<D>
 where
     D: Data,
 {
@@ -249,7 +249,7 @@ where
     }
 }
 
-impl<D> Application<D>
+impl<D> View<D>
 where
     D: Data + std::clone::Clone,
 {
@@ -276,7 +276,7 @@ where
             match request {
                 WindowRequest::Close => {
                     // The WaylandClient will check if it's configured
-                    // and remove the Application if it's not.
+                    // and remove the View if it's not.
                     self.state.configured = false;
                     self.surface.destroy(conn);
                     return Damage::None;
@@ -389,13 +389,13 @@ where
             .as_ref()
             .map(|output| output.scale)
             .unwrap_or(1);
-        let width = self.state.render_node.width() / scale as f32;
-        let height = self.state.render_node.height() / scale as f32;
+        let width = self.width();
+        let height = self.height();
         match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     if width != self.width() * scale as f32 || height != self.height() {
-                        self.sync(cache, Event::Prepare, conn, qh);
+                        self.sync(cache, Event::Draw, conn, qh);
                     }
                     let render_node = self
                         .widget
@@ -407,7 +407,7 @@ where
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
                         if width != self.width() || height != self.height() {
-                            self.sync(cache, Event::Prepare, conn, qh);
+                            self.sync(cache, Event::Draw, conn, qh);
                         }
                         let render_node = self
                             .widget
@@ -479,7 +479,7 @@ where
     }
 }
 
-impl<D> Geometry for Application<D>
+impl<D> Geometry for View<D>
 where
     D: Data,
 {
@@ -628,9 +628,6 @@ impl Surface {
             surface.destroy(ch);
         }
     }
-    fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
-        self.shell.set_size(ch, width, height);
-    }
     fn damage(&self, ch: &mut ConnectionHandle, report: &[Region], scale: i32) {
         for d in report {
             self.wl_surface.damage(
@@ -642,9 +639,11 @@ impl Surface {
             );
         }
     }
-    fn replace_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer) -> Option<()> {
+    fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
+        self.shell.set_size(ch, width, height);
+    }
+    fn replace_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer){
         self.wl_buffer = Some(wl_buffer);
-        return Some(());
     }
 }
 
@@ -827,27 +826,27 @@ where
             {
                 // Scaling is currently unsupported
                 surface.set_buffer_scale(conn, output.scale);
-                if let Some((i, application)) = self
-                    .applications
+                if let Some((i, view)) = self
+                    .views
                     .iter_mut()
                     .enumerate()
                     .find(|a| a.1.eq_surface(&surface))
                 {
                     self.current = Some(i);
-                    if let Some(c_output) = application.surface.output.as_ref() {
+                    if let Some(c_output) = view.surface.output.as_ref() {
                         if c_output.scale != output.scale {
-                            application.surface.output = Some(output.clone());
-                            application.state.render_node = RenderNode::None;
-                            application.update_scene(
+                            view.surface.output = Some(output.clone());
+                            view.state.render_node = RenderNode::None;
+                            view.update_scene(
                                 self.pool.as_mut().unwrap(),
                                 &mut self.cache,
-                                Event::Prepare,
+                                Event::Draw,
                                 conn,
                                 qh,
                             );
                         }
                     } else {
-                        application.surface.output = Some(output.clone());
+                        view.surface.output = Some(output.clone());
                     }
                 }
             }
@@ -873,30 +872,30 @@ where
             let mut cb = None;
             let cache = &mut self.cache;
             let pool = self.pool.as_mut().unwrap();
-            for (i, application) in self.applications.iter_mut().enumerate() {
-                if application.state.pending_cb {
-                    application.state.pending_cb = false;
-                    // The application is rendered prior and the changes are commited here
-                    let frame_time = (callback_data - application.state.time).min(20);
-                    application.state.time = callback_data;
-                    let scale = application
+            for (i, view) in self.views.iter_mut().enumerate() {
+                if view.state.pending_cb {
+                    view.state.pending_cb = false;
+                    // The view is rendered prior and the changes are commited here
+                    let frame_time = (callback_data - view.state.time).min(20);
+                    view.state.time = callback_data;
+                    let scale = view
                         .surface
                         .output
                         .as_ref()
                         .map(|o| o.scale)
                         .unwrap_or(1);
-                    // Send a callback event with the timeout the application
-                    let width = application.state.render_node.width() / scale as f32;
-                    let height = application.state.render_node.height() / scale as f32;
-                    match application.sync(cache, Event::Callback(frame_time), conn, qh) {
+                    // Send a callback event with the timeout the view
+                    let width = view.width();
+                    let height = view.height();
+                    match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
-                            if width != application.width() || height != application.height() {
-                                application.sync(cache, Event::Prepare, conn, qh);
+                            if width != view.width() || height != view.height() {
+                                view.sync(cache, Event::Draw, conn, qh);
                             }
-                            let render_node = application
+                            let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
-                            application.render(
+                            view.render(
                                 pool,
                                 cache,
                                 render_node,
@@ -908,14 +907,14 @@ where
                         }
                         Damage::Frame => {
                             cb = Some(i);
-                            if width != application.width() || height != application.height() {
-                                application.sync(cache, Event::Prepare, conn, qh);
+                            if width != view.width() || height != view.height() {
+                                view.sync(cache, Event::Draw, conn, qh);
                             }
-                            let render_node = application
+                            let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
-                            application.state.pending_cb = true;
-                            application.render(
+                            view.state.pending_cb = true;
+                            view.render(
                                 pool,
                                 cache,
                                 render_node,
@@ -930,8 +929,8 @@ where
                 }
             }
             if let Some(i) = cb {
-                if self.applications[i].surface.frame(conn, qh, ()).is_ok() {
-                    self.applications[i].surface.deref().commit(conn);
+                if self.views[i].surface.frame(conn, qh, ()).is_ok() {
+                    self.views[i].surface.deref().commit(conn);
                 }
             }
         }
@@ -1004,7 +1003,7 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some((i, application)) = self.applications.iter_mut().enumerate().find(|(_, a)| {
+        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, a)| {
             let t_toplevel = toplevel;
             match &a.surface.shell {
                 wayland::Shell::Xdg { toplevel, .. } => toplevel.eq(t_toplevel),
@@ -1018,33 +1017,35 @@ where
                     states,
                 } => {
                     if width > 0 {
-                        application.widget.set_width(width as f32);
+                        view.widget.set_width(width as f32);
                     }
                     if height > 0 {
-                        application.widget.set_height(height as f32);
+                        view.widget.set_height(height as f32);
                     }
                     toplevel.set_min_size(
                         conn,
-                        application.widget.minimum_width() as i32,
-                        application.widget.minimum_height() as i32);
+                        view.widget.minimum_width() as i32,
+                        view.widget.minimum_height() as i32,
+                    );
                     toplevel.set_max_size(
                         conn,
-                        application.widget.maximum_width() as i32,
-                        application.widget.maximum_height() as i32);
-                    application.state.window_state = list_states(states);
-                    let mut ctx = SyncContext::new(&mut application.data, &mut self.cache);
-                    application
+                        view.widget.maximum_width() as i32,
+                        view.widget.maximum_height() as i32,
+                    );
+                    view.state.window_state = list_states(states);
+                    let mut ctx = SyncContext::new(&mut view.data, &mut self.cache);
+                    view
                         .widget
-                        .sync(&mut ctx, Event::Configure(&application.state.window_state));
+                        .sync(&mut ctx, Event::Configure(&view.state.window_state));
                 }
                 xdg_toplevel::Event::Close => {
-                    application.surface.destroy(conn);
+                    view.surface.destroy(conn);
                     self.current = None;
-                    let application = self.applications.remove(i);
+                    let view = self.views.remove(i);
                     self.pool
                         .as_mut()
                         .unwrap()
-                        .remove(&application.surface.wl_surface);
+                        .remove(&view.surface.wl_surface);
                 }
                 _ => {}
             }
@@ -1119,18 +1120,18 @@ where
     ) {
         if let xdg_surface::Event::Configure { serial, .. } = event {
             xdg_surface.ack_configure(conn, serial);
-            if let Some(application) = self.applications.iter_mut().find(|a| {
+            if let Some(view) = self.views.iter_mut().find(|a| {
                 let t_xdg_surface = xdg_surface;
                 match &a.surface.shell {
                     wayland::Shell::Xdg { xdg_surface, .. } => xdg_surface.eq(t_xdg_surface),
                     _ => false,
                 }
             }) {
-                application.state.configured = true;
-                application.update_scene(
+                view.state.configured = true;
+                view.update_scene(
                     self.pool.as_mut().unwrap(),
                     &mut self.cache,
-                    Event::Prepare,
+                    Event::Draw,
                     conn,
                     qh,
                 )
@@ -1160,7 +1161,7 @@ where
         } = event
         {
             layer_surface.ack_configure(conn, serial);
-            if let Some(application) = self.applications.iter_mut().find(|a| {
+            if let Some(view) = self.views.iter_mut().find(|a| {
                 let t_layer_surface = layer_surface;
                 match &a.surface.shell {
                     wayland::Shell::LayerShell { layer_surface, .. } => {
@@ -1169,23 +1170,23 @@ where
                     _ => false,
                 }
             }) {
-                if let Shell::LayerShell { config, .. } = &application.surface.shell {
+                if let Shell::LayerShell { config, .. } = &view.surface.shell {
                     if config.exclusive {
                         use zwlr_layer_surface_v1::Anchor;
                         if let Some(anchor) = config.anchor {
                             match anchor {
                                 Anchor::Left | Anchor::Right => layer_surface
-                                    .set_exclusive_zone(conn, application.width() as i32),
+                                    .set_exclusive_zone(conn, view.width() as i32),
                                 Anchor::Top | Anchor::Bottom => layer_surface
-                                    .set_exclusive_zone(conn, application.height() as i32),
+                                    .set_exclusive_zone(conn, view.height() as i32),
                                 _ => {}
                             }
                         }
                     }
                 }
-                application.set_size(conn, width as f32, height as f32);
-                application.state.configured = true;
-                application.update_scene(
+                view.set_size(conn, width as f32, height as f32);
+                view.state.configured = true;
+                view.update_scene(
                     self.pool.as_mut().unwrap(),
                     &mut self.cache,
                     Event::Configure(&[WindowState::Activated]),
@@ -1349,7 +1350,7 @@ where
                     surface_y,
                     ..
                 } => {
-                    self.applications[index].state.enter_serial = serial;
+                    self.views[index].state.enter_serial = serial;
                     self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
                     self.flush_event(conn, qh);
                 }
@@ -1358,8 +1359,8 @@ where
         } else {
             match event {
                 wl_pointer::Event::Enter { ref surface, .. } => {
-                    self.current = (0..self.applications.len())
-                        .find(|i| self.applications[*i].eq_surface(surface));
+                    self.current = (0..self.views.len())
+                        .find(|i| self.views[*i].eq_surface(surface));
                     self.event(pointer, event, data, conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {

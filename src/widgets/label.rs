@@ -1,18 +1,13 @@
-pub use crate::cache::font::FontProperty;
+use crate::cache::font::FontProperty;
 use crate::{theme::FG0, *};
-pub use fontdue::{
-    layout,
-    layout::{
-        CoordinateSystem, GlyphPosition, GlyphRasterConfig, Layout, LayoutSettings, TextStyle,
-    },
-    Font, FontResult, FontSettings,
-};
+use fontdue::layout::LayoutSettings;
 use scene::Instruction;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
 const DEFAULT_FONT_SIZE: f32 = 15.;
 
+/// Owned text widget
 #[derive(Clone)]
 pub struct Label {
     pub(crate) text: String,
@@ -23,6 +18,9 @@ pub struct Label {
     pub(crate) size: Option<(f32, f32)>,
 }
 
+/// A reference to a Label.
+///
+/// It can also be used to to layout text from non owned data.
 #[derive(Copy, Clone, PartialEq)]
 pub struct LabelRef<'s> {
     pub text: &'s str,
@@ -167,7 +165,9 @@ impl<D> Widget<D> for Label {
 
 use crate::mail::*;
 
-/// Updates text on Sync or on Prepare events.
+/// Updates the inner label on sync or prepare events.
+///
+/// The text is fetched from the Data using the provided message.
 pub struct Listener<M> {
     message: M,
     label: Proxy<Label>,
@@ -201,7 +201,7 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
-            Event::Sync | Event::Prepare => {
+            Event::Sync | Event::Draw => {
                 if let Some(string) = ctx.get(self.message) {
                     self.label.edit(string);
                 }

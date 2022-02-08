@@ -1,3 +1,5 @@
+//! Additional tools or widgets which aren't necessary
+
 pub mod switch;
 
 use std::f32::consts::PI;

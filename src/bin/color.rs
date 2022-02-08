@@ -2,8 +2,13 @@ use snui::context::*;
 use snui::mail::*;
 use snui::scene::*;
 use snui::wayland::backend::*;
-use snui::widgets::slider::Slider;
-use snui::widgets::{label::*, shapes::*, *};
+use snui::widgets::{
+    layout::simple::SimpleLayout,
+    layout::dynamic::DynamicLayout,
+    label::*,
+    shapes::*,
+    *
+};
 use snui::{theme::*, *};
 
 #[derive(Clone, Debug)]
@@ -125,7 +130,7 @@ fn sliders() -> DynamicLayout<impl Widget<Color>> {
             .padding_top(5.)
             .padding_bottom(5.)
         })
-        .collect::<DynamicLayout<Padding<WidgetStyle<Slider<Channel>>>>>()
+        .collect::<DynamicLayout<_>>()
         .orientation(Orientation::Vertical)
 }
 
@@ -173,7 +178,7 @@ fn main() {
         &event_queue.handle(),
     );
 
-    while client.has_application() {
+    while client.has_view() {
         event_queue.blocking_dispatch(&mut client).unwrap();
     }
 }

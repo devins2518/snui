@@ -18,7 +18,6 @@ use widgets::shapes::WidgetStyle;
 use widgets::WidgetBox;
 
 pub mod theme {
-    //! Colors from the Chocolate theme
     use crate::scene::Texture;
     pub const FG0: u32 = 0xff_C8_BA_A4;
     pub const FG1: u32 = 0xff_cd_c0_ad;
@@ -268,8 +267,8 @@ impl MouseButton {
 pub enum Event<'d> {
     /// Sent by the display server when the application needs to be reconfigured
     Configure(&'d [WindowState]),
-    /// Prepares a full redraw
-    Prepare,
+    /// Sent before a draw
+    Draw,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
     Sync,
@@ -281,7 +280,7 @@ pub enum Event<'d> {
 
 impl<'d> Default for Event<'d> {
     fn default() -> Self {
-        Self::Prepare
+        Self::Draw
     }
 }
 
@@ -300,6 +299,7 @@ impl<'d> Event<'d> {
     }
 }
 
+/// Core trait for layouting
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
@@ -321,6 +321,14 @@ pub trait Geometry {
     fn maximum_height(&self) -> f32 {
         self.height()
     }
+    /// The ideal width the widget should have
+    fn width_hint(&self) -> f32 {
+        self.maximum_width()
+    }
+    /// The ideal height the widget should have
+    fn height_hint(&self) -> f32 {
+        self.maximum_height()
+    }
     fn create_canvas(&self, transform: Transform) -> context::canvas::Canvas {
         context::canvas::Canvas::new(transform, self.width(), self.height())
     }
@@ -329,6 +337,9 @@ pub trait Geometry {
     }
 }
 
+/// Drawable objects.
+///
+/// They are given access to the drawing backend.
 pub trait Primitive: Geometry + std::fmt::Debug + DynEq + std::any::Any {
     fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
         self.draw_with_transform_clip(ctx, tiny_skia::Transform::from_translate(x, y), None);
@@ -358,17 +369,18 @@ pub trait Primitive: Geometry + std::fmt::Debug + DynEq + std::any::Any {
         clip: Option<&tiny_skia::ClipMask>,
     );
     fn get_texture(&self) -> scene::Texture;
+    /// Returns a clone of the primitive with the applied texture.
     fn apply_texture(&self, texture: scene::Texture) -> scene::PrimitiveType;
-    /// Tell if the region can fit inside the Primitive.
+    /// Returns true if the region can fit inside the primitive.
     /// The coordinates will be relative to it
     fn contains(&self, region: &scene::Region) -> bool;
-    // Basically Clone
     fn primitive_type(&self) -> scene::PrimitiveType;
 }
 
 pub trait Widget<D>: Geometry {
-    /// Creates the RenderNode of the widget.
-    /// Widgets are expected to compute their layout when this method is invoked.
+    /// Creates the render node of the widget.
+    ///
+    /// The layout is expected to be computed here.
     fn create_node(&mut self, transform: Transform) -> RenderNode;
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
 }

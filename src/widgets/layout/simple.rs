@@ -1,3 +1,5 @@
+//! A layout widget that handles spacing and alignment.
+
 use crate::widgets::layout::{child, Container, Positioner};
 use crate::widgets::Alignment;
 use crate::*;
@@ -91,6 +93,7 @@ impl<D> Default for SimpleLayout<Box<dyn Widget<D>>> {
 }
 
 impl<D> SimpleLayout<Box<dyn Widget<D>>> {
+    /// The default behaviour.
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
         self.widgets.push(child(Box::new(widget)));
     }
@@ -109,12 +112,12 @@ impl<W> SimpleLayout<W> {
         self.orientation = orientation;
         self
     }
-    pub fn spacing<S: Into<f32>>(mut self, spacing: S) -> Self {
-        self.spacing = spacing.into();
+    pub fn spacing(mut self, spacing: f32) -> Self {
+        self.spacing = spacing;
         self
     }
-    pub fn set_spacing<S: Into<f32>>(&mut self, spacing: S) {
-        self.spacing = spacing.into();
+    pub fn set_spacing(&mut self, spacing: f32) {
+        self.spacing = spacing;
     }
     pub fn justify(&mut self, alignment: Alignment) {
         self.alignment = alignment;

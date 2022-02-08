@@ -1,8 +1,4 @@
-//! Widgets are composable UI components.
-//! You start with a root widget which you add others to build the widget tree.
-//! The `widget` tree is turned into a `RenderNode` which builds a _scene graph_ of the GUI.
-//!
-//! This module provides general purpose widgets that can be use to build most applications.
+//!	This module provides the building blocks of your GUI application.
 
 pub mod button;
 pub mod extra;
@@ -14,14 +10,11 @@ pub mod shapes;
 pub mod slider;
 pub mod window;
 
-pub use crate::widgets::image::InnerImage;
 use crate::*;
-pub use button::Button;
-pub use layout::*;
-pub use scroll::Scrollable;
-pub use shapes::Style;
-use std::ops::{Deref, DerefMut};
+use scroll::Scrollable;
+use shapes::Style;
 use tiny_skia::*;
+use std::ops::{Deref, DerefMut};
 
 pub const START: Alignment = Alignment::Start;
 pub const CENTER: Alignment = Alignment::Center;
@@ -266,6 +259,7 @@ impl<W> DerefMut for Padding<W> {
 
 use layout::Positioner;
 
+/// Applies constraint to a widget's dimension.
 #[derive(Clone, Debug, PartialEq)]
 pub struct WidgetBox<W> {
     pub(crate) widget: Positioner<W>,
@@ -352,9 +346,6 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
         }
         let width = self.widget.width();
         let height = self.widget.height();
-        // if self.size == (0., 0.) {
-        //     self.set_size(width, height);
-        // }
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
             Alignment::Start => 0.,

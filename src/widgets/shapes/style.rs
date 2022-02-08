@@ -1,5 +1,5 @@
 use crate::scene::*;
-pub use crate::widgets::shapes::rectangle::Rectangle;
+use crate::widgets::shapes::rectangle::Rectangle;
 use crate::widgets::shapes::Style;
 use crate::*;
 use std::f32::consts::FRAC_1_SQRT_2;

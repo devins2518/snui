@@ -1,7 +1,11 @@
 use crate::*;
 use crate::{
     scene::{Instruction, Texture},
-    widgets::{layout::*, shapes::*, *},
+    widgets::{
+        layout::{
+            simple::SimpleLayout,
+            dynamic::DynamicLayout
+        }, shapes::*, *},
 };
 use std::ops::{Deref, DerefMut};
 
@@ -227,9 +231,7 @@ where
         self.body.height() + self.header.height()
     }
     fn set_width(&mut self, width: f32) {
-        let c_width = width
-            .max(self.header.minimum_width())
-            .max(self.body.minimum_width());
+        let c_width = width.min(self.maximum_width());
         self.body.set_width(c_width);
         self.header.set_width(c_width);
     }
@@ -240,7 +242,7 @@ where
         self.header.minimum_width().max(self.body.minimum_width())
     }
     fn maximum_width(&self) -> f32 {
-        self.header.maximum_width().max(self.body.maximum_width())
+        self.header.maximum_width().min(self.body.maximum_width())
     }
     fn minimum_height(&self) -> f32 {
         self.header.minimum_height() + self.body.minimum_height()
@@ -326,7 +328,7 @@ where
                 self.positioned = positioned;
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
-            Event::Prepare => {
+            Event::Draw => {
                 self.set_width(self.width());
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }

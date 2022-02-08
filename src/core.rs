@@ -67,6 +67,7 @@ impl Cursor {
     }
 }
 
+/// Analog to xdg_shell states
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindowState {
     Maximized,
@@ -80,6 +81,7 @@ pub enum WindowState {
     TiledTop,
 }
 
+/// Track damage and filters events.
 #[derive(Debug)]
 pub struct Proxy<W> {
     damage: Damage,
@@ -155,7 +157,7 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                     Damage::None
                 }
             }
-            Event::Configure(_) | Event::Prepare => {
+            Event::Configure(_) | Event::Draw => {
                 Damage::Partial.max(self.inner.sync(ctx, event))
             }
             _ => self.inner.sync(ctx, event),
@@ -195,11 +197,13 @@ impl<W> Proxy<W> {
             damage: Damage::Partial,
         }
     }
+    /// Returns a mutable reference to the inner type without incrementing the damage.
     pub fn get_mut(&mut self) -> &mut W {
         &mut self.inner
     }
 }
 
+/// Additional method to build common widgets
 pub trait WidgetExt: Sized + Geometry {
     fn style(self) -> WidgetStyle<Self>;
     fn clamp(self) -> WidgetBox<Self>;
@@ -231,6 +235,9 @@ pub trait GeometryExt: Sized {
     }
 }
 
+/// Implement PartialEq across different types.
+///
+/// It is automatically implemented if your type implements PartialEq
 pub trait DynEq {
     fn same(&self, other: &dyn std::any::Any) -> bool;
     fn not_same(&self, other: &dyn std::any::Any) -> bool {

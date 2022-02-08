@@ -2,16 +2,11 @@ pub mod dynamic;
 pub mod simple;
 
 use crate::*;
-pub use dynamic::DynamicLayout;
 use scene::Coords;
-pub use simple::SimpleLayout;
 use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
-/// Here are provide widgets you can use to layout others.
-///
-/// Additionally there are traits and functions which can also help you implement your own layout widgets.
-
+/// Widgets which contain one or more widgets
 pub trait Container<D, W>: Geometry
 where
     W: Widget<D>,
@@ -43,46 +38,41 @@ impl From<Size> for f32 {
     }
 }
 
-impl Size {
-    fn is_set(&self) -> bool {
-        match self {
-            Self::Set(_) => true,
-            _ => false,
-        }
-    }
-}
-
+/// Takes a slice of widgets and does its best to ensure the layout respect the width contrain.
 pub fn apply_width<W: Geometry>(widgets: &mut [W], width: f32) -> f32 {
     let mut delta: f32;
     let mut c_width;
     let mut extra = 0.;
     let mut layout = widgets
         .iter()
-        .map(
-            |widget|
-            (Size::Var(widget.minimum_width()), widget.maximum_width()))
-        .collect::<Vec<(Size, f32)>>();
+        .map(|widget| {
+            (
+                widget.minimum_width(),
+                Size::Var(widget.minimum_width()),
+                widget.maximum_width(),
+            )
+        })
+        .collect::<Vec<(f32, Size, f32)>>();
+    let len = widgets.len();
     let mut count = widgets.len();
-    let mut iter = widgets.iter().enumerate().cycle();
+    let mut iter = (0..widgets.len()).cycle();
     while {
-        c_width = layout.iter().map(|(s,_)| f32::from(*s)).sum();
+        c_width = layout.iter().map(|(_, s, _)| f32::from(*s)).sum();
         delta = width - c_width;
         delta > 0. && count > 0
     } {
-        if let Some((i, widget)) = iter.next() {
-            let (size, max) = layout[i];
+        if let Some(i) = iter.next() {
+            let (min, size, max) = layout[i];
             match size {
                 Size::Var(size) => {
-                    let u_width = (delta / widgets.len() as f32) + size + extra;
-                    let size = (u_width)
-                        .clamp(widget.minimum_width(), widget.maximum_width())
-                        .round();
+                    let u_width = (delta / (len - i) as f32) + size + extra;
+                    let size = (u_width).clamp(min, max).round();
                     if u_width >= max {
-                        layout[i].0 = Size::Set(size);
+                        layout[i].1 = Size::Set(size);
                         count -= 1;
                         extra = 0.;
                     } else {
-                        layout[i].0 = Size::Var(size);
+                        layout[i].1 = Size::Var(size);
                         extra = u_width - size;
                     }
                 }
@@ -90,43 +80,47 @@ pub fn apply_width<W: Geometry>(widgets: &mut [W], width: f32) -> f32 {
             }
         }
     }
-    for (i, (width,_)) in layout.into_iter().enumerate() {
+    for (i, (_, width, _)) in layout.into_iter().enumerate() {
         let _ = widgets[i].set_width(width.into());
     }
     c_width
 }
 
+/// Takes a slice of widgets and does its best to ensure the layout respect the height contrain.
 pub fn apply_height<W: Geometry>(widgets: &mut [W], height: f32) -> f32 {
     let mut delta: f32;
     let mut c_height;
     let mut extra = 0.;
     let mut layout = widgets
         .iter()
-        .map(
-            |widget|
-            (Size::Var(widget.minimum_height()), widget.maximum_height()))
-        .collect::<Vec<(Size, f32)>>();
-    let mut count = widgets.len();
-    let mut iter = widgets.iter().enumerate().cycle();
+        .map(|widget| {
+            (
+                widget.minimum_height(),
+                Size::Var(widget.minimum_height()),
+                widget.maximum_height(),
+            )
+        })
+        .collect::<Vec<(f32, Size, f32)>>();
+    let len = widgets.len();
+    let mut count = len;
+    let mut iter = (0..len).cycle();
     while {
-        c_height = layout.iter().map(|(s,_)| f32::from(*s)).sum();
+        c_height = layout.iter().map(|(_, s, _)| f32::from(*s)).sum();
         delta = height - c_height;
         delta > 0. && count > 0
     } {
-        if let Some((i, widget)) = iter.next() {
-            let (size, max) = layout[i];
+        if let Some(i) = iter.next() {
+            let (min, size, max) = layout[i];
             match size {
                 Size::Var(size) => {
-                    let u_height = (delta / widgets.len() as f32) + size + extra;
-                    let size = (u_height)
-                        .clamp(widget.minimum_height(), widget.maximum_height())
-                        .round();
+                    let u_height = (delta / (len - i) as f32) + size + extra;
+                    let size = (u_height).clamp(min, max).round();
                     if u_height >= max {
-                        layout[i].0 = Size::Set(size);
+                        layout[i].1 = Size::Set(size);
                         count -= 1;
                         extra = 0.;
                     } else {
-                        layout[i].0 = Size::Var(size);
+                        layout[i].1 = Size::Var(size);
                         extra = u_height - size;
                     }
                 }
@@ -134,12 +128,13 @@ pub fn apply_height<W: Geometry>(widgets: &mut [W], height: f32) -> f32 {
             }
         }
     }
-    for (i, (height,_)) in layout.into_iter().enumerate() {
+    for (i, (_, height, _)) in layout.into_iter().enumerate() {
         let _ = widgets[i].set_height(height.into());
     }
     c_height
 }
 
+/// Widget with relative positioning
 #[derive(Clone, Debug, PartialEq)]
 pub struct Positioner<W> {
     coords: Coords,

@@ -6,7 +6,7 @@ use widgets::blend;
 
 use widgets::label::*;
 use widgets::shapes::*;
-use widgets::InnerImage as Image;
+use widgets::image::InnerImage as Image;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Coords {
@@ -648,7 +648,11 @@ impl RenderNode {
     }
     pub fn render(&self, ctx: &mut DrawContext, clip: &mut ClipRegion) {
         match self {
-            Self::Instruction(instruction) => instruction.render(ctx, clip.clipmask()),
+            Self::Instruction(instruction) => {
+                if clip.intersect(&instruction.region()) {
+                    instruction.render(ctx, clip.clipmask())
+                }
+            }
             Self::Container(nodes) => {
                 for n in nodes {
                     n.render(ctx, clip);

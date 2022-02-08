@@ -224,6 +224,9 @@ impl GlobalManager {
         if let Some(wm_base) = &self.wm_base {
             wm_base.destroy(conn);
         }
+        if let Some(pointer_surface) = &self.pointer_surface {
+            pointer_surface.destroy(conn);
+        }
         if let Some(layer_shell) = &self.layer_shell {
             layer_shell.destroy(conn);
         }
