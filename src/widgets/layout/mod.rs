@@ -138,6 +138,7 @@ pub fn apply_height<W: Geometry>(widgets: &mut [W], height: f32) -> f32 {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Positioner<W> {
     coords: Coords,
+    old_coords: Coords,
     pub(crate) widget: W,
 }
 
@@ -145,13 +146,16 @@ impl<W> Positioner<W> {
     pub(crate) fn new(widget: W) -> Self {
         Positioner {
             widget,
+            old_coords: Coords::new(0., 0.),
             coords: Coords::new(0., 0.),
         }
     }
     pub fn swap(&mut self, coords: Coords) {
+        self.old_coords = self.coords;
         self.coords = coords;
     }
     pub fn set_coords(&mut self, x: f32, y: f32) {
+        self.old_coords = self.coords;
         self.coords = Coords::new(x, y);
     }
     pub fn coords(&self) -> Coords {
@@ -196,14 +200,23 @@ impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
             .create_node(transform.pre_translate(self.coords.x, self.coords.y));
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
-        match event {
+        let damage = match event {
             Event::Pointer(mut x, mut y, p) => {
                 x -= self.coords.x;
                 y -= self.coords.y;
                 self.widget.sync(ctx, Event::Pointer(x, y, p))
             }
             _ => self.widget.sync(ctx, event),
+        };
+        if self.old_coords.eq(&self.coords) {
+            damage
+        } else {
+            self.widget.prepare_draw();
+            damage.max(Damage::Partial)
         }
+    }
+    fn prepare_draw(&mut self) {
+        self.widget.prepare_draw()
     }
 }
 

@@ -4,11 +4,7 @@ use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 use snui::widgets::shapes::*;
 use snui::{
-    widgets::{
-        label::*,
-        layout::dynamic::DynamicLayout,
-        *
-    },
+    widgets::{label::*, layout::dynamic::DynamicLayout, *},
     *,
 };
 use tiny_skia::*;
@@ -119,7 +115,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
                             None => {
                                 ctx.stop();
                                 self.start = false;
-                                return Damage::None;
+                                return Damage::Partial;
                             }
                         }
                     }
@@ -145,6 +141,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         }
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 impl Animate<Quadratic> {
@@ -199,6 +196,7 @@ impl<D> Widget<D> for FrameRate {
             _ => self.label.sync(ctx, event),
         }
     }
+    fn prepare_draw(&mut self) {}
 }
 
 // Creates our user interface

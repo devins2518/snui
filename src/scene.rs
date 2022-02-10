@@ -4,9 +4,9 @@ use std::rc::Rc;
 use tiny_skia::*;
 use widgets::blend;
 
+use widgets::image::InnerImage as Image;
 use widgets::label::*;
 use widgets::shapes::*;
-use widgets::image::InnerImage as Image;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Coords {
@@ -759,12 +759,10 @@ impl RenderNode {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
                         let region = b.region();
-                        if shape.contains(b) {
-                            let merge = clip.crop(&a.region().merge(&region));
-                            if clip.intersect(&merge) {
-                                ctx.damage_region(&Texture::from(shape), merge, false);
-                                b.render(ctx, clip.clipmask());
-                            }
+                        let merge = clip.crop(&a.region().merge(&region));
+                        if shape.contains(b) || clip.clipmask().is_some() {
+                            ctx.damage_region(&Texture::from(shape), merge, false);
+                            b.render(ctx, clip.clipmask());
                             *self = other;
                         } else {
                             *self = other;
@@ -843,7 +841,7 @@ impl RenderNode {
                                 self.render(ctx, clip);
                             };
                         } else {
-                            let instruction = t_border.as_ref().unwrap_or(t_background);
+                            let instruction = border.as_ref().unwrap_or(&background);
                             let contains = shape.contains(instruction);
                             let merge = instruction
                                 .region()
@@ -882,8 +880,9 @@ impl RenderNode {
                     RenderNode::Clip(region, node) => {
                         *t_region = region;
                         clip.set_region(ctx, t_region.region());
-                        if let Err(_) = t_node.draw_merge(*node, ctx, shape, clip) {
-                            self.render(ctx, clip);
+                        if let Err(region) = t_node.draw_merge(*node, ctx, shape, clip) {
+                            ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
+                            t_node.render(ctx, clip);
                             clip.set_region(ctx, previous);
                         }
                     }
@@ -925,7 +924,11 @@ impl From<&Region> for Rect {
 
 impl From<Region> for Rect {
     fn from(r: Region) -> Self {
-        Rect::from_xywh(r.x, r.y, r.width, r.height).unwrap()
+        if let Some(rect) = Rect::from_xywh(r.x, r.y, r.width, r.height) {
+            rect
+        } else {
+            panic!("{:?}", r)
+        }
     }
 }
 
@@ -940,8 +943,8 @@ impl Region {
         Region {
             x,
             y,
-            width,
-            height,
+            width: width.max(0.),
+            height: height.max(0.),
         }
     }
     pub fn from_coords(start: &Coords, end: &Coords) -> Self {

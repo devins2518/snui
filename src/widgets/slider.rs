@@ -238,23 +238,20 @@ where
         }
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 impl<M> GeometryExt for Slider<M> {
     fn apply_width(&mut self, width: f32) {
         match self.orientation {
             Orientation::Horizontal => self.size = width,
-            _ => {
-                let _ = self.slider.set_width(width);
-            }
+            _ => self.slider.set_width(width),
         }
     }
     fn apply_height(&mut self, height: f32) {
         match self.orientation {
             Orientation::Vertical => self.size = height,
-            _ => {
-                let _ = self.slider.set_height(height);
-            }
+            _ => self.slider.set_height(height),
         }
     }
 }

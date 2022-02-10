@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use widgets::layout::child;
 use widgets::*;
 
-/// For widgets that move linearly within in a region.
+/// For widgets that move linearly within in a bounded region.
 pub trait Scrollable {
     fn forward(&mut self, step: Option<f32>);
     fn backward(&mut self, step: Option<f32>);
@@ -180,7 +180,6 @@ where
             Event::Pointer(_, _, p) => match p {
                 Pointer::Scroll { orientation, step } => {
                     let coords = self.widget.coords();
-                    let damage = self.widget.sync(ctx, event);
                     if orientation == self.orientation {
                         match step {
                             Step::Increment(i) => {
@@ -203,15 +202,18 @@ where
                             }
                         }
                         if coords != self.widget.coords() {
-                            return self.widget.sync(ctx, Event::Draw).max(damage);
+                            self.prepare_draw();
                         }
                     }
-                    damage
+                    self.widget.sync(ctx, event)
                 }
                 _ => self.widget.sync(ctx, event),
             },
             _ => self.widget.sync(ctx, event),
         }
+    }
+    fn prepare_draw(&mut self) {
+        self.widget.prepare_draw()
     }
 }
 

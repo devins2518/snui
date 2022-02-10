@@ -3,11 +3,7 @@ use snui::mail::*;
 use snui::scene::*;
 use snui::wayland::backend::*;
 use snui::widgets::{
-    layout::simple::SimpleLayout,
-    layout::dynamic::DynamicLayout,
-    label::*,
-    shapes::*,
-    *
+    label::*, layout::dynamic::DynamicLayout, layout::simple::SimpleLayout, shapes::*, *,
 };
 use snui::{theme::*, *};
 
@@ -106,6 +102,7 @@ impl Widget<Color> for ColorBlock {
         }
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 fn sliders() -> DynamicLayout<impl Widget<Color>> {

@@ -83,13 +83,13 @@ impl GeometryExt for Image {
     fn apply_width(&mut self, width: f32) {
         match self.size.as_mut() {
             Some(size) => size.0 = width as u32,
-            None => self.size = Some((width as u32, width as u32))
+            None => self.size = Some((width as u32, width as u32)),
         }
     }
     fn apply_height(&mut self, height: f32) {
         match self.size.as_mut() {
             Some(size) => size.1 = height as u32,
-            None => self.size = Some((height as u32, height as u32))
+            None => self.size = Some((height as u32, height as u32)),
         }
     }
 }
@@ -117,6 +117,7 @@ impl<D> Widget<D> for Image {
         }
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 #[derive(Clone, PartialEq)]
@@ -215,6 +216,7 @@ impl<D> Widget<D> for InnerImage {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 impl Deref for InnerImage {

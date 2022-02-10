@@ -82,6 +82,9 @@ where
         }
         self.proxy.sync(ctx, event)
     }
+    fn prepare_draw(&mut self) {
+        self.proxy.prepare_draw()
+    }
 }
 
 impl<D, W, F> Style for Button<D, W, F>

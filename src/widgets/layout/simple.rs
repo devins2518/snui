@@ -179,4 +179,9 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
             .max()
             .unwrap_or_default()
     }
+    fn prepare_draw(&mut self) {
+        for widget in self.widgets.iter_mut() {
+            widget.prepare_draw()
+        }
+    }
 }

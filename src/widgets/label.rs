@@ -161,6 +161,7 @@ impl<D> Widget<D> for Label {
             Damage::None
         }
     }
+    fn prepare_draw(&mut self) {}
 }
 
 use crate::mail::*;
@@ -210,6 +211,7 @@ where
         }
         self.label.sync(ctx, event)
     }
+    fn prepare_draw(&mut self) {}
 }
 
 impl<M> Listener<M> {

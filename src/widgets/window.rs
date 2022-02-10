@@ -2,10 +2,10 @@ use crate::*;
 use crate::{
     scene::{Instruction, Texture},
     widgets::{
-        layout::{
-            simple::SimpleLayout,
-            dynamic::DynamicLayout
-        }, shapes::*, *},
+        layout::{dynamic::DynamicLayout, simple::SimpleLayout},
+        shapes::*,
+        *,
+    },
 };
 use std::ops::{Deref, DerefMut};
 
@@ -67,6 +67,7 @@ impl<D> Widget<D> for Close {
         }
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 // This is essentially the close button
@@ -133,6 +134,7 @@ impl<D> Widget<D> for Maximize {
         }
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 struct Minimize {}
@@ -169,6 +171,7 @@ impl<D> Widget<D> for Minimize {
         }
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 fn wm_button<D>() -> impl Widget<D>
@@ -335,6 +338,11 @@ where
             _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
         }
     }
+    fn prepare_draw(&mut self) {
+        self.set_width(self.width());
+        self.header.prepare_draw();
+        self.body.prepare_draw();
+    }
 }
 
 impl<H, W> Style for Window<H, W>
@@ -465,6 +473,9 @@ impl<D, W: Widget<D>> Widget<D> for Header<W> {
             _ => {}
         }
         self.widget.sync(ctx, event)
+    }
+    fn prepare_draw(&mut self) {
+        self.widget.prepare_draw()
     }
 }
 

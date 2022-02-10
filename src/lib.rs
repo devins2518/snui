@@ -383,4 +383,6 @@ pub trait Widget<D>: Geometry {
     /// The layout is expected to be computed here.
     fn create_node(&mut self, transform: Transform) -> RenderNode;
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
+    /// Singals there's an incomming draw
+    fn prepare_draw(&mut self);
 }

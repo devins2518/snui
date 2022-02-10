@@ -13,21 +13,21 @@ pub mod window;
 use crate::*;
 use scroll::Scrollable;
 use shapes::Style;
-use tiny_skia::*;
 use std::ops::{Deref, DerefMut};
+use tiny_skia::*;
 
 pub const START: Alignment = Alignment::Start;
 pub const CENTER: Alignment = Alignment::Center;
 pub const END: Alignment = Alignment::End;
 
 pub fn blend(pix_a: &Color, pix_b: &Color) -> Color {
-    let (r_a, g_a, b_a) = (pix_a.red(), pix_a.green(), pix_a.blue());
+    let (r_a, g_a, b_a, a_a) = (pix_a.red(), pix_a.green(), pix_a.blue(), pix_a.alpha());
     let (r_b, g_b, b_b, a_b) = (pix_b.red(), pix_b.green(), pix_b.blue(), pix_b.alpha());
     let red = blend_f32(r_a, r_b, a_b);
     let green = blend_f32(g_a, g_b, a_b);
     let blue = blend_f32(b_a, b_b, a_b);
 
-    Color::from_rgba(red, green, blue, a_b).unwrap()
+    Color::from_rgba(red, green, blue, a_b.max(a_a)).unwrap()
 }
 
 fn blend_f32(texture: f32, foreground: f32, alpha_fg: f32) -> f32 {
@@ -67,6 +67,7 @@ impl<D> Widget<D> for () {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 // Simple dump widget with a fixed size.
@@ -92,6 +93,7 @@ impl<D> Widget<D> for Spacer {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }
 
 impl Spacer {
@@ -173,6 +175,9 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
         } else {
             self.widget.sync(ctx, event)
         }
+    }
+    fn prepare_draw(&mut self) {
+        self.widget.prepare_draw()
     }
 }
 
@@ -359,6 +364,9 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
         };
         self.widget.set_coords(dx, dy);
         self.widget.create_node(transform)
+    }
+    fn prepare_draw(&mut self) {
+        self.widget.prepare_draw()
     }
 }
 

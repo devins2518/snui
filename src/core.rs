@@ -157,12 +157,14 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                     Damage::None
                 }
             }
-            Event::Configure(_) | Event::Draw => {
-                Damage::Partial.max(self.inner.sync(ctx, event))
-            }
+            Event::Configure(_) | Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
             _ => self.inner.sync(ctx, event),
         });
         self.damage
+    }
+    fn prepare_draw(&mut self) {
+        self.damage = self.damage.max(Damage::Partial);
+        self.inner.prepare_draw();
     }
 }
 
@@ -311,5 +313,8 @@ impl<D> Widget<D> for Box<dyn Widget<D>> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.deref_mut().sync(ctx, event)
+    }
+    fn prepare_draw(&mut self) {
+        self.deref_mut().prepare_draw()
     }
 }

@@ -106,10 +106,7 @@ where
                 self.current = None;
                 self.event = Event::default();
                 let view = self.views.remove(i);
-                self.pool
-                    .as_mut()
-                    .unwrap()
-                    .remove(&view.surface.wl_surface);
+                self.pool.as_mut().unwrap().remove(&view.surface.wl_surface);
             }
         }
     }
@@ -125,10 +122,7 @@ where
             if !self.views[i].state.configured {
                 self.current = None;
                 let view = self.views.remove(i);
-                self.pool
-                    .as_mut()
-                    .unwrap()
-                    .remove(&view.surface.wl_surface);
+                self.pool.as_mut().unwrap().remove(&view.surface.wl_surface);
             }
         }
     }
@@ -149,7 +143,7 @@ where
             surface: surface.expect("Failed to create an XdgSurface"),
         };
 
-        view.sync(&mut self.cache, Event::Draw, &mut conn, qh);
+        view.widget.prepare_draw();
 
         self.views.push(view);
     }
@@ -174,7 +168,7 @@ where
             surface: surface.expect("Failed to create a LayerSurface"),
         };
 
-        view.sync(&mut self.cache, Event::Draw, &mut conn, qh);
+        view.widget.prepare_draw();
 
         self.views.push(view);
     }
@@ -389,14 +383,9 @@ where
             .as_ref()
             .map(|output| output.scale)
             .unwrap_or(1);
-        let width = self.width();
-        let height = self.height();
         match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
-                    if width != self.width() * scale as f32 || height != self.height() {
-                        self.sync(cache, Event::Draw, conn, qh);
-                    }
                     let render_node = self
                         .widget
                         .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -406,9 +395,6 @@ where
             Damage::Frame => {
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
-                        if width != self.width() || height != self.height() {
-                            self.sync(cache, Event::Draw, conn, qh);
-                        }
                         let render_node = self
                             .widget
                             .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -445,6 +431,8 @@ where
             surface.replace_buffer(wl_buffer);
             let region = Region::new(0., 0., width, height);
             let mut ctx = DrawContext::new(backend, cache);
+
+            // println!("{:#?}", render_node);
 
             if offset != self.state.offset {
                 self.state.offset = offset;
@@ -642,7 +630,7 @@ impl Surface {
     fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
         self.shell.set_size(ch, width, height);
     }
-    fn replace_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer){
+    fn replace_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer) {
         self.wl_buffer = Some(wl_buffer);
     }
 }
@@ -878,51 +866,22 @@ where
                     // The view is rendered prior and the changes are commited here
                     let frame_time = (callback_data - view.state.time).min(20);
                     view.state.time = callback_data;
-                    let scale = view
-                        .surface
-                        .output
-                        .as_ref()
-                        .map(|o| o.scale)
-                        .unwrap_or(1);
+                    let scale = view.surface.output.as_ref().map(|o| o.scale).unwrap_or(1);
                     // Send a callback event with the timeout the view
-                    let width = view.width();
-                    let height = view.height();
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
-                            if width != view.width() || height != view.height() {
-                                view.sync(cache, Event::Draw, conn, qh);
-                            }
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
-                            view.render(
-                                pool,
-                                cache,
-                                render_node,
-                                scale,
-                                Damage::Partial,
-                                conn,
-                                qh,
-                            );
+                            view.render(pool, cache, render_node, scale, Damage::Partial, conn, qh);
                         }
                         Damage::Frame => {
                             cb = Some(i);
-                            if width != view.width() || height != view.height() {
-                                view.sync(cache, Event::Draw, conn, qh);
-                            }
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
                             view.state.pending_cb = true;
-                            view.render(
-                                pool,
-                                cache,
-                                render_node,
-                                scale,
-                                Damage::Partial,
-                                conn,
-                                qh,
-                            );
+                            view.render(pool, cache, render_node, scale, Damage::Partial, conn, qh);
                         }
                         Damage::None => {}
                     }
@@ -1034,18 +993,14 @@ where
                     );
                     view.state.window_state = list_states(states);
                     let mut ctx = SyncContext::new(&mut view.data, &mut self.cache);
-                    view
-                        .widget
+                    view.widget
                         .sync(&mut ctx, Event::Configure(&view.state.window_state));
                 }
                 xdg_toplevel::Event::Close => {
                     view.surface.destroy(conn);
                     self.current = None;
                     let view = self.views.remove(i);
-                    self.pool
-                        .as_mut()
-                        .unwrap()
-                        .remove(&view.surface.wl_surface);
+                    self.pool.as_mut().unwrap().remove(&view.surface.wl_surface);
                 }
                 _ => {}
             }
@@ -1175,10 +1130,12 @@ where
                         use zwlr_layer_surface_v1::Anchor;
                         if let Some(anchor) = config.anchor {
                             match anchor {
-                                Anchor::Left | Anchor::Right => layer_surface
-                                    .set_exclusive_zone(conn, view.width() as i32),
-                                Anchor::Top | Anchor::Bottom => layer_surface
-                                    .set_exclusive_zone(conn, view.height() as i32),
+                                Anchor::Left | Anchor::Right => {
+                                    layer_surface.set_exclusive_zone(conn, view.width() as i32)
+                                }
+                                Anchor::Top | Anchor::Bottom => {
+                                    layer_surface.set_exclusive_zone(conn, view.height() as i32)
+                                }
                                 _ => {}
                             }
                         }
@@ -1359,8 +1316,8 @@ where
         } else {
             match event {
                 wl_pointer::Event::Enter { ref surface, .. } => {
-                    self.current = (0..self.views.len())
-                        .find(|i| self.views[*i].eq_surface(surface));
+                    self.current =
+                        (0..self.views.len()).find(|i| self.views[*i].eq_surface(surface));
                     self.event(pointer, event, data, conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {

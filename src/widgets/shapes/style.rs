@@ -273,6 +273,9 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
             self.widget.sync(ctx, event)
         }
     }
+    fn prepare_draw(&mut self) {
+        self.widget.prepare_draw()
+    }
 }
 
 fn minimum_radius(radius: f32, border: f32) -> f32 {

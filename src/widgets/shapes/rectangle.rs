@@ -438,4 +438,5 @@ impl<D> Widget<D> for Rectangle {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         Damage::None
     }
+    fn prepare_draw(&mut self) {}
 }

@@ -184,6 +184,11 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
             .max()
             .unwrap_or_default()
     }
+    fn prepare_draw(&mut self) {
+        for widget in self.widgets.iter_mut() {
+            widget.prepare_draw()
+        }
+    }
 }
 
 impl<D> Default for DynamicLayout<Box<dyn Widget<D>>> {

@@ -427,10 +427,6 @@ impl<'c> DrawContext<'c> {
     pub fn damage_queue(&self) -> &[Region] {
         self.pending_damage.as_slice()
     }
-    pub fn set_font_settings(&mut self, label: &LabelRef) {
-        let font_cache = &mut self.cache.font_cache;
-        font_cache.layout.reset(&label.settings);
-    }
     /// Renders the current text layout.
     pub fn finish(&mut self, x: f32, y: f32, fonts: &[FontProperty]) {
         let font_cache = &mut self.cache.font_cache;
