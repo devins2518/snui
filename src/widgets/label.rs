@@ -153,15 +153,19 @@ impl<D> Widget<D> for Label {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
-            let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
-            let layout = fc.layout(self.as_ref()).clone();
-            self.size = Some(cache::font::get_size(&layout));
             Damage::Partial
         } else {
             Damage::None
         }
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
+        let layout = fc.layout(self.as_ref()).clone();
+        let size = cache::font::get_size(&layout);
+        self.size = Some(size);
+        size
+    }
 }
 
 use crate::mail::*;
@@ -212,6 +216,9 @@ where
         self.label.sync(ctx, event)
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        Widget::<()>::layout(&mut self.label, ctx)
+    }
 }
 
 impl<M> Listener<M> {

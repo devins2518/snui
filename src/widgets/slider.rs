@@ -239,6 +239,14 @@ where
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let (width, height) =
+        	Widget::<()>::layout(&mut self.slider, ctx);
+        match self.orientation {
+            Orientation::Horizontal => (self.size, height),
+            Orientation::Vertical => (width, self.size)
+        }
+    }
 }
 
 impl<M> GeometryExt for Slider<M> {

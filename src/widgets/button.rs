@@ -85,6 +85,9 @@ where
     fn prepare_draw(&mut self) {
         self.proxy.prepare_draw()
     }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        self.proxy.layout(ctx)
+    }
 }
 
 impl<D, W, F> Style for Button<D, W, F>

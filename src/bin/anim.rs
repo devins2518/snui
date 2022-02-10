@@ -2,6 +2,7 @@ use scene::Instruction;
 use snui::mail::*;
 use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
+use snui::widgets::layout::simple::SimpleLayout;
 use snui::widgets::shapes::*;
 use snui::{
     widgets::{label::*, layout::dynamic::DynamicLayout, *},
@@ -142,6 +143,9 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, _: &mut context::LayoutCtx) -> (f32, f32) {
+        (self.width(), self.height())
+    }
 }
 
 impl Animate<Quadratic> {
@@ -197,6 +201,9 @@ impl<D> Widget<D> for FrameRate {
         }
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, ctx: &mut context::LayoutCtx) -> (f32, f32) {
+        Widget::<()>::layout(&mut self.label, ctx)
+    }
 }
 
 // Creates our user interface

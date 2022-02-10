@@ -197,6 +197,16 @@ pub struct DrawContext<'c> {
     pub(crate) pending_damage: Vec<Region>,
 }
 
+pub struct LayoutCtx<'c> {
+    pub(crate) cache: &'c mut Cache,
+}
+
+impl<'c> AsMut<Cache> for LayoutCtx<'c> {
+    fn as_mut(&mut self) -> &mut Cache {
+        self.cache
+    }
+}
+
 impl<'b> Geometry for Backend<'b> {
     fn width(&self) -> f32 {
         match self {

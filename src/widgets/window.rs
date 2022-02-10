@@ -68,6 +68,9 @@ impl<D> Widget<D> for Close {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+        (self.width(), self.height())
+    }
 }
 
 // This is essentially the close button
@@ -135,6 +138,9 @@ impl<D> Widget<D> for Maximize {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+        (self.width(), self.height())
+    }
 }
 
 struct Minimize {}
@@ -172,6 +178,9 @@ impl<D> Widget<D> for Minimize {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+        (self.width(), self.height())
+    }
 }
 
 fn wm_button<D>() -> impl Widget<D>
@@ -343,6 +352,14 @@ where
         self.header.prepare_draw();
         self.body.prepare_draw();
     }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let (h_width, h_height) = self.header.layout(ctx);
+        let (b_width, b_height) = self.body.layout(ctx);
+        (
+            h_width.max(b_width),
+            h_height + b_height
+        )
+    }
 }
 
 impl<H, W> Style for Window<H, W>
@@ -476,6 +493,9 @@ impl<D, W: Widget<D>> Widget<D> for Header<W> {
     }
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
+    }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        self.widget.layout(ctx)
     }
 }
 

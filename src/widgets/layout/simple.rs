@@ -132,42 +132,11 @@ impl<W> SimpleLayout<W> {
 
 impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let sw = self.width();
-        let sh = self.height();
-        let spacing = self.spacing;
-        let orientation = self.orientation;
-        let alignment = self.alignment;
-        let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container(
             self.widgets
                 .iter_mut()
-                .map(|child| {
-                    let node;
-                    let ww = child.width();
-                    let wh = child.height();
-                    match orientation {
-                        Orientation::Horizontal => {
-                            match alignment {
-                                Alignment::Start => dy = 0.,
-                                Alignment::Center => dy = (sh - wh) / 2.,
-                                Alignment::End => dy = sh - wh,
-                            }
-                            child.set_coords(dx, dy);
-                            node = child.create_node(transform);
-                            dx += child.width() + spacing;
-                        }
-                        Orientation::Vertical => {
-                            match alignment {
-                                Alignment::Start => dx = 0.,
-                                Alignment::Center => dx = (sw - ww) / 2.,
-                                Alignment::End => dx = sw - ww,
-                            }
-                            child.set_coords(dx, dy);
-                            node = child.create_node(transform);
-                            dy += child.height() + spacing;
-                        }
-                    }
-                    node
+                .map(|widget| {
+                    widget.create_node(transform)
                 })
                 .collect(),
         )
@@ -182,6 +151,61 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
     fn prepare_draw(&mut self) {
         for widget in self.widgets.iter_mut() {
             widget.prepare_draw()
+        }
+    }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let spacing = self.spacing;
+        let alignment = self.alignment;
+        let (mut dx, mut dy) = (0., 0.);
+        match self.orientation {
+            Orientation::Vertical => {
+                let width = self.width();
+                self.widgets
+                	.iter_mut()
+                	.map(move |widget| {
+                    	widget.set_width(width);
+                    	widget.set_coords(dx, dy);
+                    	let (inner_width, inner_height) = widget.layout(ctx);
+                    	dy += inner_height + spacing;
+                        match alignment {
+                            Alignment::Start => dx = 0.,
+                            Alignment::Center => dx = (width - inner_width) / 2.,
+                            Alignment::End => dx = width - inner_width,
+                        }
+                    	(inner_width, inner_height)
+                	})
+                	.reduce(|accum, size| {
+                    	(
+                        	accum.0.max(size.0),
+                        	accum.1 + size.1,
+                    	)
+                	})
+                	.unwrap_or_default()
+            }
+            Orientation::Horizontal => {
+                let height = self.height();
+                self.widgets
+                	.iter_mut()
+                	.map(move |widget| {
+                    	widget.set_height(height);
+                    	widget.set_coords(dx, dy);
+                    	let (inner_width, inner_height) = widget.layout(ctx);
+                    	dx += inner_width + spacing;
+                        match alignment {
+                            Alignment::Start => dy = 0.,
+                            Alignment::Center => dy = (height - inner_height) / 2.,
+                            Alignment::End => dx = height - inner_height,
+                        }
+                    	(inner_width, inner_height)
+                	})
+                	.reduce(|accum, size| {
+                    	(
+                        	accum.0 + size.0 + spacing,
+                        	accum.1.max(size.1),
+                    	)
+                	})
+                	.unwrap_or_default()
+            }
         }
     }
 }

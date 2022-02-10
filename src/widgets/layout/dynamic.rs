@@ -151,28 +151,11 @@ impl<W: Geometry> Geometry for DynamicLayout<W> {
 
 impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let sw = self.width();
-        let sh = self.height();
-        let (mut dx, mut dy) = (0., 0.);
         RenderNode::Container(
             self.widgets
                 .iter_mut()
-                .map(|child| {
-                    let node;
-                    child.set_coords(dx, dy);
-                    match self.orientation {
-                        Orientation::Horizontal => {
-                            let _ = child.set_height(sh);
-                            node = child.create_node(transform);
-                            dx += child.width();
-                        }
-                        Orientation::Vertical => {
-                            let _ = child.set_width(sw);
-                            node = child.create_node(transform);
-                            dy += child.height();
-                        }
-                    }
-                    node
+                .map(|widget| {
+                    widget.create_node(transform)
                 })
                 .collect(),
         )
@@ -187,6 +170,51 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
     fn prepare_draw(&mut self) {
         for widget in self.widgets.iter_mut() {
             widget.prepare_draw()
+        }
+    }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        match self.orientation {
+            Orientation::Vertical => {
+                let mut dy = 0.;
+                let width = self.width();
+                self.widgets
+                	.iter_mut()
+                	.map(move |widget| {
+                    	widget.set_width(width);
+                    	widget.set_coords(0., dy);
+                    	let (width, height) = widget.layout(ctx);
+                    	dy += height;
+                    	(width, height)
+                	})
+                	.reduce(|accum, size| {
+                    	(
+                        	accum.0.max(size.0),
+                        	accum.1 + size.1,
+                    	)
+                	})
+                	.unwrap_or_default()
+            }
+            Orientation::Horizontal => {
+                let mut dx = 0.;
+                let height = self.height();
+                let f = self.widgets
+                	.iter_mut()
+                	.map(move |widget| {
+                    	widget.set_height(height);
+                    	widget.set_coords(dx, 0.);
+                    	let (width, height) = widget.layout(ctx);
+                    	dx += width;
+                    	(width, height)
+                	})
+                	.reduce(|accum, size| {
+                    	(
+                        	accum.0 + size.0,
+                        	accum.1.max(size.1),
+                    	)
+                	})
+                	.unwrap_or_default();
+            	f
+            }
         }
     }
 }

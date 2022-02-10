@@ -215,6 +215,13 @@ where
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let (width, height) = self.widget.layout(ctx);
+        match self.orientation {
+            Orientation::Horizontal => (self.size, height),
+            Orientation::Vertical => (width, self.size),
+        }
+    }
 }
 
 impl<W> Deref for ScrollBox<W> {

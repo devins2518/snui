@@ -1,4 +1,4 @@
-use crate::mail::Mail;
+use crate::{mail::Mail, scene::Coords};
 use crate::scene::Region;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::Style;
@@ -171,6 +171,11 @@ where
             }
         }
         self.widget.prepare_draw()
+    }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let (width, height) = self.widget.layout(ctx);
+        let Coords{ x, y } = self.widget.coords();
+        (width + x, height + y)
     }
 }
 

@@ -103,6 +103,9 @@ impl Widget<Color> for ColorBlock {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+        (self.width(), self.height())
+    }
 }
 
 fn sliders() -> DynamicLayout<impl Widget<Color>> {

@@ -68,6 +68,9 @@ impl<D> Widget<D> for () {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+        (0., 0.)
+    }
 }
 
 // Simple dump widget with a fixed size.
@@ -94,6 +97,9 @@ impl<D> Widget<D> for Spacer {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
+    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+        (self.width, self.height)
+    }
 }
 
 impl Spacer {
@@ -178,6 +184,14 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
     }
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
+    }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let (top, right, bottom, left) = self.padding;
+        let (width, height) = self.widget.layout(ctx);
+        (
+            width + left + right,
+            height + top + bottom
+        )
     }
 }
 
@@ -300,14 +314,7 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
         }
     }
     fn minimum_height(&self) -> f32 {
-        match self.height {
-            Some(l_height) => match self.constraint {
-                Constraint::Fixed => l_height,
-                Constraint::Upward => self.widget.height().min(l_height),
-                Constraint::Downward => self.widget.height().max(l_height),
-            },
-            None => self.widget.height(),
-        }
+        self.minimum_height_from(self.widget.height())
     }
     fn maximum_width(&self) -> f32 {
         match self.width {
@@ -319,13 +326,29 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
         }
     }
     fn minimum_width(&self) -> f32 {
+        self.minimum_width_from(self.widget.width())
+    }
+}
+
+impl<W> WidgetBox<W> {
+    fn minimum_width_from(&self, width: f32) -> f32 {
         match self.width {
             Some(l_width) => match self.constraint {
                 Constraint::Fixed => l_width,
-                Constraint::Upward => self.widget.width().min(l_width),
-                Constraint::Downward => self.widget.width().max(l_width),
+                Constraint::Upward => width.min(l_width),
+                Constraint::Downward => width.max(l_width),
             },
-            None => self.widget.width(),
+            None => width,
+        }
+    }
+    fn minimum_height_from(&self, height: f32) -> f32 {
+        match self.height {
+            Some(l_height) => match self.constraint {
+                Constraint::Fixed => l_height,
+                Constraint::Upward => height.min(l_height),
+                Constraint::Downward => height.max(l_height),
+            },
+            None => height,
         }
     }
 }
@@ -344,29 +367,28 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
         self.widget.sync(ctx, event)
     }
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if self.widget.width() > self.maximum_width()
-            || self.widget.height() > self.maximum_height()
-        {
-            return RenderNode::None;
-        }
-        let width = self.widget.width();
-        let height = self.widget.height();
-        let (horizontal, vertical) = &self.anchor;
-        let dx = match horizontal {
-            Alignment::Start => 0.,
-            Alignment::Center => ((self.width() - width) / 2.).floor(),
-            Alignment::End => (self.width() - width).floor(),
-        };
-        let dy = match vertical {
-            Alignment::Start => 0.,
-            Alignment::Center => ((self.height() - height) / 2.).floor(),
-            Alignment::End => (self.height() - height).floor(),
-        };
-        self.widget.set_coords(dx, dy);
         self.widget.create_node(transform)
     }
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
+    }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let (inner_width, inner_height) = self.widget.layout(ctx);
+        let width = self.size.0.max(self.minimum_width_from(inner_width));
+        let height = self.size.1.max(self.minimum_height_from(inner_height));
+        let (horizontal, vertical) = &self.anchor;
+        let dx = match horizontal {
+            Alignment::Start => 0.,
+            Alignment::Center => ((width - inner_width) / 2.).floor(),
+            Alignment::End => (width - inner_width).floor(),
+        };
+        let dy = match vertical {
+            Alignment::Start => 0.,
+            Alignment::Center => ((height - inner_height) / 2.).floor(),
+            Alignment::End => (height - inner_height).floor(),
+        };
+        self.widget.set_coords(dx, dy);
+        (width, height)
     }
 }
 

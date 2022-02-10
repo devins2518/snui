@@ -276,6 +276,14 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        let (width, height) = self.widget.layout(ctx);
+        let border_size = self.border.1;
+        (
+            width + 2. * border_size,
+            height + 2. * border_size
+        )
+    }
 }
 
 fn minimum_radius(radius: f32, border: f32) -> f32 {

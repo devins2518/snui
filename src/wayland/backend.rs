@@ -386,6 +386,8 @@ where
         match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
+                    let mut layout = LayoutCtx { cache };
+                    self.widget.layout(&mut layout);
                     let render_node = self
                         .widget
                         .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -395,6 +397,8 @@ where
             Damage::Frame => {
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
+                        let mut layout = LayoutCtx { cache };
+                        self.widget.layout(&mut layout);
                         let render_node = self
                             .widget
                             .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -870,6 +874,8 @@ where
                     // Send a callback event with the timeout the view
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
+                            let mut layout = LayoutCtx { cache };
+                            view.widget.layout(&mut layout);
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -877,6 +883,8 @@ where
                         }
                         Damage::Frame => {
                             cb = Some(i);
+                            let mut layout = LayoutCtx { cache };
+                            view.widget.layout(&mut layout);
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));

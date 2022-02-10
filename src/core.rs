@@ -86,6 +86,7 @@ pub enum WindowState {
 pub struct Proxy<W> {
     damage: Damage,
     entered: bool,
+    size: (f32, f32),
     pub(crate) inner: W,
 }
 
@@ -166,6 +167,21 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         self.damage = self.damage.max(Damage::Partial);
         self.inner.prepare_draw();
     }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        if self.damage.is_some() {
+            let size = self.inner.layout(ctx);
+            if size != self.size {
+                self.size = size;
+                self.inner.prepare_draw();
+                self.inner.layout(ctx)
+            } else {
+                self.size = size;
+                size
+            }
+        } else {
+            self.size
+        }
+    }
 }
 
 use widgets::scroll::Scrollable;
@@ -196,6 +212,7 @@ impl<W> Proxy<W> {
         Proxy {
             inner,
             entered: false,
+            size: (0., 0.),
             damage: Damage::Partial,
         }
     }
@@ -316,5 +333,8 @@ impl<D> Widget<D> for Box<dyn Widget<D>> {
     }
     fn prepare_draw(&mut self) {
         self.deref_mut().prepare_draw()
+    }
+    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+        self.deref_mut().layout(ctx)
     }
 }
