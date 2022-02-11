@@ -379,11 +379,10 @@ pub trait Drawable: Geometry + std::fmt::Debug + DynEq + std::any::Any {
 
 pub trait Widget<D>: Geometry {
     /// Creates the render node of the widget.
-    ///
-    /// The layout is expected to be computed here.
     fn create_node(&mut self, transform: Transform) -> RenderNode;
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
     /// Singals there's an incomming draw
     fn prepare_draw(&mut self);
+    /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32);
 }

@@ -151,7 +151,7 @@ impl<D> Widget<D> for Label {
         let label = self.clone().font_size(scale * self.font_size);
         Instruction::new(transform, label).into()
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
             Damage::Partial
         } else {
@@ -199,7 +199,7 @@ impl<M> GeometryExt for Listener<M> {
 impl<M, D> Widget<D> for Listener<M>
 where
     M: Clone + Copy,
-    D: Mail<M, (), String>,
+    D: for<'s> Mail<M, &'s str, String>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         Widget::<()>::create_node(&mut self.label, transform)
@@ -207,7 +207,7 @@ where
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Sync | Event::Draw => {
-                if let Some(string) = ctx.get(self.message) {
+                if let Some(string) = ctx.send(self.message, self.label.as_str()) {
                     self.label.edit(string);
                 }
             }

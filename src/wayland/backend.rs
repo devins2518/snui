@@ -3,7 +3,6 @@ use crate::context::DrawContext;
 use crate::mail::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
-use crate::widgets::window::WindowRequest;
 use crate::*;
 use smithay_client_toolkit::reexports::client::Proxy;
 use tiny_skia::Transform;
@@ -227,7 +226,7 @@ impl Default for State {
 
 impl<D> View<D>
 where
-    D: Data,
+    D: Data + Clone,
 {
     fn eq_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         self.surface.wl_surface.eq(surface)
@@ -236,10 +235,139 @@ where
         Geometry::set_size(self, width, height);
         self.surface.set_size(conn, width as u32, height as u32)
     }
+    fn handle<'v>(
+        &'v mut self,
+        conn: &'v mut ConnectionHandle<'v>,
+        qh: &'v QueueHandle<WaylandClient<D>>,
+    ) -> ViewHandle<D> {
+        ViewHandle {
+            conn,
+            globals: self.globals.borrow_mut(),
+            state: &mut self.state,
+            qh,
+            surface: &mut self.surface,
+        }
+    }
     pub unsafe fn globals(&self) -> Rc<GlobalManager> {
         let ptr = self.globals.as_ptr();
         Rc::increment_strong_count(ptr);
         Rc::from_raw(ptr)
+    }
+}
+
+use crate::context::WindowHandle;
+use std::cell::RefMut;
+
+struct ViewHandle<'v, 'c, D: 'static + Data + Clone> {
+    qh: &'v QueueHandle<WaylandClient<D>>,
+    globals: RefMut<'v, GlobalManager>,
+    state: &'v mut State,
+    conn: &'v mut ConnectionHandle<'c>,
+    surface: &'v mut Surface,
+}
+
+impl<'v, 'c, D: Data + Clone> WindowHandle for ViewHandle<'v, 'c, D> {
+    fn close(&mut self) {
+        // The WaylandClient will check if it's configured
+        // and remove the View if it's not.
+        self.state.configured = false;
+        self.surface.destroy(self.conn);
+    }
+    fn drag(&mut self, serial: u32) {
+        match &self.surface.shell {
+            Shell::Xdg { toplevel, .. } => {
+                for seat in &self.globals.seats {
+                    toplevel._move(self.conn, &seat.seat, serial);
+                }
+            }
+            _ => {}
+        }
+    }
+    fn maximize(&mut self) {
+        match &self.surface.shell {
+            Shell::Xdg { toplevel, .. } => {
+                if let Some(_) = self
+                    .state
+                    .window_state
+                    .iter()
+                    .find(|s| WindowState::Maximized.eq(s))
+                {
+                    toplevel.unset_maximized(self.conn);
+                } else {
+                    toplevel.set_maximized(self.conn);
+                }
+            }
+            Shell::LayerShell { layer_surface, .. } => {
+                // The following Configure event should be adjusted to
+                // the size of the output
+                layer_surface.set_size(self.conn, 1 << 31, 1 << 31);
+            }
+        }
+    }
+    fn menu(&mut self, x: f32, y: f32, serial: u32) {
+        match &self.surface.shell {
+            Shell::Xdg { toplevel, .. } => {
+                for seat in &self.globals.seats {
+                    toplevel.show_window_menu(self.conn, &seat.seat, serial, x as i32, y as i32);
+                }
+            }
+            _ => {}
+        }
+    }
+    fn minimize(&mut self) {
+        match &self.surface.shell {
+            Shell::Xdg { toplevel, .. } => {
+                toplevel.set_minimized(self.conn);
+            }
+            _ => {}
+        }
+    }
+    fn set_title(&mut self, title: String) {
+        match self.surface.shell {
+            Shell::Xdg { ref toplevel, .. } => {
+                toplevel.set_title(self.conn, title);
+            }
+            Shell::LayerShell { ref mut config, .. } => {
+                config.namespace = title;
+            }
+        }
+    }
+    fn set_cursor(&mut self, cursor: Cursor) {
+        let globals = &mut *self.globals;
+        let surface = if let Some(surface) = globals.pointer_surface.as_ref() {
+            surface
+        } else {
+            globals.pointer_surface = Some(
+                globals
+                    .create_surface(self.conn, self.qh)
+                    .expect("Failed to create cursor surface"),
+            );
+            globals.pointer_surface.as_ref().unwrap()
+        };
+        let seats = &globals.seats;
+        let cursor_theme = globals.cursor_theme.as_mut();
+        if let Some(cursor_theme) = cursor_theme {
+            for seat in seats {
+                if let Some(cursor) = cursor_theme.get_cursor(self.conn, cursor.as_str()) {
+                    let buffer = &cursor[0];
+                    let (hotspot_x, hotspot_y) = buffer.hotspot();
+                    surface.attach(self.conn, Some(&buffer), 0, 0);
+                    surface.commit(self.conn);
+                    seat.pointer
+                        .as_ref()
+                        .expect("Failed to retreive the pointer")
+                        .set_cursor(
+                            self.conn,
+                            self.state.enter_serial,
+                            Some(&surface),
+                            hotspot_x as i32,
+                            hotspot_y as i32,
+                        );
+                }
+            }
+        } else {
+            surface.destroy(self.conn);
+        }
     }
 }
 
@@ -259,112 +387,18 @@ where
         } else {
             Damage::None
         };
-        let mut ctx = SyncContext::new(&mut self.data, cache);
+        let mut handle = ViewHandle {
+            conn,
+            globals: self.globals.borrow_mut(),
+            state: &mut self.state,
+            qh,
+            surface: &mut self.surface,
+        };
+        let mut ctx = SyncContext::new_with_handle(&mut self.data, cache, &mut handle);
         damage = damage.max(self.widget.sync(&mut ctx, event));
 
         while ctx.sync() {
             damage = damage.max(self.widget.sync(&mut ctx, Event::Sync));
-        }
-
-        if let Some(request) = ctx.window_request.take() {
-            match request {
-                WindowRequest::Close => {
-                    // The WaylandClient will check if it's configured
-                    // and remove the View if it's not.
-                    self.state.configured = false;
-                    self.surface.destroy(conn);
-                    return Damage::None;
-                }
-                WindowRequest::Move(serial) => match &self.surface.shell {
-                    Shell::Xdg { toplevel, .. } => {
-                        for seat in &self.globals.borrow().seats {
-                            toplevel._move(conn, &seat.seat, serial);
-                        }
-                    }
-                    _ => {}
-                },
-                WindowRequest::Menu(x, y, serial) => match &self.surface.shell {
-                    Shell::Xdg { toplevel, .. } => {
-                        for seat in &self.globals.borrow().seats {
-                            toplevel.show_window_menu(conn, &seat.seat, serial, x as i32, y as i32);
-                        }
-                    }
-                    _ => {}
-                },
-                WindowRequest::Minimize => match &self.surface.shell {
-                    Shell::Xdg { toplevel, .. } => {
-                        toplevel.set_minimized(conn);
-                    }
-                    _ => {}
-                },
-                WindowRequest::Maximize => {
-                    match &self.surface.shell {
-                        Shell::Xdg { toplevel, .. } => {
-                            if let Some(_) = self
-                                .state
-                                .window_state
-                                .iter()
-                                .find(|s| WindowState::Maximized.eq(s))
-                            {
-                                toplevel.unset_maximized(conn);
-                            } else {
-                                toplevel.set_maximized(conn);
-                            }
-                        }
-                        Shell::LayerShell { layer_surface, .. } => {
-                            // The following Configure event should be adjusted to
-                            // the size of the output
-                            layer_surface.set_size(conn, 1 << 31, 1 << 31);
-                        }
-                    }
-                }
-                WindowRequest::Title(title) => match self.surface.shell {
-                    Shell::Xdg { ref toplevel, .. } => {
-                        toplevel.set_title(conn, title);
-                    }
-                    Shell::LayerShell { ref mut config, .. } => {
-                        config.namespace = title;
-                    }
-                },
-            }
-        }
-
-        if let Some(cursor) = ctx.cursor.take() {
-            let globals = &mut *self.globals.borrow_mut();
-            let surface = if let Some(surface) = globals.pointer_surface.as_ref() {
-                surface
-            } else {
-                globals.pointer_surface = Some(
-                    globals
-                        .create_surface(conn, qh)
-                        .expect("Failed to create cursor surface"),
-                );
-                globals.pointer_surface.as_ref().unwrap()
-            };
-            let seats = &globals.seats;
-            let cursor_theme = globals.cursor_theme.as_mut();
-            if let Some(cursor_theme) = cursor_theme {
-                for seat in seats {
-                    if let Some(cursor) = cursor_theme.get_cursor(conn, cursor.as_str()) {
-                        let buffer = &cursor[0];
-                        let (hotspot_x, hotspot_y) = buffer.hotspot();
-                        surface.attach(conn, Some(&buffer), 0, 0);
-                        surface.commit(conn);
-                        seat.pointer
-                            .as_ref()
-                            .expect("Failed to retreive the pointer")
-                            .set_cursor(
-                                conn,
-                                self.state.enter_serial,
-                                Some(&surface),
-                                hotspot_x as i32,
-                                hotspot_y as i32,
-                            );
-                    }
-                }
-            } else {
-                surface.destroy(conn);
-            }
         }
 
         damage
@@ -387,23 +421,43 @@ where
             Damage::Partial => {
                 if !self.state.pending_cb {
                     let mut layout = LayoutCtx { cache };
-                    self.widget.layout(&mut layout);
+                    let (width, height) = self.widget.layout(&mut layout);
                     let render_node = self
                         .widget
                         .create_node(Transform::from_scale(scale as f32, scale as f32));
-                    self.render(pool, cache, render_node, scale, Damage::Partial, conn, qh);
+                    self.render(
+                        pool,
+                        cache,
+                        render_node,
+                        width,
+                        height,
+                        scale,
+                        Damage::Partial,
+                        conn,
+                        qh
+                    );
                 }
             }
             Damage::Frame => {
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
                         let mut layout = LayoutCtx { cache };
-                        self.widget.layout(&mut layout);
+                        let (width, height) = self.widget.layout(&mut layout);
                         let render_node = self
                             .widget
                             .create_node(Transform::from_scale(scale as f32, scale as f32));
                         self.state.pending_cb = true;
-                        self.render(pool, cache, render_node, scale, Damage::Frame, conn, qh);
+                        self.render(
+                            pool,
+                            cache,
+                            render_node,
+                            width,
+                            height,
+                            scale,
+                            Damage::Frame,
+                            conn,
+                            qh
+                        );
                     }
                 }
             }
@@ -415,14 +469,16 @@ where
         pool: &mut MultiPool<wl_surface::WlSurface>,
         cache: &mut Cache,
         render_node: RenderNode,
+        width: f32,
+        height: f32,
         scale: i32,
         damage: Damage,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) {
         let surface = &mut self.surface;
-        let width = self.widget.width() * scale as f32;
-        let height = self.widget.height() * scale as f32;
+        let width = width * scale as f32;
+        let height = height * scale as f32;
         if let Some((offset, wl_buffer, backend)) = buffer(
             pool,
             width as u32,
@@ -435,8 +491,6 @@ where
             surface.replace_buffer(wl_buffer);
             let region = Region::new(0., 0., width, height);
             let mut ctx = DrawContext::new(backend, cache);
-
-            // println!("{:#?}", render_node);
 
             if offset != self.state.offset {
                 self.state.offset = offset;
@@ -875,21 +929,41 @@ where
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
                             let mut layout = LayoutCtx { cache };
-                            view.widget.layout(&mut layout);
+                            let (width, height) = view.widget.layout(&mut layout);
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
-                            view.render(pool, cache, render_node, scale, Damage::Partial, conn, qh);
+                            view.render(
+                                pool,
+                                cache,
+                                render_node,
+                                width,
+                                height,
+                                scale,
+                                Damage::Partial,
+                                conn,
+                                qh
+                            );
                         }
                         Damage::Frame => {
                             cb = Some(i);
                             let mut layout = LayoutCtx { cache };
-                            view.widget.layout(&mut layout);
+                            let (width, height) = view.widget.layout(&mut layout);
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
                             view.state.pending_cb = true;
-                            view.render(pool, cache, render_node, scale, Damage::Partial, conn, qh);
+                            view.render(
+                                pool,
+                                cache,
+                                render_node,
+                                width,
+                                height,
+                                scale,
+                                Damage::Partial,
+                                conn,
+                                qh
+                            );
                         }
                         Damage::None => {}
                     }
@@ -984,10 +1058,10 @@ where
                     states,
                 } => {
                     if width > 0 {
-                        view.widget.set_width(width as f32);
+                        view.set_width(width as f32);
                     }
                     if height > 0 {
-                        view.widget.set_height(height as f32);
+                        view.set_height(height as f32);
                     }
                     toplevel.set_min_size(
                         conn,

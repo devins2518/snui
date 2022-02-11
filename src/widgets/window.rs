@@ -9,16 +9,6 @@ use crate::{
 };
 use std::ops::{Deref, DerefMut};
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum WindowRequest {
-    Move(u32),
-    Close,
-    Maximize,
-    Minimize,
-    Menu(f32, f32, u32),
-    Title(String),
-}
-
 struct Close {}
 
 impl Geometry for Close {
@@ -52,16 +42,9 @@ impl<D> Widget<D> for Close {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
-            if let Pointer::MouseClick {
-                serial: _,
-                button,
-                pressed,
-            } = p
-            {
-                if self.contains(x, y) {
-                    if button.is_left() && pressed {
-                        ctx.close();
-                    }
+            if self.contains(x, y) && p.left_button_click().is_some() {
+                if let Some(w_handle) = ctx.handle() {
+                    w_handle.close();
                 }
             }
         }
@@ -114,16 +97,9 @@ impl<D> Widget<D> for Maximize {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
-                if let Pointer::MouseClick {
-                    serial: _,
-                    button,
-                    pressed,
-                } = p
-                {
-                    if self.contains(x, y) {
-                        if button.is_left() && pressed {
-                            ctx.maximize()
-                        }
+                if self.contains(x, y) && p.left_button_click().is_some() {
+                    if let Some(w_handle) = ctx.handle() {
+                        w_handle.maximize();
                     }
                 }
             }
@@ -162,16 +138,9 @@ impl<D> Widget<D> for Minimize {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
-            if let Pointer::MouseClick {
-                serial: _,
-                button,
-                pressed,
-            } = p
-            {
-                if self.contains(x, y) {
-                    if button.is_left() && pressed {
-                        ctx.minimize();
-                    }
+            if self.contains(x, y) && p.left_button_click().is_some() {
+                if let Some(w_handle) = ctx.handle() {
+                    w_handle.minimize();
                 }
             }
         }
@@ -284,7 +253,9 @@ where
         match event {
             Event::Pointer(_, _, p) => {
                 if let Pointer::Enter = p {
-                    ctx.set_cursor(Cursor::Arrow);
+                    if let Some(w_handle) = ctx.handle() {
+                        w_handle.set_cursor(Cursor::Arrow);
+                    }
                 }
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
@@ -355,10 +326,7 @@ where
     fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
         let (h_width, h_height) = self.header.layout(ctx);
         let (b_width, b_height) = self.body.layout(ctx);
-        (
-            h_width.max(b_width),
-            h_height + b_height
-        )
+        (h_width.max(b_width), h_height + b_height)
     }
 }
 
@@ -480,10 +448,12 @@ impl<D, W: Widget<D>> Widget<D> for Header<W> {
         match event {
             Event::Pointer(x, y, p) => {
                 if self.contains(x, y) {
-                    if let Some(serial) = p.left_button_click() {
-                        ctx.drag(serial);
-                    } else if let Some(serial) = p.right_button_click() {
-                        ctx.menu(x, y, serial);
+                    if let Some(w_handle) = ctx.handle() {
+                        if let Some(serial) = p.left_button_click() {
+                            w_handle.drag(serial);
+                        } else if let Some(serial) = p.right_button_click() {
+                            w_handle.menu(x, y, serial);
+                        }
                     }
                 }
             }

@@ -208,12 +208,10 @@ impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
             }
             _ => self.widget.sync(ctx, event),
         };
-        if self.old_coords.eq(&self.coords) {
-            damage
-        } else {
-            self.widget.prepare_draw();
-            damage.max(Damage::Partial)
-        }
+        self.old_coords
+            .ne(&self.coords)
+            .then(|| damage.max(Damage::Partial))
+            .unwrap_or(damage)
     }
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()

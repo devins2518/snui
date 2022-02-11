@@ -135,9 +135,7 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
         RenderNode::Container(
             self.widgets
                 .iter_mut()
-                .map(|widget| {
-                    widget.create_node(transform)
-                })
+                .map(|widget| widget.create_node(transform))
                 .collect(),
         )
     }
@@ -154,57 +152,45 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
         }
     }
     fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let spacing = self.spacing;
-        let alignment = self.alignment;
         let (mut dx, mut dy) = (0., 0.);
         match self.orientation {
             Orientation::Vertical => {
                 let width = self.width();
                 self.widgets
-                	.iter_mut()
-                	.map(move |widget| {
-                    	widget.set_width(width);
-                    	widget.set_coords(dx, dy);
-                    	let (inner_width, inner_height) = widget.layout(ctx);
-                    	dy += inner_height + spacing;
-                        match alignment {
+                    .iter_mut()
+                    .map(|widget| {
+                        widget.set_width(width);
+                        widget.set_coords(dx, dy);
+                        let (inner_width, inner_height) = widget.layout(ctx);
+                        dy += inner_height + self.spacing;
+                        match self.alignment {
                             Alignment::Start => dx = 0.,
                             Alignment::Center => dx = (width - inner_width) / 2.,
                             Alignment::End => dx = width - inner_width,
                         }
-                    	(inner_width, inner_height)
-                	})
-                	.reduce(|accum, size| {
-                    	(
-                        	accum.0.max(size.0),
-                        	accum.1 + size.1,
-                    	)
-                	})
-                	.unwrap_or_default()
+                        (inner_width, inner_height)
+                    })
+                    .reduce(|accum, size| (accum.0.max(size.0), accum.1 + size.1 + self.spacing))
+                    .unwrap_or_default()
             }
             Orientation::Horizontal => {
                 let height = self.height();
                 self.widgets
-                	.iter_mut()
-                	.map(move |widget| {
-                    	widget.set_height(height);
-                    	widget.set_coords(dx, dy);
-                    	let (inner_width, inner_height) = widget.layout(ctx);
-                    	dx += inner_width + spacing;
-                        match alignment {
+                    .iter_mut()
+                    .map(|widget| {
+                        widget.set_height(height);
+                        widget.set_coords(dx, dy);
+                        let (inner_width, inner_height) = widget.layout(ctx);
+                        dx += inner_width + self.spacing;
+                        match self.alignment {
                             Alignment::Start => dy = 0.,
                             Alignment::Center => dy = (height - inner_height) / 2.,
                             Alignment::End => dx = height - inner_height,
                         }
-                    	(inner_width, inner_height)
-                	})
-                	.reduce(|accum, size| {
-                    	(
-                        	accum.0 + size.0 + spacing,
-                        	accum.1.max(size.1),
-                    	)
-                	})
-                	.unwrap_or_default()
+                        (inner_width, inner_height)
+                    })
+                    .reduce(|accum, size| (accum.0 + size.0 + self.spacing, accum.1.max(size.1)))
+                    .unwrap_or_default()
             }
         }
     }

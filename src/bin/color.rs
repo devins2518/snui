@@ -42,12 +42,12 @@ impl Mail<Channel, f32, f32> for Color {
     }
 }
 
-impl Mail<(), (), String> for Color {
+impl<'s> Mail<(), &'s str, String> for Color {
     fn get(&self, _: ()) -> Option<String> {
         Some(self.as_string())
     }
-    fn send(&mut self, _: (), _: ()) -> Option<String> {
-        None
+    fn send(&mut self, _: (), _: &'s str) -> Option<String> {
+        Some(self.as_string())
     }
 }
 
@@ -97,7 +97,10 @@ impl Widget<Color> for ColorBlock {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         if let Event::Sync = event {
             self.color = ctx.color;
-            ctx.set_title(ctx.as_string());
+            let title = ctx.as_string();
+            if let Some(w_handle) = ctx.handle() {
+                w_handle.set_title(title);
+            }
             return Damage::Partial;
         }
         Damage::None

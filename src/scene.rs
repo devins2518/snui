@@ -525,18 +525,20 @@ impl<'c> ClipRegion<'c> {
             self.clear();
             None
         } else {
-            self.region = region;
-            let mut pb = ctx.path_builder();
-            pb.push_rect(region.x, region.y, region.width, region.height);
-            let path = pb.finish().unwrap();
             if let Some(clipmask) = &mut self.clipmask {
-                clipmask.set_path(
-                    ctx.width() as u32,
-                    ctx.height() as u32,
-                    &path,
-                    FillRule::Winding,
-                    false,
-                );
+                self.region = region;
+                let mut pb = ctx.path_builder();
+                pb.push_rect(region.x, region.y, region.width, region.height);
+                let path = pb.finish().unwrap();
+                if clipmask.is_empty() {
+                    clipmask.set_path(
+                        ctx.width() as u32,
+                        ctx.height() as u32,
+                        &path,
+                        FillRule::Winding,
+                        false,
+                    );
+                }
                 ctx.reset(path.clear());
                 Some(())
             } else {
@@ -759,8 +761,8 @@ impl RenderNode {
                 RenderNode::Instruction(ref b) => {
                     if b.ne(a) {
                         let region = b.region();
-                        let merge = clip.crop(&a.region().merge(&region));
-                        if shape.contains(b) || clip.clipmask().is_some() {
+                        if shape.contains(b) {
+                            let merge = shape.region().crop(&a.region().merge(&region));
                             ctx.damage_region(&Texture::from(shape), merge, false);
                             b.render(ctx, clip.clipmask());
                             *self = other;
@@ -781,9 +783,9 @@ impl RenderNode {
             RenderNode::None => {
                 if let Some(region) = other.region() {
                     ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
+                    *self = other;
+                    self.render(ctx, clip);
                 }
-                *self = other;
-                self.render(ctx, clip);
             }
             RenderNode::Container(t_nodes) => match other {
                 RenderNode::Container(nodes) => {
@@ -840,13 +842,14 @@ impl RenderNode {
                                 instruction.render(ctx, clip.clipmask());
                                 self.render(ctx, clip);
                             };
-                        } else {
-                            let instruction = border.as_ref().unwrap_or(&background);
-                            let contains = shape.contains(instruction);
-                            let merge = instruction
+                        } else if let Some(region) = node.region() {
+                            let dec = border.as_ref().unwrap_or(&background);
+                            let t_dec = t_border.as_ref().unwrap_or(&t_background);
+                            let contains = shape.contains(t_dec);
+                            let merge = t_dec
                                 .region()
-                                .merge(node.region().as_ref().unwrap())
-                                .merge(&border.as_ref().unwrap_or(&background).region());
+                                .merge(&region)
+                                .merge(&dec.region());
                             if clip.intersect(&merge) {
                                 t_node.merge(*node);
                                 *t_border = border;
@@ -857,6 +860,8 @@ impl RenderNode {
                                 ctx.damage_region(&Texture::from(shape), clip.crop(&merge), false);
                                 self.render(ctx, clip);
                             }
+                        } else {
+                            return Err(self.region().unwrap());
                         }
                     }
                     RenderNode::None => {}
@@ -880,11 +885,15 @@ impl RenderNode {
                     RenderNode::Clip(region, node) => {
                         *t_region = region;
                         clip.set_region(ctx, t_region.region());
-                        if let Err(region) = t_node.draw_merge(*node, ctx, shape, clip) {
+                        let clip_region = Instruction::new(
+                            t_region.transform,
+                            shape.primitive.merge(t_region.primitive.clone()),
+                        );
+                        if let Err(region) = t_node.draw_merge(*node, ctx, &clip_region, clip) {
                             ctx.damage_region(&Texture::from(shape), clip.crop(&region), false);
                             t_node.render(ctx, clip);
-                            clip.set_region(ctx, previous);
                         }
+                        clip.set_region(ctx, previous);
                     }
                     RenderNode::None => {}
                     _ => {
@@ -983,32 +992,32 @@ impl Region {
     // +----------------|							|
     // 					|							|
     // 					+---------------------------+
-    pub fn substract(&self, other: Self) -> [Self; 2] {
+    pub fn substract(&self, other: Self) -> [Self; 4] {
         let crop = self.crop(&other);
         [
+        	Region::new(
+            	self.x,
+            	self.y,
+            	crop.x - self.x,
+            	self.height
+        	),
+        	Region::new(
+            	crop.x + crop.width,
+            	self.y,
+            	self.x + self.width - crop.x - crop.width,
+            	self.height
+        	),
             Region::new(
-                if crop.x == self.x {
-                    crop.x + crop.width
-                } else {
-                    self.x
-                },
+                crop.x,
                 self.y,
                 self.width - crop.width,
-                self.height,
+                crop.y,
             ),
             Region::new(
-                if crop.x == self.x {
-                    self.x
-                } else {
-                    crop.x + crop.width
-                },
-                if crop.y == self.y {
-                    crop.y + crop.height
-                } else {
-                    self.y
-                },
-                crop.width,
-                self.height - crop.height,
+                crop.x,
+                crop.y + crop.height,
+                self.width - crop.width,
+                self.x - self.height - crop.y - crop.height,
             ),
         ]
     }

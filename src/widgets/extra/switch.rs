@@ -12,7 +12,6 @@ pub enum SwitchState {
 pub struct Switch<M> {
     start: bool,
     toggle: Positioner<Rectangle>,
-    orientation: Orientation,
     state: SwitchState,
     easer: Sinus,
     duration: u32,
@@ -21,18 +20,10 @@ pub struct Switch<M> {
 
 impl<M> Geometry for Switch<M> {
     fn width(&self) -> f32 {
-        if let Orientation::Horizontal = self.orientation {
-            self.toggle.width() * 2.
-        } else {
-            self.toggle.width()
-        }
+        self.toggle.width() * 2.
     }
     fn height(&self) -> f32 {
-        if let Orientation::Vertical = self.orientation {
-            self.toggle.height() * 2.
-        } else {
-            self.toggle.height()
-        }
+        self.toggle.height()
     }
     fn set_width(&mut self, width: f32) {
         self.apply_width(width);
@@ -56,22 +47,11 @@ impl<M> Geometry for Switch<M> {
 
 impl<M> GeometryExt for Switch<M> {
     fn apply_width(&mut self, width: f32) {
-        self.toggle.set_width(match self.orientation {
-            Orientation::Horizontal => width / 2.,
-            _ => width,
-        });
-        if let Orientation::Vertical = self.orientation {
-            self.easer.set_amplitude(self.toggle.width() / 2.)
-        }
+        self.toggle.set_width(width / 2.);
+        self.easer.set_amplitude(self.toggle.width() / 2.);
     }
     fn apply_height(&mut self, height: f32) {
-        self.toggle.set_height(match self.orientation {
-            Orientation::Vertical => height / 2.,
-            _ => height,
-        });
-        if let Orientation::Vertical = self.orientation {
-            self.easer.set_amplitude(self.toggle.height() / 2.)
-        }
+        self.toggle.apply_height(height);
     }
 }
 
@@ -97,13 +77,11 @@ where
                                 self.start = true;
                                 let state = match self.state {
                                     SwitchState::Activated => {
-                                        self.easer =
-                                            Sinus::new(0.5, 1., self.width() - self.toggle.width());
+                                        self.easer = Sinus::new(0.5, 1., self.toggle.width());
                                         SwitchState::Deactivated
                                     }
                                     SwitchState::Deactivated => {
-                                        self.easer =
-                                            Sinus::new(0., 0.5, self.width() - self.toggle.width());
+                                        self.easer = Sinus::new(0., 0.5, self.toggle.width());
                                         SwitchState::Activated
                                     }
                                 };
@@ -119,16 +97,26 @@ where
                     }
                 }
             }
+            Event::Sync => {
+                if let Some(state) = ctx.get(self.message) {
+                    let state = if state {
+                        SwitchState::Activated
+                    } else {
+                        SwitchState::Deactivated
+                    };
+                    if state != self.state {
+                        self.set_state(state);
+                        return Damage::Frame;
+                    }
+                }
+            }
             Event::Callback(frame_time) => {
                 if self.start {
                     let steps =
                         (frame_time * self.easer.steps() as u32) as usize / self.duration as usize;
                     for _ in 0..steps {
                         match self.easer.next() {
-                            Some(position) => match self.orientation {
-                                Orientation::Vertical => self.toggle.set_coords(0., position),
-                                Orientation::Horizontal => self.toggle.set_coords(position, 0.),
-                            },
+                            Some(position) => self.toggle.set_coords(position, 0.),
                             None => {
                                 self.start = false;
                                 return Damage::Frame;
@@ -143,13 +131,8 @@ where
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (width, height) =
-        	Widget::<()>::layout(&mut self.toggle, ctx);
-        match self.orientation {
-            Orientation::Horizontal => (width * 2., height),
-            Orientation::Vertical => (width, height * 2.)
-        }
+    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+        (self.width(), self.height())
     }
 }
 
@@ -159,11 +142,21 @@ impl<M> Switch<M> {
             start: false,
             toggle: Positioner::new(Rectangle::new(20., 20.).background(theme::BG2)),
             easer: Sinus::new(0., 0.5, 20.),
-            orientation: Orientation::Horizontal,
             message,
             duration: 500,
             state: SwitchState::Deactivated,
         }
+    }
+    fn set_state(&mut self, state: SwitchState) {
+        match state {
+            SwitchState::Activated => {
+                self.easer = Sinus::new(0.5, 1., self.toggle.width());
+            }
+            SwitchState::Deactivated => {
+                self.easer = Sinus::new(0., 0.5, self.toggle.width());
+            }
+        };
+        self.state = state;
     }
     /// Duration of the animation in ms
     pub fn duration(mut self, duration: u32) -> Self {

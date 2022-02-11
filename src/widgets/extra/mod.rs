@@ -84,9 +84,13 @@ impl Iterator for Quadratic {
     fn next(&mut self) -> Option<Self::Item> {
         match self.course {
             Course::Running => {
-                let h = self.amplitude.sqrt();
-                let v = self.amplitude - (self.position - h).powi(2);
-                if self.position < self.end {
+                let h = self.amplitude.abs().sqrt();
+                let v = if self.amplitude.is_sign_positive() {
+                    self.amplitude - (self.position - h).powi(2)
+                } else {
+                    self.amplitude + (self.position - h).powi(2)
+                };
+                if self.position <= self.end {
                     self.position += h * 2. / self.steps;
                 } else {
                     self.course = Course::Rest;
@@ -104,14 +108,14 @@ impl Iterator for Quadratic {
 
 impl Easer for Quadratic {
     fn new(start: f32, end: f32, amplitude: f32) -> Self {
-        let h = 2. * amplitude.sqrt();
+        let h = 2. * amplitude.abs().sqrt();
         Self {
             amplitude,
             steps: 1000.,
             course: Course::Running,
             start: start * h,
             end: end * h,
-            position: start,
+            position: start * h,
         }
     }
     fn steps(&self) -> usize {

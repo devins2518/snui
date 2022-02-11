@@ -135,9 +135,6 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
                     self.start = false;
                 }
             },
-            Event::Draw => {
-                ctx.set_title("Animation");
-            }
             _ => {}
         }
         Damage::None

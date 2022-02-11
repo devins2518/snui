@@ -188,10 +188,7 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
     fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
         let (top, right, bottom, left) = self.padding;
         let (width, height) = self.widget.layout(ctx);
-        (
-            width + left + right,
-            height + top + bottom
-        )
+        (width + left + right, height + top + bottom)
     }
 }
 

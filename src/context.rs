@@ -3,7 +3,6 @@ use crate::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
 use widgets::label::LabelRef;
-use widgets::window::WindowRequest;
 
 pub(crate) mod canvas {
     use crate::scene::*;
@@ -183,8 +182,7 @@ pub enum Backend<'b> {
 pub struct SyncContext<'c, D> {
     data: &'c mut D,
     pub(crate) cache: &'c mut Cache,
-    pub(crate) cursor: Option<Cursor>,
-    pub(crate) window_request: Option<WindowRequest>,
+    pub(crate) handle: Option<&'c mut dyn WindowHandle>,
 }
 
 /// A context provided to primitives during draw.
@@ -197,6 +195,9 @@ pub struct DrawContext<'c> {
     pub(crate) pending_damage: Vec<Region>,
 }
 
+/// A context provided during layout.
+///
+/// Currently it only holds the Cache.
 pub struct LayoutCtx<'c> {
     pub(crate) cache: &'c mut Cache,
 }
@@ -205,6 +206,21 @@ impl<'c> AsMut<Cache> for LayoutCtx<'c> {
     fn as_mut(&mut self) -> &mut Cache {
         self.cache
     }
+}
+
+/// A handle to the window state.
+pub trait WindowHandle {
+    fn close(&mut self);
+    fn minimize(&mut self);
+    fn maximize(&mut self);
+    /// Launch a system menu
+    fn menu(&mut self, x: f32, y: f32, serial: u32);
+    /// Move the application window.
+    ///
+    /// The serial is provided by events.
+    fn drag(&mut self, serial: u32);
+    fn set_title(&mut self, title: String);
+    fn set_cursor(&mut self, cursor: Cursor);
 }
 
 impl<'b> Geometry for Backend<'b> {
@@ -246,33 +262,23 @@ impl<'c, D> SyncContext<'c, D> {
         Self {
             data,
             cache,
-            cursor: None,
-            window_request: None,
+            handle: None,
         }
     }
-    /// Close the application window
-    pub fn close(&mut self) {
-        self.window_request = Some(WindowRequest::Close);
+    pub fn new_with_handle(
+        data: &'c mut D,
+        cache: &'c mut Cache,
+        handle: &'c mut impl WindowHandle,
+    ) -> Self {
+        Self {
+            data,
+            cache,
+            handle: Some(handle),
+        }
     }
-    pub fn minimize(&mut self) {
-        self.window_request = Some(WindowRequest::Minimize);
-    }
-    pub fn maximize(&mut self) {
-        self.window_request = Some(WindowRequest::Maximize);
-    }
-    /// Launch a system menu
-    pub fn menu(&mut self, x: f32, y: f32, serial: u32) {
-        self.window_request = Some(WindowRequest::Menu(x, y, serial));
-    }
-    /// Move the application window
-    pub fn drag(&mut self, serial: u32) {
-        self.window_request = Some(WindowRequest::Move(serial));
-    }
-    pub fn set_title<S: ToString>(&mut self, title: S) {
-        self.window_request = Some(WindowRequest::Title(title.to_string()));
-    }
-    pub fn set_cursor(&mut self, cursor: Cursor) {
-        self.cursor = Some(cursor);
+    /// Return a reference to the WindowHandle
+    pub fn handle(&mut self) -> Option<&mut &'c mut dyn WindowHandle> {
+        self.handle.as_mut()
     }
 }
 
@@ -327,6 +333,7 @@ impl<'c> DrawContext<'c> {
     }
     /// This method is usually called when you want to clean up an area to draw on it.
     pub fn damage_region(&mut self, texture: &Texture, region: Region, composite: bool) {
+        let blend;
         if !composite {
             if let Some(last) = self.pending_damage.last() {
                 if last.contains(region.x, region.y) {
@@ -338,7 +345,10 @@ impl<'c> DrawContext<'c> {
                     return;
                 }
             }
+            blend = BlendMode::Source;
             self.pending_damage.push(region);
+        } else {
+            blend = BlendMode::SourceAtop;
         }
         match texture {
             Texture::Color(color) => match &mut self.backend {
@@ -347,7 +357,7 @@ impl<'c> DrawContext<'c> {
                         region.into(),
                         &Paint {
                             shader: Shader::SolidColor(*color),
-                            blend_mode: BlendMode::Source,
+                            blend_mode: blend,
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },
@@ -376,7 +386,7 @@ impl<'c> DrawContext<'c> {
                             region.into(),
                             &Paint {
                                 shader: grad,
-                                blend_mode: BlendMode::Source,
+                                blend_mode: blend,
                                 anti_alias: false,
                                 force_hq_pipeline: false,
                             },
@@ -404,7 +414,7 @@ impl<'c> DrawContext<'c> {
                             ),
                             anti_alias: false,
                             force_hq_pipeline: false,
-                            blend_mode: BlendMode::Source,
+                            blend_mode: blend,
                         },
                         Transform::identity(),
                         None,
@@ -412,7 +422,8 @@ impl<'c> DrawContext<'c> {
                 }
             }
             Texture::Composite(layers) => {
-                for layer in layers {
+                self.damage_region(&layers[0], region, true);
+                for layer in &layers[1..] {
                     self.damage_region(layer, region, true);
                 }
             }
@@ -422,7 +433,7 @@ impl<'c> DrawContext<'c> {
                         region.into(),
                         &Paint {
                             shader: Shader::SolidColor(Color::TRANSPARENT),
-                            blend_mode: BlendMode::Clear,
+                            blend_mode: blend,
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },

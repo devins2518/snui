@@ -115,10 +115,12 @@ where
                                     }
                                 }
                             }
-                            if pressed && button.is_left() {
-                                ctx.set_cursor(Cursor::Hand);
-                            } else {
-                                ctx.set_cursor(Cursor::Arrow);
+                            if let Some(w_handle) = ctx.handle() {
+                                if pressed && button.is_left() {
+                                    w_handle.set_cursor(Cursor::Hand);
+                                } else {
+                                    w_handle.set_cursor(Cursor::Arrow);
+                                }
                             }
                             let ratio = match &self.orientation {
                                 Orientation::Horizontal => self.slider.width() / self.size,
@@ -185,10 +187,12 @@ where
                         } => {
                             if button.is_left() {
                                 self.pressed = pressed;
-                                if pressed {
-                                    ctx.set_cursor(Cursor::Hand);
-                                } else {
-                                    ctx.set_cursor(Cursor::Arrow);
+                                if let Some(w_handle) = ctx.handle() {
+                                    if pressed {
+                                        w_handle.set_cursor(Cursor::Hand);
+                                    } else {
+                                        w_handle.set_cursor(Cursor::Arrow);
+                                    }
                                 }
                                 return Damage::Partial;
                             }
@@ -240,11 +244,10 @@ where
     }
     fn prepare_draw(&mut self) {}
     fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (width, height) =
-        	Widget::<()>::layout(&mut self.slider, ctx);
+        let (width, height) = Widget::<()>::layout(&mut self.slider, ctx);
         match self.orientation {
             Orientation::Horizontal => (self.size, height),
-            Orientation::Vertical => (width, self.size)
+            Orientation::Vertical => (width, self.size),
         }
     }
 }
