@@ -136,15 +136,6 @@ impl Geometry for Label {
     }
 }
 
-impl GeometryExt for Label {
-    fn apply_width(&mut self, width: f32) {
-        self.settings.max_width = Some(width);
-    }
-    fn apply_height(&mut self, height: f32) {
-        self.settings.max_height = Some(height);
-    }
-}
-
 impl<D> Widget<D> for Label {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let scale = transform.sx.max(transform.sy);
@@ -159,8 +150,10 @@ impl<D> Widget<D> for Label {
         }
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
+        // self.settings.max_width = Some(constraints.maximum_width());
+        // self.settings.max_height = Some(constraints.maximum_height());
         let layout = fc.layout(self.as_ref()).clone();
         let size = cache::font::get_size(&layout);
         self.size = Some(size);
@@ -187,15 +180,6 @@ impl<M> Geometry for Listener<M> {
     }
 }
 
-impl<M> GeometryExt for Listener<M> {
-    fn apply_width(&mut self, width: f32) {
-        GeometryExt::apply_width(self.label.get_mut(), width)
-    }
-    fn apply_height(&mut self, height: f32) {
-        GeometryExt::apply_height(self.label.get_mut(), height)
-    }
-}
-
 impl<M, D> Widget<D> for Listener<M>
 where
     M: Clone + Copy,
@@ -216,8 +200,8 @@ where
         self.label.sync(ctx, event)
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        Widget::<()>::layout(&mut self.label, ctx)
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        Widget::<()>::layout(&mut self.label, ctx, constraints)
     }
 }
 

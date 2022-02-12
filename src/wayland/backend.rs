@@ -4,7 +4,9 @@ use crate::mail::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::*;
+use crate::widgets::Constraint;
 use smithay_client_toolkit::reexports::client::Proxy;
+use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::__interfaces::zwlr_layer_shell_v1_interface;
 use tiny_skia::Transform;
 
 use std::cell::RefCell;
@@ -143,6 +145,8 @@ where
         };
 
         view.widget.prepare_draw();
+        view.state.constraint =
+            BoxConstraints::new((0., 0.), (view.minimum_width(), view.minimum_height()));
 
         self.views.push(view);
     }
@@ -168,6 +172,8 @@ where
         };
 
         view.widget.prepare_draw();
+        view.state.constraint =
+            BoxConstraints::new((0., 0.), (view.minimum_width(), view.minimum_height()));
 
         self.views.push(view);
     }
@@ -206,6 +212,7 @@ struct State {
     configured: bool,
     pending_cb: bool,
     enter_serial: u32,
+    constraint: BoxConstraints,
     window_state: Vec<WindowState>,
     render_node: RenderNode,
 }
@@ -218,6 +225,7 @@ impl Default for State {
             enter_serial: 0,
             configured: false,
             pending_cb: false,
+            constraint: BoxConstraints::default(),
             window_state: Vec::new(),
             render_node: RenderNode::None,
         }
@@ -421,7 +429,7 @@ where
             Damage::Partial => {
                 if !self.state.pending_cb {
                     let mut layout = LayoutCtx { cache };
-                    let (width, height) = self.widget.layout(&mut layout);
+                    let (width, height) = self.widget.layout(&mut layout, &self.state.constraint);
                     let render_node = self
                         .widget
                         .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -442,7 +450,8 @@ where
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
                         let mut layout = LayoutCtx { cache };
-                        let (width, height) = self.widget.layout(&mut layout);
+                        let (width, height) =
+                            self.widget.layout(&mut layout, &self.state.constraint);
                         let render_node = self
                             .widget
                             .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -476,9 +485,9 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) {
-        let surface = &mut self.surface;
         let width = width * scale as f32;
         let height = height * scale as f32;
+        let surface = &mut self.surface;
         if let Some((offset, wl_buffer, backend)) = buffer(
             pool,
             width as u32,
@@ -932,7 +941,8 @@ where
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
                             let mut layout = LayoutCtx { cache };
-                            let (width, height) = view.widget.layout(&mut layout);
+                            let (width, height) =
+                                view.widget.layout(&mut layout, &view.state.constraint);
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -951,7 +961,8 @@ where
                         Damage::Frame => {
                             cb = Some(i);
                             let mut layout = LayoutCtx { cache };
-                            let (width, height) = view.widget.layout(&mut layout);
+                            let (width, height) =
+                                view.widget.layout(&mut layout, &view.state.constraint);
                             let render_node = view
                                 .widget
                                 .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -1076,6 +1087,12 @@ where
                         view.widget.maximum_width() as i32,
                         view.widget.maximum_height() as i32,
                     );
+                    if width * height > 0 {
+                        view.state.constraint = BoxConstraints::new(
+                            (width as f32, height as f32),
+                            (width as f32, height as f32),
+                        );
+                    }
                     view.state.window_state = list_states(states);
                     let mut ctx = SyncContext::new(&mut view.data, &mut self.cache);
                     view.widget

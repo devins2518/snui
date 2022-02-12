@@ -112,7 +112,7 @@ impl<W: Geometry> Geometry for DynamicLayout<W> {
             Orientation::Vertical => self
                 .widgets
                 .iter()
-                .map(|widget| widget.width())
+                .map(|widget| widget.maximum_width())
                 .reduce(|accum, width| accum.max(width))
                 .unwrap_or_default(),
         }
@@ -142,7 +142,7 @@ impl<W: Geometry> Geometry for DynamicLayout<W> {
             Orientation::Vertical => self
                 .widgets
                 .iter()
-                .map(|widget| widget.width())
+                .map(|widget| widget.minimum_width())
                 .reduce(|accum, width| accum.max(width))
                 .unwrap_or_default(),
         }
@@ -170,17 +170,17 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
             widget.prepare_draw()
         }
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         match self.orientation {
             Orientation::Vertical => {
                 let mut dy = 0.;
-                let width = self.width();
                 self.widgets
                     .iter_mut()
                     .map(move |widget| {
-                        widget.set_width(width);
+                        widget.set_width(constraints.maximum_width());
                         widget.set_coords(0., dy);
-                        let (width, height) = widget.layout(ctx);
+                        let (width, height) = widget
+                            .layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.));
                         dy += height;
                         (width, height)
                     })
@@ -189,14 +189,14 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
             }
             Orientation::Horizontal => {
                 let mut dx = 0.;
-                let height = self.height();
                 let f = self
                     .widgets
                     .iter_mut()
                     .map(move |widget| {
-                        widget.set_height(height);
+                        widget.set_height(constraints.maximum_height());
                         widget.set_coords(dx, 0.);
-                        let (width, height) = widget.layout(ctx);
+                        let (width, height) = widget
+                            .layout(ctx, &constraints.with_max(0., constraints.maximum_height()));
                         dx += width;
                         (width, height)
                     })

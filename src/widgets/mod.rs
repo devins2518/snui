@@ -68,7 +68,7 @@ impl<D> Widget<D> for () {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, _: &mut LayoutCtx, _: &BoxConstraints) -> (f32, f32) {
         (0., 0.)
     }
 }
@@ -97,7 +97,7 @@ impl<D> Widget<D> for Spacer {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, _: &mut LayoutCtx, _: &BoxConstraints) -> (f32, f32) {
         (self.width, self.height)
     }
 }
@@ -185,9 +185,11 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         let (top, right, bottom, left) = self.padding;
-        let (width, height) = self.widget.layout(ctx);
+        let (width, height) = self
+            .widget
+            .layout(ctx, &constraints.crop(left + right, top + bottom));
         (width + left + right, height + top + bottom)
     }
 }
@@ -311,7 +313,7 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
         }
     }
     fn minimum_height(&self) -> f32 {
-        self.minimum_height_from(self.widget.height())
+        self.minimum_height_from(self.widget.minimum_height())
     }
     fn maximum_width(&self) -> f32 {
         match self.width {
@@ -323,7 +325,7 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
         }
     }
     fn minimum_width(&self) -> f32 {
-        self.minimum_width_from(self.widget.width())
+        self.minimum_width_from(self.widget.minimum_width())
     }
 }
 
@@ -369,8 +371,16 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (inner_width, inner_height) = self.widget.layout(ctx);
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        let (inner_width, inner_height) = self.widget.layout(
+            ctx,
+            &constraints
+                .with_max(self.maximum_width(), self.maximum_height())
+                .with_min(
+                    self.minimum_width_from(constraints.minimum_width()),
+                    self.minimum_height_from(constraints.minimum_height()),
+                ),
+        );
         let width = self.size.0.max(self.minimum_width_from(inner_width));
         let height = self.size.1.max(self.minimum_height_from(inner_height));
         let (horizontal, vertical) = &self.anchor;

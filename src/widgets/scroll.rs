@@ -215,11 +215,17 @@ where
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (width, height) = self.widget.layout(ctx);
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        let (width, height) = self.widget.layout(ctx, constraints);
         match self.orientation {
-            Orientation::Horizontal => (self.size, height),
-            Orientation::Vertical => (width, self.size),
+            Orientation::Horizontal => {
+                self.size = self.size.max(constraints.minimum_width());
+                (self.size, height)
+            }
+            Orientation::Vertical => {
+                self.size = self.size.max(constraints.minimum_height());
+                (width, self.size)
+            }
         }
     }
 }

@@ -243,8 +243,8 @@ where
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (width, height) = Widget::<()>::layout(&mut self.slider, ctx);
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        let (width, height) = Widget::<()>::layout(&mut self.slider, ctx, constraints);
         match self.orientation {
             Orientation::Horizontal => (self.size, height),
             Orientation::Vertical => (width, self.size),

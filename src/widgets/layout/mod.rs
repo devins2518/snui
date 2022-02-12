@@ -216,8 +216,9 @@ impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        self.widget.layout(ctx)
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        self.widget
+            .layout(ctx, &constraints.crop(self.coords.x, self.coords.y))
     }
 }
 

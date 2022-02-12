@@ -383,6 +383,7 @@ pub trait Widget<D>: Geometry {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
     /// Singals there's an incomming draw
     fn prepare_draw(&mut self);
+    // TO-DO Add constraint
     /// The layout is expected to be computed here.
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32);
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32);
 }

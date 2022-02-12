@@ -140,7 +140,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut context::LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut context::LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -198,8 +198,8 @@ impl<D> Widget<D> for FrameRate {
         }
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut context::LayoutCtx) -> (f32, f32) {
-        Widget::<()>::layout(&mut self.label, ctx)
+    fn layout(&mut self, ctx: &mut context::LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        Widget::<()>::layout(&mut self.label, ctx, constraints)
     }
 }
 

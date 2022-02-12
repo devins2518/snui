@@ -49,7 +49,7 @@ impl<D> Widget<D> for Close {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -112,7 +112,7 @@ impl<D> Widget<D> for Maximize {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -145,7 +145,7 @@ impl<D> Widget<D> for Minimize {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -218,10 +218,10 @@ where
         self.body.set_height(height - self.header.height())
     }
     fn minimum_width(&self) -> f32 {
-        self.header.minimum_width().max(self.body.minimum_width())
+        self.body.minimum_width()
     }
     fn maximum_width(&self) -> f32 {
-        self.header.maximum_width().max(self.body.maximum_width())
+        self.header.maximum_width().min(self.body.maximum_width())
     }
     fn minimum_height(&self) -> f32 {
         self.header.minimum_height() + self.body.minimum_height()
@@ -320,15 +320,11 @@ where
         self.header.prepare_draw();
         self.body.prepare_draw();
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (b_width, b_height) = self.body.layout(ctx);
-        let (h_width, h_height) = self.header.layout(ctx);
-        if h_width != b_width {
-            self.header.set_width(b_width);
-            self.header.prepare_draw();
-            let (h_width, h_height) = self.header.layout(ctx);
-            return (h_width.max(b_width), h_height + b_height);
-        }
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        let (h_width, h_height) = self
+            .header
+            .layout(ctx, &constraints.with_max(constraints.maximum_height(), 0.));
+        let (b_width, b_height) = self.body.layout(ctx, &constraints.crop(0., h_height));
         (h_width.max(b_width), h_height + b_height)
     }
 }
@@ -391,7 +387,7 @@ where
             header: Header { widget: header },
             activated: false,
             positioned: false,
-            body: widget.child(),
+            body: Positioner::new(Proxy::new(widget)),
             radius: (0., 0., 0., 0.),
             background: theme::BG2.into(),
             alternate: None,
@@ -467,8 +463,8 @@ impl<D, W: Widget<D>> Widget<D> for Header<W> {
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        self.widget.layout(ctx)
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        self.widget.layout(ctx, constraints)
     }
 }
 

@@ -106,12 +106,12 @@ impl Widget<Color> for ColorBlock {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
 
-fn sliders() -> DynamicLayout<impl Widget<Color>> {
+fn sliders() -> SimpleLayout<impl Widget<Color>> {
     [RED, GRN, BLU, BG2]
         .into_iter()
         .map(|color| {
@@ -133,12 +133,12 @@ fn sliders() -> DynamicLayout<impl Widget<Color>> {
             .padding_top(5.)
             .padding_bottom(5.)
         })
-        .collect::<DynamicLayout<_>>()
+        .collect::<SimpleLayout<_>>()
         .orientation(Orientation::Vertical)
 }
 
-fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
-    let mut layout = SimpleLayout::new().orientation(Orientation::Vertical);
+fn ui_builder() -> DynamicLayout<impl Widget<Color>> {
+    let mut layout = DynamicLayout::new().orientation(Orientation::Vertical);
 
     let listener = Listener::new("", ())
         .clamp()
@@ -154,14 +154,13 @@ fn ui_builder() -> SimpleLayout<impl Widget<Color>> {
             height: 200.,
             color: tiny_skia::Color::WHITE,
         }
+        .clamp()
         .style()
-        .padding(10.)
-        .clamp(),
+        .padding(10.),
     );
 
     layout.add(indicator);
     layout.add(sliders().clamp());
-    layout.justify(CENTER);
 
     layout
 }

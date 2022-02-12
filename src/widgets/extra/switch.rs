@@ -31,18 +31,6 @@ impl<M> Geometry for Switch<M> {
     fn set_height(&mut self, height: f32) {
         self.apply_height(height);
     }
-    fn minimum_width(&self) -> f32 {
-        self.toggle.minimum_width()
-    }
-    fn maximum_width(&self) -> f32 {
-        self.toggle.maximum_width()
-    }
-    fn minimum_height(&self) -> f32 {
-        self.toggle.minimum_height()
-    }
-    fn maximum_height(&self) -> f32 {
-        self.toggle.maximum_height()
-    }
 }
 
 impl<M> GeometryExt for Switch<M> {
@@ -131,7 +119,7 @@ where
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }

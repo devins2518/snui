@@ -276,9 +276,11 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
     fn prepare_draw(&mut self) {
         self.widget.prepare_draw()
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (width, height) = self.widget.layout(ctx);
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         let border_size = self.border.1;
+        let (width, height) = self
+            .widget
+            .layout(ctx, &constraints.crop(border_size * 2., border_size * 2.));
         (width + 2. * border_size, height + 2. * border_size)
     }
 }

@@ -67,6 +67,86 @@ impl Cursor {
     }
 }
 
+pub struct BoxConstraints {
+    minimum: (f32, f32),
+    maximum: (f32, f32),
+}
+
+impl Default for BoxConstraints {
+    fn default() -> Self {
+        Self {
+            minimum: (0., 0.),
+            maximum: (400., 400.),
+        }
+    }
+}
+
+impl Geometry for BoxConstraints {
+    fn width(&self) -> f32 {
+        self.minimum.0
+    }
+    fn height(&self) -> f32 {
+        self.minimum.1
+    }
+    fn minimum_width(&self) -> f32 {
+        self.minimum.0
+    }
+    fn minimum_height(&self) -> f32 {
+        self.minimum.1
+    }
+    fn maximum_width(&self) -> f32 {
+        self.maximum.0
+    }
+    fn maximum_height(&self) -> f32 {
+        self.maximum.1
+    }
+}
+
+impl BoxConstraints {
+    pub fn new(minimum: (f32, f32), maximum: (f32, f32)) -> Self {
+        BoxConstraints { minimum, maximum }
+    }
+    pub fn loosen(&self) -> Self {
+        BoxConstraints {
+            minimum: (0., 0.),
+            maximum: self.maximum,
+        }
+    }
+    pub fn with_max(&self, width: f32, height: f32) -> Self {
+        let width = self.maximum_width().min(width);
+        let height = self.maximum_height().min(height);
+        BoxConstraints {
+            minimum: (
+                width.min(self.minimum_width()),
+                height.min(self.minimum_height()),
+            ),
+            maximum: (width, height),
+        }
+    }
+    pub fn with_min(&self, width: f32, height: f32) -> Self {
+        let width = width.clamp(self.minimum_width(), self.maximum_width());
+        let height = height.clamp(self.minimum_height(), self.maximum_height());
+        BoxConstraints {
+            minimum: (width, height),
+            maximum: (
+                width.max(self.maximum_width()),
+                height.max(self.maximum_height()),
+            ),
+        }
+    }
+    pub fn crop(&self, dx: f32, dy: f32) -> Self {
+        let width = self.maximum_width() - dx;
+        let height = self.maximum_height() - dy;
+        BoxConstraints {
+            minimum: (
+                self.minimum_width().min(width),
+                self.minimum_height().min(height),
+            ),
+            maximum: (width, height),
+        }
+    }
+}
+
 /// Analog to xdg_shell states
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindowState {
@@ -166,13 +246,13 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     fn prepare_draw(&mut self) {
         self.deref_mut().prepare_draw();
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         if self.damage.is_some() {
-            let size = self.inner.layout(ctx);
+            let size = self.inner.layout(ctx, constraints);
             if size != self.size {
                 self.size = size;
                 self.prepare_draw();
-                self.inner.layout(ctx)
+                self.inner.layout(ctx, constraints)
             } else {
                 self.size = size;
                 size
@@ -183,6 +263,10 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     }
 }
 
+use smithay_client_toolkit::{
+    reexports::protocols::wlr::unstable::layer_shell::v1::client::__interfaces::ZWLR_LAYER_SHELL_V1_INTERFACE,
+    shell::xdg::XdgShellHandler,
+};
 use widgets::scroll::Scrollable;
 
 impl<W: Scrollable> Scrollable for Proxy<W> {
@@ -225,7 +309,6 @@ impl<W> Proxy<W> {
 pub trait WidgetExt: Sized + Geometry {
     fn style(self) -> WidgetStyle<Self>;
     fn clamp(self) -> WidgetBox<Self>;
-    fn child(self) -> Positioner<Proxy<Self>>;
     fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where
         F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer);
@@ -255,7 +338,7 @@ pub trait GeometryExt: Sized {
 
 /// Implement PartialEq across different types.
 ///
-/// It is automatically implemented if your type implements PartialEq
+/// It is automatically implemented if a type implements PartialEq
 pub trait DynEq {
     fn same(&self, other: &dyn std::any::Any) -> bool;
     fn not_same(&self, other: &dyn std::any::Any) -> bool {
@@ -284,9 +367,6 @@ where
     }
     fn style(self) -> WidgetStyle<Self> {
         WidgetStyle::new(self)
-    }
-    fn child(self) -> Positioner<Proxy<Self>> {
-        Positioner::new(Proxy::new(self))
     }
     fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where
@@ -333,7 +413,7 @@ impl<D> Widget<D> for Box<dyn Widget<D>> {
     fn prepare_draw(&mut self) {
         self.deref_mut().prepare_draw()
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        self.deref_mut().layout(ctx)
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        self.deref_mut().layout(ctx, constraints)
     }
 }

@@ -118,8 +118,11 @@ impl<D> Widget<D> for Image {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+        self.inner
+            .as_mut()
+            .map(|inner| Widget::<()>::layout(inner, ctx, constraints))
+            .unwrap_or_default()
     }
 }
 
@@ -220,7 +223,7 @@ impl<D> Widget<D> for InnerImage {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
