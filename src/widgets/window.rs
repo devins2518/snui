@@ -22,8 +22,6 @@ impl Geometry for Close {
 
 impl<D> Widget<D> for Close {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let mut canvas = self.create_canvas(transform);
-
         use std::f32::consts::FRAC_1_SQRT_2;
 
         let width = self.width() * FRAC_1_SQRT_2;
@@ -31,14 +29,14 @@ impl<D> Widget<D> for Close {
 
         let r = Rectangle::new(width, height).background(theme::RED);
 
-        canvas.draw_at_angle(
-            (self.width() - width) / 2.,
-            (self.height() - height) / 2.,
-            r,
-            -45.,
-        );
+        let transform =
+            transform.pre_translate((self.width() - width) / 2., (self.height() - height) / 2.);
 
-        canvas.finish()
+        Instruction::new(
+            transform.pre_concat(Transform::from_rotate_at(45., width / 2., height / 2.)),
+            r,
+        )
+        .into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
@@ -223,7 +221,7 @@ where
         self.header.minimum_width().max(self.body.minimum_width())
     }
     fn maximum_width(&self) -> f32 {
-        self.header.maximum_width().min(self.body.maximum_width())
+        self.header.maximum_width().max(self.body.maximum_width())
     }
     fn minimum_height(&self) -> f32 {
         self.header.minimum_height() + self.body.minimum_height()

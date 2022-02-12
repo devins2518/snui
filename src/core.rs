@@ -164,15 +164,14 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         self.damage
     }
     fn prepare_draw(&mut self) {
-        self.damage = self.damage.max(Damage::Partial);
-        self.inner.prepare_draw();
+        self.deref_mut().prepare_draw();
     }
     fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
         if self.damage.is_some() {
             let size = self.inner.layout(ctx);
             if size != self.size {
                 self.size = size;
-                self.inner.prepare_draw();
+                self.prepare_draw();
                 self.inner.layout(ctx)
             } else {
                 self.size = size;

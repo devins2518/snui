@@ -513,6 +513,7 @@ where
                 }
             }
 
+            self.clipmask.as_mut().unwrap().clear();
             surface.damage(conn, ctx.damage_queue(), scale);
             surface.commit(conn);
         } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
@@ -521,6 +522,8 @@ where
         // If this is the case it means the callback failed so pending_cb callback should be reset
         } else if let Damage::Frame = damage {
             self.state.pending_cb = false;
+        } else {
+            println!("KEK")
         }
     }
 }

@@ -119,20 +119,12 @@ where
     D: Mail<M, RevealerState, RevealerAction>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        match self.state {
-            RevealerState::Hidden => RenderNode::None,
-            _ => {
-                if let Some(node) = self.widget.create_node(transform).as_option() {
-                    let region = Region::from_transform(
-                        transform,
-                        self.widget.width(),
-                        self.widget.height(),
-                    );
-                    RenderNode::Clip(region.into(), Box::new(node))
-                } else {
-                    RenderNode::None
-                }
-            }
+        if let Some(node) = self.widget.create_node(transform).as_option() {
+            let region =
+                Region::from_transform(transform, self.widget.width(), self.widget.height());
+            RenderNode::Clip(region.into(), Box::new(node))
+        } else {
+            RenderNode::None
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
@@ -177,6 +169,7 @@ where
                             }
                         }
                     }
+                    self.widget.prepare_draw();
                     return d.max(Damage::Frame);
                 }
             }
