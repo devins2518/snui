@@ -220,12 +220,10 @@ impl Drawable for Rectangle {
     }
     fn contains(&self, region: &scene::Region) -> bool {
         let (tl, tr, br, bl) = self.radius;
-        let max = tl.max(tr).max(br).max(bl);
-        let radius = (max - (max * FRAC_1_SQRT_2)).floor();
-        region.x >= radius
-            && region.y >= radius
-            && region.width <= self.width - radius
-            && region.height <= self.height - radius
+        !(region.x < tl.max(bl)
+            || region.y < tl.max(tr)
+            || region.width > self.width - tr.max(br)
+            || region.height > self.height - bl.max(br))
     }
     fn draw_with_transform_clip(
         &self,

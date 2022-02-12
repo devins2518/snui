@@ -319,13 +319,18 @@ where
         }
     }
     fn prepare_draw(&mut self) {
-        self.set_width(self.width());
         self.header.prepare_draw();
         self.body.prepare_draw();
     }
     fn layout(&mut self, ctx: &mut LayoutCtx) -> (f32, f32) {
-        let (h_width, h_height) = self.header.layout(ctx);
         let (b_width, b_height) = self.body.layout(ctx);
+        let (h_width, h_height) = self.header.layout(ctx);
+        if h_width != b_width {
+            self.header.set_width(b_width);
+            self.header.prepare_draw();
+            let (h_width, h_height) = self.header.layout(ctx);
+            return (h_width.max(b_width), h_height + b_height);
+        }
         (h_width.max(b_width), h_height + b_height)
     }
 }

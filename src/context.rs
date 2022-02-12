@@ -339,7 +339,7 @@ impl<'c> DrawContext<'c> {
                 if last.contains(region.x, region.y) {
                     for region in last.merge(&region).substract(*last) {
                         if !region.null() {
-                            self.damage_region(texture, region, composite);
+                            self.damage_region(texture, region, true);
                         }
                     }
                     return;
@@ -433,7 +433,7 @@ impl<'c> DrawContext<'c> {
                         region.into(),
                         &Paint {
                             shader: Shader::SolidColor(Color::TRANSPARENT),
-                            blend_mode: blend,
+                            blend_mode: BlendMode::Clear,
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },

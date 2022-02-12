@@ -138,7 +138,7 @@ where
             data,
             globals: self.globals.clone(),
             widget: Box::new(widget),
-            clipmask: ClipMask::new(),
+            clipmask: Some(ClipMask::new()),
             surface: surface.expect("Failed to create an XdgSurface"),
         };
 
@@ -162,7 +162,7 @@ where
             state: State::default(),
             data,
             globals: self.globals.clone(),
-            clipmask: ClipMask::new(),
+            clipmask: Some(ClipMask::new()),
             widget: Box::new(widget),
             surface: surface.expect("Failed to create a LayerSurface"),
         };
@@ -195,7 +195,7 @@ where
     data: D,
     state: State,
     surface: Surface,
-    clipmask: ClipMask,
+    clipmask: Option<ClipMask>,
     widget: Box<dyn Widget<D>>,
     globals: Rc<RefCell<GlobalManager>>,
 }
@@ -434,7 +434,7 @@ where
                         scale,
                         Damage::Partial,
                         conn,
-                        qh
+                        qh,
                     );
                 }
             }
@@ -456,7 +456,7 @@ where
                             scale,
                             Damage::Frame,
                             conn,
-                            qh
+                            qh,
                         );
                     }
                 }
@@ -498,18 +498,18 @@ where
                 ctx.damage_region(&Texture::Transparent, region, false);
                 self.state
                     .render_node
-                    .render(&mut ctx, &mut ClipRegion::new(region, None));
+                    .render(&mut ctx, &mut self.clipmask, None);
             } else {
                 if let Err(region) = self.state.render_node.draw_merge(
                     render_node,
                     &mut ctx,
                     &region.into(),
-                    &mut ClipRegion::new(region, Some(&mut self.clipmask)),
+                    &mut self.clipmask,
                 ) {
                     ctx.damage_region(&Texture::Transparent, region, false);
                     self.state
                         .render_node
-                        .render(&mut ctx, &mut ClipRegion::new(region, None));
+                        .render(&mut ctx, &mut self.clipmask, None);
                 }
             }
 
@@ -942,7 +942,7 @@ where
                                 scale,
                                 Damage::Partial,
                                 conn,
-                                qh
+                                qh,
                             );
                         }
                         Damage::Frame => {
@@ -962,7 +962,7 @@ where
                                 scale,
                                 Damage::Partial,
                                 conn,
-                                qh
+                                qh,
                             );
                         }
                         Damage::None => {}
