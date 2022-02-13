@@ -150,7 +150,7 @@ impl<D> Widget<D> for Label {
         }
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
         let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
         // self.settings.max_width = Some(constraints.maximum_width());
         // self.settings.max_height = Some(constraints.maximum_height());

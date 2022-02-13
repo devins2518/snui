@@ -248,25 +248,13 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         if self.damage.is_some() {
-            let size = self.inner.layout(ctx, constraints);
-            if size != self.size {
-                self.size = size;
-                self.prepare_draw();
-                self.inner.layout(ctx, constraints)
-            } else {
-                self.size = size;
-                size
-            }
+            self.inner.layout(ctx, constraints)
         } else {
             self.size
         }
     }
 }
 
-use smithay_client_toolkit::{
-    reexports::protocols::wlr::unstable::layer_shell::v1::client::__interfaces::ZWLR_LAYER_SHELL_V1_INTERFACE,
-    shell::xdg::XdgShellHandler,
-};
 use widgets::scroll::Scrollable;
 
 impl<W: Scrollable> Scrollable for Proxy<W> {

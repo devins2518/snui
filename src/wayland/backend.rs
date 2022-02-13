@@ -4,9 +4,9 @@ use crate::mail::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::*;
-use crate::widgets::Constraint;
+
 use smithay_client_toolkit::reexports::client::Proxy;
-use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::__interfaces::zwlr_layer_shell_v1_interface;
+
 use tiny_skia::Transform;
 
 use std::cell::RefCell;
@@ -1077,21 +1077,25 @@ where
                     if height > 0 {
                         view.set_height(height as f32);
                     }
-                    toplevel.set_min_size(
-                        conn,
-                        view.widget.minimum_width() as i32,
-                        view.widget.minimum_height() as i32,
-                    );
-                    toplevel.set_max_size(
-                        conn,
-                        view.widget.maximum_width() as i32,
-                        view.widget.maximum_height() as i32,
-                    );
+                    if view.state.constraint.minimum_width() > width as f32
+                        || view.state.constraint.minimum_height() > height as f32
+                    {
+                        let min_width = view.widget.minimum_width();
+                        let min_height = view.widget.minimum_height();
+                        toplevel.set_min_size(conn, min_width as i32, min_height as i32);
+                        view.state.constraint =
+                            view.state.constraint.with_min(min_width, min_height);
+                    }
+                    if view.state.constraint.maximum_width() < width as f32
+                        || view.state.constraint.maximum_height() < height as f32
+                    {
+                        let max_width = view.widget.maximum_width();
+                        let max_height = view.widget.maximum_height();
+                        toplevel.set_max_size(conn, max_width as i32, max_height as i32);
+                    }
                     if width * height > 0 {
-                        view.state.constraint = BoxConstraints::new(
-                            (width as f32, height as f32),
-                            (width as f32, height as f32),
-                        );
+                        view.state.constraint =
+                            view.state.constraint.with_max(width as f32, height as f32);
                     }
                     view.state.window_state = list_states(states);
                     let mut ctx = SyncContext::new(&mut view.data, &mut self.cache);
@@ -1102,7 +1106,7 @@ where
                     view.surface.destroy(conn);
                     self.current = None;
                     let view = self.views.remove(i);
-                    self.pool.as_mut().unwrap().remove(&view.surface.wl_surface);
+                    self.pool.as_mut().unwrap().remove(&view.surface);
                 }
                 _ => {}
             }

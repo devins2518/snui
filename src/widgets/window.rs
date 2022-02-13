@@ -49,7 +49,7 @@ impl<D> Widget<D> for Close {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -112,7 +112,7 @@ impl<D> Widget<D> for Maximize {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -145,7 +145,7 @@ impl<D> Widget<D> for Minimize {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
         (self.width(), self.height())
     }
 }

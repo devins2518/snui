@@ -2,7 +2,7 @@ use scene::Instruction;
 use snui::mail::*;
 use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
-use snui::widgets::layout::simple::SimpleLayout;
+
 use snui::widgets::shapes::*;
 use snui::{
     widgets::{label::*, layout::dynamic::DynamicLayout, *},
@@ -140,7 +140,11 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         Damage::None
     }
     fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut context::LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(
+        &mut self,
+        _ctx: &mut context::LayoutCtx,
+        _constraints: &BoxConstraints,
+    ) -> (f32, f32) {
         (self.width(), self.height())
     }
 }
@@ -211,13 +215,14 @@ fn ui() -> impl Widget<Demo> {
             label: "frame rate".into(),
         }
         .clamp()
-        .with_size(40., 20.),
+        .with_height(20.),
     );
     ui.add(Animate::quadratic().clamp());
     ui.add(Animate::sinus().clamp());
 
     ui.add(
         Switch::new(Remote {})
+            .background(theme::BG0)
             .duration(600)
             .style()
             .background(theme::BG1)
