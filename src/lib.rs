@@ -299,39 +299,9 @@ impl<'d> Event<'d> {
     }
 }
 
-/// Core trait for layouting
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
-    fn set_width(&mut self, _width: f32) {}
-    fn set_height(&mut self, _height: f32) {}
-    fn set_size(&mut self, width: f32, height: f32) {
-        self.set_width(width);
-        self.set_height(height);
-    }
-    fn minimum_width(&self) -> f32 {
-        self.width()
-    }
-    fn minimum_height(&self) -> f32 {
-        self.height()
-    }
-    fn maximum_width(&self) -> f32 {
-        self.width()
-    }
-    fn maximum_height(&self) -> f32 {
-        self.height()
-    }
-    /// The ideal width the widget should have
-    fn width_hint(&self) -> f32 {
-        self.maximum_width()
-    }
-    /// The ideal height the widget should have
-    fn height_hint(&self) -> f32 {
-        self.maximum_height()
-    }
-    fn create_canvas(&self, transform: Transform) -> context::canvas::Canvas {
-        context::canvas::Canvas::new(transform, self.width(), self.height())
-    }
     fn contains(&self, x: f32, y: f32) -> bool {
         scene::Region::new(0., 0., self.width(), self.height()).contains(x, y)
     }
@@ -381,8 +351,6 @@ pub trait Widget<D>: Geometry {
     /// Creates the render node of the widget.
     fn create_node(&mut self, transform: Transform) -> RenderNode;
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
-    /// Singals there's an incomming draw
-    // TO-DO Add constraint
     /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size;
 }

@@ -61,30 +61,6 @@ where
             Direction::Inverted => self.size.height + self.widget.coords().y,
         }
     }
-    fn maximum_height(&self) -> f32 {
-        match self.state {
-            RevealerState::Running => self.width(),
-            _ => self.widget.maximum_height(),
-        }
-    }
-    fn minimum_height(&self) -> f32 {
-        match self.state {
-            RevealerState::Running => self.width(),
-            _ => self.widget.minimum_height(),
-        }
-    }
-    fn maximum_width(&self) -> f32 {
-        match self.state {
-            RevealerState::Running => self.width(),
-            _ => self.widget.maximum_width(),
-        }
-    }
-    fn minimum_width(&self) -> f32 {
-        match self.state {
-            RevealerState::Running => self.width(),
-            _ => self.widget.minimum_width(),
-        }
-    }
 }
 
 impl<M, E, W> GeometryExt for Revealer<M, E, W>

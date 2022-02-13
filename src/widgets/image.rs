@@ -55,28 +55,6 @@ impl Geometry for Image {
             0.
         }
     }
-    fn set_width(&mut self, width: f32) {
-        if let Some(image) = self.inner.as_mut() {
-            image.set_width(width)
-        }
-    }
-    fn set_height(&mut self, height: f32) {
-        if let Some(image) = self.inner.as_mut() {
-            image.set_height(height)
-        }
-    }
-    fn minimum_width(&self) -> f32 {
-        0.
-    }
-    fn minimum_height(&self) -> f32 {
-        0.
-    }
-    fn maximum_width(&self) -> f32 {
-        std::f32::INFINITY
-    }
-    fn maximum_height(&self) -> f32 {
-        std::f32::INFINITY
-    }
 }
 
 impl GeometryExt for Image {
@@ -107,7 +85,8 @@ impl<D> Widget<D> for Image {
             if let Ok(raw) = ctx.cache.image_cache.get(self.path.as_path()) {
                 let mut inner = InnerImage::from(raw);
                 if let Some((width, height)) = self.size.take() {
-                    let _ = inner.set_size(width as f32, height as f32);
+                    inner.width = width as f32;
+                    inner.height = height as f32;
                 }
                 self.inner = Some(inner);
             } else {
@@ -129,8 +108,8 @@ impl<D> Widget<D> for Image {
 pub struct InnerImage {
     raw: RawImage,
     scale: Scale,
-    width: f32,
-    height: f32,
+    pub(crate) width: f32,
+    pub(crate) height: f32,
 }
 
 impl From<RawImage> for InnerImage {
@@ -190,24 +169,6 @@ impl Geometry for InnerImage {
     }
     fn height(&self) -> f32 {
         self.height as f32
-    }
-    fn set_width(&mut self, width: f32) {
-        self.width = width.max(0.);
-    }
-    fn set_height(&mut self, height: f32) {
-        self.height = height.max(0.);
-    }
-    fn minimum_height(&self) -> f32 {
-        0.
-    }
-    fn maximum_height(&self) -> f32 {
-        std::f32::INFINITY
-    }
-    fn minimum_width(&self) -> f32 {
-        0.
-    }
-    fn maximum_width(&self) -> f32 {
-        std::f32::INFINITY
     }
 }
 

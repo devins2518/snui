@@ -209,18 +209,6 @@ where
     fn height(&self) -> f32 {
         self.body.height() + self.header.height()
     }
-    fn minimum_width(&self) -> f32 {
-        self.body.minimum_width()
-    }
-    fn maximum_width(&self) -> f32 {
-        self.header.maximum_width().min(self.body.maximum_width())
-    }
-    fn minimum_height(&self) -> f32 {
-        self.header.minimum_height() + self.body.minimum_height()
-    }
-    fn maximum_height(&self) -> f32 {
-        self.header.maximum_height() + self.body.maximum_height()
-    }
 }
 
 impl<D, H, W> Widget<D> for Window<H, W>
@@ -412,26 +400,8 @@ impl<W: Geometry> Geometry for Header<W> {
     fn width(&self) -> f32 {
         self.widget.width()
     }
-    fn set_width(&mut self, width: f32) {
-        self.widget.set_width(width)
-    }
     fn height(&self) -> f32 {
         self.widget.height()
-    }
-    fn set_height(&mut self, height: f32) {
-        self.widget.set_height(height)
-    }
-    fn minimum_width(&self) -> f32 {
-        self.widget.minimum_width()
-    }
-    fn maximum_width(&self) -> f32 {
-        self.widget.maximum_width()
-    }
-    fn minimum_height(&self) -> f32 {
-        self.widget.minimum_height()
-    }
-    fn maximum_height(&self) -> f32 {
-        self.widget.maximum_height()
     }
 }
 

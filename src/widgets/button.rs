@@ -38,24 +38,6 @@ where
     fn height(&self) -> f32 {
         self.proxy.height()
     }
-    fn set_width(&mut self, width: f32) {
-        self.proxy.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) {
-        self.proxy.set_height(height)
-    }
-    fn maximum_height(&self) -> f32 {
-        self.proxy.maximum_height()
-    }
-    fn minimum_height(&self) -> f32 {
-        self.proxy.minimum_height()
-    }
-    fn maximum_width(&self) -> f32 {
-        self.proxy.maximum_width()
-    }
-    fn minimum_width(&self) -> f32 {
-        self.proxy.minimum_width()
-    }
 }
 
 impl<D, W, F> Widget<D> for Button<D, W, F>

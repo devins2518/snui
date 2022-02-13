@@ -63,35 +63,19 @@ fn minimum_padding(radius: (f32, f32, f32, f32)) -> f32 {
 }
 
 impl<W: Geometry> Geometry for WidgetStyle<W> {
-    fn set_width(&mut self, width: f32) {
-        let border = self.border.1;
-        self.widget.set_width(width - 2. * border)
-    }
-    fn set_height(&mut self, height: f32) {
-        let border = self.border.1;
-        self.widget.set_height(height - 2. * border)
-    }
+    // fn set_width(&mut self, width: f32) {
+    //     let border = self.border.1;
+    //     self.widget.set_width(width - 2. * border)
+    // }
+    // fn set_height(&mut self, height: f32) {
+    //     let border = self.border.1;
+    //     self.widget.set_height(height - 2. * border)
+    // }
     fn width(&self) -> f32 {
         self.size.width + 2. * self.border.1
     }
     fn height(&self) -> f32 {
         self.size.height + 2. * self.border.1
-    }
-    fn maximum_height(&self) -> f32 {
-        let border = self.border.1;
-        self.widget.maximum_height() + border * 2.
-    }
-    fn minimum_height(&self) -> f32 {
-        let border = self.border.1;
-        self.widget.minimum_height() + border * 2.
-    }
-    fn maximum_width(&self) -> f32 {
-        let border = self.border.1;
-        self.widget.maximum_width() + border * 2.
-    }
-    fn minimum_width(&self) -> f32 {
-        let border = self.border.1;
-        self.widget.minimum_width() + border * 2.
     }
 }
 

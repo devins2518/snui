@@ -4,7 +4,7 @@ use scene::*;
 use std::ops::{Deref, DerefMut};
 use widgets::label::LabelRef;
 
-pub(crate) mod canvas {
+pub mod canvas {
     use crate::scene::*;
     use crate::widgets::shapes::*;
     use crate::*;

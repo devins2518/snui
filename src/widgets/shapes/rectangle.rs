@@ -155,6 +155,12 @@ impl Rectangle {
 
         pb.finish()
     }
+    fn minimum_height(&self) -> f32 {
+        self.radius.0 + self.radius.2
+    }
+    fn minimum_width(&self) -> f32 {
+        self.radius.1 + self.radius.3
+    }
 }
 
 impl Geometry for Rectangle {
@@ -173,24 +179,6 @@ impl Geometry for Rectangle {
             } else {
                 0.
             }
-    }
-    fn set_width(&mut self, width: f32) {
-        self.width = width.round().max(self.minimum_width());
-    }
-    fn set_height(&mut self, height: f32) {
-        self.height = height.round().max(self.minimum_height());
-    }
-    fn minimum_height(&self) -> f32 {
-        self.radius.0 + self.radius.2
-    }
-    fn maximum_height(&self) -> f32 {
-        std::f32::INFINITY
-    }
-    fn minimum_width(&self) -> f32 {
-        self.radius.1 + self.radius.3
-    }
-    fn maximum_width(&self) -> f32 {
-        std::f32::INFINITY
     }
 }
 
@@ -377,12 +365,14 @@ impl Style for Rectangle {
     }
     fn set_background<B: Into<Texture>>(&mut self, background: B) {
         let mut background = background.into();
-        if let Texture::Image(_, img) = &mut background {
-            img.set_size(self.width(), self.height());
+        if let Texture::Image(_, image) = &mut background {
+            image.width = self.width;
+            image.height = self.height;
         }
         match &mut background {
             Texture::Image(_, image) => {
-                image.set_size(self.width(), self.height());
+                image.width = self.width;
+                image.height = self.height;
             }
             _ => {}
         }
@@ -412,7 +402,8 @@ impl<D> Widget<D> for Rectangle {
                     Texture::Image(coords, image) => {
                         coords.x = transform.tx;
                         coords.y = transform.ty;
-                        image.set_size(self.width, self.height);
+                        image.width = self.width;
+                        image.height = self.height;
                     }
                     Texture::LinearGradient {
                         start,

@@ -284,20 +284,6 @@ impl Geometry for Primitive {
             Self::Rectangle(r) => r.height(),
         }
     }
-    fn set_height(&mut self, height: f32) {
-        match self {
-            Self::Other(primitive) => primitive.set_height(height),
-            Self::Label(l) => Geometry::set_height(l, height),
-            Self::Rectangle(r) => r.set_height(height),
-        }
-    }
-    fn set_width(&mut self, width: f32) {
-        match self {
-            Self::Other(primitive) => primitive.set_width(width),
-            Self::Label(l) => Geometry::set_width(l, width),
-            Self::Rectangle(r) => r.set_width(width),
-        }
-    }
 }
 
 impl Clone for Primitive {

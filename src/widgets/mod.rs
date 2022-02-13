@@ -139,30 +139,14 @@ impl<W: Geometry> Geometry for Padding<W> {
         let (top, _, bottom, _) = self.padding;
         self.widget.height() + top + bottom
     }
-    fn set_width(&mut self, width: f32) {
-        let (_, right, _, left) = self.padding;
-        self.widget.set_width(width - right - left)
-    }
-    fn set_height(&mut self, height: f32) {
-        let (top, _, bottom, _) = self.padding;
-        self.widget.set_height(height - top - bottom)
-    }
-    fn maximum_height(&self) -> f32 {
-        let (top, _, bottom, _) = self.padding;
-        self.widget.maximum_height() + top + bottom
-    }
-    fn minimum_height(&self) -> f32 {
-        let (top, _, bottom, _) = self.padding;
-        self.widget.minimum_height() + top + bottom
-    }
-    fn maximum_width(&self) -> f32 {
-        let (_, right, _, left) = self.padding;
-        self.widget.maximum_width() + right + left
-    }
-    fn minimum_width(&self) -> f32 {
-        let (_, right, _, left) = self.padding;
-        self.widget.minimum_width() + right + left
-    }
+    // fn set_width(&mut self, width: f32) {
+    //     let (_, right, _, left) = self.padding;
+    //     self.widget.set_width(width - right - left)
+    // }
+    // fn set_height(&mut self, height: f32) {
+    //     let (top, _, bottom, _) = self.padding;
+    //     self.widget.set_height(height - top - bottom)
+    // }
 }
 
 impl<D, W: Widget<D>> Widget<D> for Padding<W> {
@@ -291,6 +275,9 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
     fn height(&self) -> f32 {
         self.size.height
     }
+}
+
+impl<W> WidgetBox<W> {
     fn maximum_height(&self) -> f32 {
         match self.height {
             Some(l_height) => match self.constraint {
@@ -309,9 +296,6 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
             None => std::f32::INFINITY,
         }
     }
-}
-
-impl<W> WidgetBox<W> {
     fn minimum_width_from(&self, width: f32) -> f32 {
         match self.width {
             Some(l_width) => match self.constraint {

@@ -7,7 +7,7 @@ use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
 /// Widgets which contain one or more widgets
-pub trait Container<D, W>: Geometry
+pub trait Container<D, W>
 where
     W: Widget<D>,
 {
@@ -21,117 +21,6 @@ where
         self.remove(self.len() - 1)
     }
     fn widgets(&mut self) -> Vec<&mut W>;
-}
-
-#[derive(Clone, Debug, PartialEq, Copy)]
-enum Size {
-    Set(f32),
-    Var(f32),
-}
-
-impl From<Size> for f32 {
-    fn from(s: Size) -> f32 {
-        match s {
-            Size::Set(f) => f,
-            Size::Var(f) => f,
-        }
-    }
-}
-
-/// Takes a slice of widgets and does its best to ensure the layout respect the width contrain.
-pub fn apply_width<W: Geometry>(widgets: &mut [W], width: f32) -> f32 {
-    let mut delta: f32;
-    let mut c_width;
-    let mut extra = 0.;
-    let mut layout = widgets
-        .iter()
-        .map(|widget| {
-            (
-                widget.minimum_width(),
-                Size::Var(widget.minimum_width()),
-                widget.maximum_width(),
-            )
-        })
-        .collect::<Vec<(f32, Size, f32)>>();
-    let len = widgets.len();
-    let mut count = widgets.len();
-    let mut iter = (0..widgets.len()).cycle();
-    while {
-        c_width = layout.iter().map(|(_, s, _)| f32::from(*s)).sum();
-        delta = width - c_width;
-        delta > 0. && count > 0
-    } {
-        if let Some(i) = iter.next() {
-            let (min, size, max) = layout[i];
-            match size {
-                Size::Var(size) => {
-                    let u_width = (delta / (len - i) as f32) + size + extra;
-                    let size = (u_width).clamp(min, max).round();
-                    if u_width >= max {
-                        layout[i].1 = Size::Set(size);
-                        count -= 1;
-                        extra = 0.;
-                    } else {
-                        layout[i].1 = Size::Var(size);
-                        extra = u_width - size;
-                    }
-                }
-                Size::Set(_) => {}
-            }
-        }
-    }
-    for (i, (_, width, _)) in layout.into_iter().enumerate() {
-        let _ = widgets[i].set_width(width.into());
-    }
-    c_width
-}
-
-/// Takes a slice of widgets and does its best to ensure the layout respect the height contrain.
-pub fn apply_height<W: Geometry>(widgets: &mut [W], height: f32) -> f32 {
-    let mut delta: f32;
-    let mut c_height;
-    let mut extra = 0.;
-    let mut layout = widgets
-        .iter()
-        .map(|widget| {
-            (
-                widget.minimum_height(),
-                Size::Var(widget.minimum_height()),
-                widget.maximum_height(),
-            )
-        })
-        .collect::<Vec<(f32, Size, f32)>>();
-    let len = widgets.len();
-    let mut count = len;
-    let mut iter = (0..len).cycle();
-    while {
-        c_height = layout.iter().map(|(_, s, _)| f32::from(*s)).sum();
-        delta = height - c_height;
-        delta > 0. && count > 0
-    } {
-        if let Some(i) = iter.next() {
-            let (min, size, max) = layout[i];
-            match size {
-                Size::Var(size) => {
-                    let u_height = (delta / (len - i) as f32) + size + extra;
-                    let size = (u_height).clamp(min, max).round();
-                    if u_height >= max {
-                        layout[i].1 = Size::Set(size);
-                        count -= 1;
-                        extra = 0.;
-                    } else {
-                        layout[i].1 = Size::Var(size);
-                        extra = u_height - size;
-                    }
-                }
-                Size::Set(_) => {}
-            }
-        }
-    }
-    for (i, (_, height, _)) in layout.into_iter().enumerate() {
-        let _ = widgets[i].set_height(height.into());
-    }
-    c_height
 }
 
 /// Widget with relative positioning
@@ -170,26 +59,8 @@ impl<W: Geometry> Geometry for Positioner<W> {
     fn height(&self) -> f32 {
         self.widget.height()
     }
-    fn set_width(&mut self, width: f32) {
-        self.widget.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) {
-        self.widget.set_height(height)
-    }
     fn contains(&self, x: f32, y: f32) -> bool {
         self.widget.contains(x + self.coords.x, y + self.coords.y)
-    }
-    fn maximum_height(&self) -> f32 {
-        self.widget.maximum_height()
-    }
-    fn minimum_height(&self) -> f32 {
-        self.widget.minimum_height()
-    }
-    fn maximum_width(&self) -> f32 {
-        self.widget.maximum_width()
-    }
-    fn minimum_width(&self) -> f32 {
-        self.widget.minimum_width()
     }
 }
 

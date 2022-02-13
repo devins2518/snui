@@ -63,66 +63,6 @@ impl<W: Geometry> Geometry for DynamicLayout<W> {
                 .unwrap_or_default(),
         }
     }
-    fn maximum_height(&self) -> f32 {
-        match self.orientation {
-            Orientation::Vertical => self
-                .widgets
-                .iter()
-                .map(|widget| widget.maximum_height())
-                .sum(),
-            Orientation::Horizontal => self
-                .widgets
-                .iter()
-                .map(|widget| widget.maximum_height())
-                .reduce(|accum, height| accum.max(height))
-                .unwrap_or_default(),
-        }
-    }
-    fn maximum_width(&self) -> f32 {
-        match self.orientation {
-            Orientation::Horizontal => self
-                .widgets
-                .iter()
-                .map(|widget| widget.maximum_width())
-                .sum(),
-            Orientation::Vertical => self
-                .widgets
-                .iter()
-                .map(|widget| widget.maximum_width())
-                .reduce(|accum, width| accum.max(width))
-                .unwrap_or_default(),
-        }
-    }
-    fn minimum_height(&self) -> f32 {
-        match self.orientation {
-            Orientation::Vertical => self
-                .widgets
-                .iter()
-                .map(|widget| widget.minimum_height())
-                .sum(),
-            Orientation::Horizontal => self
-                .widgets
-                .iter()
-                .map(|widget| widget.minimum_height())
-                .reduce(|accum, height| accum.max(height))
-                .unwrap_or_default(),
-        }
-    }
-    fn minimum_width(&self) -> f32 {
-        match self.orientation {
-            Orientation::Horizontal => self
-                .widgets
-                .iter()
-                .map(|widget| widget.minimum_width())
-                .sum(),
-            Orientation::Vertical => self
-                .widgets
-                .iter()
-                .map(|widget| widget.minimum_width())
-                .reduce(|accum, width| accum.max(width))
-                .unwrap_or_default(),
-        }
-    }
 }
 
 impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {

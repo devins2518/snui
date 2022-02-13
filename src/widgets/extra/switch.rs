@@ -25,17 +25,11 @@ impl<M> Geometry for Switch<M> {
     fn height(&self) -> f32 {
         self.toggle.height()
     }
-    fn set_width(&mut self, width: f32) {
-        self.apply_width(width);
-    }
-    fn set_height(&mut self, height: f32) {
-        self.apply_height(height);
-    }
 }
 
 impl<M> GeometryExt for Switch<M> {
     fn apply_width(&mut self, width: f32) {
-        self.toggle.set_width(width / 2.);
+        self.toggle.apply_width(width / 2.);
         self.easer.set_amplitude(self.toggle.width() / 2.);
     }
     fn apply_height(&mut self, height: f32) {
