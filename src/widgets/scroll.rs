@@ -177,7 +177,8 @@ where
                 self.bound = constraints.minimum_height();
                 (self.size.width, self.bound)
             }
-        }.into()
+        }
+        .into()
     }
 }
 

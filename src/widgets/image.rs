@@ -221,7 +221,7 @@ impl<D> Widget<D> for InnerImage {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.width = self
             .width
             .clamp(constraints.minimum_width(), constraints.maximum_width());

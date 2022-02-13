@@ -154,24 +154,36 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
                 .iter_mut()
                 .map(|widget| {
                     widget.set_coords(dx, dy);
-                    let (inner_width, inner_height) =
-                        widget.layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.)).into();
+                    let (inner_width, inner_height) = widget
+                        .layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.))
+                        .into();
                     dy += inner_height + self.spacing;
                     Size::new(inner_width, inner_height)
                 })
-                .reduce(|accum, size| Size::new(accum.width.max(size.width), accum.height + size.height + self.spacing))
+                .reduce(|accum, size| {
+                    Size::new(
+                        accum.width.max(size.width),
+                        accum.height + size.height + self.spacing,
+                    )
+                })
                 .unwrap_or_default(),
             Orientation::Horizontal => self
                 .widgets
                 .iter_mut()
                 .map(|widget| {
                     widget.set_coords(dx, dy);
-                    let (inner_width, inner_height) =
-                        widget.layout(ctx, &constraints.with_max(0., constraints.maximum_height())).into();
+                    let (inner_width, inner_height) = widget
+                        .layout(ctx, &constraints.with_max(0., constraints.maximum_height()))
+                        .into();
                     dx += inner_width + self.spacing;
                     Size::new(inner_width, inner_height)
                 })
-                .reduce(|accum, size| Size::new(accum.width + size.width + self.spacing, accum.height.max(size.height)))
+                .reduce(|accum, size| {
+                    Size::new(
+                        accum.width + size.width + self.spacing,
+                        accum.height.max(size.height),
+                    )
+                })
                 .unwrap_or_default(),
         }
     }

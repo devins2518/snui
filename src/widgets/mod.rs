@@ -67,7 +67,7 @@ impl<D> Widget<D> for () {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         (0., 0.).into()
     }
 }
@@ -95,7 +95,7 @@ impl<D> Widget<D> for Spacer {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         (self.width, self.height).into()
     }
 }
@@ -184,7 +184,8 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
         let (top, right, bottom, left) = self.padding;
         let (width, height) = self
             .widget
-            .layout(ctx, &constraints.crop(left + right, top + bottom)).into();
+            .layout(ctx, &constraints.crop(left + right, top + bottom))
+            .into();
         (width + left + right, height + top + bottom).into()
     }
 }
@@ -350,36 +351,42 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
         self.widget.create_node(transform)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        let (inner_width, inner_height) = self.widget.layout(
-            ctx,
-            &constraints
-                .with_min(
-                    self.minimum_width_from(constraints.minimum_width()),
-                    self.minimum_height_from(constraints.minimum_height()),
-                )
-                .with_max(
-                    self.maximum_width().min(constraints.maximum_width()),
-                    self.maximum_height().min(constraints.maximum_height()),
-                )
-        ).into();
-        let width = match self.width {
+        let mut width = match self.width {
             Some(l_width) => match self.constraint {
-                Constraint::Fixed => l_width.min(constraints.minimum_width()),
-                Constraint::Upward => inner_width.min(l_width).min(constraints.maximum_width()),
-                Constraint::Downward => inner_width.max(l_width).max(constraints.minimum_width()),
+                Constraint::Fixed => l_width,
+                Constraint::Upward => l_width.min(constraints.maximum_width()),
+                Constraint::Downward => l_width.max(constraints.minimum_width()),
             },
-            None => inner_width.max(constraints.minimum_width()),
+            None => constraints.minimum_width(),
         };
-        let height = match self.height {
+        let mut height = match self.height {
             Some(l_height) => match self.constraint {
-                Constraint::Fixed => l_height.min(constraints.minimum_height()),
-                Constraint::Upward => inner_height.min(l_height).min(constraints.maximum_height()),
-                Constraint::Downward => {
-                    inner_height.max(l_height).max(constraints.minimum_height())
-                }
+                Constraint::Fixed => l_height,
+                Constraint::Upward => l_height.min(constraints.maximum_height()),
+                Constraint::Downward => l_height.max(constraints.minimum_height()),
             },
-            None => inner_height.max(constraints.minimum_height()),
+            None => constraints.minimum_height(),
         };
+        let (inner_width, inner_height) = self
+            .widget
+            .layout(
+                ctx,
+                &match self.constraint {
+                    Constraint::Fixed => BoxConstraints::new((width, height), (width, height)),
+                    _ => constraints
+                        .with_min(
+                            self.minimum_width_from(constraints.minimum_width()),
+                            self.minimum_height_from(constraints.minimum_height()),
+                        )
+                        .with_max(
+                            self.maximum_width().min(constraints.maximum_width()),
+                            self.maximum_height().min(constraints.maximum_height()),
+                        ),
+                },
+            )
+            .into();
+        width = width.max(inner_width);
+        height = height.max(inner_height);
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
             Alignment::Start => 0.,

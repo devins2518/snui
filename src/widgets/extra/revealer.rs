@@ -1,6 +1,3 @@
-use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::__interfaces::zwlr_layer_shell_v1_interface;
-use smithay_client_toolkit::seat::SeatHandler;
-
 use crate::scene::Region;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::Style;
@@ -191,7 +188,8 @@ where
                 Direction::Normal => (r_width, height - y),
                 Direction::Inverted => (r_width, height + y),
             },
-        }.into()
+        }
+        .into()
     }
 }
 

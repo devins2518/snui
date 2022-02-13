@@ -48,7 +48,7 @@ impl<D> Widget<D> for Close {
         }
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         (self.width(), self.height()).into()
     }
 }
@@ -100,17 +100,20 @@ impl<D> Widget<D> for Maximize {
                     }
                 }
             }
-            Event::Configure(state) => {
-                self.maximized = state
-                    .iter()
-                    .find(|s| WindowState::Maximized.eq(s))
-                    .is_some();
+            Event::Draw => {
+                if let Some(handle) = ctx.handle() {
+                    self.maximized = handle
+                        .get_state()
+                        .iter()
+                        .find(|s| WindowState::Maximized.eq(s))
+                        .is_some();
+                }
             }
             _ => {}
         }
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         (self.width(), self.height()).into()
     }
 }
@@ -142,7 +145,7 @@ impl<D> Widget<D> for Minimize {
         }
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         (self.width(), self.height()).into()
     }
 }
@@ -309,11 +312,15 @@ where
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (b_width, b_height) = self
             .body
-            .layout(ctx, &constraints.crop(0., self.header.height())).into();
-        let (h_width, h_height) = self.header.layout(
-            ctx,
-            &constraints.with_min(b_width, 0.).with_max(b_width, 0.),
-        ).into();
+            .layout(ctx, &constraints.crop(0., self.body.coords().y))
+            .into();
+        let (h_width, h_height) = self
+            .header
+            .layout(
+                ctx,
+                &constraints.with_min(b_width, 0.).with_max(b_width, 0.),
+            )
+            .into();
         (b_width.min(h_width), h_height + b_height).into()
     }
 }

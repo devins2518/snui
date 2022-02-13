@@ -153,18 +153,22 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
                     .map(move |(i, widget)| {
                         widget.set_coords(0., dy);
                         let min_height = constraints.minimum_height() / (len - i) as f32 + delta;
-                        let (width, height) = widget.layout(
-                            ctx,
-                            &constraints.with_min(
-                                constraints.minimum_width(),
-                                min_height.min(constraints.maximum_height()) - dy,
-                            ),
-                        ).into();
+                        let (width, height) = widget
+                            .layout(
+                                ctx,
+                                &constraints.with_min(
+                                    constraints.minimum_width(),
+                                    min_height.min(constraints.maximum_height()) - dy,
+                                ),
+                            )
+                            .into();
                         delta = min_height - height;
                         dy += height;
                         Size::new(width, height)
                     })
-                    .reduce(|accum, size| Size::new(accum.width.max(size.width), accum.height + size.height))
+                    .reduce(|accum, size| {
+                        Size::new(accum.width.max(size.width), accum.height + size.height)
+                    })
                     .unwrap_or_default()
             }
             Orientation::Horizontal => {
@@ -176,18 +180,22 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
                     .map(move |(i, widget)| {
                         let min_width = constraints.minimum_width() / (len - i) as f32 + delta;
                         widget.set_coords(dx, 0.);
-                        let (width, height) = widget.layout(
-                            ctx,
-                            &constraints.with_min(
-                                min_width.min(constraints.maximum_width()) - dx,
-                                constraints.minimum_height(),
-                            ),
-                        ).into();
+                        let (width, height) = widget
+                            .layout(
+                                ctx,
+                                &constraints.with_min(
+                                    min_width.min(constraints.maximum_width()) - dx,
+                                    constraints.minimum_height(),
+                                ),
+                            )
+                            .into();
                         delta = min_width - width;
                         dx += width;
                         Size::new(width, height)
                     })
-                    .reduce(|accum, size| Size::new(accum.width + size.width, accum.height.max(size.height)))
+                    .reduce(|accum, size| {
+                        Size::new(accum.width + size.width, accum.height.max(size.height))
+                    })
                     .unwrap_or_default();
                 f
             }

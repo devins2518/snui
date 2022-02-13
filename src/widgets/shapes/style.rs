@@ -274,7 +274,7 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
         let size = self
             .widget
             .layout(ctx, &constraints.crop(border_size * 2., border_size * 2.));
-        self.size = size;
+        self.size = size.round();
         let (width, height) = self.size.into();
         (width + 2. * border_size, height + 2. * border_size).into()
     }

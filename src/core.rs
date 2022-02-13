@@ -70,12 +70,15 @@ impl Cursor {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Size {
     pub width: f32,
-    pub height: f32
+    pub height: f32,
 }
 
 impl Size {
     pub fn new(width: f32, height: f32) -> Self {
         Size { width, height }
+    }
+    pub fn round(&self) -> Self {
+        Size::new(self.width.round(), self.height.round())
     }
 }
 
@@ -86,7 +89,7 @@ impl From<(f32, f32)> for Size {
 }
 
 impl From<Size> for (f32, f32) {
-    fn from(Size {width, height}: Size) -> Self {
+    fn from(Size { width, height }: Size) -> Self {
         (width, height)
     }
 }
@@ -114,7 +117,10 @@ impl Default for BoxConstraints {
 
 impl BoxConstraints {
     pub fn new<S: Into<Size>>(minimum: S, maximum: S) -> Self {
-        BoxConstraints { minimum: minimum.into(), maximum: maximum.into() }
+        BoxConstraints {
+            minimum: minimum.into(),
+            maximum: maximum.into(),
+        }
     }
     pub fn loosen(&self) -> Self {
         BoxConstraints {

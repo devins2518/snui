@@ -436,13 +436,15 @@ impl<D> Widget<D> for Rectangle {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.width = self
             .width
-            .clamp(constraints.minimum_width(), constraints.maximum_width()).round();
+            .clamp(constraints.minimum_width(), constraints.maximum_width())
+            .round();
         self.height = self
             .width
-            .clamp(constraints.minimum_height(), constraints.maximum_height()).round();
+            .clamp(constraints.minimum_height(), constraints.maximum_height())
+            .round();
         (self.width, self.height).into()
     }
 }

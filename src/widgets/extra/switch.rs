@@ -118,7 +118,7 @@ where
         }
         Damage::None
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         (self.width(), self.height()).into()
     }
 }

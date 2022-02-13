@@ -149,7 +149,7 @@ impl<D> Widget<D> for Label {
             Damage::None
         }
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout(&mut self, ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         if self.size.is_none() {
             let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
             // self.settings.max_width = Some(constraints.maximum_width());
