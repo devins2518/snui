@@ -146,12 +146,7 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
             .max()
             .unwrap_or_default()
     }
-    fn prepare_draw(&mut self) {
-        for widget in self.widgets.iter_mut() {
-            widget.prepare_draw()
-        }
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (mut dx, mut dy) = (0., 0.);
         match self.orientation {
             Orientation::Vertical => self
@@ -160,11 +155,11 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
                 .map(|widget| {
                     widget.set_coords(dx, dy);
                     let (inner_width, inner_height) =
-                        widget.layout(ctx, &constraints.with_max(0., 0.));
+                        widget.layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.)).into();
                     dy += inner_height + self.spacing;
-                    (inner_width, inner_height)
+                    Size::new(inner_width, inner_height)
                 })
-                .reduce(|accum, size| (accum.0.max(size.0), accum.1 + size.1 + self.spacing))
+                .reduce(|accum, size| Size::new(accum.width.max(size.width), accum.height + size.height + self.spacing))
                 .unwrap_or_default(),
             Orientation::Horizontal => self
                 .widgets
@@ -172,11 +167,11 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
                 .map(|widget| {
                     widget.set_coords(dx, dy);
                     let (inner_width, inner_height) =
-                        widget.layout(ctx, &constraints.with_max(0., 0.));
+                        widget.layout(ctx, &constraints.with_max(0., constraints.maximum_height())).into();
                     dx += inner_width + self.spacing;
-                    (inner_width, inner_height)
+                    Size::new(inner_width, inner_height)
                 })
-                .reduce(|accum, size| (accum.0 + size.0 + self.spacing, accum.1.max(size.1)))
+                .reduce(|accum, size| Size::new(accum.width + size.width + self.spacing, accum.height.max(size.height)))
                 .unwrap_or_default(),
         }
     }

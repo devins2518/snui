@@ -117,8 +117,7 @@ impl<D> Widget<D> for Image {
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.inner
             .as_mut()
             .map(|inner| Widget::<()>::layout(inner, ctx, constraints))
@@ -222,9 +221,14 @@ impl<D> Widget<D> for InnerImage {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        self.width = self
+            .width
+            .clamp(constraints.minimum_width(), constraints.maximum_width());
+        self.height = self
+            .width
+            .clamp(constraints.minimum_height(), constraints.maximum_height());
+        (self.width, self.height).into()
     }
 }
 

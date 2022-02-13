@@ -67,9 +67,8 @@ impl<D> Widget<D> for () {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx, _: &BoxConstraints) -> (f32, f32) {
-        (0., 0.)
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (0., 0.).into()
     }
 }
 
@@ -96,9 +95,8 @@ impl<D> Widget<D> for Spacer {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _: &mut LayoutCtx, _: &BoxConstraints) -> (f32, f32) {
-        (self.width, self.height)
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (self.width, self.height).into()
     }
 }
 
@@ -182,15 +180,12 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
             self.widget.sync(ctx, event)
         }
     }
-    fn prepare_draw(&mut self) {
-        self.widget.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (top, right, bottom, left) = self.padding;
         let (width, height) = self
             .widget
-            .layout(ctx, &constraints.crop(left + right, top + bottom));
-        (width + left + right, height + top + bottom)
+            .layout(ctx, &constraints.crop(left + right, top + bottom)).into();
+        (width + left + right, height + top + bottom).into()
     }
 }
 
@@ -283,25 +278,17 @@ pub struct WidgetBox<W> {
     pub(crate) widget: Positioner<W>,
     width: Option<f32>,
     height: Option<f32>,
-    size: (f32, f32),
+    size: Size,
     constraint: Constraint,
     anchor: (Alignment, Alignment),
 }
 
 impl<W: Geometry> Geometry for WidgetBox<W> {
     fn width(&self) -> f32 {
-        self.size.0.max(self.minimum_width())
+        self.size.width
     }
     fn height(&self) -> f32 {
-        self.size.1.max(self.minimum_height())
-    }
-    fn set_width(&mut self, width: f32) {
-        let c_width = width.clamp(self.minimum_width(), self.maximum_width());
-        self.size.0 = c_width;
-    }
-    fn set_height(&mut self, height: f32) {
-        let c_height = height.clamp(self.minimum_height(), self.maximum_height());
-        self.size.1 = c_height;
+        self.size.height
     }
     fn maximum_height(&self) -> f32 {
         match self.height {
@@ -312,9 +299,6 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
             None => std::f32::INFINITY,
         }
     }
-    fn minimum_height(&self) -> f32 {
-        self.minimum_height_from(self.widget.minimum_height())
-    }
     fn maximum_width(&self) -> f32 {
         match self.width {
             Some(l_width) => match self.constraint {
@@ -323,9 +307,6 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
             },
             None => std::f32::INFINITY,
         }
-    }
-    fn minimum_width(&self) -> f32 {
-        self.minimum_width_from(self.widget.minimum_width())
     }
 }
 
@@ -368,21 +349,37 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         self.widget.create_node(transform)
     }
-    fn prepare_draw(&mut self) {
-        self.widget.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (inner_width, inner_height) = self.widget.layout(
             ctx,
             &constraints
-                .with_max(self.maximum_width(), self.maximum_height())
                 .with_min(
                     self.minimum_width_from(constraints.minimum_width()),
                     self.minimum_height_from(constraints.minimum_height()),
-                ),
-        );
-        let width = self.size.0.max(self.minimum_width_from(inner_width));
-        let height = self.size.1.max(self.minimum_height_from(inner_height));
+                )
+                .with_max(
+                    self.maximum_width().min(constraints.maximum_width()),
+                    self.maximum_height().min(constraints.maximum_height()),
+                )
+        ).into();
+        let width = match self.width {
+            Some(l_width) => match self.constraint {
+                Constraint::Fixed => l_width.min(constraints.minimum_width()),
+                Constraint::Upward => inner_width.min(l_width).min(constraints.maximum_width()),
+                Constraint::Downward => inner_width.max(l_width).max(constraints.minimum_width()),
+            },
+            None => inner_width.max(constraints.minimum_width()),
+        };
+        let height = match self.height {
+            Some(l_height) => match self.constraint {
+                Constraint::Fixed => l_height.min(constraints.minimum_height()),
+                Constraint::Upward => inner_height.min(l_height).min(constraints.maximum_height()),
+                Constraint::Downward => {
+                    inner_height.max(l_height).max(constraints.minimum_height())
+                }
+            },
+            None => inner_height.max(constraints.minimum_height()),
+        };
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
             Alignment::Start => 0.,
@@ -394,15 +391,16 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
             Alignment::Center => ((height - inner_height) / 2.).floor(),
             Alignment::End => (height - inner_height).floor(),
         };
+        self.size = (width, height).into();
         self.widget.set_coords(dx, dy);
-        (width, height)
+        self.size.into()
     }
 }
 
 impl<W: Geometry> WidgetBox<W> {
     pub fn new(widget: W) -> Self {
         Self {
-            size: (widget.width(), widget.height()),
+            size: Size::new(0., 0.),
             widget: Positioner::new(widget),
             width: None,
             height: None,

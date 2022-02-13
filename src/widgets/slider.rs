@@ -218,7 +218,7 @@ where
                     }
                 }
             }
-            Event::Configure(_) | Event::Sync => {
+            Event::Draw | Event::Sync => {
                 if let Some(ratio) = ctx.get(self.message) {
                     match &self.orientation {
                         Orientation::Horizontal => {
@@ -242,13 +242,8 @@ where
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
-        let (width, height) = Widget::<()>::layout(&mut self.slider, ctx, constraints);
-        match self.orientation {
-            Orientation::Horizontal => (self.size, height),
-            Orientation::Vertical => (width, self.size),
-        }
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (self.width(), self.height()).into()
     }
 }
 

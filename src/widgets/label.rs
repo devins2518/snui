@@ -15,7 +15,7 @@ pub struct Label {
     pub(crate) color: Color,
     pub(crate) settings: LayoutSettings,
     pub(crate) fonts: Vec<FontProperty>,
-    pub(crate) size: Option<(f32, f32)>,
+    pub(crate) size: Option<Size>,
 }
 
 /// A reference to a Label.
@@ -129,10 +129,10 @@ impl Label {
 
 impl Geometry for Label {
     fn width(&self) -> f32 {
-        self.size.unwrap_or_default().0
+        self.size.unwrap_or_default().width
     }
     fn height(&self) -> f32 {
-        self.size.unwrap_or_default().1
+        self.size.unwrap_or_default().height
     }
 }
 
@@ -149,15 +149,16 @@ impl<D> Widget<D> for Label {
             Damage::None
         }
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
-        // self.settings.max_width = Some(constraints.maximum_width());
-        // self.settings.max_height = Some(constraints.maximum_height());
-        let layout = fc.layout(self.as_ref()).clone();
-        let size = cache::font::get_size(&layout);
-        self.size = Some(size);
-        size
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        if self.size.is_none() {
+            let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
+            // self.settings.max_width = Some(constraints.maximum_width());
+            // self.settings.max_height = Some(constraints.maximum_height());
+            let layout = fc.layout(self.as_ref()).clone();
+            let size = cache::font::get_size(&layout);
+            self.size = Some(size.into());
+        }
+        self.size.unwrap_or_default()
     }
 }
 
@@ -199,8 +200,7 @@ where
         }
         self.label.sync(ctx, event)
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         Widget::<()>::layout(&mut self.label, ctx, constraints)
     }
 }

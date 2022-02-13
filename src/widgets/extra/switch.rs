@@ -118,9 +118,8 @@ where
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (self.width(), self.height()).into()
     }
 }
 

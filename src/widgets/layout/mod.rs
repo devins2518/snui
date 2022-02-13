@@ -210,13 +210,13 @@ impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
         };
         self.old_coords
             .ne(&self.coords)
-            .then(|| damage.max(Damage::Partial))
+            .then(|| {
+                self.old_coords = self.coords;
+                damage.max(Damage::Partial)
+            })
             .unwrap_or(damage)
     }
-    fn prepare_draw(&mut self) {
-        self.widget.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> crate::Size {
         self.widget.layout(ctx, constraints)
     }
 }

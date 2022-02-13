@@ -82,10 +82,7 @@ where
         }
         self.proxy.sync(ctx, event)
     }
-    fn prepare_draw(&mut self) {
-        self.proxy.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.proxy.layout(ctx, constraints)
     }
 }

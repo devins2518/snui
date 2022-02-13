@@ -15,7 +15,8 @@ pub trait Scrollable {
 }
 
 pub struct ScrollBox<W> {
-    size: f32,
+    bound: f32,
+    size: Size,
     orientation: Orientation,
     widget: Positioner<Proxy<W>>,
 }
@@ -23,9 +24,10 @@ pub struct ScrollBox<W> {
 impl<W> ScrollBox<W> {
     pub fn new(widget: W) -> Self {
         Self {
+            size: Size::default(),
             widget: child(widget),
             orientation: Orientation::Vertical,
-            size: 100.,
+            bound: 100.,
         }
     }
     pub fn set_orientation(&mut self, orientation: Orientation) {
@@ -57,15 +59,15 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
         match self.orientation {
             Orientation::Horizontal => match step {
                 Some(delta) => {
-                    coords.x = (coords.x - delta).max((self.size - self.inner_width()).min(0.))
+                    coords.x = (coords.x - delta).max((self.bound - self.size.width).min(0.))
                 }
-                None => coords.x = (coords.x - 10.).min((self.size - self.inner_width()).min(0.)),
+                None => coords.x = (coords.x - 10.).min((self.bound - self.size.width).min(0.)),
             },
             Orientation::Vertical => match step {
                 Some(delta) => {
-                    coords.y = (coords.y - delta).max((self.size - self.inner_height()).min(0.))
+                    coords.y = (coords.y - delta).max((self.bound - self.size.height).min(0.))
                 }
-                None => coords.y = (coords.y - 10.).min((self.size - self.inner_height()).min(0.)),
+                None => coords.y = (coords.y - 10.).min((self.bound - self.size.height).min(0.)),
             },
         }
         self.widget.swap(coords);
@@ -77,10 +79,10 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
         }
     }
     fn inner_width(&self) -> f32 {
-        self.widget.width()
+        self.size.width
     }
     fn inner_height(&self) -> f32 {
-        self.widget.height()
+        self.size.width
     }
     fn orientation(&self) -> Orientation {
         self.orientation
@@ -90,18 +92,14 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
 impl<W: Geometry> GeometryExt for ScrollBox<W> {
     fn apply_width(&mut self, width: f32) {
         match self.orientation {
-            Orientation::Horizontal => self.size = width,
-            _ => {
-                self.widget.set_width(width);
-            }
+            Orientation::Horizontal => self.bound = width,
+            _ => {}
         }
     }
     fn apply_height(&mut self, height: f32) {
         match self.orientation {
-            Orientation::Vertical => self.size = height,
-            _ => {
-                self.widget.set_height(height);
-            }
+            Orientation::Vertical => self.bound = height,
+            _ => {}
         }
     }
 }
@@ -109,56 +107,14 @@ impl<W: Geometry> GeometryExt for ScrollBox<W> {
 impl<W: Geometry> Geometry for ScrollBox<W> {
     fn width(&self) -> f32 {
         match self.orientation {
-            Orientation::Horizontal => self.size,
+            Orientation::Horizontal => self.bound,
             _ => self.widget.width(),
         }
     }
     fn height(&self) -> f32 {
         match self.orientation {
-            Orientation::Vertical => self.size,
+            Orientation::Vertical => self.bound,
             _ => self.widget.height(),
-        }
-    }
-    fn set_width(&mut self, width: f32) {
-        let c_width = width.clamp(self.minimum_width(), self.maximum_width());
-        match self.orientation {
-            Orientation::Horizontal => {
-                self.size = c_width;
-            }
-            Orientation::Vertical => self.widget.set_width(c_width),
-        }
-    }
-    fn set_height(&mut self, height: f32) {
-        let c_height = height.clamp(self.minimum_height(), self.maximum_height());
-        match self.orientation {
-            Orientation::Vertical => {
-                self.size = c_height;
-            }
-            Orientation::Horizontal => self.widget.set_height(c_height),
-        }
-    }
-    fn maximum_height(&self) -> f32 {
-        match self.orientation {
-            Orientation::Vertical => std::f32::INFINITY,
-            _ => self.widget.maximum_height(),
-        }
-    }
-    fn minimum_height(&self) -> f32 {
-        match self.orientation {
-            Orientation::Vertical => 0.,
-            _ => self.widget.minimum_height(),
-        }
-    }
-    fn maximum_width(&self) -> f32 {
-        match self.orientation {
-            Orientation::Horizontal => std::f32::INFINITY,
-            _ => self.widget.maximum_width(),
-        }
-    }
-    fn minimum_width(&self) -> f32 {
-        match self.orientation {
-            Orientation::Horizontal => 0.,
-            _ => self.widget.minimum_width(),
         }
     }
 }
@@ -169,7 +125,7 @@ where
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         if let Some(node) = self.widget.create_node(transform).as_option() {
-            let region = Region::from_transform(transform, self.width(), self.height());
+            let region = Region::from_transform(transform, self.size.width, self.size.width);
             RenderNode::Clip(region.into(), Box::new(node))
         } else {
             RenderNode::None
@@ -179,7 +135,6 @@ where
         match event {
             Event::Pointer(_, _, p) => match p {
                 Pointer::Scroll { orientation, step } => {
-                    let coords = self.widget.coords();
                     if orientation == self.orientation {
                         match step {
                             Step::Increment(i) => {
@@ -201,32 +156,28 @@ where
                                 }
                             }
                         }
-                        if coords != self.widget.coords() {
-                            self.prepare_draw();
-                        }
                     }
-                    self.widget.sync(ctx, event)
+                    self.widget
+                        .sync(ctx, event)
+                        .max(self.widget.sync(ctx, Event::Draw))
                 }
                 _ => self.widget.sync(ctx, event),
             },
             _ => self.widget.sync(ctx, event),
         }
     }
-    fn prepare_draw(&mut self) {
-        self.widget.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
-        let (width, height) = self.widget.layout(ctx, constraints);
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        self.size = self.widget.layout(ctx, constraints);
         match self.orientation {
             Orientation::Horizontal => {
-                self.size = self.size.max(constraints.minimum_width());
-                (self.size, height)
+                self.bound = constraints.minimum_width();
+                (self.bound, self.size.height)
             }
             Orientation::Vertical => {
-                self.size = self.size.max(constraints.minimum_height());
-                (width, self.size)
+                self.bound = constraints.minimum_height();
+                (self.size.width, self.bound)
             }
-        }
+        }.into()
     }
 }
 

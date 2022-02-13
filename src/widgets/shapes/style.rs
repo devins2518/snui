@@ -10,6 +10,7 @@ use widgets::Padding;
 /// Any widget can be wrapped in a WidgetStyle and take advantage of the Style trait.
 #[derive(Debug)]
 pub struct WidgetStyle<W> {
+    size: Size,
     widget: Padding<W>,
     radius: (f32, f32, f32, f32),
     background: Texture,
@@ -19,17 +20,12 @@ pub struct WidgetStyle<W> {
 impl<W: Geometry> WidgetStyle<W> {
     pub fn new(widget: W) -> Self {
         WidgetStyle {
+            size: Size::new(0., 0.),
             widget: Padding::new(widget),
             background: Texture::Transparent,
             border: (Texture::Transparent, 0.),
             radius: (0., 0., 0., 0.),
         }
-    }
-    fn inner_width(&self) -> f32 {
-        self.widget.width()
-    }
-    fn inner_height(&self) -> f32 {
-        self.widget.height()
     }
     pub fn padding_top(mut self, padding: f32) -> Self {
         self.widget.set_padding_top(padding);
@@ -76,10 +72,10 @@ impl<W: Geometry> Geometry for WidgetStyle<W> {
         self.widget.set_height(height - 2. * border)
     }
     fn width(&self) -> f32 {
-        self.inner_width() + 2. * self.border.1
+        self.size.width + 2. * self.border.1
     }
     fn height(&self) -> f32 {
-        self.inner_height() + 2. * self.border.1
+        self.size.height + 2. * self.border.1
     }
     fn maximum_height(&self) -> f32 {
         let border = self.border.1;
@@ -215,8 +211,8 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
             .create_node(transform.pre_translate(border_size, border_size))
             .as_option()
         {
-            let width = self.inner_width();
-            let height = self.inner_height();
+            let width = self.size.width;
+            let height = self.size.height;
             match &mut self.background {
                 Texture::Image(coords, _) => {
                     coords.x = x + border_size;
@@ -273,15 +269,14 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
             self.widget.sync(ctx, event)
         }
     }
-    fn prepare_draw(&mut self) {
-        self.widget.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let border_size = self.border.1;
-        let (width, height) = self
+        let size = self
             .widget
             .layout(ctx, &constraints.crop(border_size * 2., border_size * 2.));
-        (width + 2. * border_size, height + 2. * border_size)
+        self.size = size;
+        let (width, height) = self.size.into();
+        (width + 2. * border_size, height + 2. * border_size).into()
     }
 }
 

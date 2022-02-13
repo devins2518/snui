@@ -1,3 +1,6 @@
+use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::__interfaces::zwlr_layer_shell_v1_interface;
+use smithay_client_toolkit::seat::SeatHandler;
+
 use crate::scene::Region;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::Style;
@@ -38,6 +41,7 @@ where
     message: M,
     easer: E,
     duration: u32,
+    size: Size,
     direction: Direction,
     state: RevealerState,
     orientation: Orientation,
@@ -50,26 +54,14 @@ where
 {
     fn width(&self) -> f32 {
         match self.direction {
-            Direction::Normal => self.widget.width() - self.widget.coords().x,
-            Direction::Inverted => self.widget.width() + self.widget.coords().x,
+            Direction::Normal => self.size.width - self.widget.coords().x,
+            Direction::Inverted => self.size.width + self.widget.coords().x,
         }
     }
     fn height(&self) -> f32 {
         match self.direction {
-            Direction::Normal => self.widget.height() - self.widget.coords().y,
-            Direction::Inverted => self.widget.height() + self.widget.coords().y,
-        }
-    }
-    fn set_width(&mut self, width: f32) {
-        match self.state {
-            RevealerState::Revealed => self.widget.set_width(width),
-            _ => {}
-        }
-    }
-    fn set_height(&mut self, height: f32) {
-        match self.state {
-            RevealerState::Revealed => self.widget.set_height(height),
-            _ => {}
+            Direction::Normal => self.size.height - self.widget.coords().y,
+            Direction::Inverted => self.size.height + self.widget.coords().y,
         }
     }
     fn maximum_height(&self) -> f32 {
@@ -119,16 +111,23 @@ where
     D: Mail<M, RevealerState, RevealerAction>,
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if let Some(node) = self.widget.create_node(transform).as_option() {
-            let region =
-                Region::from_transform(transform, self.widget.width(), self.widget.height());
-            RenderNode::Clip(region.into(), Box::new(node))
-        } else {
-            RenderNode::None
+        match self.state {
+            RevealerState::Hidden => RenderNode::None,
+            _ => {
+                if let Some(node) = self.widget.create_node(transform).as_option() {
+                    let region = Region::from_transform(
+                        transform,
+                        self.widget.width(),
+                        self.widget.height(),
+                    );
+                    RenderNode::Clip(region.into(), Box::new(node))
+                } else {
+                    RenderNode::None
+                }
+            }
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        let d = self.widget.sync(ctx, event);
         match event {
             Event::Sync => {
                 if self.state != RevealerState::Running {
@@ -137,13 +136,13 @@ where
                             RevealerAction::Reveal => {
                                 if self.state == RevealerState::Hidden {
                                     self.reveal();
-                                    return d.max(Damage::Frame);
+                                    return self.widget.sync(ctx, event).max(Damage::Frame);
                                 }
                             }
                             RevealerAction::Hide => {
                                 if self.state == RevealerState::Revealed {
                                     self.hide();
-                                    return d.max(Damage::Frame);
+                                    return self.widget.sync(ctx, event).max(Damage::Frame);
                                 }
                             }
                         }
@@ -165,49 +164,42 @@ where
                                     RevealerAction::Hide => RevealerState::Hidden,
                                     RevealerAction::Reveal => RevealerState::Revealed,
                                 };
-                                return d.max(Damage::Partial);
+                                self.widget.sync(ctx, Event::Draw);
+                                return self.widget.sync(ctx, event).max(Damage::Partial);
                             }
                         }
                     }
-                    self.widget.prepare_draw();
-                    return d.max(Damage::Frame);
+                    // Guarantees the child will be rendered
+                    self.widget.sync(ctx, Event::Draw);
+                    return self.widget.sync(ctx, event).max(Damage::Frame);
                 }
             }
             _ => {}
         }
-        d
+        self.widget.sync(ctx, event)
     }
-    fn prepare_draw(&mut self) {
-        let direction = match self.direction {
-            Direction::Normal => 1.,
-            Direction::Inverted => -1.,
-        };
-        if let RevealerState::Hidden = self.state {
-            match self.orientation {
-                Orientation::Horizontal => {
-                    self.widget.set_coords(direction * self.widget.width(), 0.)
-                }
-                Orientation::Vertical => {
-                    self.widget.set_coords(0., direction * self.widget.height())
-                }
-            }
-        }
-        self.widget.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
-        let (width, height) = self.widget.layout(ctx, constraints);
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        let (r_width, r_height) = self.size.into();
+        let (width, height) = self.widget.layout(ctx, constraints).into();
         let Coords { x, y } = self.widget.coords();
-        match self.direction {
-            Direction::Normal => (width - x, height - y),
-            Direction::Inverted => (width + x, height + y),
-        }
+        match self.orientation {
+            Orientation::Vertical => match self.direction {
+                Direction::Normal => (width - x, r_height),
+                Direction::Inverted => (width + x, r_height),
+            },
+            Orientation::Horizontal => match self.direction {
+                Direction::Normal => (r_width, height - y),
+                Direction::Inverted => (r_width, height + y),
+            },
+        }.into()
     }
 }
 
-impl<M, W> Revealer<M, Sinus, W> {
+impl<M, W: Geometry> Revealer<M, Sinus, W> {
     pub fn sinus(widget: W, message: M) -> Self {
         Self {
             message,
+            size: Size::default(),
             direction: Direction::Inverted,
             widget: Positioner::new(widget),
             duration: 500,
@@ -227,6 +219,7 @@ where
     pub fn new(widget: W, message: M) -> Self {
         Self {
             message,
+            size: Default::default(),
             direction: Direction::Inverted,
             widget: Positioner::new(widget),
             duration: 500,
@@ -267,8 +260,16 @@ where
         };
         self.state = RevealerState::Running;
         self.easer = match self.orientation {
-            Orientation::Horizontal => Easer::new(0.5, 1., direction * self.widget.width()),
-            Orientation::Vertical => Easer::new(0.5, 1., direction * self.widget.height()),
+            Orientation::Horizontal => {
+                self.size.width = self.widget.width();
+                self.widget.set_coords(direction * self.size.width, 0.);
+                Easer::new(0.5, 1., direction * self.size.width)
+            }
+            Orientation::Vertical => {
+                self.size.height = self.widget.height();
+                self.widget.set_coords(direction * self.size.width, 0.);
+                Easer::new(0.5, 1., direction * self.size.height)
+            }
         };
         self.action = Some(RevealerAction::Reveal);
     }
@@ -279,8 +280,14 @@ where
         };
         self.state = RevealerState::Running;
         self.easer = match self.orientation {
-            Orientation::Horizontal => Easer::new(0., 0.5, direction * self.widget.width()),
-            Orientation::Vertical => Easer::new(0., 0.5, direction * self.widget.height()),
+            Orientation::Horizontal => {
+                self.size.width = self.widget.width();
+                Easer::new(0., 0.5, direction * self.size.width)
+            }
+            Orientation::Vertical => {
+                self.size.height = self.widget.height();
+                Easer::new(0., 0.5, direction * self.size.height)
+            }
         };
         self.action = Some(RevealerAction::Hide);
     }

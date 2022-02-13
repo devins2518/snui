@@ -196,10 +196,10 @@ impl Geometry for Rectangle {
 
 impl GeometryExt for Rectangle {
     fn apply_width(&mut self, width: f32) {
-        self.set_width(width);
+        self.width = width.round().max(self.minimum_width());
     }
     fn apply_height(&mut self, height: f32) {
-        self.set_height(height);
+        self.height = height.round().max(self.minimum_height());
     }
 }
 
@@ -436,8 +436,13 @@ impl<D> Widget<D> for Rectangle {
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        self.width = self
+            .width
+            .clamp(constraints.minimum_width(), constraints.maximum_width()).round();
+        self.height = self
+            .width
+            .clamp(constraints.minimum_height(), constraints.maximum_height()).round();
+        (self.width, self.height).into()
     }
 }

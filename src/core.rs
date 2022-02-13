@@ -67,48 +67,58 @@ impl Cursor {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Size {
+    pub width: f32,
+    pub height: f32
+}
+
+impl Size {
+    pub fn new(width: f32, height: f32) -> Self {
+        Size { width, height }
+    }
+}
+
+impl From<(f32, f32)> for Size {
+    fn from((width, height): (f32, f32)) -> Self {
+        Size { width, height }
+    }
+}
+
+impl From<Size> for (f32, f32) {
+    fn from(Size {width, height}: Size) -> Self {
+        (width, height)
+    }
+}
+
+impl Default for Size {
+    fn default() -> Self {
+        Size::new(0., 0.)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BoxConstraints {
-    minimum: (f32, f32),
-    maximum: (f32, f32),
+    minimum: Size,
+    maximum: Size,
 }
 
 impl Default for BoxConstraints {
     fn default() -> Self {
         Self {
-            minimum: (0., 0.),
-            maximum: (400., 400.),
+            minimum: Default::default(),
+            maximum: Default::default(),
         }
     }
 }
 
-impl Geometry for BoxConstraints {
-    fn width(&self) -> f32 {
-        self.minimum.0
-    }
-    fn height(&self) -> f32 {
-        self.minimum.1
-    }
-    fn minimum_width(&self) -> f32 {
-        self.minimum.0
-    }
-    fn minimum_height(&self) -> f32 {
-        self.minimum.1
-    }
-    fn maximum_width(&self) -> f32 {
-        self.maximum.0
-    }
-    fn maximum_height(&self) -> f32 {
-        self.maximum.1
-    }
-}
-
 impl BoxConstraints {
-    pub fn new(minimum: (f32, f32), maximum: (f32, f32)) -> Self {
-        BoxConstraints { minimum, maximum }
+    pub fn new<S: Into<Size>>(minimum: S, maximum: S) -> Self {
+        BoxConstraints { minimum: minimum.into(), maximum: maximum.into() }
     }
     pub fn loosen(&self) -> Self {
         BoxConstraints {
-            minimum: (0., 0.),
+            minimum: Size::default(),
             maximum: self.maximum,
         }
     }
@@ -116,34 +126,46 @@ impl BoxConstraints {
         let width = self.maximum_width().min(width);
         let height = self.maximum_height().min(height);
         BoxConstraints {
-            minimum: (
+            minimum: Size::new(
                 width.min(self.minimum_width()),
                 height.min(self.minimum_height()),
             ),
-            maximum: (width, height),
+            maximum: Size::new(width, height),
         }
     }
     pub fn with_min(&self, width: f32, height: f32) -> Self {
-        let width = width.clamp(self.minimum_width(), self.maximum_width());
-        let height = height.clamp(self.minimum_height(), self.maximum_height());
+        let width = width.max(0.);
+        let height = height.max(0.);
         BoxConstraints {
-            minimum: (width, height),
-            maximum: (
+            minimum: Size::new(width, height),
+            maximum: Size::new(
                 width.max(self.maximum_width()),
                 height.max(self.maximum_height()),
             ),
         }
     }
     pub fn crop(&self, dx: f32, dy: f32) -> Self {
-        let width = self.maximum_width() - dx;
-        let height = self.maximum_height() - dy;
+        let width = (self.maximum_width() - dx).max(0.);
+        let height = (self.maximum_height() - dy).max(0.);
         BoxConstraints {
-            minimum: (
+            minimum: Size::new(
                 self.minimum_width().min(width),
                 self.minimum_height().min(height),
             ),
-            maximum: (width, height),
+            maximum: Size::new(width, height),
         }
+    }
+    pub fn minimum_width(&self) -> f32 {
+        self.minimum.width
+    }
+    pub fn minimum_height(&self) -> f32 {
+        self.minimum.height
+    }
+    pub fn maximum_width(&self) -> f32 {
+        self.maximum.width
+    }
+    pub fn maximum_height(&self) -> f32 {
+        self.maximum.height
     }
 }
 
@@ -166,7 +188,6 @@ pub enum WindowState {
 pub struct Proxy<W> {
     damage: Damage,
     entered: bool,
-    size: (f32, f32),
     pub(crate) inner: W,
 }
 
@@ -243,15 +264,8 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         });
         self.damage
     }
-    fn prepare_draw(&mut self) {
-        self.deref_mut().prepare_draw();
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
-        if self.damage.is_some() {
-            self.inner.layout(ctx, constraints)
-        } else {
-            self.size
-        }
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        self.inner.layout(ctx, constraints)
     }
 }
 
@@ -283,7 +297,6 @@ impl<W> Proxy<W> {
         Proxy {
             inner,
             entered: false,
-            size: (0., 0.),
             damage: Damage::Partial,
         }
     }
@@ -398,10 +411,7 @@ impl<D> Widget<D> for Box<dyn Widget<D>> {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.deref_mut().sync(ctx, event)
     }
-    fn prepare_draw(&mut self) {
-        self.deref_mut().prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.deref_mut().layout(ctx, constraints)
     }
 }

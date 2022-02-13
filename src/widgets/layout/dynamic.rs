@@ -41,30 +41,6 @@ where
 }
 
 impl<W: Geometry> Geometry for DynamicLayout<W> {
-    fn set_width(&mut self, width: f32) {
-        match self.orientation {
-            Orientation::Horizontal => {
-                apply_width(&mut self.widgets, width);
-            }
-            Orientation::Vertical => {
-                for widget in &mut self.widgets {
-                    widget.set_width(width)
-                }
-            }
-        }
-    }
-    fn set_height(&mut self, height: f32) {
-        match self.orientation {
-            Orientation::Vertical => {
-                apply_height(&mut self.widgets, height);
-            }
-            Orientation::Horizontal => {
-                for widget in &mut self.widgets {
-                    widget.set_height(height)
-                }
-            }
-        }
-    }
     fn width(&self) -> f32 {
         match self.orientation {
             Orientation::Horizontal => self.widgets.iter().map(|widget| widget.width()).sum(),
@@ -165,26 +141,30 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
             .max()
             .unwrap_or_default()
     }
-    fn prepare_draw(&mut self) {
-        for widget in self.widgets.iter_mut() {
-            widget.prepare_draw()
-        }
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        let mut delta = 0.;
+        let len = self.len();
         match self.orientation {
             Orientation::Vertical => {
                 let mut dy = 0.;
                 self.widgets
                     .iter_mut()
-                    .map(move |widget| {
-                        widget.set_width(constraints.maximum_width());
+                    .enumerate()
+                    .map(move |(i, widget)| {
                         widget.set_coords(0., dy);
-                        let (width, height) = widget
-                            .layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.));
+                        let min_height = constraints.minimum_height() / (len - i) as f32 + delta;
+                        let (width, height) = widget.layout(
+                            ctx,
+                            &constraints.with_min(
+                                constraints.minimum_width(),
+                                min_height.min(constraints.maximum_height()) - dy,
+                            ),
+                        ).into();
+                        delta = min_height - height;
                         dy += height;
-                        (width, height)
+                        Size::new(width, height)
                     })
-                    .reduce(|accum, size| (accum.0.max(size.0), accum.1 + size.1))
+                    .reduce(|accum, size| Size::new(accum.width.max(size.width), accum.height + size.height))
                     .unwrap_or_default()
             }
             Orientation::Horizontal => {
@@ -192,15 +172,22 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
                 let f = self
                     .widgets
                     .iter_mut()
-                    .map(move |widget| {
-                        widget.set_height(constraints.maximum_height());
+                    .enumerate()
+                    .map(move |(i, widget)| {
+                        let min_width = constraints.minimum_width() / (len - i) as f32 + delta;
                         widget.set_coords(dx, 0.);
-                        let (width, height) = widget
-                            .layout(ctx, &constraints.with_max(0., constraints.maximum_height()));
+                        let (width, height) = widget.layout(
+                            ctx,
+                            &constraints.with_min(
+                                min_width.min(constraints.maximum_width()) - dx,
+                                constraints.minimum_height(),
+                            ),
+                        ).into();
+                        delta = min_width - width;
                         dx += width;
-                        (width, height)
+                        Size::new(width, height)
                     })
-                    .reduce(|accum, size| (accum.0 + size.0, accum.1.max(size.1)))
+                    .reduce(|accum, size| Size::new(accum.width + size.width, accum.height.max(size.height)))
                     .unwrap_or_default();
                 f
             }

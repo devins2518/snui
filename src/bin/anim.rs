@@ -139,7 +139,6 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
     fn layout(
         &mut self,
         _ctx: &mut context::LayoutCtx,
@@ -201,7 +200,6 @@ impl<D> Widget<D> for FrameRate {
             _ => self.label.sync(ctx, event),
         }
     }
-    fn prepare_draw(&mut self) {}
     fn layout(&mut self, ctx: &mut context::LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
         Widget::<()>::layout(&mut self.label, ctx, constraints)
     }

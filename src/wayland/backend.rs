@@ -144,9 +144,10 @@ where
             surface: surface.expect("Failed to create an XdgSurface"),
         };
 
-        view.widget.prepare_draw();
-        view.state.constraint =
-            BoxConstraints::new((0., 0.), (view.minimum_width(), view.minimum_height()));
+        view.state.constraint = BoxConstraints::new(
+            (view.minimum_width(), view.minimum_height()),
+            (view.minimum_width(), view.minimum_height()),
+        );
 
         self.views.push(view);
     }
@@ -171,9 +172,10 @@ where
             surface: surface.expect("Failed to create a LayerSurface"),
         };
 
-        view.widget.prepare_draw();
-        view.state.constraint =
-            BoxConstraints::new((0., 0.), (view.minimum_width(), view.minimum_height()));
+        view.state.constraint = BoxConstraints::new(
+            (view.minimum_width(), view.minimum_height()),
+            (view.minimum_width(), view.minimum_height()),
+        );
 
         self.views.push(view);
     }
@@ -377,6 +379,9 @@ impl<'v, 'c, D: Data + Clone> WindowHandle for ViewHandle<'v, 'c, D> {
             surface.destroy(self.conn);
         }
     }
+    fn get_state(&self) -> &[WindowState] {
+        self.state.window_state.as_slice()
+    }
 }
 
 impl<D> View<D>
@@ -428,8 +433,8 @@ where
         match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
-                    let mut layout = LayoutCtx { cache };
-                    let (width, height) = self.widget.layout(&mut layout, &self.state.constraint);
+                    let mut layout = LayoutCtx::new(cache);
+                    let Size{width, height} = self.widget.layout(&mut layout, &self.state.constraint);
                     let render_node = self
                         .widget
                         .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -449,9 +454,8 @@ where
             Damage::Frame => {
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
-                        let mut layout = LayoutCtx { cache };
-                        let (width, height) =
-                            self.widget.layout(&mut layout, &self.state.constraint);
+                        let mut layout = LayoutCtx::new(cache);
+                        let Size{width, height} = self.widget.layout(&mut layout, &self.state.constraint);
                         let render_node = self
                             .widget
                             .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -485,6 +489,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) {
+        // println!("{} - {}", width, height);
         let width = width * scale as f32;
         let height = height * scale as f32;
         let surface = &mut self.surface;
@@ -497,6 +502,7 @@ where
             conn,
             qh,
         ) {
+            // println!("{:#?}", render_node);
             surface.replace_buffer(wl_buffer);
             let region = Region::new(0., 0., width, height);
             let mut ctx = DrawContext::new(backend, cache);
@@ -509,13 +515,13 @@ where
                     .render_node
                     .render(&mut ctx, &mut self.clipmask, None);
             } else {
-                if let Err(region) = self.state.render_node.draw_merge(
+                if let Err(l_region) = self.state.render_node.draw_merge(
                     render_node,
                     &mut ctx,
                     &region.into(),
                     &mut self.clipmask,
                 ) {
-                    ctx.damage_region(&Texture::Transparent, region, false);
+                    ctx.damage_region(&Texture::Transparent, l_region.merge(&region), false);
                     self.state
                         .render_node
                         .render(&mut ctx, &mut self.clipmask, None);
@@ -532,7 +538,7 @@ where
         } else if let Damage::Frame = damage {
             self.state.pending_cb = false;
         } else {
-            println!("KEK")
+            eprintln!("CANNOT REQUEST ANOTHER FRAME")
         }
     }
 }
@@ -940,8 +946,8 @@ where
                     // Send a callback event with the timeout the view
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
-                            let mut layout = LayoutCtx { cache };
-                            let (width, height) =
+                            let mut layout = LayoutCtx::new(cache);
+                            let Size{width, height} =
                                 view.widget.layout(&mut layout, &view.state.constraint);
                             let render_node = view
                                 .widget
@@ -960,8 +966,8 @@ where
                         }
                         Damage::Frame => {
                             cb = Some(i);
-                            let mut layout = LayoutCtx { cache };
-                            let (width, height) =
+                            let mut layout = LayoutCtx::new(cache);
+                            let Size{width, height} =
                                 view.widget.layout(&mut layout, &view.state.constraint);
                             let render_node = view
                                 .widget
@@ -1071,36 +1077,26 @@ where
                     height,
                     states,
                 } => {
-                    if width > 0 {
-                        view.set_width(width as f32);
-                    }
-                    if height > 0 {
-                        view.set_height(height as f32);
-                    }
-                    if view.state.constraint.minimum_width() > width as f32
-                        || view.state.constraint.minimum_height() > height as f32
-                    {
-                        let min_width = view.widget.minimum_width();
-                        let min_height = view.widget.minimum_height();
-                        toplevel.set_min_size(conn, min_width as i32, min_height as i32);
-                        view.state.constraint =
-                            view.state.constraint.with_min(min_width, min_height);
-                    }
-                    if view.state.constraint.maximum_width() < width as f32
-                        || view.state.constraint.maximum_height() < height as f32
-                    {
-                        let max_width = view.widget.maximum_width();
-                        let max_height = view.widget.maximum_height();
-                        toplevel.set_max_size(conn, max_width as i32, max_height as i32);
-                    }
-                    if width * height > 0 {
-                        view.state.constraint =
-                            view.state.constraint.with_max(width as f32, height as f32);
-                    }
                     view.state.window_state = list_states(states);
-                    let mut ctx = SyncContext::new(&mut view.data, &mut self.cache);
-                    view.widget
-                        .sync(&mut ctx, Event::Configure(&view.state.window_state));
+                    if width * height > 0 {
+                        view.state.constraint = BoxConstraints::new(
+                            (width as f32, height as f32),
+                            (width as f32, height as f32),
+                        );
+                    }
+                    let mut ctx = LayoutCtx::new(&mut self.cache);
+                    let (r_width, r_height) = view.widget.layout(&mut ctx, &view.state.constraint).into();
+                    view.state.constraint =
+                        BoxConstraints::new((r_width, r_height), (r_width, r_height));
+                    if view.state.constraint.minimum_width() > width as f32
+                        && view.state.constraint.minimum_height() > height as f32
+                    {
+                        toplevel.set_min_size(
+                            conn,
+                            view.state.constraint.minimum_width() as i32,
+                            view.state.constraint.minimum_height() as i32,
+                        )
+                    }
                 }
                 xdg_toplevel::Event::Close => {
                     view.surface.destroy(conn);

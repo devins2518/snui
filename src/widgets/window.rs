@@ -48,9 +48,8 @@ impl<D> Widget<D> for Close {
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (self.width(), self.height()).into()
     }
 }
 
@@ -111,9 +110,8 @@ impl<D> Widget<D> for Maximize {
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (self.width(), self.height()).into()
     }
 }
 
@@ -144,9 +142,8 @@ impl<D> Widget<D> for Minimize {
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (self.width(), self.height()).into()
     }
 }
 
@@ -209,14 +206,6 @@ where
     fn height(&self) -> f32 {
         self.body.height() + self.header.height()
     }
-    fn set_width(&mut self, width: f32) {
-        let c_width = width.min(self.maximum_width());
-        self.body.set_width(c_width);
-        self.header.set_width(c_width);
-    }
-    fn set_height(&mut self, height: f32) {
-        self.body.set_height(height - self.header.height())
-    }
     fn minimum_width(&self) -> f32 {
         self.body.minimum_width()
     }
@@ -257,75 +246,75 @@ where
                 }
                 self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
-            Event::Configure(state) => {
-                let mut activated = false;
-                let mut positioned = false;
-                for state in state.iter().rev() {
-                    match state {
-                        WindowState::Activated => {
-                            activated = true;
-                            if self.alternate.is_some() {
-                                if !self.activated {
-                                    self.header.set_background(self.background.clone());
-                                    self.body.set_border_texture(self.background.clone());
+            Event::Draw => {
+                if let Some(handle) = ctx.handle() {
+                    let state = handle.get_state();
+                    let mut activated = false;
+                    let mut positioned = false;
+                    for state in state.iter().rev() {
+                        match state {
+                            WindowState::Activated => {
+                                activated = true;
+                                if self.alternate.is_some() {
+                                    if !self.activated {
+                                        self.header.set_background(self.background.clone());
+                                        self.body.set_border_texture(self.background.clone());
+                                    }
                                 }
                             }
+                            WindowState::TiledLeft
+                            | WindowState::TiledRight
+                            | WindowState::TiledBottom
+                            | WindowState::TiledTop
+                            | WindowState::Maximized
+                            | WindowState::Fullscreen => {
+                                positioned = true;
+                                self.header.set_top_left_radius(0.);
+                                self.header.set_top_right_radius(0.);
+                                self.body.set_bottom_right_radius(0.);
+                                self.body.set_bottom_left_radius(0.);
+                            }
+                            _ => {}
                         }
-                        WindowState::TiledLeft
-                        | WindowState::TiledRight
-                        | WindowState::TiledBottom
-                        | WindowState::TiledTop
-                        | WindowState::Maximized
-                        | WindowState::Fullscreen => {
-                            positioned = true;
-                            self.header.set_top_left_radius(0.);
-                            self.header.set_top_right_radius(0.);
-                            self.body.set_bottom_right_radius(0.);
-                            self.body.set_bottom_left_radius(0.);
+                    }
+                    if !activated {
+                        if let Some(ref texture) = self.alternate {
+                            self.header.set_background(texture.clone());
+                            self.body.set_border_texture(texture.clone());
                         }
-                        _ => {}
                     }
-                }
-                if !activated {
-                    if let Some(ref texture) = self.alternate {
-                        self.header.set_background(texture.clone());
-                        self.body.set_border_texture(texture.clone());
+                    if !self.activated && !activated {
+                        self.set_top_left_radius(self.radius.0);
+                        self.set_top_right_radius(self.radius.1);
+                        self.set_bottom_right_radius(self.radius.2);
+                        self.set_bottom_left_radius(self.radius.3);
                     }
+                    if !positioned && self.positioned {
+                        self.positioned = false;
+                        self.set_top_left_radius(self.radius.0);
+                        self.set_top_right_radius(self.radius.1);
+                        self.set_bottom_right_radius(self.radius.2);
+                        self.set_bottom_left_radius(self.radius.3);
+                    }
+                    self.activated = activated;
+                    self.positioned = positioned;
+                    self.header.sync(ctx, event).max(self.body.sync(ctx, event))
+                } else {
+                    self.header.sync(ctx, event).max(self.body.sync(ctx, event))
                 }
-                if !self.activated && !activated {
-                    self.set_top_left_radius(self.radius.0);
-                    self.set_top_right_radius(self.radius.1);
-                    self.set_bottom_right_radius(self.radius.2);
-                    self.set_bottom_left_radius(self.radius.3);
-                }
-                if !positioned && self.positioned {
-                    self.positioned = false;
-                    self.set_top_left_radius(self.radius.0);
-                    self.set_top_right_radius(self.radius.1);
-                    self.set_bottom_right_radius(self.radius.2);
-                    self.set_bottom_left_radius(self.radius.3);
-                }
-                self.activated = activated;
-                self.positioned = positioned;
-                self.header.sync(ctx, event).max(self.body.sync(ctx, event))
-            }
-            Event::Draw => {
-                self.set_width(self.width());
-                self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
             _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
         }
     }
-    fn prepare_draw(&mut self) {
-        self.header.prepare_draw();
-        self.body.prepare_draw();
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
-        let (h_width, h_height) = self
-            .header
-            .layout(ctx, &constraints.with_max(constraints.maximum_height(), 0.));
-        let (b_width, b_height) = self.body.layout(ctx, &constraints.crop(0., h_height));
-        (h_width.max(b_width), h_height + b_height)
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        let (b_width, b_height) = self
+            .body
+            .layout(ctx, &constraints.crop(0., self.header.height())).into();
+        let (h_width, h_height) = self.header.layout(
+            ctx,
+            &constraints.with_min(b_width, 0.).with_max(b_width, 0.),
+        ).into();
+        (b_width.min(h_width), h_height + b_height).into()
     }
 }
 
@@ -460,10 +449,7 @@ impl<D, W: Widget<D>> Widget<D> for Header<W> {
         }
         self.widget.sync(ctx, event)
     }
-    fn prepare_draw(&mut self) {
-        self.widget.prepare_draw()
-    }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> (f32, f32) {
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.widget.layout(ctx, constraints)
     }
 }

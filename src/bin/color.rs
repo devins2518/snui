@@ -95,19 +95,21 @@ impl Widget<Color> for ColorBlock {
         .into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
-        if let Event::Sync = event {
-            self.color = ctx.color;
-            let title = ctx.as_string();
-            if let Some(w_handle) = ctx.handle() {
-                w_handle.set_title(title);
+        match event {
+            Event::Draw | Event::Sync => {
+                self.color = ctx.color;
+                let title = ctx.as_string();
+                if let Some(w_handle) = ctx.handle() {
+                    w_handle.set_title(title);
+                }
+                return Damage::Partial;
             }
-            return Damage::Partial;
+            _ => {}
         }
         Damage::None
     }
-    fn prepare_draw(&mut self) {}
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> (f32, f32) {
-        (self.width(), self.height())
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        (self.width(), self.height()).into()
     }
 }
 
@@ -145,7 +147,7 @@ fn ui_builder() -> DynamicLayout<impl Widget<Color>> {
         .anchor(CENTER, START)
         .with_height(20.);
 
-    let mut indicator = DynamicLayout::new().orientation(Orientation::Vertical);
+    let mut indicator = SimpleLayout::new().orientation(Orientation::Vertical);
 
     indicator.add(listener);
     indicator.add(

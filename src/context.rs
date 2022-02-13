@@ -180,6 +180,7 @@ pub enum Backend<'b> {
 /// The context dereferences the Data so widgets can interact with it.
 /// It also contains the cache which is used for text layouting and fetching images.
 pub struct SyncContext<'c, D> {
+    sync: bool,
     data: &'c mut D,
     pub(crate) cache: &'c mut Cache,
     pub(crate) handle: Option<&'c mut dyn WindowHandle>,
@@ -200,11 +201,31 @@ pub struct DrawContext<'c> {
 /// Currently it only holds the Cache.
 pub struct LayoutCtx<'c> {
     pub(crate) cache: &'c mut Cache,
+    pub(crate) handle: Option<&'c mut dyn WindowHandle>,
 }
 
 impl<'c> AsMut<Cache> for LayoutCtx<'c> {
     fn as_mut(&mut self) -> &mut Cache {
         self.cache
+    }
+}
+
+impl<'c> LayoutCtx<'c> {
+    pub fn new(cache: &'c mut Cache) -> LayoutCtx {
+        LayoutCtx {
+            cache,
+            handle: None,
+        }
+    }
+    pub fn new_with_handle(cache: &'c mut Cache, handle: &'c mut impl WindowHandle) -> Self {
+        LayoutCtx {
+            cache,
+            handle: Some(handle),
+        }
+    }
+    /// Return a reference to the WindowHandle
+    pub fn handle(&mut self) -> Option<&mut &'c mut dyn WindowHandle> {
+        self.handle.as_mut()
     }
 }
 
@@ -221,6 +242,7 @@ pub trait WindowHandle {
     fn drag(&mut self, serial: u32);
     fn set_title(&mut self, title: String);
     fn set_cursor(&mut self, cursor: Cursor);
+    fn get_state(&self) -> &[WindowState];
 }
 
 impl<'b> Geometry for Backend<'b> {
@@ -260,6 +282,7 @@ impl<'c> DerefMut for Backend<'c> {
 impl<'c, D> SyncContext<'c, D> {
     pub fn new(data: &'c mut D, cache: &'c mut Cache) -> Self {
         Self {
+            sync: false,
             data,
             cache,
             handle: None,
@@ -271,6 +294,7 @@ impl<'c, D> SyncContext<'c, D> {
         handle: &'c mut impl WindowHandle,
     ) -> Self {
         Self {
+            sync: false,
             data,
             cache,
             handle: Some(handle),
@@ -291,6 +315,7 @@ impl<'c, D> Deref for SyncContext<'c, D> {
 
 impl<'c, D> DerefMut for SyncContext<'c, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        self.sync = true;
         &mut self.data
     }
 }
@@ -337,18 +362,29 @@ impl<'c> DrawContext<'c> {
         if !composite {
             if let Some(last) = self.pending_damage.last() {
                 if last.contains(region.x, region.y) {
-                    for region in last.merge(&region).substract(*last) {
-                        if !region.null() {
-                            self.damage_region(texture, region, true);
-                        }
+                    if last
+                        .merge(&region)
+                        .substract(*last)
+                        .into_iter()
+                        .filter_map(|region| {
+                            if !region.null() {
+                                self.damage_region(texture, region, composite);
+                                Some(())
+                            } else {
+                                None
+                            }
+                        })
+                        .reduce(|_, _| ())
+                        .is_some()
+                    {
+                        return;
                     }
-                    return;
                 }
             }
             blend = BlendMode::Source;
             self.pending_damage.push(region);
         } else {
-            blend = BlendMode::SourceAtop;
+            blend = BlendMode::SourceOver;
         }
         match texture {
             Texture::Color(color) => match &mut self.backend {

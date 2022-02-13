@@ -737,7 +737,7 @@ impl RenderNode {
                     if b.ne(a) {
                         let region = b.region();
                         let merge = a.region().merge(&region);
-                        if shape.contains(b) {
+                        if shape.contains(b) || clipmask.is_some() {
                             ctx.damage_region(
                                 &Texture::from(shape),
                                 shape.region().crop(&merge),
@@ -773,6 +773,7 @@ impl RenderNode {
             }
             RenderNode::Container(t_nodes) => match other {
                 RenderNode::Container(nodes) => {
+                    let mut err = false;
                     let len = nodes.len();
                     let clear = t_nodes.len() > nodes.len();
                     let region = nodes
@@ -781,26 +782,31 @@ impl RenderNode {
                         .filter_map(|(i, node)| {
                             let region;
                             if let Some(t_node) = t_nodes.get_mut(i) {
-                                region = t_node.draw_merge(node, ctx, shape, clipmask).err();
+                                if err {
+                                    region = None;
+                                    t_node.merge(node);
+                                } else {
+                                    region = t_node.draw_merge(node, ctx, shape, clipmask).err();
+                                }
                             } else {
-                                let mut l_node = RenderNode::None;
-                                region = l_node.draw_merge(node, ctx, shape, clipmask).err();
-                                t_nodes.push(l_node);
+                                if err {
+                                    region = None;
+                                    t_nodes.push(node);
+                                } else {
+                                    let mut l_node = RenderNode::None;
+                                    region = l_node.draw_merge(node, ctx, shape, clipmask).err();
+                                    t_nodes.push(l_node);
+                                }
                             }
+                            err = err || region.is_some();
                             region
                         })
                         .reduce(|merge, node| merge.merge(&node));
                     if clear {
                         t_nodes.truncate(len);
                     }
-                    if clipmask
-                        .as_ref()
-                        .map(|clipmask| clipmask.is_empty())
-                        .unwrap_or(false)
-                    {
-                        if let Some(region) = region {
-                            return Err(region);
-                        }
+                    if let Some(region) = region {
+                        return Err(region);
                     }
                 }
                 RenderNode::None => {}
@@ -845,18 +851,20 @@ impl RenderNode {
                         } else if let Some(region) = node.region() {
                             let dec = border.as_ref().unwrap_or(&background);
                             let t_dec = t_border.as_ref().unwrap_or(&t_background);
-                            let contains = shape.contains(t_dec);
+                            let contains = shape.contains(dec);
                             let merge = t_dec.region().merge(&region).merge(&dec.region());
-                            if shape.region().intersect(&merge.into()) {
-                                t_node.merge(*node);
-                                *t_border = border;
-                                *t_background = background;
-                                if !contains {
-                                    return Err(merge);
-                                }
-                                ctx.damage_region(&Texture::from(shape), merge, false);
-                                self.render(ctx, clipmask, None);
+                            t_node.merge(*node);
+                            *t_border = border;
+                            *t_background = background;
+                            if !contains {
+                                return Err(merge);
                             }
+                            ctx.damage_region(
+                                &Texture::from(shape),
+                                shape.region().crop(&merge),
+                                false,
+                            );
+                            self.render(ctx, clipmask, None);
                         } else {
                             return Err(self.region().unwrap());
                         }
@@ -889,6 +897,7 @@ impl RenderNode {
                             );
                             self.render(ctx, clipmask, None);
                         } else {
+                            t_node.merge(*node);
                             return Err(merge);
                         }
                     } else {
@@ -1048,12 +1057,12 @@ impl Region {
                 self.x + self.width - crop.x - crop.width,
                 self.height,
             ),
-            Region::new(crop.x, self.y, self.width - crop.width, crop.y),
+            Region::new(crop.x, self.y, crop.width, crop.y - self.y),
             Region::new(
                 crop.x,
                 crop.y + crop.height,
-                self.width - crop.width,
-                self.x - self.height - crop.y - crop.height,
+                crop.width,
+                self.y + self.height - crop.y - crop.height,
             ),
         ]
     }
