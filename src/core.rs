@@ -80,6 +80,12 @@ impl Size {
     pub fn round(&self) -> Self {
         Size::new(self.width.round(), self.height.round())
     }
+    pub fn ceil(&self) -> Self {
+        Size::new(self.width.ceil(), self.height.ceil())
+    }
+    pub fn floor(&self) -> Self {
+        Size::new(self.width.floor(), self.height.floor())
+    }
 }
 
 impl From<(f32, f32)> for Size {
@@ -244,6 +250,7 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                     Damage::None
                 }
             }
+            Event::Keyboard(_) => todo!(),
             Event::Configure(_) | Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
             _ => self.inner.sync(ctx, event),
         });
@@ -282,8 +289,12 @@ impl<W> Proxy<W> {
         Proxy {
             inner,
             entered: false,
-            damage: Damage::Partial,
+            damage: Damage::None,
         }
+    }
+    /// Increment the damage
+    pub fn load(&mut self) {
+        self.damage = self.damage.max(Damage::Partial);
     }
     /// Returns a mutable reference to the inner type without incrementing the damage.
     pub fn get_mut(&mut self) -> &mut W {
@@ -302,22 +313,22 @@ pub trait WidgetExt: Sized + Geometry {
 
 /// For widgets who's size can be determined at runtime
 pub trait GeometryExt: Sized {
-    fn apply_width(&mut self, width: f32);
-    fn apply_height(&mut self, height: f32);
-    fn apply_size(&mut self, width: f32, height: f32) {
-        self.apply_width(width);
-        self.apply_height(height);
+    fn set_width(&mut self, width: f32);
+    fn set_height(&mut self, height: f32);
+    fn set_size(&mut self, width: f32, height: f32) {
+        self.set_width(width);
+        self.set_height(height);
     }
     fn with_width(mut self, width: f32) -> Self {
-        self.apply_width(width);
+        self.set_width(width);
         self
     }
     fn with_height(mut self, height: f32) -> Self {
-        self.apply_height(height);
+        self.set_height(height);
         self
     }
     fn with_size(mut self, width: f32, height: f32) -> Self {
-        self.apply_size(width, height);
+        self.set_size(width, height);
         self
     }
 }

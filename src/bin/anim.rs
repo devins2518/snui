@@ -139,7 +139,11 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         }
         Damage::None
     }
-    fn layout(&mut self, _ctx: &mut context::LayoutCtx, _constraints: &BoxConstraints) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut context::LayoutCtx,
+        _constraints: &BoxConstraints,
+    ) -> Size {
         (self.width(), self.height()).into()
     }
 }

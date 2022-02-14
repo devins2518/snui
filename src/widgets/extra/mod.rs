@@ -18,6 +18,7 @@ pub trait Easer: Iterator<Item = f32> {
     fn set_amplitude(&mut self, amplitude: f32);
 }
 
+/// An easer implementing the sine function
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Sinus {
     steps: f32,
@@ -69,6 +70,7 @@ impl Easer for Sinus {
     }
 }
 
+/// An easer with a quadratic cruve
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Quadratic {
     steps: f32,

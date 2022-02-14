@@ -304,13 +304,13 @@ impl Drawable for Primitive {
             Self::Other(primitive) => primitive.get_texture(),
         }
     }
-    fn apply_texture(&self, background: Texture) -> Self {
+    fn set_texture(&self, background: Texture) -> Self {
         match self {
-            Self::Rectangle(rectangle) => rectangle.apply_texture(background),
+            Self::Rectangle(rectangle) => rectangle.set_texture(background),
             Self::Label(_) => Rectangle::new(self.width(), self.height())
                 .background(background)
                 .into(),
-            Self::Other(primitive) => primitive.apply_texture(background),
+            Self::Other(primitive) => primitive.set_texture(background),
         }
     }
     fn contains(&self, region: &Region) -> bool {
@@ -364,7 +364,7 @@ impl Primitive {
     fn merge(&self, other: Self) -> Self {
         let background = other.get_texture();
         let background = self.get_texture().merge(background);
-        other.apply_texture(background)
+        other.set_texture(background)
     }
 }
 
@@ -891,7 +891,7 @@ impl RenderNode {
                         let clip_region = Instruction::new(
                             Transform::from_translate(merge.x, merge.y),
                             Rectangle::new(merge.width, merge.height)
-                                .apply_texture(shape.primitive.get_texture()),
+                                .set_texture(shape.primitive.get_texture()),
                         );
                         let region = t_region.region();
                         if let Some(clipmask) = clipmask {

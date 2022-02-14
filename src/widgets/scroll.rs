@@ -90,13 +90,13 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
 }
 
 impl<W: Geometry> GeometryExt for ScrollBox<W> {
-    fn apply_width(&mut self, width: f32) {
+    fn set_width(&mut self, width: f32) {
         match self.orientation {
             Orientation::Horizontal => self.bound = width,
             _ => {}
         }
     }
-    fn apply_height(&mut self, height: f32) {
+    fn set_height(&mut self, height: f32) {
         match self.orientation {
             Orientation::Vertical => self.bound = height,
             _ => {}

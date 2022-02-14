@@ -58,13 +58,13 @@ impl Geometry for Image {
 }
 
 impl GeometryExt for Image {
-    fn apply_width(&mut self, width: f32) {
+    fn set_width(&mut self, width: f32) {
         match self.size.as_mut() {
             Some(size) => size.0 = width as u32,
             None => self.size = Some((width as u32, width as u32)),
         }
     }
-    fn apply_height(&mut self, height: f32) {
+    fn set_height(&mut self, height: f32) {
         match self.size.as_mut() {
             Some(size) => size.1 = height as u32,
             None => self.size = Some((height as u32, height as u32)),

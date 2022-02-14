@@ -129,7 +129,7 @@ pub mod canvas {
     }
 
     impl Drawable for InnerCanvas {
-        fn apply_texture(&self, _: scene::Texture) -> scene::Primitive {
+        fn set_texture(&self, _: scene::Texture) -> scene::Primitive {
             Primitive::Other(Box::new(self.clone()))
         }
         fn draw_with_transform_clip(
@@ -180,7 +180,6 @@ pub enum Backend<'b> {
 /// The context dereferences the Data so widgets can interact with it.
 /// It also contains the cache which is used for text layouting and fetching images.
 pub struct SyncContext<'c, D> {
-    sync: bool,
     data: &'c mut D,
     pub(crate) cache: &'c mut Cache,
     pub(crate) handle: Option<&'c mut dyn WindowHandle>,
@@ -282,19 +281,18 @@ impl<'c> DerefMut for Backend<'c> {
 impl<'c, D> SyncContext<'c, D> {
     pub fn new(data: &'c mut D, cache: &'c mut Cache) -> Self {
         Self {
-            sync: false,
             data,
             cache,
             handle: None,
         }
     }
+    /// Creates a SyncContext with a WindowHandle
     pub fn new_with_handle(
         data: &'c mut D,
         cache: &'c mut Cache,
         handle: &'c mut impl WindowHandle,
     ) -> Self {
         Self {
-            sync: false,
             data,
             cache,
             handle: Some(handle),
@@ -315,7 +313,6 @@ impl<'c, D> Deref for SyncContext<'c, D> {
 
 impl<'c, D> DerefMut for SyncContext<'c, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.sync = true;
         &mut self.data
     }
 }

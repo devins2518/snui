@@ -30,6 +30,7 @@ pub enum Transition {
     SlideBottom,
 }
 
+/// A widget that displays its child using an animated transition
 pub struct Revealer<M, E, W>
 where
     E: Easer,
@@ -68,11 +69,11 @@ where
     E: Easer,
     W: GeometryExt,
 {
-    fn apply_width(&mut self, width: f32) {
-        self.widget.apply_width(width)
+    fn set_width(&mut self, width: f32) {
+        self.widget.set_width(width)
     }
-    fn apply_height(&mut self, height: f32) {
-        self.widget.apply_height(height)
+    fn set_height(&mut self, height: f32) {
+        self.widget.set_height(height)
     }
 }
 
@@ -137,14 +138,23 @@ where
                                     RevealerAction::Hide => RevealerState::Hidden,
                                     RevealerAction::Reveal => RevealerState::Revealed,
                                 };
-                                self.widget.sync(ctx, Event::Draw);
-                                return self.widget.sync(ctx, event).max(Damage::Partial);
+                                return self
+                                    .widget
+                                    .sync(ctx, event)
+                                    .max(self.widget.sync(ctx, Event::Draw));
                             }
                         }
                     }
-                    // Guarantees the child will be rendered
-                    self.widget.sync(ctx, Event::Draw);
-                    return self.widget.sync(ctx, event).max(Damage::Frame);
+                    return self
+                        .widget
+                        .sync(ctx, event)
+                        .max(self.widget.sync(ctx, Event::Draw))
+                        .max(Damage::Frame);
+                }
+            }
+            Event::Draw => {
+                if self.state == RevealerState::Hidden {
+                    return Damage::None;
                 }
             }
             _ => {}
@@ -152,17 +162,17 @@ where
         self.widget.sync(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        let (r_width, r_height) = self.size.into();
-        let (width, height) = self.widget.layout(ctx, constraints).into();
+        self.size = self.widget.layout(ctx, constraints);
         let Coords { x, y } = self.widget.coords();
+        let (width, height) = self.size.into();
         match self.orientation {
             Orientation::Vertical => match self.direction {
-                Direction::Normal => (width - x, r_height),
-                Direction::Inverted => (width + x, r_height),
+                Direction::Normal => (width - x, height),
+                Direction::Inverted => (width + x, height),
             },
             Orientation::Horizontal => match self.direction {
-                Direction::Normal => (r_width, height - y),
-                Direction::Inverted => (r_width, height + y),
+                Direction::Normal => (width, height - y),
+                Direction::Inverted => (width, height + y),
             },
         }
         .into()
@@ -235,13 +245,11 @@ where
         self.state = RevealerState::Running;
         self.easer = match self.orientation {
             Orientation::Horizontal => {
-                self.size.width = self.widget.width();
                 self.widget.set_coords(direction * self.size.width, 0.);
                 Easer::new(0.5, 1., direction * self.size.width)
             }
             Orientation::Vertical => {
-                self.size.height = self.widget.height();
-                self.widget.set_coords(direction * self.size.width, 0.);
+                self.widget.set_coords(0., direction * self.size.height);
                 Easer::new(0.5, 1., direction * self.size.height)
             }
         };
@@ -254,24 +262,14 @@ where
         };
         self.state = RevealerState::Running;
         self.easer = match self.orientation {
-            Orientation::Horizontal => {
-                self.size.width = self.widget.width();
-                Easer::new(0., 0.5, direction * self.size.width)
-            }
-            Orientation::Vertical => {
-                self.size.height = self.widget.height();
-                Easer::new(0., 0.5, direction * self.size.height)
-            }
+            Orientation::Horizontal => Easer::new(0., 0.5, direction * self.size.width),
+            Orientation::Vertical => Easer::new(0., 0.5, direction * self.size.height),
         };
         self.action = Some(RevealerAction::Hide);
     }
     /// Duration of the animation in ms
     pub fn duration(mut self, duration: u32) -> Self {
         self.duration = duration;
-        self
-    }
-    pub fn message(mut self, message: M) -> Self {
-        self.message = message;
         self
     }
     pub fn state(&self) -> RevealerState {

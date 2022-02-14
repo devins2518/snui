@@ -28,12 +28,12 @@ impl<M> Geometry for Switch<M> {
 }
 
 impl<M> GeometryExt for Switch<M> {
-    fn apply_width(&mut self, width: f32) {
-        self.toggle.apply_width(width / 2.);
+    fn set_width(&mut self, width: f32) {
+        self.toggle.set_width(width / 2.);
         self.easer.set_amplitude(self.toggle.width() / 2.);
     }
-    fn apply_height(&mut self, height: f32) {
-        self.toggle.apply_height(height);
+    fn set_height(&mut self, height: f32) {
+        self.toggle.set_height(height);
     }
 }
 
@@ -48,35 +48,24 @@ where
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
-                if self.contains(x, y) {
-                    match p {
-                        Pointer::MouseClick {
-                            serial: _,
-                            button,
-                            pressed,
-                        } => {
-                            if button.is_left() && pressed {
-                                self.start = true;
-                                let state = match self.state {
-                                    SwitchState::Activated => {
-                                        self.easer = Sinus::new(0.5, 1., self.toggle.width());
-                                        SwitchState::Deactivated
-                                    }
-                                    SwitchState::Deactivated => {
-                                        self.easer = Sinus::new(0., 0.5, self.toggle.width());
-                                        SwitchState::Activated
-                                    }
-                                };
-                                self.state = state;
-                                match self.state {
-                                    SwitchState::Activated => ctx.send(self.message, true),
-                                    SwitchState::Deactivated => ctx.send(self.message, false),
-                                };
-                                return Damage::Frame;
-                            }
+                if self.contains(x, y) && p.left_button_click().is_some() {
+                    self.start = true;
+                    let state = match self.state {
+                        SwitchState::Activated => {
+                            self.easer = Sinus::new(0.5, 1., self.toggle.width());
+                            SwitchState::Deactivated
                         }
-                        _ => {}
-                    }
+                        SwitchState::Deactivated => {
+                            self.easer = Sinus::new(0., 0.5, self.toggle.width());
+                            SwitchState::Activated
+                        }
+                    };
+                    self.state = state;
+                    match self.state {
+                        SwitchState::Activated => ctx.send(self.message, true),
+                        SwitchState::Deactivated => ctx.send(self.message, false),
+                    };
+                    return Damage::Frame;
                 }
             }
             Event::Sync => {
@@ -142,10 +131,6 @@ impl<M> Switch<M> {
     /// Duration of the animation in ms
     pub fn duration(mut self, duration: u32) -> Self {
         self.duration = duration;
-        self
-    }
-    pub fn message(mut self, message: M) -> Self {
-        self.message = message;
         self
     }
     pub fn state(&self) -> SwitchState {

@@ -90,10 +90,10 @@ where
                             if self.pressed && button.is_left() {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
-                                        self.slider.apply_width(x.round());
+                                        self.slider.set_width(x.round());
                                     }
                                     Orientation::Vertical => {
-                                        self.slider.apply_height(y.round());
+                                        self.slider.set_height(y.round());
                                     }
                                 }
                             }
@@ -123,7 +123,7 @@ where
                                             Step::Increment(s) => (s as f32 * self.size) / 100.,
                                         })
                                     .clamp(0., self.size);
-                                    self.slider.apply_width(width);
+                                    self.slider.set_width(width);
                                     width / self.size
                                 }
                                 Orientation::Vertical => {
@@ -133,7 +133,7 @@ where
                                             Step::Increment(s) => (s as f32 * self.size) / 100.,
                                         })
                                     .clamp(0., self.size);
-                                    self.slider.apply_height(height);
+                                    self.slider.set_height(height);
                                     height / self.size
                                 }
                             };
@@ -145,13 +145,13 @@ where
                                 match &self.orientation {
                                     Orientation::Horizontal => {
                                         let width = x.clamp(0., self.size);
-                                        self.slider.apply_width(x.round());
+                                        self.slider.set_width(x.round());
                                         ctx.send(self.message, width / self.size);
                                         return Damage::Partial;
                                     }
                                     Orientation::Vertical => {
                                         let height = y.clamp(0., self.size);
-                                        self.slider.apply_width(height);
+                                        self.slider.set_width(height);
                                         ctx.send(self.message, height / self.size);
                                         return Damage::Partial;
                                     }
@@ -182,13 +182,13 @@ where
                         Pointer::Hover => match &self.orientation {
                             Orientation::Horizontal => {
                                 let width = x.clamp(0., self.size);
-                                self.slider.apply_width(x.round());
+                                self.slider.set_width(x.round());
                                 ctx.send(self.message, width / self.size);
                                 return Damage::Partial;
                             }
                             Orientation::Vertical => {
                                 let height = y.clamp(0., self.size);
-                                self.slider.apply_width(height);
+                                self.slider.set_width(height);
                                 ctx.send(self.message, height / self.size);
                                 return Damage::Partial;
                             }
@@ -205,14 +205,14 @@ where
                     match &self.orientation {
                         Orientation::Horizontal => {
                             let width = self.slider.width();
-                            let _ = self.slider.apply_width(ratio * self.size);
+                            let _ = self.slider.set_width(ratio * self.size);
                             if width.round() != (ratio * self.size).round() {
                                 return Damage::Partial;
                             }
                         }
                         Orientation::Vertical => {
                             let height = self.slider.height();
-                            let _ = self.slider.apply_height(ratio * self.size);
+                            let _ = self.slider.set_height(ratio * self.size);
                             if height.round() != (ratio * self.size).round() {
                                 return Damage::Partial;
                             }
@@ -230,22 +230,22 @@ where
 }
 
 impl<M> GeometryExt for Slider<M> {
-    fn apply_width(&mut self, width: f32) {
+    fn set_width(&mut self, width: f32) {
         if let Orientation::Horizontal = &self.orientation {
             let ratio = self.slider.width() / self.size;
             self.size = width.max(0.);
-            self.slider.apply_width(width * ratio)
+            self.slider.set_width(width * ratio)
         } else {
-            self.slider.apply_width(width)
+            self.slider.set_width(width)
         }
     }
-    fn apply_height(&mut self, height: f32) {
+    fn set_height(&mut self, height: f32) {
         if let Orientation::Vertical = &self.orientation {
             let ratio = self.slider.height() / self.size;
             self.size = height.max(0.);
-            self.slider.apply_height(height * ratio)
+            self.slider.set_height(height * ratio)
         } else {
-            self.slider.apply_height(height)
+            self.slider.set_height(height)
         }
     }
 }

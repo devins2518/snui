@@ -340,7 +340,7 @@ pub trait Drawable: Geometry + std::fmt::Debug + DynEq + std::any::Any {
     );
     fn get_texture(&self) -> scene::Texture;
     /// Returns a clone of the primitive with the applied texture.
-    fn apply_texture(&self, texture: scene::Texture) -> scene::Primitive;
+    fn set_texture(&self, texture: scene::Texture) -> scene::Primitive;
     /// Returns true if the region can fit inside the primitive.
     /// The coordinates will be relative to it
     fn contains(&self, region: &scene::Region) -> bool;

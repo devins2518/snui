@@ -319,10 +319,10 @@ impl<W> WidgetBox<W> {
 }
 
 impl<W> GeometryExt for WidgetBox<W> {
-    fn apply_width(&mut self, width: f32) {
+    fn set_width(&mut self, width: f32) {
         self.width = Some(width);
     }
-    fn apply_height(&mut self, height: f32) {
+    fn set_height(&mut self, height: f32) {
         self.height = Some(height);
     }
 }

@@ -183,16 +183,16 @@ impl Geometry for Rectangle {
 }
 
 impl GeometryExt for Rectangle {
-    fn apply_width(&mut self, width: f32) {
+    fn set_width(&mut self, width: f32) {
         self.width = width.round().max(self.minimum_width());
     }
-    fn apply_height(&mut self, height: f32) {
+    fn set_height(&mut self, height: f32) {
         self.height = height.round().max(self.minimum_height());
     }
 }
 
 impl Drawable for Rectangle {
-    fn apply_texture(&self, texture: scene::Texture) -> scene::Primitive {
+    fn set_texture(&self, texture: scene::Texture) -> scene::Primitive {
         let mut rect = self.clone();
         match &mut rect.style {
             ShapeStyle::Border(border, _) => *border = texture,

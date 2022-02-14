@@ -231,9 +231,6 @@ where
     fn eq_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         self.surface.wl_surface.eq(surface)
     }
-    fn set_size(&mut self, conn: &mut ConnectionHandle, width: f32, height: f32) {
-        self.surface.set_size(conn, width as u32, height as u32)
-    }
     fn handle<'v>(
         &'v mut self,
         conn: &'v mut ConnectionHandle<'v>,
@@ -423,7 +420,8 @@ where
             Damage::Partial => {
                 if !self.state.pending_cb {
                     let mut layout = LayoutCtx::new(cache);
-                    let Size{width, height} = self.widget.layout(&mut layout, &self.state.constraint);
+                    let Size { width, height } =
+                        self.widget.layout(&mut layout, &self.state.constraint);
                     let render_node = self
                         .widget
                         .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -444,7 +442,8 @@ where
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
                         let mut layout = LayoutCtx::new(cache);
-                        let Size{width, height} = self.widget.layout(&mut layout, &self.state.constraint);
+                        let Size { width, height } =
+                            self.widget.layout(&mut layout, &self.state.constraint);
                         let render_node = self
                             .widget
                             .create_node(Transform::from_scale(scale as f32, scale as f32));
@@ -478,7 +477,6 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) {
-        // println!("{} - {}", width, height);
         let width = width * scale as f32;
         let height = height * scale as f32;
         let surface = &mut self.surface;
@@ -930,7 +928,7 @@ where
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
                             let mut layout = LayoutCtx::new(cache);
-                            let Size{width, height} =
+                            let Size { width, height } =
                                 view.widget.layout(&mut layout, &view.state.constraint);
                             let render_node = view
                                 .widget
@@ -950,7 +948,7 @@ where
                         Damage::Frame => {
                             cb = Some(i);
                             let mut layout = LayoutCtx::new(cache);
-                            let Size{width, height} =
+                            let Size { width, height } =
                                 view.widget.layout(&mut layout, &view.state.constraint);
                             let render_node = view
                                 .widget
@@ -1068,7 +1066,8 @@ where
                         );
                     }
                     let mut ctx = LayoutCtx::new(&mut self.cache);
-                    let (r_width, r_height) = view.widget.layout(&mut ctx, &view.state.constraint).into();
+                    let (r_width, r_height) =
+                        view.widget.layout(&mut ctx, &view.state.constraint).into();
                     view.state.constraint =
                         BoxConstraints::new((r_width, r_height), (r_width, r_height));
                     if view.state.constraint.minimum_width() > width as f32
