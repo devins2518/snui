@@ -2,18 +2,19 @@
 
 use crate::widgets::{layout::*, Alignment, CENTER, END, START};
 use crate::*;
-use scene::RenderNode;
+use scene::{Region, RenderNode};
 
 pub struct DynamicLayout<W> {
+    size: Size,
     orientation: Orientation,
-    widgets: Vec<Positioner<Proxy<W>>>,
+    children: Vec<Positioner<Proxy<W>>>,
 }
 
 impl<W> FromIterator<W> for DynamicLayout<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
         let mut this = DynamicLayout::new();
         for widget in iter {
-            this.widgets.push(child(widget));
+            this.children.push(child(widget));
         }
         this
     }
@@ -24,16 +25,16 @@ where
     W: Widget<D>,
 {
     fn len(&self) -> usize {
-        self.widgets.len()
+        self.children.len()
     }
     fn add(&mut self, widget: W) {
-        self.widgets.push(child(widget))
+        self.children.push(child(widget))
     }
     fn remove(&mut self, index: usize) -> W {
-        self.widgets.remove(index).widget.inner
+        self.children.remove(index).widget.inner
     }
-    fn widgets(&mut self) -> Vec<&mut W> {
-        self.widgets
+    fn children(&mut self) -> Vec<&mut W> {
+        self.children
             .iter_mut()
             .map(|inner| inner.widget.deref_mut())
             .collect()
@@ -42,40 +43,26 @@ where
 
 impl<W: Geometry> Geometry for DynamicLayout<W> {
     fn width(&self) -> f32 {
-        match self.orientation {
-            Orientation::Horizontal => self.widgets.iter().map(|widget| widget.width()).sum(),
-            Orientation::Vertical => self
-                .widgets
-                .iter()
-                .map(|widget| widget.width())
-                .reduce(|previous, current| previous.max(current))
-                .unwrap_or_default(),
-        }
+        self.size.width
     }
     fn height(&self) -> f32 {
-        match self.orientation {
-            Orientation::Vertical => self.widgets.iter().map(|widget| widget.height()).sum(),
-            Orientation::Horizontal => self
-                .widgets
-                .iter()
-                .map(|widget| widget.height())
-                .reduce(|previous, current| previous.max(current))
-                .unwrap_or_default(),
-        }
+        self.size.height
     }
 }
 
 impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        RenderNode::Container(
-            self.widgets
+        RenderNode::Container {
+            bound: Region::from_transform(transform, self.size.width, self.size.height),
+            children: self
+                .children
                 .iter_mut()
                 .map(|widget| widget.create_node(transform))
                 .collect(),
-        )
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        self.widgets
+        self.children
             .iter_mut()
             .map(|widget| widget.sync(ctx, event))
             .max()
@@ -84,10 +71,10 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let mut delta = 0.;
         let len = self.len();
-        match self.orientation {
+        self.size = match self.orientation {
             Orientation::Vertical => {
                 let mut dy = 0.;
-                self.widgets
+                self.children
                     .iter_mut()
                     .enumerate()
                     .map(move |(i, widget)| {
@@ -113,8 +100,7 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
             }
             Orientation::Horizontal => {
                 let mut dx = 0.;
-                let f = self
-                    .widgets
+                self.children
                     .iter_mut()
                     .enumerate()
                     .map(move |(i, widget)| {
@@ -136,17 +122,18 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
                     .reduce(|accum, size| {
                         Size::new(accum.width + size.width, accum.height.max(size.height))
                     })
-                    .unwrap_or_default();
-                f
+                    .unwrap_or_default()
             }
-        }
+        };
+        self.size
     }
 }
 
 impl<D> Default for DynamicLayout<Box<dyn Widget<D>>> {
     fn default() -> Self {
         Self {
-            widgets: Vec::new(),
+            size: Size::default(),
+            children: Vec::new(),
             orientation: Orientation::Horizontal,
         }
     }
@@ -154,7 +141,7 @@ impl<D> Default for DynamicLayout<Box<dyn Widget<D>>> {
 
 impl<D> DynamicLayout<Box<dyn Widget<D>>> {
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
-        self.widgets.push(child(Box::new(widget)));
+        self.children.push(child(Box::new(widget)));
     }
 }
 
@@ -162,7 +149,7 @@ impl<W: Geometry> DynamicLayout<WidgetBox<W>> {
     pub fn set_alignment(&mut self, alignment: Alignment) {
         match self.orientation {
             Orientation::Horizontal => {
-                for widget in &mut self.widgets {
+                for widget in &mut self.children {
                     match alignment {
                         Alignment::Start => widget.set_anchor(START, CENTER),
                         Alignment::Center => widget.set_anchor(CENTER, CENTER),
@@ -171,7 +158,7 @@ impl<W: Geometry> DynamicLayout<WidgetBox<W>> {
                 }
             }
             Orientation::Vertical => {
-                for widget in &mut self.widgets {
+                for widget in &mut self.children {
                     match alignment {
                         Alignment::Start => widget.set_anchor(CENTER, START),
                         Alignment::Center => widget.set_anchor(CENTER, CENTER),
@@ -190,7 +177,8 @@ impl<W: Geometry> DynamicLayout<WidgetBox<W>> {
 impl<W> DynamicLayout<W> {
     pub fn new() -> Self {
         Self {
-            widgets: Vec::new(),
+            size: Size::default(),
+            children: Vec::new(),
             orientation: Orientation::Horizontal,
         }
     }
@@ -199,9 +187,9 @@ impl<W> DynamicLayout<W> {
         self
     }
     pub fn clear(&mut self) {
-        self.widgets.clear();
+        self.children.clear();
     }
     pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
-        self.widgets.as_mut_slice()
+        self.children.as_mut_slice()
     }
 }

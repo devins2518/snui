@@ -489,7 +489,6 @@ where
             conn,
             qh,
         ) {
-            // println!("{:#?}", render_node);
             surface.replace_buffer(wl_buffer);
             let region = Region::new(0., 0., width, height);
             let mut ctx = DrawContext::new(backend, cache);
@@ -862,14 +861,8 @@ where
         qh: &QueueHandle<Self>,
     ) {
         if let wl_surface::Event::Enter { output } = event {
-            if let Some(output) = self
-                .globals
-                .borrow()
-                .outputs
-                .iter()
-                .find(|o| o.output == output)
-            {
-                // Scaling is currently unsupported
+            let globals = self.globals.borrow();
+            if let Some(output) = globals.outputs.iter().find(|o| o.output == output) {
                 surface.set_buffer_scale(conn, output.scale);
                 if let Some((i, view)) = self
                     .views
@@ -881,7 +874,8 @@ where
                     if let Some(c_output) = view.surface.output.as_ref() {
                         if c_output.scale != output.scale {
                             view.surface.output = Some(output.clone());
-                            view.state.render_node = RenderNode::None;
+                            std::mem::drop(output);
+                            std::mem::drop(globals);
                             view.update_scene(
                                 self.pool.as_mut().unwrap(),
                                 &mut self.cache,
@@ -892,6 +886,15 @@ where
                         }
                     } else {
                         view.surface.output = Some(output.clone());
+                        std::mem::drop(output);
+                        std::mem::drop(globals);
+                        view.update_scene(
+                            self.pool.as_mut().unwrap(),
+                            &mut self.cache,
+                            Event::Draw,
+                            conn,
+                            qh,
+                        );
                     }
                 }
             }
@@ -1070,13 +1073,14 @@ where
                         view.widget.layout(&mut ctx, &view.state.constraint).into();
                     view.state.constraint =
                         BoxConstraints::new((r_width, r_height), (r_width, r_height));
-                    if view.state.constraint.minimum_width() > width as f32
-                        && view.state.constraint.minimum_height() > height as f32
+                    if r_width > width as f32
+                        && r_height > height as f32
+                        && width * height != 0
                     {
                         toplevel.set_min_size(
                             conn,
-                            view.state.constraint.minimum_width() as i32,
-                            view.state.constraint.minimum_height() as i32,
+                            r_width as i32,
+                            r_height as i32,
                         )
                     }
                 }

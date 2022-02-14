@@ -3,12 +3,13 @@
 use crate::widgets::layout::{child, Container, Positioner};
 use crate::widgets::Alignment;
 use crate::*;
-use scene::RenderNode;
+use scene::{Region, RenderNode};
 
 #[derive(Debug)]
 pub struct SimpleLayout<W> {
     spacing: f32,
-    widgets: Vec<Positioner<Proxy<W>>>,
+    children: Vec<Positioner<Proxy<W>>>,
+    size: Size,
     alignment: Alignment,
     orientation: Orientation,
 }
@@ -17,7 +18,7 @@ impl<W> FromIterator<W> for SimpleLayout<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
         let mut layout = SimpleLayout::new();
         for widget in iter {
-            layout.widgets.push(child(widget));
+            layout.children.push(child(widget));
         }
         layout
     }
@@ -28,16 +29,16 @@ where
     W: Widget<D>,
 {
     fn len(&self) -> usize {
-        self.widgets.len()
+        self.children.len()
     }
     fn add(&mut self, widget: W) {
-        self.widgets.push(child(widget));
+        self.children.push(child(widget));
     }
     fn remove(&mut self, index: usize) -> W {
-        self.widgets.remove(index).widget.inner
+        self.children.remove(index).widget.inner
     }
-    fn widgets(&mut self) -> Vec<&mut W> {
-        self.widgets
+    fn children(&mut self) -> Vec<&mut W> {
+        self.children
             .iter_mut()
             .map(|inner| inner.widget.deref_mut())
             .collect()
@@ -46,38 +47,10 @@ where
 
 impl<W: Geometry> Geometry for SimpleLayout<W> {
     fn width(&self) -> f32 {
-        match self.orientation {
-            Orientation::Horizontal => {
-                self.widgets
-                    .iter()
-                    .map(|widget| widget.width())
-                    .sum::<f32>()
-                    + (self.widgets.len() as f32 - 1.) * self.spacing
-            }
-            Orientation::Vertical => self
-                .widgets
-                .iter()
-                .map(|widget| widget.width())
-                .reduce(|accum, width| accum.max(width))
-                .unwrap_or_default(),
-        }
+        self.size.width
     }
     fn height(&self) -> f32 {
-        match self.orientation {
-            Orientation::Vertical => {
-                self.widgets
-                    .iter()
-                    .map(|widget| widget.height())
-                    .sum::<f32>()
-                    + (self.widgets.len() as f32 - 1.) * self.spacing
-            }
-            Orientation::Horizontal => self
-                .widgets
-                .iter()
-                .map(|widget| widget.height())
-                .reduce(|accum, height| accum.max(height))
-                .unwrap_or_default(),
-        }
+        self.size.height
     }
 }
 
@@ -85,7 +58,8 @@ impl<D> Default for SimpleLayout<Box<dyn Widget<D>>> {
     fn default() -> Self {
         SimpleLayout {
             spacing: 0.,
-            widgets: Vec::new(),
+            size: Size::default(),
+            children: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,
         }
@@ -95,7 +69,7 @@ impl<D> Default for SimpleLayout<Box<dyn Widget<D>>> {
 impl<D> SimpleLayout<Box<dyn Widget<D>>> {
     /// The default behaviour.
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
-        self.widgets.push(child(Box::new(widget)));
+        self.children.push(child(Box::new(widget)));
     }
 }
 
@@ -103,7 +77,8 @@ impl<W> SimpleLayout<W> {
     pub fn new() -> Self {
         SimpleLayout {
             spacing: 0.,
-            widgets: Vec::new(),
+            size: Size::default(),
+            children: Vec::new(),
             alignment: Alignment::Start,
             orientation: Orientation::Horizontal,
         }
@@ -123,24 +98,26 @@ impl<W> SimpleLayout<W> {
         self.alignment = alignment;
     }
     pub fn clear(&mut self) {
-        self.widgets.clear();
+        self.children.clear();
     }
     pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
-        self.widgets.as_mut_slice()
+        self.children.as_mut_slice()
     }
 }
 
 impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        RenderNode::Container(
-            self.widgets
+        RenderNode::Container {
+            bound: Region::from_transform(transform, self.size.width, self.size.height),
+            children: self
+                .children
                 .iter_mut()
                 .map(|widget| widget.create_node(transform))
                 .collect(),
-        )
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        self.widgets
+        self.children
             .iter_mut()
             .map(|widget| widget.sync(ctx, event))
             .max()
@@ -148,9 +125,9 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (mut dx, mut dy) = (0., 0.);
-        match self.orientation {
+        self.size = match self.orientation {
             Orientation::Vertical => self
-                .widgets
+                .children
                 .iter_mut()
                 .map(|widget| {
                     widget.set_coords(dx, dy);
@@ -168,7 +145,7 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
                 })
                 .unwrap_or_default(),
             Orientation::Horizontal => self
-                .widgets
+                .children
                 .iter_mut()
                 .map(|widget| {
                     widget.set_coords(dx, dy);
@@ -185,6 +162,7 @@ impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
                     )
                 })
                 .unwrap_or_default(),
-        }
+        };
+        self.size
     }
 }

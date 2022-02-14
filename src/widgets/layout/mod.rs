@@ -20,7 +20,7 @@ where
     fn pop(&mut self) -> W {
         self.remove(self.len() - 1)
     }
-    fn widgets(&mut self) -> Vec<&mut W>;
+    fn children(&mut self) -> Vec<&mut W>;
 }
 
 /// Widget with relative positioning

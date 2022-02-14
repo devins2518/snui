@@ -94,7 +94,10 @@ where
                         self.widget.width(),
                         self.widget.height(),
                     );
-                    RenderNode::Clip(region.into(), Box::new(node))
+                    RenderNode::Clip {
+                        bound: region.into(),
+                        node: Box::new(node),
+                    }
                 } else {
                     RenderNode::None
                 }
@@ -159,7 +162,10 @@ where
             }
             _ => {}
         }
-        self.widget.sync(ctx, event)
+        match self.state {
+            RevealerState::Hidden => Damage::None,
+            _ => self.widget.sync(ctx, event),
+        }
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.size = self.widget.layout(ctx, constraints);

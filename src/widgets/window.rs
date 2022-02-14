@@ -1,6 +1,6 @@
 use crate::*;
 use crate::{
-    scene::{Instruction, Texture},
+    scene::{Instruction, Region, Texture},
     widgets::{
         layout::{dynamic::DynamicLayout, simple::SimpleLayout},
         shapes::*,
@@ -170,6 +170,7 @@ fn headerbar<D: 'static>(widget: impl Widget<D> + 'static) -> impl Widget<D> {
 }
 
 pub struct Window<H, W> {
+    size: [Size; 2],
     activated: bool,
     positioned: bool,
     /// Top window decoration
@@ -204,10 +205,14 @@ where
     W: Geometry,
 {
     fn width(&self) -> f32 {
-        self.header.width().max(self.body.width())
+        self.size
+            .iter()
+            .map(|size| size.width)
+            .reduce(|accum, width| accum.max(width))
+            .unwrap_or_default()
     }
     fn height(&self) -> f32 {
-        self.body.height() + self.header.height()
+        self.size.iter().map(|size| size.height).sum()
     }
 }
 
@@ -218,14 +223,15 @@ where
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         let header = self.header.create_node(transform);
-        if !header.is_none() {
-            self.body.set_coords(0., header.height());
-        }
+        self.body.set_coords(0., self.size[0].height);
         let body = self.body.create_node(transform);
         if header.is_none() && body.is_none() {
             return RenderNode::None;
         }
-        RenderNode::Container(vec![header, body])
+        RenderNode::Container {
+            bound: Region::from_transform(transform, self.width(), self.height()),
+            children: vec![header, body],
+        }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
@@ -309,6 +315,7 @@ where
                 &constraints.with_min(b_width, 0.).with_max(b_width, 0.),
             )
             .into();
+        self.size = [Size::new(h_width, h_height), Size::new(b_width, b_height)];
         (b_width.min(h_width), h_height + b_height).into()
     }
 }
@@ -368,6 +375,7 @@ where
 {
     pub fn new(header: H, widget: W) -> Self {
         Window {
+            size: Default::default(),
             header: Header { widget: header },
             activated: false,
             positioned: false,

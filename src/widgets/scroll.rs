@@ -108,13 +108,13 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
     fn width(&self) -> f32 {
         match self.orientation {
             Orientation::Horizontal => self.bound,
-            _ => self.widget.width(),
+            _ => self.size.width,
         }
     }
     fn height(&self) -> f32 {
         match self.orientation {
             Orientation::Vertical => self.bound,
-            _ => self.widget.height(),
+            _ => self.size.height,
         }
     }
 }
@@ -125,8 +125,11 @@ where
 {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         if let Some(node) = self.widget.create_node(transform).as_option() {
-            let region = Region::from_transform(transform, self.size.width, self.size.width);
-            RenderNode::Clip(region.into(), Box::new(node))
+            let region = Region::from_transform(transform, self.width(), self.height());
+            RenderNode::Clip {
+                bound: region,
+                node: Box::new(node),
+            }
         } else {
             RenderNode::None
         }
@@ -170,15 +173,13 @@ where
         self.size = self.widget.layout(ctx, constraints);
         match self.orientation {
             Orientation::Horizontal => {
-                self.bound = constraints.minimum_width();
-                (self.bound, self.size.height)
+                self.bound = constraints.maximum_width();
             }
             Orientation::Vertical => {
-                self.bound = constraints.minimum_height();
-                (self.size.width, self.bound)
+                self.bound = constraints.maximum_height();
             }
         }
-        .into()
+        (self.width(), self.height()).into()
     }
 }
 
