@@ -1,5 +1,5 @@
-pub mod dynamic;
-pub mod simple;
+pub mod flex;
+// pub mod simple;
 
 use crate::*;
 use scene::Coords;
@@ -65,10 +65,9 @@ impl<W: Geometry> Geometry for Positioner<W> {
 }
 
 impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        return self
-            .widget
-            .create_node(transform.pre_translate(self.coords.x, self.coords.y));
+    fn draw_scene(&mut self, scene: Scene) {
+        self.widget
+            .draw_scene(scene.shift(self.coords.x, self.coords.y))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         let damage = match event {
@@ -95,12 +94,6 @@ impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
 impl<W: Style> Style for Positioner<W> {
     fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
         self.widget.set_background(texture)
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.widget.set_border_size(size)
-    }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.widget.set_border_texture(texture)
     }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.widget.set_top_left_radius(radius);

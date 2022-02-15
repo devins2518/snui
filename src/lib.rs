@@ -311,46 +311,14 @@ pub trait Geometry {
 ///
 /// They are given access to the drawing backend.
 pub trait Drawable: Geometry + std::fmt::Debug + DynEq + std::any::Any {
-    fn draw(&self, x: f32, y: f32, ctx: &mut DrawContext) {
-        self.draw_with_transform_clip(ctx, tiny_skia::Transform::from_translate(x, y), None);
-    }
-    fn draw_with_clip(
-        &self,
-        x: f32,
-        y: f32,
-        ctx: &mut DrawContext,
-        clip: Option<&tiny_skia::ClipMask>,
-    ) {
-        self.draw_with_transform_clip(ctx, tiny_skia::Transform::from_translate(x, y), clip);
-    }
-    fn draw_with_tranform(
-        &self,
-        x: f32,
-        y: f32,
-        ctx: &mut DrawContext,
-        tranform: tiny_skia::Transform,
-    ) {
-        self.draw_with_transform_clip(ctx, tranform.pre_translate(x, y), None);
-    }
-    fn draw_with_transform_clip(
-        &self,
-        ctx: &mut DrawContext,
-        transform: tiny_skia::Transform,
-        clip: Option<&tiny_skia::ClipMask>,
-    );
-    fn get_texture(&self) -> scene::Texture;
-    /// Returns a clone of the primitive with the applied texture.
-    fn set_texture(&self, texture: scene::Texture) -> scene::Primitive;
-    /// Returns true if the region can fit inside the primitive.
-    /// The coordinates will be relative to it
-    fn contains(&self, region: &scene::Region) -> bool;
-    fn primitive(&self) -> scene::Primitive;
+    fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform);
 }
 
+use scene::Scene;
+
 pub trait Widget<D>: Geometry {
-    /// Creates the render node of the widget.
-    fn create_node(&mut self, transform: Transform) -> RenderNode;
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
     /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size;
+    fn draw_scene<'b>(&mut self, scene: Scene<'_, '_, 'b>) {}
 }

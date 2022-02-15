@@ -2,17 +2,17 @@
 
 use crate::widgets::{layout::*, Alignment, CENTER, END, START};
 use crate::*;
-use scene::{Region, RenderNode};
+use scene::{Region, RenderNode, Scene};
 
-pub struct DynamicLayout<W> {
+pub struct Flex<W> {
     size: Size,
     orientation: Orientation,
     children: Vec<Positioner<Proxy<W>>>,
 }
 
-impl<W> FromIterator<W> for DynamicLayout<W> {
+impl<W> FromIterator<W> for Flex<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
-        let mut this = DynamicLayout::new();
+        let mut this = Flex::new();
         for widget in iter {
             this.children.push(child(widget));
         }
@@ -20,7 +20,7 @@ impl<W> FromIterator<W> for DynamicLayout<W> {
     }
 }
 
-impl<D, W> Container<D, W> for DynamicLayout<W>
+impl<D, W> Container<D, W> for Flex<W>
 where
     W: Widget<D>,
 {
@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<W: Geometry> Geometry for DynamicLayout<W> {
+impl<W: Geometry> Geometry for Flex<W> {
     fn width(&self) -> f32 {
         self.size.width
     }
@@ -50,16 +50,18 @@ impl<W: Geometry> Geometry for DynamicLayout<W> {
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        RenderNode::Container {
-            bound: Region::from_transform(transform, self.size.width, self.size.height),
-            children: self
-                .children
-                .iter_mut()
-                .map(|widget| widget.create_node(transform))
-                .collect(),
+impl<D, W: Widget<D>> Widget<D> for Flex<W> {
+    fn draw_scene(&mut self, mut scene: Scene) {
+        for widget in self.children.iter_mut() {
+            if let Some(scene) = scene.next() {
+                widget.draw_scene(scene);
+                continue;
+            }
+            if let Some(scene) = scene.append_node(RenderNode::None, self.size) {
+                widget.draw_scene(scene);
+            }
         }
+        scene.truncate(self.len())
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.children
@@ -129,7 +131,7 @@ impl<D, W: Widget<D>> Widget<D> for DynamicLayout<W> {
     }
 }
 
-impl<D> Default for DynamicLayout<Box<dyn Widget<D>>> {
+impl<D> Default for Flex<Box<dyn Widget<D>>> {
     fn default() -> Self {
         Self {
             size: Size::default(),
@@ -139,13 +141,13 @@ impl<D> Default for DynamicLayout<Box<dyn Widget<D>>> {
     }
 }
 
-impl<D> DynamicLayout<Box<dyn Widget<D>>> {
+impl<D> Flex<Box<dyn Widget<D>>> {
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
         self.children.push(child(Box::new(widget)));
     }
 }
 
-impl<W: Geometry> DynamicLayout<WidgetBox<W>> {
+impl<W: Geometry> Flex<WidgetBox<W>> {
     pub fn set_alignment(&mut self, alignment: Alignment) {
         match self.orientation {
             Orientation::Horizontal => {
@@ -174,7 +176,7 @@ impl<W: Geometry> DynamicLayout<WidgetBox<W>> {
     }
 }
 
-impl<W> DynamicLayout<W> {
+impl<W> Flex<W> {
     pub fn new() -> Self {
         Self {
             size: Size::default(),

@@ -1,14 +1,14 @@
 //!	This module provides the building blocks of your GUI application.
 
 pub mod button;
-pub mod extra;
+// pub mod extra;
 pub mod image;
 pub mod label;
 pub mod layout;
 pub mod scroll;
 pub mod shapes;
 pub mod slider;
-pub mod window;
+// pub mod window;
 
 use crate::*;
 use scroll::Scrollable;
@@ -61,9 +61,6 @@ impl Geometry for () {
 }
 
 impl<D> Widget<D> for () {
-    fn create_node(&mut self, _: Transform) -> RenderNode {
-        RenderNode::None
-    }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
@@ -89,9 +86,6 @@ impl Geometry for Spacer {
 }
 
 impl<D> Widget<D> for Spacer {
-    fn create_node(&mut self, _: Transform) -> RenderNode {
-        RenderNode::None
-    }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
@@ -150,10 +144,6 @@ impl<W: Geometry> Geometry for Padding<W> {
 }
 
 impl<D, W: Widget<D>> Widget<D> for Padding<W> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let (top, _, _, left) = self.padding;
-        self.widget.create_node(transform.pre_translate(left, top))
-    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         let (top, _, _, left) = self.padding;
         if let Event::Pointer(mut x, mut y, p) = event {
@@ -330,9 +320,6 @@ impl<W> GeometryExt for WidgetBox<W> {
 impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         self.widget.sync(ctx, event)
-    }
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        self.widget.create_node(transform)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let mut width = match self.width {

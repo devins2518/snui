@@ -59,22 +59,16 @@ where
     M: Clone + Copy,
     D: Mail<M, f32, f32>,
 {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let transform = if self.flip {
+    fn draw_scene(&mut self, scene: Scene) {
+        let (x, y) = if self.flip {
             match self.orientation {
-                Orientation::Horizontal => {
-                    let delta = self.width() - self.slider.width();
-                    transform.pre_translate(delta, 0.)
-                }
-                Orientation::Vertical => {
-                    let delta = self.height() - self.slider.height();
-                    transform.pre_translate(0., delta)
-                }
+                Orientation::Horizontal => (self.width() - self.slider.width(), 0.),
+                Orientation::Vertical => (0., self.height() - self.slider.height()),
             }
         } else {
-            transform
+            (0., 0.)
         };
-        Widget::<()>::create_node(&mut self.slider, transform)
+        Widget::<()>::draw_scene(&mut self.slider, scene.shift(x, y))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
@@ -265,11 +259,5 @@ impl<M> Style for Slider<M> {
     }
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.slider.set_background(background);
-    }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.slider.set_border_texture(texture);
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.slider.set_border_size(size);
     }
 }

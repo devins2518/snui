@@ -227,13 +227,9 @@ impl<W: Geometry> Geometry for Proxy<W> {
 }
 
 impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        match self.damage {
-            Damage::None => RenderNode::None,
-            _ => {
-                self.damage = Damage::None;
-                self.inner.create_node(transform)
-            }
+    fn draw_scene(&mut self, scene: Scene) {
+        if self.damage.is_some() {
+            self.inner.draw_scene(scene)
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
@@ -304,11 +300,18 @@ impl<W> Proxy<W> {
 
 /// Additional method to build common widgets
 pub trait WidgetExt: Sized + Geometry {
-    fn style(self) -> WidgetStyle<Self>;
-    fn clamp(self) -> WidgetBox<Self>;
+    fn clamp(self) -> WidgetBox<Self> {
+        WidgetBox::new(self)
+    }
+    fn style(self) -> WidgetStyle<Self> {
+        WidgetStyle::new(self)
+    }
     fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where
-        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer);
+        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer),
+    {
+        Button::new(self, cb)
+    }
 }
 
 /// For widgets who's size can be determined at runtime
@@ -355,24 +358,6 @@ where
     }
 }
 
-impl<W> WidgetExt for W
-where
-    W: Geometry,
-{
-    fn clamp(self) -> WidgetBox<Self> {
-        WidgetBox::new(self)
-    }
-    fn style(self) -> WidgetStyle<Self> {
-        WidgetStyle::new(self)
-    }
-    fn button<D, F>(self, cb: F) -> Button<D, Self, F>
-    where
-        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer),
-    {
-        Button::new(self, cb)
-    }
-}
-
 impl<D> Geometry for Box<dyn Widget<D>> {
     fn height(&self) -> f32 {
         self.as_ref().height()
@@ -383,9 +368,6 @@ impl<D> Geometry for Box<dyn Widget<D>> {
 }
 
 impl<D> Widget<D> for Box<dyn Widget<D>> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        self.deref_mut().create_node(transform)
-    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.deref_mut().sync(ctx, event)
     }

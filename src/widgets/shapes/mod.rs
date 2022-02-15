@@ -7,12 +7,12 @@ pub use style::WidgetStyle;
 
 pub trait Style: Sized {
     fn set_background<B: Into<Texture>>(&mut self, texture: B);
-    fn set_border_size(&mut self, size: f32);
-    fn set_border_texture<T: Into<Texture>>(&mut self, texture: T);
-    fn set_border<T: Into<Texture>>(&mut self, texture: T, size: f32) {
-        self.set_border_texture(texture);
-        self.set_border_size(size);
-    }
+    // fn set_border_size(&mut self, size: f32);
+    // fn set_border_texture<T: Into<Texture>>(&mut self, texture: T);
+    // fn set_border<T: Into<Texture>>(&mut self, texture: T, size: f32) {
+    // self.set_border_texture(texture);
+    // self.set_border_size(size);
+    // }
     fn set_top_left_radius(&mut self, radius: f32);
     fn set_top_right_radius(&mut self, radius: f32);
     fn set_bottom_right_radius(&mut self, radius: f32);
@@ -47,28 +47,16 @@ pub trait Style: Sized {
         self.set_background(texture);
         self
     }
-    fn border_size(mut self, size: f32) -> Self {
-        self.set_border_size(size);
-        self
-    }
-    fn border_texture<T: Into<Texture>>(mut self, texture: T) -> Self {
-        self.set_border_texture(texture);
-        self
-    }
-    fn border<T: Into<Texture>>(mut self, texture: T, size: f32) -> Self {
-        self.set_border(texture, size);
-        self
-    }
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum ShapeStyle {
-    Background(Texture),
-    Border(Texture, f32),
-}
-
-impl From<u32> for ShapeStyle {
-    fn from(color: u32) -> Self {
-        ShapeStyle::Background(color.into())
-    }
+    // fn border_size(mut self, size: f32) -> Self {
+    //     self.set_border_size(size);
+    //     self
+    // }
+    // fn border_texture<T: Into<Texture>>(mut self, texture: T) -> Self {
+    //     self.set_border_texture(texture);
+    //     self
+    // }
+    // fn border<T: Into<Texture>>(mut self, texture: T, size: f32) -> Self {
+    //     self.set_border(texture, size);
+    //     self
+    // }
 }

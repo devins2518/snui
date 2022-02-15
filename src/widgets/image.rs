@@ -73,12 +73,8 @@ impl GeometryExt for Image {
 }
 
 impl<D> Widget<D> for Image {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if let Some(image) = self.inner.as_mut() {
-            Widget::<()>::create_node(image, transform)
-        } else {
-            RenderNode::None
-        }
+    fn draw_scene(&mut self, scene: Scene) {
+        todo!()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.inner.is_none() {
@@ -179,12 +175,6 @@ impl Geometry for InnerImage {
 }
 
 impl<D> Widget<D> for InnerImage {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        Widget::<()>::create_node(
-            &mut Rectangle::new(self.width(), self.height()).background(self.clone()),
-            transform,
-        )
-    }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }

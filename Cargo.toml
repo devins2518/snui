@@ -15,5 +15,5 @@ smithay-client-toolkit = { path="../client-toolkit/", optional= true }
 wayland-cursor = { version="0.30.0-alpha3", optional= true }
 
 [features]
-default = ["wayland"]
+default = []
 wayland=["smithay-client-toolkit", "wayland-cursor"]

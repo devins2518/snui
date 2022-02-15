@@ -1,7 +1,6 @@
 use crate::cache::font::FontProperty;
 use crate::{theme::FG0, *};
 use fontdue::layout::LayoutSettings;
-use scene::Instruction;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
@@ -137,10 +136,8 @@ impl Geometry for Label {
 }
 
 impl<D> Widget<D> for Label {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let scale = transform.sx.max(transform.sy);
-        let label = self.clone().font_size(scale * self.font_size);
-        Instruction::new(transform, label).into()
+    fn draw_scene(&mut self, scene: Scene) {
+        todo!()
     }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
@@ -160,6 +157,10 @@ impl<D> Widget<D> for Label {
         }
         self.size.unwrap_or_default()
     }
+}
+
+impl Drawable for Label {
+    fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {}
 }
 
 use crate::mail::*;
@@ -186,9 +187,6 @@ where
     M: Clone + Copy,
     D: for<'s> Mail<M, &'s str, String>,
 {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        Widget::<()>::create_node(&mut self.label, transform)
-    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Sync | Event::Draw => {

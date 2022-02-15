@@ -45,8 +45,8 @@ where
     W: Widget<D>,
     F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
 {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        self.proxy.create_node(transform)
+    fn draw_scene(&mut self, scene: Scene) {
+        self.proxy.draw_scene(scene);
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, pointer) = event {
@@ -76,12 +76,6 @@ where
 {
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.proxy.set_background(background);
-    }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.proxy.set_border_texture(texture);
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.proxy.set_border_size(size);
     }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.proxy.set_top_left_radius(radius);

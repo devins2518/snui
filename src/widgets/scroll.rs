@@ -123,15 +123,9 @@ impl<D, W> Widget<D> for ScrollBox<W>
 where
     W: Widget<D>,
 {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if let Some(node) = self.widget.create_node(transform).as_option() {
-            let region = Region::from_transform(transform, self.width(), self.height());
-            RenderNode::Clip {
-                bound: region,
-                node: Box::new(node),
-            }
-        } else {
-            RenderNode::None
+    fn draw_scene(&mut self, mut scene: Scene) {
+        if let Some(scene) = scene.apply_clip(Size::new(self.width(), self.height())) {
+            self.widget.draw_scene(scene)
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
@@ -211,11 +205,5 @@ impl<W: Style> Style for ScrollBox<W> {
     }
     fn set_bottom_right_radius(&mut self, radius: f32) {
         self.widget.set_bottom_right_radius(radius)
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.widget.set_border_size(size)
-    }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.widget.set_border_texture(texture)
     }
 }

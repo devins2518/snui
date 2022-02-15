@@ -42,9 +42,6 @@ where
     M: Clone + Copy,
     D: Mail<M, bool, bool>,
 {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        Widget::<()>::create_node(&mut self.toggle, transform)
-    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {

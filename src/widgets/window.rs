@@ -21,23 +21,23 @@ impl Geometry for Close {
 }
 
 impl<D> Widget<D> for Close {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        use std::f32::consts::FRAC_1_SQRT_2;
+    // fn create_node(&mut self, transform: Transform) -> RenderNode {
+    //     use std::f32::consts::FRAC_1_SQRT_2;
 
-        let width = self.width() * FRAC_1_SQRT_2;
-        let height = self.height() * FRAC_1_SQRT_2;
+    //     let width = self.width() * FRAC_1_SQRT_2;
+    //     let height = self.height() * FRAC_1_SQRT_2;
 
-        let r = Rectangle::new(width, height).background(theme::RED);
+    //     let r = Rectangle::new(width, height).background(theme::RED);
 
-        let transform =
-            transform.pre_translate((self.width() - width) / 2., (self.height() - height) / 2.);
+    //     let transform =
+    //         transform.pre_translate((self.width() - width) / 2., (self.height() - height) / 2.);
 
-        Instruction::new(
-            transform.pre_concat(Transform::from_rotate_at(45., width / 2., height / 2.)),
-            r,
-        )
-        .into()
-    }
+    //     Instruction::new(
+    //         transform.pre_concat(Transform::from_rotate_at(45., width / 2., height / 2.)),
+    //         r,
+    //     )
+    //     .into()
+    // }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if self.contains(x, y) && p.left_button_click().is_some() {
@@ -68,29 +68,29 @@ impl Geometry for Maximize {
 }
 
 impl<D> Widget<D> for Maximize {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        if self.maximized {
-            Instruction {
-                transform,
-                primitive: Rectangle::new(self.width(), self.height())
-                    .background(theme::BLU)
-                    .into(),
-            }
-            .into()
-        } else {
-            let thickness = 2.;
-            Instruction {
-                transform,
-                primitive: Rectangle::new(
-                    self.width() - 2. * thickness,
-                    self.height() - 2. * thickness,
-                )
-                .border(theme::BLU, thickness)
-                .into(),
-            }
-            .into()
-        }
-    }
+    // fn create_node(&mut self, transform: Transform) -> RenderNode {
+    //     if self.maximized {
+    //         Instruction {
+    //             transform,
+    //             primitive: Rectangle::new(self.width(), self.height())
+    //                 .background(theme::BLU)
+    //                 .into(),
+    //         }
+    //         .into()
+    //     } else {
+    //         let thickness = 2.;
+    //         Instruction {
+    //             transform,
+    //             primitive: Rectangle::new(
+    //                 self.width() - 2. * thickness,
+    //                 self.height() - 2. * thickness,
+    //             )
+    //             .border(theme::BLU, thickness)
+    //             .into(),
+    //         }
+    //         .into()
+    //     }
+    // }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
@@ -130,11 +130,11 @@ impl Geometry for Minimize {
 }
 
 impl<D> Widget<D> for Minimize {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let r = Rectangle::new(self.width(), 3.).background(theme::YEL);
+    // fn create_node(&mut self, transform: Transform) -> RenderNode {
+    //     let r = Rectangle::new(self.width(), 3.).background(theme::YEL);
 
-        Instruction::new(transform.pre_translate(0., 6.), r).into()
-    }
+    //     Instruction::new(transform.pre_translate(0., 6.), r).into()
+    // }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if self.contains(x, y) && p.left_button_click().is_some() {
@@ -221,15 +221,6 @@ where
     H: Widget<D> + Style,
     W: Widget<D> + Style,
 {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let header = self.header.create_node(transform);
-        self.body.set_coords(0., self.size[0].height);
-        let body = self.body.create_node(transform);
-        RenderNode::Container {
-            bound: Region::from_transform(transform, self.width(), self.height()),
-            children: vec![header, body],
-        }
-    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(_, _, p) => {
@@ -411,9 +402,6 @@ impl<W: Geometry> Geometry for Header<W> {
 }
 
 impl<D, W: Widget<D>> Widget<D> for Header<W> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        self.widget.create_node(transform)
-    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {

@@ -106,14 +106,17 @@ impl<W> SimpleLayout<W> {
 }
 
 impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
-    fn create_node(&mut self, transform: Transform) -> RenderNode {
-        RenderNode::Container {
-            bound: Region::from_transform(transform, self.size.width, self.size.height),
-            children: self
-                .children
-                .iter_mut()
-                .map(|widget| widget.create_node(transform))
-                .collect(),
+    fn draw_scene(&mut self, mut scene: Scene) {
+        for widget in self.children.iter_mut() {
+            match scene.next() {
+                Some(scene) => {
+                    widget.draw_scene(scene);
+                }
+                None => continue
+            }
+            if let Some(scene) = scene.append_node(RenderNode::None, self.size) {
+                widget.draw_scene(scene);
+            }
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {

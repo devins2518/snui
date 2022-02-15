@@ -4,156 +4,156 @@ use scene::*;
 use std::ops::{Deref, DerefMut};
 use widgets::label::LabelRef;
 
-pub mod canvas {
-    use crate::scene::*;
-    use crate::widgets::shapes::*;
-    use crate::*;
-    use std::ops::{Deref, DerefMut};
-
-    // Helper to draw using the retained mode API
-    pub struct Canvas {
-        transform: Transform,
-        inner: InnerCanvas,
-    }
-
-    #[derive(Clone, PartialEq)]
-    pub struct InnerCanvas {
-        width: f32,
-        height: f32,
-        steps: Vec<Instruction>,
-    }
-
-    impl InnerCanvas {
-        pub fn new(width: f32, height: f32) -> Self {
-            Self {
-                width,
-                height,
-                steps: Vec::new(),
-            }
-        }
-    }
-
-    impl Deref for Canvas {
-        type Target = InnerCanvas;
-        fn deref(&self) -> &Self::Target {
-            &self.inner
-        }
-    }
-
-    impl DerefMut for Canvas {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.inner
-        }
-    }
-
-    impl Canvas {
-        pub fn new(transform: Transform, width: f32, height: f32) -> Self {
-            if transform.is_scale_translate() {
-                Canvas {
-                    transform,
-                    inner: InnerCanvas::new(width, height),
-                }
-            } else {
-                panic!("Canvas' transformations can only be scale and translate")
-            }
-        }
-        pub fn draw<P: Into<Primitive>>(&mut self, transform: Transform, p: P) {
-            self.inner.steps.push(Instruction {
-                transform,
-                primitive: p.into(),
-            })
-        }
-        pub fn draw_at<P: Into<Primitive>>(&mut self, x: f32, y: f32, p: P) {
-            self.inner.steps.push(Instruction {
-                transform: Transform::from_translate(x, y),
-                primitive: p.into(),
-            })
-        }
-        pub fn draw_rectangle<B: Into<Texture>>(
-            &mut self,
-            transform: Transform,
-            width: f32,
-            height: f32,
-            texture: B,
-        ) {
-            let rect = Rectangle::new(width, height).background(texture);
-            self.inner.steps.push(Instruction {
-                transform,
-                primitive: rect.into(),
-            })
-        }
-        pub fn draw_at_angle<P: Into<Primitive> + Drawable>(
-            &mut self,
-            x: f32,
-            y: f32,
-            p: P,
-            angle: f32,
-        ) {
-            let w = p.width();
-            let h = p.height();
-            let transform = Transform::from_translate(x, y);
-            self.steps.push(Instruction {
-                transform: transform.pre_concat(Transform::from_rotate_at(angle, w / 2., h / 2.)),
-                primitive: p.into(),
-            })
-        }
-        pub fn finish(mut self) -> RenderNode {
-            match self.inner.steps.len() {
-                0 => RenderNode::None,
-                1 => {
-                    let mut i = self.inner.steps.remove(0);
-                    i.transform = i.transform.post_concat(self.transform);
-                    i.into()
-                }
-                _ => Instruction::other(self.transform, self.inner).into(),
-            }
-        }
-    }
-
-    impl std::fmt::Debug for InnerCanvas {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.debug_struct("Canvas")
-                .field("width", &self.width)
-                .field("height", &self.height)
-                .finish()
-        }
-    }
-
-    impl Geometry for InnerCanvas {
-        fn height(&self) -> f32 {
-            self.height
-        }
-        fn width(&self) -> f32 {
-            self.width
-        }
-    }
-
-    impl Drawable for InnerCanvas {
-        fn set_texture(&self, _: scene::Texture) -> scene::Primitive {
-            Primitive::Other(Box::new(self.clone()))
-        }
-        fn draw_with_transform_clip(
-            &self,
-            ctx: &mut DrawContext,
-            transform: tiny_skia::Transform,
-            clip: Option<&tiny_skia::ClipMask>,
-        ) {
-            for s in &self.steps {
-                let t = s.transform.post_concat(transform);
-                s.primitive.draw_with_transform_clip(ctx, t, clip);
-            }
-        }
-        fn contains(&self, region: &scene::Region) -> bool {
-            Region::new(0., 0., self.width, self.height).rfit(&region)
-        }
-        fn primitive(&self) -> scene::Primitive {
-            Primitive::Other(Box::new(self.clone()))
-        }
-        fn get_texture(&self) -> scene::Texture {
-            Texture::Transparent
-        }
-    }
-}
+// pub mod canvas {
+//     use crate::scene::*;
+//     use crate::widgets::shapes::*;
+//     use crate::*;
+//     use std::ops::{Deref, DerefMut};
+//
+//     // Helper to draw using the retained mode API
+//     pub struct Canvas {
+//         transform: Transform,
+//         inner: InnerCanvas,
+//     }
+//
+//     #[derive(Clone, PartialEq)]
+//     pub struct InnerCanvas {
+//         width: f32,
+//         height: f32,
+//         steps: Vec<Instruction>,
+//     }
+//
+//     impl InnerCanvas {
+//         pub fn new(width: f32, height: f32) -> Self {
+//             Self {
+//                 width,
+//                 height,
+//                 steps: Vec::new(),
+//             }
+//         }
+//     }
+//
+//     impl Deref for Canvas {
+//         type Target = InnerCanvas;
+//         fn deref(&self) -> &Self::Target {
+//             &self.inner
+//         }
+//     }
+//
+//     impl DerefMut for Canvas {
+//         fn deref_mut(&mut self) -> &mut Self::Target {
+//             &mut self.inner
+//         }
+//     }
+//
+//     impl Canvas {
+//         pub fn new(transform: Transform, width: f32, height: f32) -> Self {
+//             if transform.is_scale_translate() {
+//                 Canvas {
+//                     transform,
+//                     inner: InnerCanvas::new(width, height),
+//                 }
+//             } else {
+//                 panic!("Canvas' transformations can only be scale and translate")
+//             }
+//         }
+//         pub fn draw<P: Into<Primitive>>(&mut self, transform: Transform, p: P) {
+//             self.inner.steps.push(Instruction {
+//                 transform,
+//                 primitive: p.into(),
+//             })
+//         }
+//         pub fn draw_at<P: Into<Primitive>>(&mut self, x: f32, y: f32, p: P) {
+//             self.inner.steps.push(Instruction {
+//                 transform: Transform::from_translate(x, y),
+//                 primitive: p.into(),
+//             })
+//         }
+//         pub fn draw_rectangle<B: Into<Texture>>(
+//             &mut self,
+//             transform: Transform,
+//             width: f32,
+//             height: f32,
+//             texture: B,
+//         ) {
+//             let rect = Rectangle::new(width, height).background(texture);
+//             self.inner.steps.push(Instruction {
+//                 transform,
+//                 primitive: rect.into(),
+//             })
+//         }
+//         pub fn draw_at_angle<P: Into<Primitive> + Drawable>(
+//             &mut self,
+//             x: f32,
+//             y: f32,
+//             p: P,
+//             angle: f32,
+//         ) {
+//             let w = p.width();
+//             let h = p.height();
+//             let transform = Transform::from_translate(x, y);
+//             self.steps.push(Instruction {
+//                 transform: transform.pre_concat(Transform::from_rotate_at(angle, w / 2., h / 2.)),
+//                 primitive: p.into(),
+//             })
+//         }
+//         pub fn finish(mut self) -> RenderNode {
+//             match self.inner.steps.len() {
+//                 0 => RenderNode::None,
+//                 1 => {
+//                     let mut i = self.inner.steps.remove(0);
+//                     i.transform = i.transform.post_concat(self.transform);
+//                     i.into()
+//                 }
+//                 _ => Instruction::other(self.transform, self.inner).into(),
+//             }
+//         }
+//     }
+//
+//     impl std::fmt::Debug for InnerCanvas {
+//         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//             f.debug_struct("Canvas")
+//                 .field("width", &self.width)
+//                 .field("height", &self.height)
+//                 .finish()
+//         }
+//     }
+//
+//     impl Geometry for InnerCanvas {
+//         fn height(&self) -> f32 {
+//             self.height
+//         }
+//         fn width(&self) -> f32 {
+//             self.width
+//         }
+//     }
+//
+//     impl Drawable for InnerCanvas {
+//         fn set_texture(&self, _: scene::Texture) -> scene::Primitive {
+//             Primitive::Other(Box::new(self.clone()))
+//         }
+//         fn draw_with_transform_clip(
+//             &self,
+//             ctx: &mut DrawContext,
+//             transform: tiny_skia::Transform,
+//             clip: Option<&tiny_skia::ClipMask>,
+//         ) {
+//             for s in &self.steps {
+//                 let t = s.transform.post_concat(transform);
+//                 s.primitive.draw_with_transform_clip(ctx, t, clip);
+//             }
+//         }
+//         fn contains(&self, region: &scene::Region) -> bool {
+//             Region::new(0., 0., self.width, self.height).rfit(&region)
+//         }
+//         fn primitive(&self) -> scene::Primitive {
+//             Primitive::Other(Box::new(self.clone()))
+//         }
+//         fn get_texture(&self) -> scene::Texture {
+//             Texture::Transparent
+//         }
+//     }
+// }
 
 pub const PIX_PAINT: PixmapPaint = PixmapPaint {
     blend_mode: BlendMode::SourceOver,
@@ -192,6 +192,7 @@ pub struct DrawContext<'c> {
     transform: Transform,
     path_builder: Option<PathBuilder>,
     pub(crate) backend: Backend<'c>,
+    pub(crate) clipmask: Option<&'c mut ClipMask>,
     pub(crate) cache: &'c mut Cache,
     pub(crate) pending_damage: Vec<Region>,
 }
@@ -331,6 +332,7 @@ impl<'c> DrawContext<'c> {
         Self {
             cache,
             backend,
+            clipmask: None,
             transform: Transform::identity(),
             pending_damage: Vec::new(),
             path_builder: Some(PathBuilder::new()),
@@ -345,6 +347,7 @@ impl<'c> DrawContext<'c> {
             cache,
             backend,
             transform,
+            clipmask: None,
             pending_damage: Vec::new(),
             path_builder: Some(PathBuilder::new()),
         }
@@ -373,10 +376,44 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
+    pub fn reset_clip(&mut self, region: Region) {
+        let width = self.width();
+        let height = self.height();
+        if let Some(clipmask) = &mut self.clipmask {
+            if width == region.width && height == region.height {
+                clipmask.clear();
+            } else {
+                let mut pb = self.path_builder.take().unwrap();
+                pb.push_rect(region.x, region.y, region.width, region.height);
+                let path = pb.finish().unwrap();
+                clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
+                self.path_builder = Some(path.clear());
+            }
+        }
+    }
+    pub fn set_clip(&mut self, region: Region) {
+        let width = self.width();
+        let height = self.height();
+        if let Some(clipmask) = &mut self.clipmask {
+            let mut pb = self.path_builder.take().unwrap();
+            pb.push_rect(region.x, region.y, region.width, region.height);
+            let path = pb.finish().unwrap();
+            if clipmask.is_empty() {
+                clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
+            } else {
+                clipmask.intersect_path(&path, FillRule::Winding, false);
+            }
+            self.path_builder = Some(path.clear());
+        }
+    }
     /// This method is usually called when you want to clean up an area to draw on it.
-    pub fn damage_region(&mut self, texture: &Texture, region: Region, composite: bool) {
+    pub fn damage_region(&mut self, background: &Background, region: Region) {
         let blend;
-        if !composite {
+        if let Some(background) = background.previous {
+            self.damage_region(background, region);
+            blend = BlendMode::SourceOver;
+            self.pending_damage.push(region);
+        } else {
             if let Some(last) = self.pending_damage.last() {
                 if last.contains(region.x, region.y) {
                     if last
@@ -384,8 +421,8 @@ impl<'c> DrawContext<'c> {
                         .substract(*last)
                         .into_iter()
                         .filter_map(|region| {
-                            if !region.null() {
-                                self.damage_region(texture, region, composite);
+                            if !region.is_empty() {
+                                self.damage_region(background, region);
                                 Some(())
                             } else {
                                 None
@@ -399,11 +436,9 @@ impl<'c> DrawContext<'c> {
                 }
             }
             blend = BlendMode::Source;
-            self.pending_damage.push(region);
-        } else {
-            blend = BlendMode::SourceOver;
         }
-        match texture {
+        let clip_mask = self.clipmask.as_ref().map(|clipmask| &**clipmask);
+        match background.texture() {
             Texture::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
                     dt.fill_rect(
@@ -415,71 +450,11 @@ impl<'c> DrawContext<'c> {
                             force_hq_pipeline: false,
                         },
                         self.transform,
-                        None,
+                        clip_mask,
                     );
                 }
                 _ => {}
             },
-            Texture::LinearGradient {
-                start,
-                end,
-                angle: _,
-                stops,
-                mode,
-            } => {
-                if let Backend::Pixmap(dt) = &mut self.backend {
-                    if let Some(grad) = LinearGradient::new(
-                        start.into(),
-                        end.into(),
-                        stops.as_ref().to_vec(),
-                        *mode,
-                        self.transform,
-                    ) {
-                        dt.fill_rect(
-                            region.into(),
-                            &Paint {
-                                shader: grad,
-                                blend_mode: blend,
-                                anti_alias: false,
-                                force_hq_pipeline: false,
-                            },
-                            self.transform,
-                            None,
-                        );
-                    }
-                }
-            }
-            Texture::Image(bound, image) => {
-                let crop =
-                    Region::new(bound.x, bound.y, image.width(), image.height()).crop(&region);
-                let (sx, sy) = (image.width() / bound.width, image.height() / bound.height);
-                let source = image.pixmap();
-                if let Backend::Pixmap(dt) = &mut self.backend {
-                    dt.fill_rect(
-                        crop.into(),
-                        &Paint {
-                            shader: Pattern::new(
-                                source,
-                                SpreadMode::Pad,
-                                FilterQuality::Bilinear,
-                                1.0,
-                                Transform::from_scale(sx, sy).post_translate(crop.x, crop.y),
-                            ),
-                            anti_alias: false,
-                            force_hq_pipeline: false,
-                            blend_mode: blend,
-                        },
-                        self.transform,
-                        None,
-                    );
-                }
-            }
-            Texture::Composite(layers) => {
-                self.damage_region(&layers[0], region, true);
-                for layer in &layers[1..] {
-                    self.damage_region(layer, region, true);
-                }
-            }
             Texture::Transparent => match &mut self.backend {
                 Backend::Pixmap(dt) => {
                     dt.fill_rect(
@@ -491,53 +466,26 @@ impl<'c> DrawContext<'c> {
                             force_hq_pipeline: false,
                         },
                         self.transform,
-                        None,
+                        clip_mask,
                     );
                 }
                 _ => {}
             },
+            _ => {}
         }
     }
     pub fn damage_queue(&self) -> &[Region] {
         self.pending_damage.as_slice()
     }
-    /// Renders the current text layout.
-    pub fn finish(&mut self, x: f32, y: f32, fonts: &[FontProperty]) {
-        let font_cache = &mut self.cache.font_cache;
-        let layout = font_cache.layout.glyphs();
-        for gp in layout {
-            if let Some(glyph_cache) = font_cache.fonts.get_mut(&fonts[gp.font_index]) {
-                if let Some(pixmap) = glyph_cache.render_glyph(gp) {
-                    if let Some(pixmap) = PixmapRef::from_bytes(
-                        unsafe {
-                            std::slice::from_raw_parts(
-                                pixmap.as_ptr() as *mut u8,
-                                pixmap.len() * std::mem::size_of::<u32>(),
-                            )
-                        },
-                        gp.width as u32,
-                        gp.height as u32,
-                    ) {
-                        match &mut self.backend {
-                            Backend::Pixmap(dt) => {
-                                dt.draw_pixmap(
-                                    (x.round() + gp.x) as i32,
-                                    (y.round() + gp.y) as i32,
-                                    pixmap,
-                                    &TEXT,
-                                    Transform::identity(),
-                                    None,
-                                );
-                            }
-                            _ => (),
-                        }
-                    }
-                }
-            }
-        }
+    pub fn draw_kit(&mut self) -> (&mut Backend<'c>, Option<&ClipMask>) {
+        (
+            &mut self.backend,
+            self.clipmask.as_ref().map(|clipmask| &**clipmask),
+        )
     }
-    pub fn draw_label(&mut self, x: f32, y: f32, label: LabelRef, clip_mask: Option<&ClipMask>) {
+    pub fn draw_label(&mut self, x: f32, y: f32, label: LabelRef) {
         let font_cache = &mut self.cache.font_cache;
+        let clip_mask = self.clipmask.as_ref().map(|clipmask| &**clipmask);
         for gp in {
             font_cache.layout(label);
             font_cache.layout.glyphs()
