@@ -161,6 +161,31 @@ impl Rectangle {
     fn minimum_width(&self) -> f32 {
         self.radius.1 + self.radius.3
     }
+    pub fn to_render_node(mut self, transform: Transform) -> RenderNode {
+        let texture = match &mut self.style {
+            ShapeStyle::Background(background) => background,
+            ShapeStyle::Border(border, _) => border,
+        };
+        match texture {
+            Texture::Image(region, _) => {
+                *region = Region::from_transform(transform, self.width, self.height);
+            }
+            Texture::LinearGradient {
+                start,
+                end,
+                angle,
+                stops: _,
+                mode: _,
+            } => {
+                start.x = transform.tx;
+                start.y = transform.ty;
+                end.x = transform.tx + self.width;
+                end.y = transform.ty + self.height * angle.tan();
+            }
+            _ => {}
+        }
+        Instruction::new(transform, self).into()
+    }
 }
 
 impl Geometry for Rectangle {
@@ -240,8 +265,9 @@ impl Drawable for Rectangle {
                                 clip,
                             );
                         }
-                        Texture::Image(_, image) => {
-                            let (sx, sy) = image.scale();
+                        Texture::Image(bound, image) => {
+                            let (sx, sy) =
+                                (image.width() / bound.width, image.height() / bound.height);
                             dt.fill_path(
                                 &path,
                                 &Paint {
@@ -317,8 +343,11 @@ impl Drawable for Rectangle {
                                         Transform::identity(),
                                     )
                                     .unwrap(),
-                                    Texture::Image(_, image) => {
-                                        let (sx, sy) = image.scale();
+                                    Texture::Image(bound, image) => {
+                                        let (sx, sy) = (
+                                            image.width() / bound.width,
+                                            image.height() / bound.height,
+                                        );
                                         Pattern::new(
                                             image.pixmap(),
                                             SpreadMode::Repeat,
@@ -365,12 +394,12 @@ impl Style for Rectangle {
     }
     fn set_background<B: Into<Texture>>(&mut self, background: B) {
         let mut background = background.into();
-        if let Texture::Image(_, image) = &mut background {
+        if let Texture::Image(image, _) = &mut background {
             image.width = self.width;
             image.height = self.height;
         }
         match &mut background {
-            Texture::Image(_, image) => {
+            Texture::Image(image, _) => {
                 image.width = self.width;
                 image.height = self.height;
             }
@@ -397,28 +426,27 @@ impl Style for Rectangle {
 impl<D> Widget<D> for Rectangle {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
         if transform.is_scale_translate() {
-            if let ShapeStyle::Background(background) = &mut self.style {
-                match background {
-                    Texture::Image(coords, image) => {
-                        coords.x = transform.tx;
-                        coords.y = transform.ty;
-                        image.width = self.width;
-                        image.height = self.height;
-                    }
-                    Texture::LinearGradient {
-                        start,
-                        end,
-                        angle,
-                        stops: _,
-                        mode: _,
-                    } => {
-                        start.x = transform.tx;
-                        start.y = transform.ty;
-                        end.x = transform.tx + self.width;
-                        end.y = transform.ty + self.height * angle.tan();
-                    }
-                    _ => {}
+            let texture = match &mut self.style {
+                ShapeStyle::Background(background) => background,
+                ShapeStyle::Border(border, _) => border,
+            };
+            match texture {
+                Texture::Image(region, _) => {
+                    *region = Region::from_transform(transform, self.width, self.height);
                 }
+                Texture::LinearGradient {
+                    start,
+                    end,
+                    angle,
+                    stops: _,
+                    mode: _,
+                } => {
+                    start.x = transform.tx;
+                    start.y = transform.ty;
+                    end.x = transform.tx + self.width;
+                    end.y = transform.ty + self.height * angle.tan();
+                }
+                _ => {}
             }
             return Instruction::new(transform, self.clone()).into();
         }

@@ -189,6 +189,7 @@ pub struct SyncContext<'c, D> {
 ///
 /// It does all the text rendering along and gives access to the backend which primitive can use to draw.
 pub struct DrawContext<'c> {
+    transform: Transform,
     path_builder: Option<PathBuilder>,
     pub(crate) backend: Backend<'c>,
     pub(crate) cache: &'c mut Cache,
@@ -323,11 +324,27 @@ impl<'c, D> AsMut<Cache> for SyncContext<'c, D> {
     }
 }
 
+use tiny_skia::Transform;
+
 impl<'c> DrawContext<'c> {
     pub fn new(backend: Backend<'c>, cache: &'c mut Cache) -> Self {
         Self {
             cache,
             backend,
+            transform: Transform::identity(),
+            pending_damage: Vec::new(),
+            path_builder: Some(PathBuilder::new()),
+        }
+    }
+    pub fn new_with_transform(
+        backend: Backend<'c>,
+        cache: &'c mut Cache,
+        transform: Transform,
+    ) -> Self {
+        Self {
+            cache,
+            backend,
+            transform,
             pending_damage: Vec::new(),
             path_builder: Some(PathBuilder::new()),
         }
@@ -340,6 +357,9 @@ impl<'c> DrawContext<'c> {
     }
     pub fn reset(&mut self, path_builder: PathBuilder) {
         self.path_builder = Some(path_builder);
+    }
+    pub fn transform(&self) -> Transform {
+        self.transform
     }
     pub fn commit(&mut self, region: Region) {
         if let Some(r) = self.pending_damage.last_mut() {
@@ -394,7 +414,7 @@ impl<'c> DrawContext<'c> {
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },
-                        Transform::identity(),
+                        self.transform,
                         None,
                     );
                 }
@@ -413,7 +433,7 @@ impl<'c> DrawContext<'c> {
                         end.into(),
                         stops.as_ref().to_vec(),
                         *mode,
-                        Transform::identity(),
+                        self.transform,
                     ) {
                         dt.fill_rect(
                             region.into(),
@@ -423,16 +443,16 @@ impl<'c> DrawContext<'c> {
                                 anti_alias: false,
                                 force_hq_pipeline: false,
                             },
-                            Transform::identity(),
+                            self.transform,
                             None,
                         );
                     }
                 }
             }
-            Texture::Image(coords, image) => {
+            Texture::Image(bound, image) => {
                 let crop =
-                    Region::new(coords.x, coords.y, image.width(), image.height()).crop(&region);
-                let (sx, sy) = image.scale();
+                    Region::new(bound.x, bound.y, image.width(), image.height()).crop(&region);
+                let (sx, sy) = (image.width() / bound.width, image.height() / bound.height);
                 let source = image.pixmap();
                 if let Backend::Pixmap(dt) = &mut self.backend {
                     dt.fill_rect(
@@ -443,13 +463,13 @@ impl<'c> DrawContext<'c> {
                                 SpreadMode::Pad,
                                 FilterQuality::Bilinear,
                                 1.0,
-                                Transform::from_scale(sx, sy).post_translate(coords.x, coords.y),
+                                Transform::from_scale(sx, sy).post_translate(crop.x, crop.y),
                             ),
                             anti_alias: false,
                             force_hq_pipeline: false,
                             blend_mode: blend,
                         },
-                        Transform::identity(),
+                        self.transform,
                         None,
                     );
                 }
@@ -470,7 +490,7 @@ impl<'c> DrawContext<'c> {
                             anti_alias: false,
                             force_hq_pipeline: false,
                         },
-                        Transform::identity(),
+                        self.transform,
                         None,
                     );
                 }

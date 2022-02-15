@@ -123,6 +123,12 @@ impl From<RawImage> for InnerImage {
     }
 }
 
+impl From<InnerImage> for RawImage {
+    fn from(image: InnerImage) -> Self {
+        image.raw.clone()
+    }
+}
+
 impl InnerImage {
     pub fn from_raw(buf: Vec<u8>, width: u32, height: u32) -> Self {
         Self {

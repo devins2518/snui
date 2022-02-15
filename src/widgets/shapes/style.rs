@@ -187,8 +187,6 @@ impl<W> Style for WidgetStyle<W> {
 
 impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
     fn create_node(&mut self, transform: Transform) -> RenderNode {
-        let x = transform.tx;
-        let y = transform.ty;
         let (border_texture, border_size) = self.border.clone();
         if let Some(node) = self
             .widget
@@ -197,47 +195,35 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
         {
             let width = self.size.width;
             let height = self.size.height;
-            match &mut self.background {
-                Texture::Image(coords, _) => {
-                    coords.x = x + border_size;
-                    coords.y = y + border_size;
-                }
-                Texture::LinearGradient {
-                    start, end, angle, ..
-                } => {
-                    start.x = x + border_size;
-                    start.y = y + border_size;
-                    end.x = start.x + width;
-                    end.y = start.y + height * angle.tan();
-                }
-                _ => {}
-            }
             RenderNode::Decoration {
                 node: Box::new(node),
                 border: {
                     if border_texture != Texture::Transparent || border_size > 0. {
-                        Some(Instruction::new(
-                            transform,
+                        Some(
                             Rectangle::new(width, height)
                                 .top_left_radius(self.radius.0)
                                 .top_right_radius(self.radius.1)
                                 .bottom_right_radius(self.radius.2)
                                 .bottom_left_radius(self.radius.3)
-                                .border(border_texture, border_size),
-                        ))
+                                .border(border_texture, border_size)
+                                .to_render_node(transform)
+                                .instruction()
+                                .unwrap()
+                        )
                     } else {
                         None
                     }
                 },
-                background: Instruction::new(
-                    transform.pre_translate(border_size, border_size),
+                background: 
                     Rectangle::new(width, height)
                         .background(self.background.clone())
                         .top_left_radius(minimum_radius(self.radius.0, border_size))
                         .top_right_radius(minimum_radius(self.radius.1, border_size))
                         .bottom_right_radius(minimum_radius(self.radius.2, border_size))
-                        .bottom_left_radius(minimum_radius(self.radius.3, border_size)),
-                ),
+                        .bottom_left_radius(minimum_radius(self.radius.3, border_size))
+                        .to_render_node(transform.pre_translate(border_size, border_size))
+                        .instruction()
+                        .unwrap()
             }
         } else {
             return RenderNode::None;

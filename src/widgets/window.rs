@@ -225,9 +225,6 @@ where
         let header = self.header.create_node(transform);
         self.body.set_coords(0., self.size[0].height);
         let body = self.body.create_node(transform);
-        if header.is_none() && body.is_none() {
-            return RenderNode::None;
-        }
         RenderNode::Container {
             bound: Region::from_transform(transform, self.width(), self.height()),
             children: vec![header, body],

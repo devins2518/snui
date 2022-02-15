@@ -410,28 +410,19 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) {
-        let scale = self
-            .surface
-            .output
-            .as_ref()
-            .map(|output| output.scale)
-            .unwrap_or(1);
         match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     let mut layout = LayoutCtx::new(cache);
                     let Size { width, height } =
                         self.widget.layout(&mut layout, &self.state.constraint);
-                    let render_node = self
-                        .widget
-                        .create_node(Transform::from_scale(scale as f32, scale as f32));
+                    let render_node = self.widget.create_node(Transform::identity());
                     self.render(
                         pool,
                         cache,
                         render_node,
                         width,
                         height,
-                        scale,
                         Damage::Partial,
                         conn,
                         qh,
@@ -444,9 +435,7 @@ where
                         let mut layout = LayoutCtx::new(cache);
                         let Size { width, height } =
                             self.widget.layout(&mut layout, &self.state.constraint);
-                        let render_node = self
-                            .widget
-                            .create_node(Transform::from_scale(scale as f32, scale as f32));
+                        let render_node = self.widget.create_node(Transform::identity());
                         self.state.pending_cb = true;
                         self.render(
                             pool,
@@ -454,7 +443,6 @@ where
                             render_node,
                             width,
                             height,
-                            scale,
                             Damage::Frame,
                             conn,
                             qh,
@@ -465,6 +453,47 @@ where
             _ => {}
         }
     }
+    fn quick_render(
+        &mut self,
+        pool: &mut MultiPool<wl_surface::WlSurface>,
+        cache: &mut Cache,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<WaylandClient<D>>,
+    ) {
+        let scale = self
+            .surface
+            .output
+            .as_ref()
+            .map(|output| output.scale)
+            .unwrap_or(1);
+        let surface = &mut self.surface;
+        if let Some(region) = self.state.render_node.region() {
+            if let Some((_, wl_buffer, backend)) = buffer(
+                pool,
+                region.width as u32 * scale as u32,
+                region.height as u32 * scale as u32,
+                &surface.wl_surface,
+                (),
+                conn,
+                qh,
+            ) {
+                surface.replace_buffer(wl_buffer);
+                let mut ctx = DrawContext::new_with_transform(
+                    backend,
+                    cache,
+                    Transform::from_scale(scale as f32, scale as f32),
+                );
+                ctx.damage_region(&Texture::Transparent, region, false);
+                self.state
+                    .render_node
+                    .render(&mut ctx, &mut self.clipmask, None);
+
+                self.clipmask.as_mut().unwrap().clear();
+                surface.damage(conn, ctx.damage_queue());
+                surface.commit(conn);
+            }
+        }
+    }
     fn render(
         &mut self,
         pool: &mut MultiPool<wl_surface::WlSurface>,
@@ -472,18 +501,23 @@ where
         render_node: RenderNode,
         width: f32,
         height: f32,
-        scale: i32,
         damage: Damage,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) {
-        let width = width * scale as f32;
-        let height = height * scale as f32;
+        let scale = self
+            .surface
+            .output
+            .as_ref()
+            .map(|output| output.scale)
+            .unwrap_or(1);
+        let width = width;
+        let height = height;
         let surface = &mut self.surface;
         if let Some((offset, wl_buffer, backend)) = buffer(
             pool,
-            width as u32,
-            height as u32,
+            width as u32 * scale as u32,
+            height as u32 * scale as u32,
             &surface.wl_surface,
             (),
             conn,
@@ -491,7 +525,11 @@ where
         ) {
             surface.replace_buffer(wl_buffer);
             let region = Region::new(0., 0., width, height);
-            let mut ctx = DrawContext::new(backend, cache);
+            let mut ctx = DrawContext::new_with_transform(
+                backend,
+                cache,
+                Transform::from_scale(scale as f32, scale as f32),
+            );
 
             if offset != self.state.offset {
                 self.state.offset = offset;
@@ -504,7 +542,7 @@ where
                 if let Err(l_region) = self.state.render_node.draw_merge(
                     render_node,
                     &mut ctx,
-                    &region.into(),
+                    &Scene::new(width, height),
                     &mut self.clipmask,
                 ) {
                     ctx.damage_region(&Texture::Transparent, l_region.merge(&region), false);
@@ -513,9 +551,10 @@ where
                         .render(&mut ctx, &mut self.clipmask, None);
                 }
             }
+            // println!("{:#?}", self.state.render_node);
 
             self.clipmask.as_mut().unwrap().clear();
-            surface.damage(conn, ctx.damage_queue(), scale);
+            surface.damage(conn, ctx.damage_queue());
             surface.commit(conn);
         } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
             surface.wl_surface.commit(conn);
@@ -672,15 +711,10 @@ impl Surface {
             surface.destroy(ch);
         }
     }
-    fn damage(&self, ch: &mut ConnectionHandle, report: &[Region], scale: i32) {
+    fn damage(&self, ch: &mut ConnectionHandle, report: &[Region]) {
         for d in report {
-            self.wl_surface.damage(
-                ch,
-                d.x as i32 / scale,
-                d.y as i32 / scale,
-                d.width as i32 / scale,
-                d.height as i32 / scale,
-            );
+            self.wl_surface
+                .damage(ch, d.x as i32, d.y as i32, d.width as i32, d.height as i32);
         }
     }
     fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
@@ -876,25 +910,18 @@ where
                             view.surface.output = Some(output.clone());
                             std::mem::drop(output);
                             std::mem::drop(globals);
-                            view.update_scene(
+                            view.quick_render(
                                 self.pool.as_mut().unwrap(),
                                 &mut self.cache,
-                                Event::Draw,
                                 conn,
                                 qh,
-                            );
+                            )
                         }
                     } else {
                         view.surface.output = Some(output.clone());
                         std::mem::drop(output);
                         std::mem::drop(globals);
-                        view.update_scene(
-                            self.pool.as_mut().unwrap(),
-                            &mut self.cache,
-                            Event::Draw,
-                            conn,
-                            qh,
-                        );
+                        view.quick_render(self.pool.as_mut().unwrap(), &mut self.cache, conn, qh)
                     }
                 }
             }
@@ -926,23 +953,19 @@ where
                     // The view is rendered prior and the changes are commited here
                     let frame_time = (callback_data - view.state.time).min(20);
                     view.state.time = callback_data;
-                    let scale = view.surface.output.as_ref().map(|o| o.scale).unwrap_or(1);
                     // Send a callback event with the timeout the view
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
                             let mut layout = LayoutCtx::new(cache);
                             let Size { width, height } =
                                 view.widget.layout(&mut layout, &view.state.constraint);
-                            let render_node = view
-                                .widget
-                                .create_node(Transform::from_scale(scale as f32, scale as f32));
+                            let render_node = view.widget.create_node(Transform::identity());
                             view.render(
                                 pool,
                                 cache,
                                 render_node,
                                 width,
                                 height,
-                                scale,
                                 Damage::Partial,
                                 conn,
                                 qh,
@@ -953,9 +976,7 @@ where
                             let mut layout = LayoutCtx::new(cache);
                             let Size { width, height } =
                                 view.widget.layout(&mut layout, &view.state.constraint);
-                            let render_node = view
-                                .widget
-                                .create_node(Transform::from_scale(scale as f32, scale as f32));
+                            let render_node = view.widget.create_node(Transform::identity());
                             view.state.pending_cb = true;
                             view.render(
                                 pool,
@@ -963,7 +984,6 @@ where
                                 render_node,
                                 width,
                                 height,
-                                scale,
                                 Damage::Partial,
                                 conn,
                                 qh,
@@ -1073,15 +1093,8 @@ where
                         view.widget.layout(&mut ctx, &view.state.constraint).into();
                     view.state.constraint =
                         BoxConstraints::new((r_width, r_height), (r_width, r_height));
-                    if r_width > width as f32
-                        && r_height > height as f32
-                        && width * height != 0
-                    {
-                        toplevel.set_min_size(
-                            conn,
-                            r_width as i32,
-                            r_height as i32,
-                        )
+                    if r_width > width as f32 && r_height > height as f32 && width * height != 0 {
+                        toplevel.set_min_size(conn, r_width as i32, r_height as i32)
                     }
                 }
                 xdg_toplevel::Event::Close => {
