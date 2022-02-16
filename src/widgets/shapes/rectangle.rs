@@ -1,8 +1,8 @@
 use crate::widgets::shapes::*;
 use crate::*;
+use scene::PrimitiveRef;
 use std::f32::consts::FRAC_1_SQRT_2;
 use tiny_skia::*;
-use scene::PrimitiveRef;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rectangle {
@@ -237,23 +237,23 @@ impl<D> Widget<D> for Rectangle {
 
 impl Style for BorderedRectangle {
     fn set_top_left_radius(&mut self, radius: f32) {
-        self.radius.0 = minimum_radius(radius, self.border_width);
+        self.radius.0 = radius;
     }
     fn set_top_right_radius(&mut self, radius: f32) {
-        self.radius.1 = minimum_radius(radius, self.border_width);
+        self.radius.1 = radius;
     }
     fn set_bottom_right_radius(&mut self, radius: f32) {
-        self.radius.2 = minimum_radius(radius, self.border_width);
+        self.radius.2 = radius;
     }
     fn set_bottom_left_radius(&mut self, radius: f32) {
-        self.radius.3 = minimum_radius(radius, self.border_width);
+        self.radius.3 = radius;
     }
     fn set_background<B: Into<Texture>>(&mut self, background: B) {
         self.texture = background.into();
     }
 }
 
-fn minimum_radius(radius: f32, border_width: f32) -> f32 {
+pub fn minimum_radius(radius: f32, border_width: f32) -> f32 {
     if border_width > radius {
         return 0.;
     }
@@ -306,7 +306,12 @@ impl BorderedRectangle {
 impl Drawable for BorderedRectangle {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {
         let pb = ctx.path_builder();
-        if let Some(path) = Rectangle::path(pb, self.width, self.height, self.radius) {
+        if let Some(path) = Rectangle::path(
+            pb,
+            self.width + self.border_width,
+            self.height + self.border_width,
+            self.radius,
+        ) {
             let (backend, clipmask) = ctx.draw_kit();
             if let Backend::Pixmap(dt) = backend {
                 let stroke = Stroke {
@@ -327,7 +332,8 @@ impl Drawable for BorderedRectangle {
                                 force_hq_pipeline: false,
                             },
                             &stroke,
-                            transform.post_translate(self.border_width, self.border_width),
+                            transform
+                                .post_translate(self.border_width / 2., self.border_width / 2.),
                             clipmask,
                         );
                     }

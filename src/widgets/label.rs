@@ -135,9 +135,76 @@ impl Geometry for Label {
     }
 }
 
+impl Drawable for Label {
+    fn draw(&self, context: &mut DrawContext, transform: tiny_skia::Transform) {
+        let mut settings = self.settings.clone();
+        let font_cache = &mut context.cache.font_cache;
+        settings.max_width = self.settings.max_width.map(|width| width * transform.tx);
+        settings.max_height = self.settings.max_height.map(|height| height * transform.ty);
+
+        let clip_mask = context.clipmask
+            .as_ref()
+            .map(|clipmask| {
+                if !clipmask.is_empty() {
+                    Some(&**clipmask)
+                } else {
+                    None
+                }
+            })
+            .flatten();
+
+        let x = transform.tx.round();
+        let y = transform.ty.round();
+
+        for gp in {
+            let mut label = self.as_ref();
+            label.font_size = self.font_size * transform.ty;
+            label.settings = &settings;
+            font_cache.layout.glyphs()
+        } {
+            if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index]) {
+                if let Some(pixmap) = glyph_cache.render_glyph(gp) {
+                    if let Some(pixmap) = PixmapRef::from_bytes(
+                        unsafe {
+                            std::slice::from_raw_parts(
+                                pixmap.as_ptr() as *mut u8,
+                                pixmap.len() * std::mem::size_of::<u32>(),
+                            )
+                        },
+                        gp.width as u32,
+                        gp.height as u32,
+                    ) {
+                        match &mut context.backend {
+                            Backend::Pixmap(dt) => {
+                                dt.draw_pixmap(
+                                    (x + gp.x) as i32,
+                                    (y + gp.y) as i32,
+                                    pixmap,
+                                    &TEXT,
+                                    Transform::identity(),
+                                    clip_mask,
+                                );
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+use crate::scene::PrimitiveRef;
+
+impl<'p> From<&'p Label> for PrimitiveRef<'p> {
+    fn from(this: &'p Label) -> Self {
+        PrimitiveRef::Label(this)
+    }
+}
+
 impl<D> Widget<D> for Label {
-    fn draw_scene(&mut self, scene: Scene) {
-        todo!()
+    fn draw_scene(&mut self, mut scene: Scene) {
+        scene.push_primitive(self)
     }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
@@ -157,10 +224,6 @@ impl<D> Widget<D> for Label {
         }
         self.size.unwrap_or_default()
     }
-}
-
-impl Drawable for Label {
-    fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {}
 }
 
 use crate::mail::*;
@@ -187,6 +250,9 @@ where
     M: Clone + Copy,
     D: for<'s> Mail<M, &'s str, String>,
 {
+    fn draw_scene(&mut self, scene: Scene) {
+        Widget::<()>::draw_scene(&mut self.label, scene)
+    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Sync | Event::Draw => {

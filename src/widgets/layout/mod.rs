@@ -1,5 +1,5 @@
 pub mod flex;
-// pub mod simple;
+pub mod simple;
 
 use crate::*;
 use scene::Coords;
@@ -7,10 +7,7 @@ use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
 /// Widgets which contain one or more widgets
-pub trait Container<D, W>
-where
-    W: Widget<D>,
-{
+pub trait Container<D, W> {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0

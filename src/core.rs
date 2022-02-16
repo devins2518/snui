@@ -179,6 +179,12 @@ impl BoxConstraints {
     pub fn maximum_height(&self) -> f32 {
         self.maximum.height
     }
+    pub fn is_default(&self) -> bool {
+        self.minimum.width == 0.
+            && self.minimum.height == 0.
+            && self.maximum.width == 0.
+            && self.maximum.height == 0.
+    }
 }
 
 /// Analog to xdg_shell states
@@ -231,6 +237,7 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         if self.damage.is_some() {
             self.inner.draw_scene(scene)
         }
+        self.damage = Damage::None
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.damage = self.damage.max(match event {
@@ -257,29 +264,6 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     }
 }
 
-use widgets::scroll::Scrollable;
-
-impl<W: Scrollable> Scrollable for Proxy<W> {
-    fn forward(&mut self, step: Option<f32>) {
-        self.inner.forward(step)
-    }
-    fn backward(&mut self, step: Option<f32>) {
-        self.inner.backward(step)
-    }
-    fn inner_height(&self) -> f32 {
-        self.inner.inner_height()
-    }
-    fn inner_width(&self) -> f32 {
-        self.inner.inner_width()
-    }
-    fn orientation(&self) -> Orientation {
-        self.inner.orientation()
-    }
-    fn position(&self) -> f32 {
-        self.inner.position()
-    }
-}
-
 impl<W> Proxy<W> {
     pub fn new(inner: W) -> Self {
         Proxy {
@@ -298,6 +282,9 @@ impl<W> Proxy<W> {
     }
 }
 
+use scene::Texture;
+use widgets::shapes::Style;
+
 /// Additional method to build common widgets
 pub trait WidgetExt: Sized + Geometry {
     fn clamp(self) -> WidgetBox<Self> {
@@ -305,6 +292,12 @@ pub trait WidgetExt: Sized + Geometry {
     }
     fn style(self) -> WidgetStyle<Self> {
         WidgetStyle::new(self)
+    }
+    fn with_background(self, background: impl Into<Texture>) -> WidgetStyle<Self> {
+        self.style().background(background)
+    }
+    fn with_border(self, texture: impl Into<Texture>, width: f32) -> WidgetStyle<Self> {
+        self.style().border(texture, width)
     }
     fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where
@@ -358,6 +351,8 @@ where
     }
 }
 
+impl<W> WidgetExt for W where W: Geometry {}
+
 impl<D> Geometry for Box<dyn Widget<D>> {
     fn height(&self) -> f32 {
         self.as_ref().height()
@@ -368,6 +363,9 @@ impl<D> Geometry for Box<dyn Widget<D>> {
 }
 
 impl<D> Widget<D> for Box<dyn Widget<D>> {
+    fn draw_scene(&mut self, scene: Scene) {
+        self.deref_mut().draw_scene(scene)
+    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.deref_mut().sync(ctx, event)
     }

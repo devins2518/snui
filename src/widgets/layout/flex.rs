@@ -1,8 +1,8 @@
 //! A layout widget that supports interactive resize.
 
-use crate::widgets::{layout::*, Alignment, CENTER, END, START};
+use crate::widgets::layout::*;
 use crate::*;
-use scene::{Region, RenderNode, Scene};
+use scene::Scene;
 
 pub struct Flex<W> {
     size: Size,
@@ -147,35 +147,6 @@ impl<D> Flex<Box<dyn Widget<D>>> {
     }
 }
 
-impl<W: Geometry> Flex<WidgetBox<W>> {
-    pub fn set_alignment(&mut self, alignment: Alignment) {
-        match self.orientation {
-            Orientation::Horizontal => {
-                for widget in &mut self.children {
-                    match alignment {
-                        Alignment::Start => widget.set_anchor(START, CENTER),
-                        Alignment::Center => widget.set_anchor(CENTER, CENTER),
-                        Alignment::End => widget.set_anchor(END, CENTER),
-                    }
-                }
-            }
-            Orientation::Vertical => {
-                for widget in &mut self.children {
-                    match alignment {
-                        Alignment::Start => widget.set_anchor(CENTER, START),
-                        Alignment::Center => widget.set_anchor(CENTER, CENTER),
-                        Alignment::End => widget.set_anchor(CENTER, END),
-                    }
-                }
-            }
-        }
-    }
-    pub fn align(mut self, alignment: Alignment) -> Self {
-        self.set_alignment(alignment);
-        self
-    }
-}
-
 impl<W> Flex<W> {
     pub fn new() -> Self {
         Self {
@@ -193,5 +164,9 @@ impl<W> Flex<W> {
     }
     pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
         self.children.as_mut_slice()
+    }
+    pub fn with(mut self, widget: W) -> Self {
+        self.children.push(Positioner::new(Proxy::new(widget)));
+        self
     }
 }

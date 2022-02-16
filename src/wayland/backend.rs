@@ -3,6 +3,7 @@ use crate::context::DrawContext;
 use crate::mail::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
+use crate::widgets::shapes::Rectangle;
 use crate::*;
 
 use smithay_client_toolkit::reexports::client::Proxy;
@@ -37,7 +38,7 @@ use smithay_client_toolkit::reexports::protocols::{
 };
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
 use smithay_client_toolkit::shm::pool::raw::RawPool;
-use smithay_client_toolkit::shm::pool::{AsPool, PoolHandle};
+use smithay_client_toolkit::shm::pool::PoolHandle;
 use wayland_cursor::CursorTheme;
 
 pub struct WaylandClient<D>
@@ -413,40 +414,14 @@ where
         match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
-                    let mut layout = LayoutCtx::new(cache);
-                    let Size { width, height } =
-                        self.widget.layout(&mut layout, &self.state.constraint);
-                    let render_node = self.widget.create_node(Transform::identity());
-                    self.render(
-                        pool,
-                        cache,
-                        render_node,
-                        width,
-                        height,
-                        Damage::Partial,
-                        conn,
-                        qh,
-                    );
+                    self.render(pool, cache, Damage::Partial, conn, qh);
                 }
             }
             Damage::Frame => {
                 if !self.state.pending_cb {
                     if self.surface.frame(conn, qh, ()).is_ok() {
-                        let mut layout = LayoutCtx::new(cache);
-                        let Size { width, height } =
-                            self.widget.layout(&mut layout, &self.state.constraint);
-                        let render_node = self.widget.create_node(Transform::identity());
                         self.state.pending_cb = true;
-                        self.render(
-                            pool,
-                            cache,
-                            render_node,
-                            width,
-                            height,
-                            Damage::Frame,
-                            conn,
-                            qh,
-                        );
+                        self.render(pool, cache, Damage::Frame, conn, qh);
                     }
                 }
             }
@@ -466,41 +441,40 @@ where
             .as_ref()
             .map(|output| output.scale)
             .unwrap_or(1);
+        let mut layout = LayoutCtx::new(cache);
+        let Size { width, height } = self.widget.layout(&mut layout, &self.state.constraint);
         let surface = &mut self.surface;
-        if let Some(region) = self.state.render_node.region() {
-            if let Some((_, wl_buffer, backend)) = buffer(
-                pool,
-                region.width as u32 * scale as u32,
-                region.height as u32 * scale as u32,
-                &surface.wl_surface,
-                (),
-                conn,
-                qh,
-            ) {
-                surface.replace_buffer(wl_buffer);
-                let mut ctx = DrawContext::new_with_transform(
-                    backend,
-                    cache,
-                    Transform::from_scale(scale as f32, scale as f32),
-                );
-                ctx.damage_region(&Texture::Transparent, region, false);
-                self.state
-                    .render_node
-                    .render(&mut ctx, &mut self.clipmask, None);
 
-                self.clipmask.as_mut().unwrap().clear();
-                surface.damage(conn, ctx.damage_queue());
-                surface.commit(conn);
-            }
+        if let Some((offset, wl_buffer, backend)) = buffer(
+            pool,
+            width as u32 * scale as u32,
+            height as u32 * scale as u32,
+            &surface.wl_surface,
+            (),
+            conn,
+            qh,
+        ) {
+            let transform = Transform::from_scale(scale as f32, scale as f32);
+            surface.replace_buffer(wl_buffer);
+            let region = Rectangle::new(width, height);
+            let mut ctx = DrawContext::new(backend, cache)
+                .with_transform(transform)
+                .with_clipmask(self.clipmask.as_mut());
+
+            self.state.offset = offset;
+            self.widget
+                .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
+            self.state.render_node.render(&mut ctx, transform, None);
+
+            surface.damage(conn, ctx.damage_queue());
+            surface.commit(conn);
+            self.clipmask.as_mut().unwrap().clear();
         }
     }
     fn render(
         &mut self,
         pool: &mut MultiPool<wl_surface::WlSurface>,
         cache: &mut Cache,
-        render_node: RenderNode,
-        width: f32,
-        height: f32,
         damage: Damage,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
@@ -511,9 +485,11 @@ where
             .as_ref()
             .map(|output| output.scale)
             .unwrap_or(1);
-        let width = width;
-        let height = height;
+        let mut layout = LayoutCtx::new(cache);
+        let Size { width, height } = self.widget.layout(&mut layout, &self.state.constraint);
         let surface = &mut self.surface;
+
+        self.clipmask.as_mut().unwrap().clear();
         if let Some((offset, wl_buffer, backend)) = buffer(
             pool,
             width as u32 * scale as u32,
@@ -523,37 +499,23 @@ where
             conn,
             qh,
         ) {
+            let transform = Transform::from_scale(scale as f32, scale as f32);
             surface.replace_buffer(wl_buffer);
-            let region = Region::new(0., 0., width, height);
-            let mut ctx = DrawContext::new_with_transform(
-                backend,
-                cache,
-                Transform::from_scale(scale as f32, scale as f32),
-            );
+            let region = Rectangle::new(width, height);
+            let mut ctx = DrawContext::new(backend, cache)
+                .with_transform(transform)
+                .with_clipmask(self.clipmask.as_mut());
 
             if offset != self.state.offset {
                 self.state.offset = offset;
-                self.state.render_node.merge(render_node);
-                ctx.damage_region(&Texture::Transparent, region, false);
-                self.state
-                    .render_node
-                    .render(&mut ctx, &mut self.clipmask, None);
+                self.widget
+                    .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
+                self.state.render_node.render(&mut ctx, transform, None);
             } else {
-                if let Err(l_region) = self.state.render_node.draw_merge(
-                    render_node,
-                    &mut ctx,
-                    &Scene::new(width, height),
-                    &mut self.clipmask,
-                ) {
-                    ctx.damage_region(&Texture::Transparent, l_region.merge(&region), false);
-                    self.state
-                        .render_node
-                        .render(&mut ctx, &mut self.clipmask, None);
-                }
+                self.widget
+                    .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
             }
-            // println!("{:#?}", self.state.render_node);
 
-            self.clipmask.as_mut().unwrap().clear();
             surface.damage(conn, ctx.damage_queue());
             surface.commit(conn);
         } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
@@ -797,12 +759,11 @@ where
     }
 }
 
-impl<D> AsPool<MultiPool<wl_surface::WlSurface>> for WaylandClient<D>
-where
-    D: Data + Clone + 'static,
+impl<'p, D: Data + Clone> From<&'p mut WaylandClient<D>>
+    for PoolHandle<'p, MultiPool<wl_surface::WlSurface>>
 {
-    fn pool_handle(&self) -> PoolHandle<MultiPool<wl_surface::WlSurface>> {
-        PoolHandle::Ref(self.pool.as_ref().unwrap())
+    fn from(this: &'p mut WaylandClient<D>) -> Self {
+        PoolHandle::Ref(this.pool.as_mut().unwrap())
     }
 }
 
@@ -956,38 +917,12 @@ where
                     // Send a callback event with the timeout the view
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {
                         Damage::Partial => {
-                            let mut layout = LayoutCtx::new(cache);
-                            let Size { width, height } =
-                                view.widget.layout(&mut layout, &view.state.constraint);
-                            let render_node = view.widget.create_node(Transform::identity());
-                            view.render(
-                                pool,
-                                cache,
-                                render_node,
-                                width,
-                                height,
-                                Damage::Partial,
-                                conn,
-                                qh,
-                            );
+                            view.render(pool, cache, Damage::Partial, conn, qh);
                         }
                         Damage::Frame => {
                             cb = Some(i);
-                            let mut layout = LayoutCtx::new(cache);
-                            let Size { width, height } =
-                                view.widget.layout(&mut layout, &view.state.constraint);
-                            let render_node = view.widget.create_node(Transform::identity());
                             view.state.pending_cb = true;
-                            view.render(
-                                pool,
-                                cache,
-                                render_node,
-                                width,
-                                height,
-                                Damage::Partial,
-                                conn,
-                                qh,
-                            );
+                            view.render(pool, cache, Damage::Partial, conn, qh);
                         }
                         Damage::None => {}
                     }
@@ -1082,18 +1017,17 @@ where
                     states,
                 } => {
                     view.state.window_state = list_states(states);
-                    if width * height > 0 {
+                    if width > 0 && height > 0 {
                         view.state.constraint = BoxConstraints::new(
                             (width as f32, height as f32),
                             (width as f32, height as f32),
                         );
-                    }
-                    let mut ctx = LayoutCtx::new(&mut self.cache);
-                    let (r_width, r_height) =
-                        view.widget.layout(&mut ctx, &view.state.constraint).into();
-                    view.state.constraint =
-                        BoxConstraints::new((r_width, r_height), (r_width, r_height));
-                    if r_width > width as f32 && r_height > height as f32 && width * height != 0 {
+                    } else if view.state.constraint.is_default() {
+                        let mut ctx = LayoutCtx::new(&mut self.cache);
+                        let (r_width, r_height) = view
+                            .widget
+                            .layout(&mut ctx, &BoxConstraints::default())
+                            .into();
                         toplevel.set_min_size(conn, r_width as i32, r_height as i32)
                     }
                 }

@@ -1,3 +1,4 @@
+use crate::widgets::shapes::rectangle::BorderedRectangle;
 use crate::*;
 use context::DrawContext;
 use std::rc::Rc;
@@ -55,12 +56,37 @@ pub enum Texture {
 }
 
 impl Texture {
+    pub fn is_transparent(&self) -> bool {
+        match &self {
+            Texture::Transparent => true,
+            Texture::Image(_) => false,
+            Texture::Color(color) => color.eq(&tiny_skia::Color::TRANSPARENT),
+        }
+    }
     pub fn is_opaque(&self) -> bool {
         match &self {
             Texture::Transparent => false,
             Texture::Image(_) => false,
-            Texture::Color(color) => color.is_opaque()
+            Texture::Color(color) => color.is_opaque(),
         }
+    }
+}
+
+impl From<u32> for Texture {
+    fn from(color: u32) -> Self {
+        Texture::Color(u32_to_source(color))
+    }
+}
+
+impl From<Color> for Texture {
+    fn from(color: Color) -> Self {
+        Texture::Color(color)
+    }
+}
+
+impl From<ColorU8> for Texture {
+    fn from(color: ColorU8) -> Self {
+        color.get().into()
     }
 }
 
@@ -279,6 +305,7 @@ impl<'t, 'b> Background<'t, 'b> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum RenderNode {
     None,
     Primitive {
@@ -299,10 +326,20 @@ pub enum RenderNode {
         background: Rectangle,
         child: Rc<RenderNode>,
     },
+    Border {
+        coords: Coords,
+        border: BorderedRectangle,
+        child: Rc<RenderNode>,
+    },
 }
 
 impl RenderNode {
-    fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform, clip: Option<&Region>) {
+    pub fn render(
+        &self,
+        ctx: &mut DrawContext,
+        transform: tiny_skia::Transform,
+        clip: Option<&Region>,
+    ) {
         match self {
             RenderNode::None => {}
             RenderNode::Primitive { coords, primitive } => {
@@ -311,14 +348,14 @@ impl RenderNode {
             }
             RenderNode::Clip { bound, child } => {
                 ctx.set_clip(*bound);
-                child.draw(ctx, transform, clip);
+                child.render(ctx, transform, clip);
                 if let Some(region) = clip {
                     ctx.reset_clip(*region);
                 }
             }
             RenderNode::Container { children, .. } => {
                 for child in children {
-                    child.draw(ctx, transform, clip)
+                    child.render(ctx, transform, clip)
                 }
             }
             RenderNode::Background {
@@ -328,7 +365,16 @@ impl RenderNode {
             } => {
                 let transform = ctx.transform().post_translate(coords.x, coords.y);
                 background.draw(ctx, transform);
-                child.draw(ctx, transform, clip);
+                child.render(ctx, transform, clip);
+            }
+            RenderNode::Border {
+                coords,
+                border,
+                child,
+            } => {
+                let transform = ctx.transform().post_translate(coords.x, coords.y);
+                border.draw(ctx, transform);
+                child.render(ctx, transform, clip);
             }
         }
     }
@@ -348,6 +394,13 @@ impl RenderNode {
             child: Rc::new(child),
         }
     }
+    fn border(coords: Coords, border: BorderedRectangle, child: RenderNode) -> Self {
+        RenderNode::Border {
+            coords,
+            border,
+            child: Rc::new(child),
+        }
+    }
     fn clip(coords: Coords, size: Size, child: RenderNode) -> Self {
         RenderNode::Clip {
             bound: Region::new(coords.x, coords.y, size.width, size.height),
@@ -362,7 +415,7 @@ impl RenderNode {
             children: Vec::new(),
         }
     }
-    fn region(&self) -> Option<Region> {
+    pub fn region(&self) -> Option<Region> {
         match self {
             RenderNode::Clip { bound, .. } => Some(*bound),
             RenderNode::Container { bound, .. } => Some(*bound),
@@ -383,6 +436,12 @@ impl RenderNode {
                 primitive.width(),
                 primitive.height(),
             )),
+            RenderNode::Border { coords, border, .. } => Some(Region::new(
+                coords.x,
+                coords.y,
+                border.width(),
+                border.height(),
+            )),
             _ => None,
         }
     }
@@ -390,17 +449,23 @@ impl RenderNode {
 
 pub struct Scene<'s, 'c, 'b> {
     pending_damage: bool,
-    coords: Coords,
+    pub(crate) coords: Coords,
     clip: Option<Region>,
     node: &'s mut RenderNode,
     background: Background<'b, 's>,
-    context: &'s mut DrawContext<'c>,
+    pub(crate) context: &'s mut DrawContext<'c>,
 }
 
 impl<'s, 'c, 'b> Drop for Scene<'s, 'c, 'b> {
     fn drop(&mut self) {
         if let Some(region) = self.clip {
             self.context.reset_clip(region)
+        }
+        match self.node {
+            RenderNode::Container { cursor, .. } => {
+                *cursor = 0;
+            }
+            _ => {}
         }
     }
 }
@@ -412,9 +477,27 @@ impl<'s, 'c, 'b> AsRef<RenderNode> for Scene<'s, 'c, 'b> {
 }
 
 impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
+    pub fn new(
+        node: &'s mut RenderNode,
+        context: &'s mut DrawContext<'c>,
+        rectangle: &'b Rectangle,
+    ) -> Self {
+        Self {
+            pending_damage: false,
+            coords: Coords::default(),
+            clip: None,
+            node,
+            context,
+            background: Background {
+                previous: None,
+                rectangle,
+                region: Region::new(0., 0., rectangle.width, rectangle.height),
+            },
+        }
+    }
     pub fn shift(mut self, x: f32, y: f32) -> Self {
-        self.coords.x += x;
-        self.coords.y += y;
+        self.coords.x += x.round();
+        self.coords.y += y.round();
         self
     }
     pub fn next_inner_with_damage<'n>(
@@ -434,6 +517,14 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 context: self.context,
             }),
             RenderNode::Clip { child, .. } => Some(Scene {
+                pending_damage,
+                clip: self.clip,
+                coords: self.coords,
+                node: Rc::get_mut(child)?,
+                background: self.background.clone(),
+                context: self.context,
+            }),
+            RenderNode::Border { child, .. } => Some(Scene {
                 pending_damage,
                 clip: self.clip,
                 coords: self.coords,
@@ -483,7 +574,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 children,
                 bound,
             } => {
-                *cursor = children.len();
+                *cursor = children.len() + 1;
                 bound.width = size.width;
                 bound.height = size.height;
                 children.push(node);
@@ -513,6 +604,60 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             _ => {}
         }
     }
+    pub fn apply_border<'n>(&'n mut self, rect: &BorderedRectangle) -> Option<Scene<'n, 'c, 'b>>
+    where
+        's: 'n,
+    {
+        let mut pending_damage = self.pending_damage;
+        let region = Region::new(self.coords.x, self.coords.y, rect.width(), rect.height());
+        let transform = self.context.transform();
+        match self.node {
+            RenderNode::Border { border, coords, .. } => {
+                if self.pending_damage || border.ne(&rect) || self.coords.ne(&&coords) {
+                    pending_damage = true;
+                    *border = rect.clone();
+                }
+                if pending_damage {
+                    if !self.pending_damage {
+                        self.context.damage_region(
+                            &self.background,
+                            region.merge(&Region::new(
+                                coords.x,
+                                coords.y,
+                                border.width(),
+                                border.height(),
+                            )),
+                        );
+                    }
+                    border.draw(
+                        self.context,
+                        transform.post_translate(self.coords.x, self.coords.y),
+                    );
+                }
+                *coords = self.coords;
+                self.next_inner_with_damage(pending_damage)
+            }
+            _ => {
+                pending_damage = true;
+                let merge = self
+                    .node
+                    .region()
+                    .map(|inner| inner.merge(&region))
+                    .unwrap_or(region);
+                if !self.pending_damage {
+                    // The space occupied by the previous node and the new one is cleaned.
+                    self.context.damage_region(&self.background, merge);
+                }
+                rect.draw(
+                    self.context,
+                    transform.post_translate(self.coords.x, self.coords.y),
+                );
+                // We replace the invalidated node.
+                *self.node = RenderNode::border(self.coords, rect.clone(), RenderNode::None);
+                self.next_inner_with_damage(pending_damage)
+            }
+        }
+    }
     /// Applies the background and resolve damage before return the scene of the child.
     pub fn apply_background<'n>(&'n mut self, rect: &'b Rectangle) -> Option<Scene<'n, 'c, 'b>>
     where
@@ -523,26 +668,33 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         let transform = self.context.transform();
         match self.node {
             RenderNode::Background {
-                background, child, ..
+                background,
+                child,
+                coords,
             } => {
-                let t_background = if self.pending_damage || background.ne(&rect) {
+                if self.pending_damage || background.ne(&rect) || self.coords.ne(&&coords) {
+                    pending_damage = true;
                     *background = rect.clone();
-                    Background {
+                }
+                let t_background = match rect.texture {
+                    Texture::Transparent => self.background,
+                    _ => Background {
                         previous: (!rect.texture.is_opaque()).then(|| &self.background),
                         region,
                         rectangle: &rect,
-                    }
-                } else {
-                    self.background
+                    },
                 };
                 if pending_damage {
-                    self.context
-                        .damage_region(&self.background, region.merge(&self.background.region));
+                    if !self.pending_damage {
+                        self.context
+                            .damage_region(&self.background, region.merge(&self.background.region));
+                    }
                     background.draw(
                         self.context,
                         transform.post_translate(self.coords.x, self.coords.y),
                     );
                 }
+                *coords = self.coords;
                 Some(Scene {
                     clip: None,
                     pending_damage,
@@ -559,8 +711,10 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     .region()
                     .map(|inner| inner.merge(&region))
                     .unwrap_or(region);
-                // The space occupied by the previous node and the new one is cleaned.
-                self.context.damage_region(&self.background, merge);
+                if !self.pending_damage {
+                    // The space occupied by the previous node and the new one is cleaned.
+                    self.context.damage_region(&self.background, merge);
+                }
                 rect.draw(
                     self.context,
                     transform.post_translate(self.coords.x, self.coords.y),
@@ -594,8 +748,10 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     .region()
                     .map(|inner| inner.merge(&region))
                     .unwrap_or(region);
-                // The space occupied by the previous node and the new one is cleaned.
-                self.context.damage_region(&self.background, merge);
+                if !self.pending_damage {
+                    // The space occupied by the previous node and the new one is cleaned.
+                    self.context.damage_region(&self.background, merge);
+                }
                 self.context.set_clip(region);
                 // We replace the invalidated node.
                 *self.node = RenderNode::clip(self.coords, size, RenderNode::None);
@@ -627,8 +783,11 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                         primitive.width(),
                         primitive.height(),
                     ));
+                    *coords = self.coords;
                     *primitive = primitive_ref.into();
-                    self.context.damage_region(&self.background, merge);
+                    if !self.pending_damage {
+                        self.context.damage_region(&self.background, merge);
+                    }
                     primitive.draw(
                         self.context,
                         transform.post_translate(self.coords.x, self.coords.y),
@@ -641,11 +800,15 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     .region()
                     .map(|inner| inner.merge(&region))
                     .unwrap_or(region);
-                // The space occupied by the previous node and the new one is cleaned.
-                self.context.damage_region(&self.background, merge);
-                self.context.set_clip(region);
+                if !self.pending_damage {
+                    // The space occupied by the previous node and the new one is cleaned.
+                    self.context.damage_region(&self.background, merge);
+                }
                 // We replace the invalidated node.
-                let primitive_ref = primitive.into();
+                primitive_ref.draw(
+                    self.context,
+                    transform.post_translate(self.coords.x, self.coords.y),
+                );
                 *self.node = RenderNode::primitive(self.coords, Primitive::from(primitive_ref));
             }
         }

@@ -320,5 +320,5 @@ pub trait Widget<D>: Geometry {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
     /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size;
-    fn draw_scene<'b>(&mut self, scene: Scene<'_, '_, 'b>) {}
+    fn draw_scene(&mut self, scene: Scene);
 }

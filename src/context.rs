@@ -338,19 +338,13 @@ impl<'c> DrawContext<'c> {
             path_builder: Some(PathBuilder::new()),
         }
     }
-    pub fn new_with_transform(
-        backend: Backend<'c>,
-        cache: &'c mut Cache,
-        transform: Transform,
-    ) -> Self {
-        Self {
-            cache,
-            backend,
-            transform,
-            clipmask: None,
-            pending_damage: Vec::new(),
-            path_builder: Some(PathBuilder::new()),
-        }
+    pub fn with_clipmask(mut self, clipmask: Option<&'c mut ClipMask>) -> Self {
+        self.clipmask = clipmask;
+        self
+    }
+    pub fn with_transform(mut self, transform: Transform) -> Self {
+        self.transform = transform;
+        self
     }
     /// Returns the PathBuilder.
     pub fn path_builder(&mut self) -> PathBuilder {
@@ -412,7 +406,6 @@ impl<'c> DrawContext<'c> {
         if let Some(background) = background.previous {
             self.damage_region(background, region);
             blend = BlendMode::SourceOver;
-            self.pending_damage.push(region);
         } else {
             if let Some(last) = self.pending_damage.last() {
                 if last.contains(region.x, region.y) {
@@ -435,9 +428,20 @@ impl<'c> DrawContext<'c> {
                     }
                 }
             }
+            self.pending_damage.push(region);
             blend = BlendMode::Source;
         }
-        let clip_mask = self.clipmask.as_ref().map(|clipmask| &**clipmask);
+        let clip_mask = self
+            .clipmask
+            .as_ref()
+            .map(|clipmask| {
+                if !clipmask.is_empty() {
+                    Some(&**clipmask)
+                } else {
+                    None
+                }
+            })
+            .flatten();
         match background.texture() {
             Texture::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
@@ -480,45 +484,17 @@ impl<'c> DrawContext<'c> {
     pub fn draw_kit(&mut self) -> (&mut Backend<'c>, Option<&ClipMask>) {
         (
             &mut self.backend,
-            self.clipmask.as_ref().map(|clipmask| &**clipmask),
-        )
-    }
-    pub fn draw_label(&mut self, x: f32, y: f32, label: LabelRef) {
-        let font_cache = &mut self.cache.font_cache;
-        let clip_mask = self.clipmask.as_ref().map(|clipmask| &**clipmask);
-        for gp in {
-            font_cache.layout(label);
-            font_cache.layout.glyphs()
-        } {
-            if let Some(glyph_cache) = font_cache.fonts.get_mut(&label.fonts[gp.font_index]) {
-                if let Some(pixmap) = glyph_cache.render_glyph(gp) {
-                    if let Some(pixmap) = PixmapRef::from_bytes(
-                        unsafe {
-                            std::slice::from_raw_parts(
-                                pixmap.as_ptr() as *mut u8,
-                                pixmap.len() * std::mem::size_of::<u32>(),
-                            )
-                        },
-                        gp.width as u32,
-                        gp.height as u32,
-                    ) {
-                        match &mut self.backend {
-                            Backend::Pixmap(dt) => {
-                                dt.draw_pixmap(
-                                    (x.round() + gp.x) as i32,
-                                    (y.round() + gp.y) as i32,
-                                    pixmap,
-                                    &TEXT,
-                                    Transform::identity(),
-                                    clip_mask,
-                                );
-                            }
-                            _ => (),
-                        }
+            self.clipmask
+                .as_ref()
+                .map(|clipmask| {
+                    if !clipmask.is_empty() {
+                        Some(&**clipmask)
+                    } else {
+                        None
                     }
-                }
-            }
-        }
+                })
+                .flatten(),
+        )
     }
 }
 

@@ -2,9 +2,7 @@ use snui::context::*;
 use snui::mail::*;
 use snui::scene::*;
 use snui::wayland::backend::*;
-use snui::widgets::{
-    label::*, layout::dynamic::DynamicLayout, layout::simple::SimpleLayout, shapes::*, *,
-};
+use snui::widgets::{label::*, layout::flex::Flex, layout::simple::Simple, shapes::*, *};
 use snui::{theme::*, *};
 
 #[derive(Clone, Debug)]
@@ -85,14 +83,12 @@ impl Geometry for ColorBlock {
 }
 
 impl Widget<Color> for ColorBlock {
-    fn create_node(&mut self, transform: tiny_skia::Transform) -> RenderNode {
-        Instruction::new(
-            transform,
-            Rectangle::new(self.width, self.height)
+    fn draw_scene(&mut self, mut scene: Scene) {
+        scene.push_primitive(
+            &Rectangle::new(self.width, self.height)
                 .background(self.color)
                 .radius(5.),
         )
-        .into()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         match event {
@@ -113,7 +109,7 @@ impl Widget<Color> for ColorBlock {
     }
 }
 
-fn sliders() -> SimpleLayout<impl Widget<Color>> {
+fn sliders() -> Flex<impl Widget<Color>> {
     [RED, GRN, BLU, BG2]
         .into_iter()
         .map(|color| {
@@ -129,25 +125,25 @@ fn sliders() -> SimpleLayout<impl Widget<Color>> {
                     .with_size(200., 8.)
                     .background(color)
                     .style()
-                    .border(BG2, 1.)
-                    .radius(3.),
+                    .border(BG2, 2.),
             )
             .padding_top(5.)
             .padding_bottom(5.)
         })
-        .collect::<SimpleLayout<_>>()
+        .collect::<Flex<_>>()
         .orientation(Orientation::Vertical)
 }
 
-fn ui_builder() -> DynamicLayout<impl Widget<Color>> {
-    let mut layout = DynamicLayout::new().orientation(Orientation::Vertical);
+fn ui_builder() -> Flex<impl Widget<Color>> {
+    let mut layout = Flex::new().orientation(Orientation::Vertical);
 
     let listener = Listener::new("", ())
         .clamp()
+        .constraint(Constraint::Fixed)
         .anchor(CENTER, START)
         .with_height(20.);
 
-    let mut indicator = SimpleLayout::new().orientation(Orientation::Vertical);
+    let mut indicator = Flex::new().orientation(Orientation::Vertical);
 
     indicator.add(listener);
     indicator.add(
@@ -170,15 +166,20 @@ fn ui_builder() -> DynamicLayout<impl Widget<Color>> {
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let listener = Listener::new("", ());
-    let window = window::default_window(listener, ui_builder().clamp().style().padding(10.));
+    // let listener = Listener::new("", ());
+    // let window = window::default_window(listener, ui_builder().clamp().style().padding(10.));
 
     client.new_window(
         Color {
             sync: false,
             color: tiny_skia::Color::WHITE,
         },
-        window.background(BG0).border(BG2, 1.).radius(5.),
+        ui_builder()
+            .clamp()
+            .style()
+            .background(theme::BG0)
+            .border(theme::BG2, 2.)
+            .radius(5.),
         &event_queue.handle(),
     );
 

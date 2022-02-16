@@ -6,7 +6,7 @@ use crate::*;
 use scene::{Region, RenderNode};
 
 #[derive(Debug)]
-pub struct SimpleLayout<W> {
+pub struct Simple<W> {
     spacing: f32,
     children: Vec<Positioner<Proxy<W>>>,
     size: Size,
@@ -14,9 +14,9 @@ pub struct SimpleLayout<W> {
     orientation: Orientation,
 }
 
-impl<W> FromIterator<W> for SimpleLayout<W> {
+impl<W> FromIterator<W> for Simple<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
-        let mut layout = SimpleLayout::new();
+        let mut layout = Simple::new();
         for widget in iter {
             layout.children.push(child(widget));
         }
@@ -24,7 +24,7 @@ impl<W> FromIterator<W> for SimpleLayout<W> {
     }
 }
 
-impl<D, W> Container<D, W> for SimpleLayout<W>
+impl<D, W> Container<D, W> for Simple<W>
 where
     W: Widget<D>,
 {
@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<W: Geometry> Geometry for SimpleLayout<W> {
+impl<W: Geometry> Geometry for Simple<W> {
     fn width(&self) -> f32 {
         self.size.width
     }
@@ -54,9 +54,9 @@ impl<W: Geometry> Geometry for SimpleLayout<W> {
     }
 }
 
-impl<D> Default for SimpleLayout<Box<dyn Widget<D>>> {
+impl<D> Default for Simple<Box<dyn Widget<D>>> {
     fn default() -> Self {
-        SimpleLayout {
+        Simple {
             spacing: 0.,
             size: Size::default(),
             children: Vec::new(),
@@ -66,16 +66,16 @@ impl<D> Default for SimpleLayout<Box<dyn Widget<D>>> {
     }
 }
 
-impl<D> SimpleLayout<Box<dyn Widget<D>>> {
+impl<D> Simple<Box<dyn Widget<D>>> {
     /// The default behaviour.
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
         self.children.push(child(Box::new(widget)));
     }
 }
 
-impl<W> SimpleLayout<W> {
+impl<W> Simple<W> {
     pub fn new() -> Self {
-        SimpleLayout {
+        Simple {
             spacing: 0.,
             size: Size::default(),
             children: Vec::new(),
@@ -105,19 +105,18 @@ impl<W> SimpleLayout<W> {
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for SimpleLayout<W> {
+impl<D, W: Widget<D>> Widget<D> for Simple<W> {
     fn draw_scene(&mut self, mut scene: Scene) {
         for widget in self.children.iter_mut() {
-            match scene.next() {
-                Some(scene) => {
-                    widget.draw_scene(scene);
-                }
-                None => continue
+            if let Some(scene) = scene.next() {
+                widget.draw_scene(scene);
+                continue;
             }
             if let Some(scene) = scene.append_node(RenderNode::None, self.size) {
                 widget.draw_scene(scene);
             }
         }
+        scene.truncate(self.len())
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.children

@@ -175,6 +175,9 @@ impl Geometry for InnerImage {
 }
 
 impl<D> Widget<D> for InnerImage {
+    fn draw_scene(&mut self, scene: Scene) {
+        todo!()
+    }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }

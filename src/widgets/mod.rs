@@ -61,6 +61,7 @@ impl Geometry for () {
 }
 
 impl<D> Widget<D> for () {
+    fn draw_scene(&mut self, _: Scene) {}
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
@@ -86,6 +87,7 @@ impl Geometry for Spacer {
 }
 
 impl<D> Widget<D> for Spacer {
+    fn draw_scene<'b>(&mut self, _: Scene<'_, '_, 'b>) {}
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
         Damage::None
     }
@@ -133,17 +135,13 @@ impl<W: Geometry> Geometry for Padding<W> {
         let (top, _, bottom, _) = self.padding;
         self.widget.height() + top + bottom
     }
-    // fn set_width(&mut self, width: f32) {
-    //     let (_, right, _, left) = self.padding;
-    //     self.widget.set_width(width - right - left)
-    // }
-    // fn set_height(&mut self, height: f32) {
-    //     let (top, _, bottom, _) = self.padding;
-    //     self.widget.set_height(height - top - bottom)
-    // }
 }
 
 impl<D, W: Widget<D>> Widget<D> for Padding<W> {
+    fn draw_scene(&mut self, scene: Scene) {
+        let (top, _, _, left) = self.padding;
+        self.widget.draw_scene(scene.shift(left, top))
+    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         let (top, _, _, left) = self.padding;
         if let Event::Pointer(mut x, mut y, p) = event {
@@ -318,6 +316,9 @@ impl<W> GeometryExt for WidgetBox<W> {
 }
 
 impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
+    fn draw_scene(&mut self, scene: Scene) {
+        self.widget.draw_scene(scene)
+    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         self.widget.sync(ctx, event)
     }
@@ -343,7 +344,11 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
             .layout(
                 ctx,
                 &match self.constraint {
-                    Constraint::Fixed => BoxConstraints::new((width, height), (width, height)),
+                    Constraint::Fixed => {
+                        let width = self.width.unwrap_or(width);
+                        let height = self.width.unwrap_or(height);
+                        BoxConstraints::new((width, height), (width, height))
+                    }
                     _ => constraints
                         .with_min(
                             self.minimum_width_from(constraints.minimum_width()),
