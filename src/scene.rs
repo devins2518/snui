@@ -319,12 +319,12 @@ pub enum RenderNode {
         primitive: Primitive,
     },
     Container {
-        bound: Region,
+        bounds: Region,
         cursor: usize,
         children: Vec<RenderNode>,
     },
     Clip {
-        bound: Region,
+        bounds: Region,
         child: Rc<RenderNode>,
     },
     Background {
@@ -352,8 +352,8 @@ impl RenderNode {
                 let transform = ctx.transform().pre_translate(coords.x, coords.y);
                 primitive.draw(ctx, transform);
             }
-            RenderNode::Clip { bound, child } => {
-                ctx.set_clip(*bound);
+            RenderNode::Clip { bounds, child } => {
+                ctx.set_clip(*bounds);
                 child.render(ctx, transform, clip);
                 if let Some(region) = clip {
                     ctx.reset_clip(*region);
@@ -409,22 +409,22 @@ impl RenderNode {
     }
     fn clip(coords: Coords, size: Size, child: RenderNode) -> Self {
         RenderNode::Clip {
-            bound: Region::new(coords.x, coords.y, size.width, size.height),
+            bounds: Region::new(coords.x, coords.y, size.width, size.height),
             child: Rc::new(child),
         }
     }
     /// Create a new container
     fn container(coords: Coords, size: Size) -> Self {
         RenderNode::Container {
-            bound: Region::new(coords.x, coords.y, size.width, size.height),
+            bounds: Region::new(coords.x, coords.y, size.width, size.height),
             cursor: 0,
             children: Vec::new(),
         }
     }
     pub fn region(&self) -> Option<Region> {
         match self {
-            RenderNode::Clip { bound, .. } => Some(*bound),
-            RenderNode::Container { bound, .. } => Some(*bound),
+            RenderNode::Clip { bounds, .. } => Some(*bounds),
+            RenderNode::Container { bounds, .. } => Some(*bounds),
             RenderNode::Background {
                 coords, background, ..
             } => {
@@ -454,9 +454,9 @@ impl RenderNode {
 }
 
 pub struct Scene<'s, 'c, 'b> {
-    pending_damage: bool,
+    damage: bool,
     pub(crate) coords: Coords,
-    clip: Option<Region>,
+    clipped: bool,
     node: &'s mut RenderNode,
     background: Background<'b, 's>,
     pub(crate) context: &'s mut DrawContext<'c>,
@@ -464,12 +464,12 @@ pub struct Scene<'s, 'c, 'b> {
 
 impl<'s, 'c, 'b> Drop for Scene<'s, 'c, 'b> {
     fn drop(&mut self) {
-        if let Some(region) = self.clip {
-            self.context.reset_clip(region)
-        }
         match self.node {
             RenderNode::Container { cursor, .. } => {
                 *cursor = 0;
+            }
+            RenderNode::Clip { bounds, .. } => {
+                self.context.reset_clip(*bounds)
             }
             _ => {}
         }
@@ -489,9 +489,9 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         rectangle: &'b Rectangle,
     ) -> Self {
         Self {
-            pending_damage: false,
+            damage: false,
             coords: Coords::default(),
-            clip: None,
+            clipped: false,
             node,
             context,
             background: Background {
@@ -508,31 +508,31 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     }
     pub fn next_inner_with_damage<'n>(
         &'n mut self,
-        pending_damage: bool,
+        damage: bool,
     ) -> Option<Scene<'n, 'c, 'b>>
     where
         's: 'n,
     {
         match self.node {
             RenderNode::Background { child, .. } => Some(Scene {
-                pending_damage,
-                clip: self.clip,
+                damage,
+                clipped: self.clipped,
                 coords: self.coords,
                 node: Rc::get_mut(child)?,
                 background: self.background.clone(),
                 context: self.context,
             }),
             RenderNode::Clip { child, .. } => Some(Scene {
-                pending_damage,
-                clip: self.clip,
+                damage,
+                clipped: self.clipped,
                 coords: self.coords,
                 node: Rc::get_mut(child)?,
                 background: self.background.clone(),
                 context: self.context,
             }),
             RenderNode::Border { child, .. } => Some(Scene {
-                pending_damage,
-                clip: self.clip,
+                damage,
+                clipped: self.clipped,
                 coords: self.coords,
                 node: Rc::get_mut(child)?,
                 background: self.background.clone(),
@@ -545,7 +545,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     where
         's: 'n,
     {
-        self.next_inner_with_damage(self.pending_damage)
+        self.next_inner_with_damage(self.damage)
     }
     pub fn next<'n>(&'n mut self) -> Option<Scene<'n, 'c, 'b>>
     where
@@ -558,8 +558,8 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 let node = children.get_mut(*cursor)?;
                 *cursor += 1;
                 Some(Scene {
-                    clip: self.clip,
-                    pending_damage: self.pending_damage,
+                    clipped: self.clipped,
+                    damage: self.damage,
                     coords: self.coords,
                     node,
                     background: self.background.clone(),
@@ -578,15 +578,15 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             RenderNode::Container {
                 cursor,
                 children,
-                bound,
+                bounds,
             } => {
                 *cursor = children.len() + 1;
-                bound.width = size.width;
-                bound.height = size.height;
+                bounds.width = size.width;
+                bounds.height = size.height;
                 children.push(node);
                 Some(Scene {
-                    clip: None,
-                    pending_damage: true,
+                    clipped: false,
+                    damage: true,
                     coords: self.coords,
                     node: children.last_mut()?,
                     background: self.background.clone(),
@@ -614,17 +614,17 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     where
         's: 'n,
     {
-        let mut pending_damage = self.pending_damage;
+        let mut damage = self.damage;
         let region = Region::new(self.coords.x, self.coords.y, rect.width(), rect.height());
         let transform = self.context.transform();
         match self.node {
             RenderNode::Border { border, coords, .. } => {
-                if self.pending_damage || border.ne(&rect) || self.coords.ne(&&coords) {
-                    pending_damage = true;
+                if self.damage || border.ne(&rect) || self.coords.ne(&&coords) {
+                    damage = true;
                     *border = rect.clone();
                 }
-                if pending_damage {
-                    if !self.pending_damage {
+                if damage {
+                    if !self.damage {
                         self.context.damage_region(
                             &self.background,
                             region.merge(&Region::new(
@@ -641,16 +641,16 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     );
                 }
                 *coords = self.coords;
-                self.next_inner_with_damage(pending_damage)
+                self.next_inner_with_damage(damage)
             }
             _ => {
-                pending_damage = true;
+                damage = true;
                 let merge = self
                     .node
                     .region()
                     .map(|inner| inner.merge(&region))
                     .unwrap_or(region);
-                if !self.pending_damage {
+                if !self.damage {
                     // The space occupied by the previous node and the new one is cleaned.
                     self.context.damage_region(&self.background, merge);
                 }
@@ -660,7 +660,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 );
                 // We replace the invalidated node.
                 *self.node = RenderNode::border(self.coords, rect.clone(), RenderNode::None);
-                self.next_inner_with_damage(pending_damage)
+                self.next_inner_with_damage(damage)
             }
         }
     }
@@ -669,7 +669,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     where
         's: 'n,
     {
-        let mut pending_damage = self.pending_damage;
+        let mut damage = self.damage;
         let region = Region::new(self.coords.x, self.coords.y, rect.width, rect.height);
         let transform = self.context.transform();
         match self.node {
@@ -678,24 +678,38 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 child,
                 coords,
             } => {
-                if self.coords.ne(&&coords) {
-                    pending_damage = true;
-                    *coords = self.coords;
-                }
-                if background.ne(&rect) {
-                    pending_damage = true;
-                    *background = rect.clone();
-                }
-                let t_background = match rect.texture {
-                    Texture::Transparent => self.background,
-                    _ => Background {
-                        previous: (!rect.texture.is_opaque()).then(|| &self.background),
-                        region,
-                        rectangle: &rect,
-                    },
-                };
-                if pending_damage {
-                    if !self.pending_damage {
+                let t_background;
+                if self.damage {
+                    background.draw(
+                        self.context,
+                        transform.pre_translate(self.coords.x, self.coords.y),
+                    );
+                    t_background = match rect.texture {
+                        Texture::Transparent => self.background,
+                        _ => Background {
+                            previous: (!rect.texture.is_opaque()).then(|| &self.background),
+                            region,
+                            rectangle: &rect,
+                        },
+                    };
+                } else {
+                    if self.coords.ne(&&coords) {
+                        damage = true;
+                        *coords = self.coords;
+                    }
+                    if background.ne(&rect) {
+                        damage = true;
+                        *background = rect.clone();
+                    }
+                    t_background = match rect.texture {
+                        Texture::Transparent => self.background,
+                        _ => Background {
+                            previous: (!rect.texture.is_opaque()).then(|| &self.background),
+                            region,
+                            rectangle: &rect,
+                        },
+                    };
+                    if damage {
                         self.context.damage_region(
                             &self.background,
                             region.merge(&Region::new(
@@ -705,15 +719,15 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                                 background.height(),
                             )),
                         );
+                        background.draw(
+                            self.context,
+                            transform.pre_translate(self.coords.x, self.coords.y),
+                        );
                     }
-                    background.draw(
-                        self.context,
-                        transform.pre_translate(self.coords.x, self.coords.y),
-                    );
                 }
                 Some(Scene {
-                    clip: None,
-                    pending_damage,
+                    damage,
+                    clipped: self.clipped,
                     background: t_background,
                     coords: self.coords,
                     node: Rc::get_mut(child)?,
@@ -721,13 +735,13 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 })
             }
             _ => {
-                pending_damage = true;
+                damage = true;
                 let merge = self
                     .node
                     .region()
                     .map(|inner| inner.merge(&region))
                     .unwrap_or(region);
-                if !self.pending_damage {
+                if !self.damage {
                     // The space occupied by the previous node and the new one is cleaned.
                     self.context.damage_region(&self.background, merge);
                 }
@@ -737,7 +751,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 );
                 // We replace the invalidated node.
                 *self.node = RenderNode::background(self.coords, rect.clone(), RenderNode::None);
-                self.next_inner_with_damage(pending_damage)
+                self.next_inner_with_damage(damage)
             }
         }
     }
@@ -745,34 +759,41 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     where
         's: 'n,
     {
-        let mut pending_damage = self.pending_damage;
         let region = Region::new(self.coords.x, self.coords.y, size.width, size.height);
         match self.node {
-            RenderNode::Clip { bound, .. } => {
-                if bound.ne(&&region) || self.pending_damage {
-                    pending_damage = true;
+            RenderNode::Clip { bounds, .. } => {
+                if bounds.ne(&&region) || self.damage {
                     self.context
-                        .damage_region(&self.background, bound.merge(&region));
-                    self.context.set_clip(*bound);
-                    *bound = region;
+                        .damage_region(&self.background, bounds.merge(&region));
+                    self.context.set_clip(*bounds);
+                    *bounds = region;
+                    self.next_inner_with_damage(true)
+                    	.map(|scene| {
+                        	scene.clipped = true;
+                        	scene
+                    	})
+                } else {
+                    self.next_inner_with_damage(false)
+                    	.map(|scene| {
+                        	scene.clipped = true;
+                        	scene
+                    	})
                 }
-                self.next_inner_with_damage(pending_damage)
             }
             _ => {
-                pending_damage = true;
                 let merge = self
                     .node
                     .region()
                     .map(|inner| inner.merge(&region))
                     .unwrap_or(region);
-                if !self.pending_damage {
+                if !self.damage {
                     // The space occupied by the previous node and the new one is cleaned.
                     self.context.damage_region(&self.background, merge);
                 }
                 self.context.set_clip(region);
                 // We replace the invalidated node.
                 *self.node = RenderNode::clip(self.coords, size, RenderNode::None);
-                self.next_inner_with_damage(pending_damage)
+                self.next_inner_with_damage(true)
             }
         }
     }
@@ -790,7 +811,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         );
         match self.node {
             RenderNode::Primitive { coords, primitive } => {
-                let mut pending_damage = self.pending_damage;
+                let mut damage = self.damage;
                 let merge = region.merge(&Region::new(
                     coords.x,
                     coords.y,
@@ -798,15 +819,15 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     primitive.height(),
                 ));
                 if coords.ne(&&self.coords) {
-                    pending_damage = true;
+                    damage = true;
                     *coords = self.coords;
                 }
                 if PrimitiveRef::from(&*primitive).ne(&primitive_ref) {
-                    pending_damage = true;
+                    damage = true;
                     *primitive = primitive_ref.into();
                 }
-                if pending_damage {
-                    if !self.pending_damage {
+                if damage {
+                    if !self.damage {
                         self.context.damage_region(&self.background, merge);
                     }
                     primitive.draw(
@@ -821,7 +842,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     .region()
                     .map(|inner| inner.merge(&region))
                     .unwrap_or(region);
-                if !self.pending_damage {
+                if !self.damage {
                     // The space occupied by the previous node and the new one is cleaned.
                     self.context.damage_region(&self.background, merge);
                 }
