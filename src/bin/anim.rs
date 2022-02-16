@@ -99,7 +99,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
     fn draw_scene(&mut self, scene: scene::Scene) {
         scene
             .shift(self.position, 0.)
-            .push_primitive(&Rectangle::new(self.cursor, 30.).background(theme::RED))
+            .push_primitive(&Rectangle::new(self.cursor, 30.).texture(theme::RED))
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<Demo>, event: Event) -> Damage {
         match event {
@@ -211,19 +211,18 @@ fn ui() -> impl Widget<Demo> {
         .with(Animate::sinus().clamp())
         .with(
             Switch::new(Remote {})
-                .background(theme::BG0)
+                .texture(theme::BG0)
                 .duration(600)
-                .style()
                 .background(theme::BG1)
                 .radius(3.)
                 .button::<Demo, _>(move |this, ctx, p| {
                     if p.left_button_click().is_some() {
                         match ctx.state {
                             AnimationState::Start => {
-                                this.set_background(theme::BG1);
+                                this.set_texture(theme::BG1);
                             }
                             AnimationState::Pause | AnimationState::Stop => {
-                                this.set_background(theme::RED);
+                                this.set_texture(theme::RED);
                             }
                         }
                     }
@@ -238,7 +237,7 @@ fn main() {
 
     client.new_window(
         Demo::default(),
-        ui().clamp().style().background(theme::BG0).radius(5.),
+        ui().clamp().background(theme::BG0).radius(5.),
         &event_queue.handle(),
     );
 

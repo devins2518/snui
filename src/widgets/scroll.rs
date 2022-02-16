@@ -189,21 +189,3 @@ impl<W> DerefMut for ScrollBox<W> {
         self.widget.deref_mut().deref_mut()
     }
 }
-
-impl<W: Style> Style for ScrollBox<W> {
-    fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
-        self.widget.set_background(texture)
-    }
-    fn set_bottom_left_radius(&mut self, radius: f32) {
-        self.widget.set_bottom_left_radius(radius)
-    }
-    fn set_top_right_radius(&mut self, radius: f32) {
-        self.widget.set_top_right_radius(radius)
-    }
-    fn set_top_left_radius(&mut self, radius: f32) {
-        self.widget.set_top_left_radius(radius)
-    }
-    fn set_bottom_right_radius(&mut self, radius: f32) {
-        self.widget.set_bottom_right_radius(radius)
-    }
-}

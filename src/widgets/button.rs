@@ -74,8 +74,8 @@ where
     W: Style,
     F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
 {
-    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
-        self.proxy.set_background(background);
+    fn set_texture<B: Into<scene::Texture>>(&mut self, texture: B) {
+        self.proxy.set_texture(texture);
     }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.proxy.set_top_left_radius(radius);

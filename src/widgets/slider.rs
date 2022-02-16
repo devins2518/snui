@@ -253,7 +253,7 @@ impl<M> Style for Slider<M> {
     fn set_bottom_left_radius(&mut self, radius: f32) {
         self.slider.set_bottom_left_radius(radius);
     }
-    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
-        self.slider.set_background(background);
+    fn set_texture<B: Into<scene::Texture>>(&mut self, texture: B) {
+        self.slider.set_texture(texture);
     }
 }

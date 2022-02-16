@@ -93,8 +93,8 @@ impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
 }
 
 impl<W: Style> Style for Positioner<W> {
-    fn set_background<B: Into<scene::Texture>>(&mut self, texture: B) {
-        self.widget.set_background(texture)
+    fn set_texture<B: Into<scene::Texture>>(&mut self, texture: B) {
+        self.widget.set_texture(texture)
     }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.widget.set_top_left_radius(radius);

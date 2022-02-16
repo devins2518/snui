@@ -110,7 +110,7 @@ impl<M> Switch<M> {
     pub fn new(message: M) -> Self {
         Self {
             start: false,
-            toggle: Positioner::new(Rectangle::new(20., 20.).background(theme::BG2)),
+            toggle: Positioner::new(Rectangle::new(20., 20.).texture(theme::BG2)),
             easer: Sinus::new(0., 0.5, 20.),
             message,
             duration: 500,
@@ -139,8 +139,8 @@ impl<M> Switch<M> {
 }
 
 impl<M> Style for Switch<M> {
-    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
-        self.toggle.set_background(background);
+    fn set_texture<B: Into<scene::Texture>>(&mut self, texture: B) {
+        self.toggle.set_texture(texture);
     }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.toggle.set_top_left_radius(radius);

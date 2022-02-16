@@ -286,8 +286,8 @@ impl<M, E: Easer, W> DerefMut for Revealer<M, E, W> {
 }
 
 impl<M, E: Easer, W: Style> Style for Revealer<M, E, W> {
-    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
-        self.widget.set_background(background);
+    fn set_texture<B: Into<scene::Texture>>(&mut self, texture: B) {
+        self.widget.set_texture(texture);
     }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.widget.set_top_left_radius(radius);

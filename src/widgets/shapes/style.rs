@@ -58,7 +58,7 @@ impl<W: Geometry> WidgetStyle<W> {
         self
     }
     pub fn set_border_texture(&mut self, texture: impl Into<Texture>) {
-        self.border.set_background(texture);
+        self.border.set_texture(texture);
     }
     pub fn border(mut self, texture: impl Into<Texture>, width: f32) -> Self {
         self.set_border_texture(texture);
@@ -204,8 +204,8 @@ impl<W> Style for WidgetStyle<W> {
             .set_bottom_left_radius((radius - self.border.border_width).max(0.));
         self.border.set_bottom_left_radius(radius);
     }
-    fn set_background<B: Into<Texture>>(&mut self, texture: B) {
-        self.background.set_background(texture);
+    fn set_texture<B: Into<Texture>>(&mut self, texture: B) {
+        self.background.set_texture(texture);
     }
 }
 

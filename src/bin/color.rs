@@ -86,7 +86,7 @@ impl Widget<Color> for ColorBlock {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.push_primitive(
             &Rectangle::new(self.width, self.height)
-                .background(self.color)
+                .texture(self.color)
                 .radius(5.),
         )
     }
@@ -120,9 +120,8 @@ fn sliders() -> Flex<impl Widget<Color>> {
             };
             Padding::new(
                 widgets::slider::Slider::new(message)
+                    .texture(color)
                     .with_size(200., 8.)
-                    .background(color)
-                    .style()
                     .border(BG2, 1.)
                     .radius(3.),
             )
@@ -152,8 +151,6 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
             color: tiny_skia::Color::WHITE,
         }
         .clamp()
-        .style()
-        .padding(10.),
     );
 
     layout.add(indicator);
@@ -175,7 +172,6 @@ fn main() {
         },
         ui_builder()
             .clamp()
-            .style()
             .background(theme::BG0)
             .border(theme::BG2, 1.),
         &event_queue.handle(),

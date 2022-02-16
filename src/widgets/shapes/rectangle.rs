@@ -204,7 +204,7 @@ impl Style for Rectangle {
     fn set_bottom_left_radius(&mut self, radius: f32) {
         self.radius.3 = radius;
     }
-    fn set_background<B: Into<Texture>>(&mut self, background: B) {
+    fn set_texture<B: Into<Texture>>(&mut self, background: B) {
         self.texture = background.into();
     }
 }
@@ -248,7 +248,7 @@ impl Style for BorderedRectangle {
     fn set_bottom_left_radius(&mut self, radius: f32) {
         self.radius.3 = radius;
     }
-    fn set_background<B: Into<Texture>>(&mut self, background: B) {
+    fn set_texture<B: Into<Texture>>(&mut self, background: B) {
         self.texture = background.into();
     }
 }
