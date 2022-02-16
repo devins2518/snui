@@ -91,12 +91,10 @@ where
                                     }
                                 }
                             }
-                            if let Some(w_handle) = ctx.handle() {
-                                if pressed && button.is_left() {
-                                    w_handle.set_cursor(Cursor::Hand);
-                                } else {
-                                    w_handle.set_cursor(Cursor::Arrow);
-                                }
+                            if pressed && button.is_left() {
+                                ctx.window().set_cursor(Cursor::Hand);
+                            } else {
+                                ctx.window().set_cursor(Cursor::Arrow);
                             }
                             let ratio = match &self.orientation {
                                 Orientation::Horizontal => self.slider.width() / self.size,
@@ -163,12 +161,10 @@ where
                         } => {
                             if button.is_left() {
                                 self.pressed = pressed;
-                                if let Some(w_handle) = ctx.handle() {
-                                    if pressed {
-                                        w_handle.set_cursor(Cursor::Hand);
-                                    } else {
-                                        w_handle.set_cursor(Cursor::Arrow);
-                                    }
+                                if pressed {
+                                    ctx.window().set_cursor(Cursor::Hand);
+                                } else {
+                                    ctx.window().set_cursor(Cursor::Arrow);
                                 }
                                 return Damage::Partial;
                             }

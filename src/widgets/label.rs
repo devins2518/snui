@@ -142,7 +142,8 @@ impl Drawable for Label {
         settings.max_width = self.settings.max_width.map(|width| width * transform.tx);
         settings.max_height = self.settings.max_height.map(|height| height * transform.ty);
 
-        let clip_mask = context.clipmask
+        let clip_mask = context
+            .clipmask
             .as_ref()
             .map(|clipmask| {
                 if !clipmask.is_empty() {
@@ -158,8 +159,9 @@ impl Drawable for Label {
 
         for gp in {
             let mut label = self.as_ref();
-            label.font_size = self.font_size * transform.ty;
+            label.font_size = self.font_size * transform.sy;
             label.settings = &settings;
+            font_cache.layout(label);
             font_cache.layout.glyphs()
         } {
             if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index]) {

@@ -1,7 +1,7 @@
-//!	This module provides the building blocks of your GUI application.
+//!	All purpose widgets.
 
 pub mod button;
-// pub mod extra;
+pub mod extra;
 pub mod image;
 pub mod label;
 pub mod layout;
@@ -134,6 +134,10 @@ impl<W: Geometry> Geometry for Padding<W> {
     fn height(&self) -> f32 {
         let (top, _, bottom, _) = self.padding;
         self.widget.height() + top + bottom
+    }
+    fn contains(&self, x: f32, y: f32) -> bool {
+        let (top, _, _, left) = self.padding;
+        self.widget.contains(x - left, y - top)
     }
 }
 

@@ -2,158 +2,8 @@ use crate::cache::*;
 use crate::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
-use widgets::label::LabelRef;
 
-// pub mod canvas {
-//     use crate::scene::*;
-//     use crate::widgets::shapes::*;
-//     use crate::*;
-//     use std::ops::{Deref, DerefMut};
-//
-//     // Helper to draw using the retained mode API
-//     pub struct Canvas {
-//         transform: Transform,
-//         inner: InnerCanvas,
-//     }
-//
-//     #[derive(Clone, PartialEq)]
-//     pub struct InnerCanvas {
-//         width: f32,
-//         height: f32,
-//         steps: Vec<Instruction>,
-//     }
-//
-//     impl InnerCanvas {
-//         pub fn new(width: f32, height: f32) -> Self {
-//             Self {
-//                 width,
-//                 height,
-//                 steps: Vec::new(),
-//             }
-//         }
-//     }
-//
-//     impl Deref for Canvas {
-//         type Target = InnerCanvas;
-//         fn deref(&self) -> &Self::Target {
-//             &self.inner
-//         }
-//     }
-//
-//     impl DerefMut for Canvas {
-//         fn deref_mut(&mut self) -> &mut Self::Target {
-//             &mut self.inner
-//         }
-//     }
-//
-//     impl Canvas {
-//         pub fn new(transform: Transform, width: f32, height: f32) -> Self {
-//             if transform.is_scale_translate() {
-//                 Canvas {
-//                     transform,
-//                     inner: InnerCanvas::new(width, height),
-//                 }
-//             } else {
-//                 panic!("Canvas' transformations can only be scale and translate")
-//             }
-//         }
-//         pub fn draw<P: Into<Primitive>>(&mut self, transform: Transform, p: P) {
-//             self.inner.steps.push(Instruction {
-//                 transform,
-//                 primitive: p.into(),
-//             })
-//         }
-//         pub fn draw_at<P: Into<Primitive>>(&mut self, x: f32, y: f32, p: P) {
-//             self.inner.steps.push(Instruction {
-//                 transform: Transform::from_translate(x, y),
-//                 primitive: p.into(),
-//             })
-//         }
-//         pub fn draw_rectangle<B: Into<Texture>>(
-//             &mut self,
-//             transform: Transform,
-//             width: f32,
-//             height: f32,
-//             texture: B,
-//         ) {
-//             let rect = Rectangle::new(width, height).background(texture);
-//             self.inner.steps.push(Instruction {
-//                 transform,
-//                 primitive: rect.into(),
-//             })
-//         }
-//         pub fn draw_at_angle<P: Into<Primitive> + Drawable>(
-//             &mut self,
-//             x: f32,
-//             y: f32,
-//             p: P,
-//             angle: f32,
-//         ) {
-//             let w = p.width();
-//             let h = p.height();
-//             let transform = Transform::from_translate(x, y);
-//             self.steps.push(Instruction {
-//                 transform: transform.pre_concat(Transform::from_rotate_at(angle, w / 2., h / 2.)),
-//                 primitive: p.into(),
-//             })
-//         }
-//         pub fn finish(mut self) -> RenderNode {
-//             match self.inner.steps.len() {
-//                 0 => RenderNode::None,
-//                 1 => {
-//                     let mut i = self.inner.steps.remove(0);
-//                     i.transform = i.transform.post_concat(self.transform);
-//                     i.into()
-//                 }
-//                 _ => Instruction::other(self.transform, self.inner).into(),
-//             }
-//         }
-//     }
-//
-//     impl std::fmt::Debug for InnerCanvas {
-//         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//             f.debug_struct("Canvas")
-//                 .field("width", &self.width)
-//                 .field("height", &self.height)
-//                 .finish()
-//         }
-//     }
-//
-//     impl Geometry for InnerCanvas {
-//         fn height(&self) -> f32 {
-//             self.height
-//         }
-//         fn width(&self) -> f32 {
-//             self.width
-//         }
-//     }
-//
-//     impl Drawable for InnerCanvas {
-//         fn set_texture(&self, _: scene::Texture) -> scene::Primitive {
-//             Primitive::Other(Box::new(self.clone()))
-//         }
-//         fn draw_with_transform_clip(
-//             &self,
-//             ctx: &mut DrawContext,
-//             transform: tiny_skia::Transform,
-//             clip: Option<&tiny_skia::ClipMask>,
-//         ) {
-//             for s in &self.steps {
-//                 let t = s.transform.post_concat(transform);
-//                 s.primitive.draw_with_transform_clip(ctx, t, clip);
-//             }
-//         }
-//         fn contains(&self, region: &scene::Region) -> bool {
-//             Region::new(0., 0., self.width, self.height).rfit(&region)
-//         }
-//         fn primitive(&self) -> scene::Primitive {
-//             Primitive::Other(Box::new(self.clone()))
-//         }
-//         fn get_texture(&self) -> scene::Texture {
-//             Texture::Transparent
-//         }
-//     }
-// }
+const WINDOW_STATE: [WindowState; 0] = [];
 
 pub const PIX_PAINT: PixmapPaint = PixmapPaint {
     blend_mode: BlendMode::SourceOver,
@@ -182,7 +32,7 @@ pub enum Backend<'b> {
 pub struct SyncContext<'c, D> {
     data: &'c mut D,
     pub(crate) cache: &'c mut Cache,
-    pub(crate) handle: Option<&'c mut dyn WindowHandle>,
+    pub(crate) handle: &'c mut dyn WindowHandle,
 }
 
 /// A context provided to primitives during draw.
@@ -232,19 +82,23 @@ impl<'c> LayoutCtx<'c> {
 
 /// A handle to the window state.
 pub trait WindowHandle {
-    fn close(&mut self);
-    fn minimize(&mut self);
-    fn maximize(&mut self);
+    fn close(&mut self) {}
+    fn minimize(&mut self) {}
+    fn maximize(&mut self) {}
     /// Launch a system menu
-    fn menu(&mut self, x: f32, y: f32, serial: u32);
+    fn menu(&mut self, _x: f32, _y: f32, _serial: u32) {}
     /// Move the application window.
     ///
-    /// The serial is provided by events.
-    fn drag(&mut self, serial: u32);
-    fn set_title(&mut self, title: String);
-    fn set_cursor(&mut self, cursor: Cursor);
-    fn get_state(&self) -> &[WindowState];
+    /// The serial is provided by Event.Pointer.
+    fn drag(&mut self, _serial: u32) {}
+    fn set_title(&mut self, _title: String) {}
+    fn set_cursor(&mut self, _cursor: Cursor) {}
+    fn get_state(&self) -> &[WindowState] {
+        &WINDOW_STATE
+    }
 }
+
+impl WindowHandle for () {}
 
 impl<'b> Geometry for Backend<'b> {
     fn width(&self) -> f32 {
@@ -281,28 +135,17 @@ impl<'c> DerefMut for Backend<'c> {
 }
 
 impl<'c, D> SyncContext<'c, D> {
-    pub fn new(data: &'c mut D, cache: &'c mut Cache) -> Self {
-        Self {
-            data,
-            cache,
-            handle: None,
-        }
-    }
     /// Creates a SyncContext with a WindowHandle
-    pub fn new_with_handle(
-        data: &'c mut D,
-        cache: &'c mut Cache,
-        handle: &'c mut impl WindowHandle,
-    ) -> Self {
+    pub fn new(data: &'c mut D, cache: &'c mut Cache, handle: &'c mut impl WindowHandle) -> Self {
         Self {
             data,
             cache,
-            handle: Some(handle),
+            handle,
         }
     }
     /// Return a reference to the WindowHandle
-    pub fn handle(&mut self) -> Option<&mut &'c mut dyn WindowHandle> {
-        self.handle.as_mut()
+    pub fn window(&mut self) -> &mut dyn WindowHandle {
+        &mut *self.handle
     }
 }
 

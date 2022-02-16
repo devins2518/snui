@@ -2,7 +2,7 @@ use snui::context::*;
 use snui::mail::*;
 use snui::scene::*;
 use snui::wayland::backend::*;
-use snui::widgets::{label::*, layout::flex::Flex, layout::simple::Simple, shapes::*, *};
+use snui::widgets::{label::*, layout::flex::Flex, shapes::*, *};
 use snui::{theme::*, *};
 
 #[derive(Clone, Debug)]
@@ -95,9 +95,7 @@ impl Widget<Color> for ColorBlock {
             Event::Draw | Event::Sync => {
                 self.color = ctx.color;
                 let title = ctx.as_string();
-                if let Some(w_handle) = ctx.handle() {
-                    w_handle.set_title(title);
-                }
+                ctx.window().set_title(title);
                 return Damage::Partial;
             }
             _ => {}
@@ -125,7 +123,8 @@ fn sliders() -> Flex<impl Widget<Color>> {
                     .with_size(200., 8.)
                     .background(color)
                     .style()
-                    .border(BG2, 2.),
+                    .border(BG2, 1.)
+                    .radius(3.),
             )
             .padding_top(5.)
             .padding_bottom(5.)
@@ -178,8 +177,7 @@ fn main() {
             .clamp()
             .style()
             .background(theme::BG0)
-            .border(theme::BG2, 2.)
-            .radius(5.),
+            .border(theme::BG2, 1.),
         &event_queue.handle(),
     );
 

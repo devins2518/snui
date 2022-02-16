@@ -3,7 +3,6 @@ use crate::*;
 use context::DrawContext;
 use std::rc::Rc;
 use tiny_skia::*;
-use widgets::blend;
 
 use cache::image::RawImage as Image;
 use widgets::label::*;
@@ -300,6 +299,13 @@ pub struct Background<'t, 'b> {
 }
 
 impl<'t, 'b> Background<'t, 'b> {
+    pub fn new(rectangle: &'t Rectangle) -> Self {
+        Background {
+            rectangle,
+            region: Region::new(0., 0., rectangle.width(), rectangle.height()),
+            previous: None,
+        }
+    }
     pub fn texture(&self) -> &Texture {
         &self.rectangle.texture
     }
@@ -343,7 +349,7 @@ impl RenderNode {
         match self {
             RenderNode::None => {}
             RenderNode::Primitive { coords, primitive } => {
-                let transform = ctx.transform().post_translate(coords.x, coords.y);
+                let transform = ctx.transform().pre_translate(coords.x, coords.y);
                 primitive.draw(ctx, transform);
             }
             RenderNode::Clip { bound, child } => {
@@ -363,7 +369,7 @@ impl RenderNode {
                 background,
                 child,
             } => {
-                let transform = ctx.transform().post_translate(coords.x, coords.y);
+                let transform = ctx.transform().pre_translate(coords.x, coords.y);
                 background.draw(ctx, transform);
                 child.render(ctx, transform, clip);
             }
@@ -372,7 +378,7 @@ impl RenderNode {
                 border,
                 child,
             } => {
-                let transform = ctx.transform().post_translate(coords.x, coords.y);
+                let transform = ctx.transform().pre_translate(coords.x, coords.y);
                 border.draw(ctx, transform);
                 child.render(ctx, transform, clip);
             }
@@ -631,7 +637,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     }
                     border.draw(
                         self.context,
-                        transform.post_translate(self.coords.x, self.coords.y),
+                        transform.pre_translate(self.coords.x, self.coords.y),
                     );
                 }
                 *coords = self.coords;
@@ -650,7 +656,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 }
                 rect.draw(
                     self.context,
-                    transform.post_translate(self.coords.x, self.coords.y),
+                    transform.pre_translate(self.coords.x, self.coords.y),
                 );
                 // We replace the invalidated node.
                 *self.node = RenderNode::border(self.coords, rect.clone(), RenderNode::None);
@@ -672,7 +678,11 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 child,
                 coords,
             } => {
-                if self.pending_damage || background.ne(&rect) || self.coords.ne(&&coords) {
+                if self.coords.ne(&&coords) {
+                    pending_damage = true;
+                    *coords = self.coords;
+                }
+                if background.ne(&rect) {
                     pending_damage = true;
                     *background = rect.clone();
                 }
@@ -686,15 +696,21 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 };
                 if pending_damage {
                     if !self.pending_damage {
-                        self.context
-                            .damage_region(&self.background, region.merge(&self.background.region));
+                        self.context.damage_region(
+                            &self.background,
+                            region.merge(&Region::new(
+                                coords.x,
+                                coords.y,
+                                background.width(),
+                                background.height(),
+                            )),
+                        );
                     }
                     background.draw(
                         self.context,
-                        transform.post_translate(self.coords.x, self.coords.y),
+                        transform.pre_translate(self.coords.x, self.coords.y),
                     );
                 }
-                *coords = self.coords;
                 Some(Scene {
                     clip: None,
                     pending_damage,
@@ -738,6 +754,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     self.context
                         .damage_region(&self.background, bound.merge(&region));
                     self.context.set_clip(*bound);
+                    *bound = region;
                 }
                 self.next_inner_with_damage(pending_damage)
             }
@@ -773,24 +790,28 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         );
         match self.node {
             RenderNode::Primitive { coords, primitive } => {
-                if self.pending_damage
-                    || coords.ne(&&self.coords)
-                    || PrimitiveRef::from(&*primitive).ne(&primitive_ref)
-                {
-                    let merge = region.merge(&Region::new(
-                        coords.x,
-                        coords.y,
-                        primitive.width(),
-                        primitive.height(),
-                    ));
+                let mut pending_damage = self.pending_damage;
+                let merge = region.merge(&Region::new(
+                    coords.x,
+                    coords.y,
+                    primitive.width(),
+                    primitive.height(),
+                ));
+                if coords.ne(&&self.coords) {
+                    pending_damage = true;
                     *coords = self.coords;
+                }
+                if PrimitiveRef::from(&*primitive).ne(&primitive_ref) {
+                    pending_damage = true;
                     *primitive = primitive_ref.into();
+                }
+                if pending_damage {
                     if !self.pending_damage {
                         self.context.damage_region(&self.background, merge);
                     }
                     primitive.draw(
                         self.context,
-                        transform.post_translate(self.coords.x, self.coords.y),
+                        transform.pre_translate(self.coords.x, self.coords.y),
                     );
                 }
             }
@@ -807,7 +828,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 // We replace the invalidated node.
                 primitive_ref.draw(
                     self.context,
-                    transform.post_translate(self.coords.x, self.coords.y),
+                    transform.pre_translate(self.coords.x, self.coords.y),
                 );
                 *self.node = RenderNode::primitive(self.coords, Primitive::from(primitive_ref));
             }

@@ -1,8 +1,6 @@
 use crate::*;
 use image::io::Reader as ImageReader;
 
-use crate::widgets::shapes::Rectangle;
-use crate::widgets::shapes::Style;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
@@ -73,7 +71,7 @@ impl GeometryExt for Image {
 }
 
 impl<D> Widget<D> for Image {
-    fn draw_scene(&mut self, scene: Scene) {
+    fn draw_scene(&mut self, _scene: Scene) {
         todo!()
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, _: Event<'d>) -> Damage {
@@ -175,7 +173,7 @@ impl Geometry for InnerImage {
 }
 
 impl<D> Widget<D> for InnerImage {
-    fn draw_scene(&mut self, scene: Scene) {
+    fn draw_scene(&mut self, _scene: Scene) {
         todo!()
     }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {

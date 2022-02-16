@@ -7,7 +7,7 @@ use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
 /// Widgets which contain one or more widgets
-pub trait Container<D, W> {
+pub trait Container<D, W> where Self: Sized {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0
@@ -16,6 +16,10 @@ pub trait Container<D, W> {
     fn add(&mut self, widget: W);
     fn pop(&mut self) -> W {
         self.remove(self.len() - 1)
+    }
+    fn with(mut self, widget: W) -> Self {
+        self.add(widget);
+        self
     }
     fn children(&mut self) -> Vec<&mut W>;
 }

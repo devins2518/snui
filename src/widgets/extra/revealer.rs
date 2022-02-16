@@ -1,4 +1,3 @@
-use crate::scene::Region;
 use crate::widgets::extra::*;
 use crate::widgets::shapes::Style;
 use crate::*;
@@ -84,7 +83,16 @@ where
     M: Clone + Copy,
     D: Mail<M, RevealerState, RevealerAction>,
 {
-
+    fn draw_scene(&mut self, mut scene: Scene) {
+        match self.state {
+            RevealerState::Hidden => {}
+            _ => {
+                if let Some(scene) = scene.apply_clip(self.size) {
+                    self.widget.draw_scene(scene)
+                }
+            }
+        }
+    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Sync => {
@@ -281,9 +289,6 @@ impl<M, E: Easer, W: Style> Style for Revealer<M, E, W> {
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.widget.set_background(background);
     }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.widget.set_border_texture(texture);
-    }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.widget.set_top_left_radius(radius);
     }
@@ -295,8 +300,5 @@ impl<M, E: Easer, W: Style> Style for Revealer<M, E, W> {
     }
     fn set_bottom_left_radius(&mut self, radius: f32) {
         self.widget.set_bottom_left_radius(radius);
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.widget.set_border_size(size);
     }
 }

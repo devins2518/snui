@@ -332,8 +332,7 @@ impl Drawable for BorderedRectangle {
                                 force_hq_pipeline: false,
                             },
                             &stroke,
-                            transform
-                                .post_translate(self.border_width / 2., self.border_width / 2.),
+                            transform.pre_translate(self.border_width / 2., self.border_width / 2.),
                             clipmask,
                         );
                     }

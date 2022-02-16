@@ -3,7 +3,7 @@
 use crate::widgets::layout::{child, Container, Positioner};
 use crate::widgets::Alignment;
 use crate::*;
-use scene::{Region, RenderNode};
+use scene::RenderNode;
 
 #[derive(Debug)]
 pub struct Simple<W> {

@@ -42,6 +42,9 @@ where
     M: Clone + Copy,
     D: Mail<M, bool, bool>,
 {
+    fn draw_scene(&mut self, scene: Scene) {
+        Widget::<()>::draw_scene(&mut self.toggle, scene)
+    }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
@@ -139,9 +142,6 @@ impl<M> Style for Switch<M> {
     fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
         self.toggle.set_background(background);
     }
-    fn set_border_texture<T: Into<scene::Texture>>(&mut self, texture: T) {
-        self.toggle.set_border_texture(texture);
-    }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.toggle.set_top_left_radius(radius);
     }
@@ -153,8 +153,5 @@ impl<M> Style for Switch<M> {
     }
     fn set_bottom_left_radius(&mut self, radius: f32) {
         self.toggle.set_bottom_left_radius(radius);
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.toggle.set_border_size(size);
     }
 }

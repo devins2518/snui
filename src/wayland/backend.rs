@@ -394,7 +394,7 @@ where
             qh,
             surface: &mut self.surface,
         };
-        let mut ctx = SyncContext::new_with_handle(&mut self.data, cache, &mut handle);
+        let mut ctx = SyncContext::new(&mut self.data, cache, &mut handle);
         damage = damage.max(self.widget.sync(&mut ctx, event));
 
         while ctx.sync() {
@@ -462,8 +462,10 @@ where
                 .with_clipmask(self.clipmask.as_mut());
 
             self.state.offset = offset;
-            self.widget
-                .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
+            ctx.damage_region(
+                &Background::new(&region),
+                Region::new(0., 0., width, height),
+            );
             self.state.render_node.render(&mut ctx, transform, None);
 
             surface.damage(conn, ctx.damage_queue());
@@ -508,6 +510,10 @@ where
 
             if offset != self.state.offset {
                 self.state.offset = offset;
+                ctx.damage_region(
+                    &Background::new(&region),
+                    Region::new(0., 0., width, height),
+                );
                 self.widget
                     .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
                 self.state.render_node.render(&mut ctx, transform, None);
@@ -527,6 +533,8 @@ where
         } else {
             eprintln!("CANNOT REQUEST ANOTHER FRAME")
         }
+        // println!("time - {:#?}", self.state.time);
+        // println!("{:#?}\n", self.state.render_node);
     }
 }
 
@@ -1028,6 +1036,9 @@ where
                             .widget
                             .layout(&mut ctx, &BoxConstraints::default())
                             .into();
+                        view.state.constraint =
+                            BoxConstraints::new((r_width, r_height), (r_width, r_height));
+                        view.widget.layout(&mut ctx, &view.state.constraint);
                         toplevel.set_min_size(conn, r_width as i32, r_height as i32)
                     }
                 }

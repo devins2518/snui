@@ -1,14 +1,12 @@
-use scene::Instruction;
 use snui::mail::*;
 use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
 
 use snui::widgets::shapes::*;
 use snui::{
-    widgets::{label::*, layout::dynamic::DynamicLayout, *},
+    widgets::{label::*, layout::flex::Flex},
     *,
 };
-use tiny_skia::*;
 
 // The state of the animations in the Demo
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -98,12 +96,10 @@ impl<E: Easer> Geometry for Animate<E> {
 }
 
 impl<E: Easer> Widget<Demo> for Animate<E> {
-    fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
-        Instruction::new(
-            transform.pre_translate(self.position, 0.),
-            Rectangle::new(self.cursor, 30.).background(theme::RED),
-        )
-        .into()
+    fn draw_scene(&mut self, scene: scene::Scene) {
+        scene
+            .shift(self.position, 0.)
+            .push_primitive(&Rectangle::new(self.cursor, 30.).background(theme::RED))
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<Demo>, event: Event) -> Damage {
         match event {
@@ -181,8 +177,8 @@ impl Geometry for FrameRate {
 }
 
 impl<D> Widget<D> for FrameRate {
-    fn create_node(&mut self, transform: Transform) -> scene::RenderNode {
-        Widget::<()>::create_node(&mut self.label, transform)
+    fn draw_scene(&mut self, scene: scene::Scene) {
+        Widget::<()>::draw_scene(&mut self.label, scene)
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<D>, event: Event<'d>) -> Damage {
         match event {
@@ -203,53 +199,46 @@ impl<D> Widget<D> for FrameRate {
 
 // Creates our user interface
 fn ui() -> impl Widget<Demo> {
-    let mut ui = DynamicLayout::new().orientation(Orientation::Vertical);
-    ui.add(
-        FrameRate {
-            label: "frame rate".into(),
-        }
-        .clamp()
-        .with_height(20.),
-    );
-    ui.add(Animate::quadratic().clamp());
-    ui.add(Animate::sinus().clamp());
-
-    ui.add(
-        Switch::new(Remote {})
-            .background(theme::BG0)
-            .duration(600)
-            .style()
-            .background(theme::BG1)
-            .radius(3.)
-            .button::<Demo, _>(move |this, ctx, p| {
-                if p.left_button_click().is_some() {
-                    match ctx.state {
-                        AnimationState::Start => {
-                            this.set_background(theme::BG1);
-                        }
-                        AnimationState::Pause | AnimationState::Stop => {
-                            this.set_background(theme::RED);
+    Flex::default()
+        .with(
+            FrameRate {
+                label: "frame rate".into(),
+            }
+            .clamp()
+            .with_height(20.),
+        )
+        .with(Animate::quadratic().clamp())
+        .with(Animate::sinus().clamp())
+        .with(
+            Switch::new(Remote {})
+                .background(theme::BG0)
+                .duration(600)
+                .style()
+                .background(theme::BG1)
+                .radius(3.)
+                .button::<Demo, _>(move |this, ctx, p| {
+                    if p.left_button_click().is_some() {
+                        match ctx.state {
+                            AnimationState::Start => {
+                                this.set_background(theme::BG1);
+                            }
+                            AnimationState::Pause | AnimationState::Stop => {
+                                this.set_background(theme::RED);
+                            }
                         }
                     }
-                }
-            })
-            .clamp(),
-    );
-    ui
+                })
+                .clamp(),
+        )
+        .orientation(Orientation::Vertical)
 }
 
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let window = window::default_window(Label::from("Animation"), ui().clamp().style());
-
     client.new_window(
         Demo::default(),
-        window
-            .background(theme::BG0)
-            .radius(5.)
-            .alternate_background(0xff58514F)
-            .border(theme::BG2, 2.),
+        ui().clamp().style().background(theme::BG0).radius(5.),
         &event_queue.handle(),
     );
 

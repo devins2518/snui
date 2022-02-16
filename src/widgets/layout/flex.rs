@@ -145,6 +145,11 @@ impl<D> Flex<Box<dyn Widget<D>>> {
     pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
         self.children.push(child(Box::new(widget)));
     }
+    pub fn with<W: Widget<D> + 'static>(mut self, widget: W) -> Self {
+        self.children
+            .push(Positioner::new(Proxy::new(Box::new(widget))));
+        self
+    }
 }
 
 impl<W> Flex<W> {
@@ -164,9 +169,5 @@ impl<W> Flex<W> {
     }
     pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
         self.children.as_mut_slice()
-    }
-    pub fn with(mut self, widget: W) -> Self {
-        self.children.push(Positioner::new(Proxy::new(widget)));
-        self
     }
 }

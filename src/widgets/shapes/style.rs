@@ -81,6 +81,10 @@ impl<W: Geometry> Geometry for WidgetStyle<W> {
     fn height(&self) -> f32 {
         self.background.height().max(self.border.height())
     }
+    fn contains(&self, x: f32, y: f32) -> bool {
+        self.widget
+            .contains(x - self.border.border_width, y - self.border.border_width)
+    }
 }
 
 impl<W: Style> WidgetStyle<W> {
@@ -208,10 +212,18 @@ impl<W> Style for WidgetStyle<W> {
 impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
     fn draw_scene<'b>(&'b mut self, mut scene: Scene<'_, '_, 'b>) {
         let Coords { x, y } = self.widget.coords();
-        if let Some(scene) = scene.apply_border(&self.border) {
+        if !self.border.texture.is_transparent() || self.border.border_width > 0. {
+            if let Some(scene) = scene.apply_border(&self.border) {
+                if let Some(scene) = scene.shift(x, y).apply_background(&self.background) {
+                    self.widget.deref_mut().draw_scene(scene);
+                }
+            }
+        } else if !self.background.texture.is_transparent() {
             if let Some(scene) = scene.shift(x, y).apply_background(&self.background) {
                 self.widget.deref_mut().draw_scene(scene);
             }
+        } else {
+            self.widget.draw_scene(scene);
         }
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
