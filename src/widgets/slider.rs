@@ -68,7 +68,7 @@ where
         } else {
             (0., 0.)
         };
-        Widget::<()>::draw_scene(&mut self.slider, scene.shift(x, y))
+        Widget::<()>::draw_scene(&mut self.slider, scene.translate(x, y))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         match event {

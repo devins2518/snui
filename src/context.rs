@@ -235,11 +235,7 @@ impl<'c> DrawContext<'c> {
             let mut pb = self.path_builder.take().unwrap();
             pb.push_rect(region.x, region.y, region.width, region.height);
             let path = pb.finish().unwrap();
-            if clipmask.is_empty() {
-                clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
-            } else {
-                clipmask.intersect_path(&path, FillRule::Winding, false);
-            }
+            clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
             self.path_builder = Some(path.clear());
         }
     }
@@ -248,6 +244,7 @@ impl<'c> DrawContext<'c> {
         let blend;
         if let Some(background) = background.previous {
             self.damage_region(background, region);
+            // Could perhaps be Source
             blend = BlendMode::SourceOver;
         } else {
             if let Some(last) = self.pending_damage.last() {
@@ -271,8 +268,8 @@ impl<'c> DrawContext<'c> {
                     }
                 }
             }
-            self.pending_damage.push(region);
-            blend = BlendMode::Source;
+            blend = BlendMode::SourceOver;
+            self.commit(region);
         }
         let clip_mask = self
             .clipmask
@@ -302,6 +299,30 @@ impl<'c> DrawContext<'c> {
                 }
                 _ => {}
             },
+            Texture::Image(image) => match &mut self.backend {
+                Backend::Pixmap(dt) => {
+                    let sx = background.region.width / image.width();
+                    let sy = background.region.height / image.height();
+                    dt.fill_rect(
+                        region.into(),
+                        &Paint {
+                            shader: Pattern::new(
+                                image.pixmap(),
+                                SpreadMode::Repeat,
+                                FilterQuality::Bilinear,
+                                1.0,
+                                Transform::from_scale(sx, sy),
+                            ),
+                            blend_mode: blend,
+                            anti_alias: false,
+                            force_hq_pipeline: false,
+                        },
+                        self.transform,
+                        clip_mask,
+                    );
+                }
+                _ => {}
+            },
             Texture::Transparent => match &mut self.backend {
                 Backend::Pixmap(dt) => {
                     dt.fill_rect(
@@ -318,7 +339,6 @@ impl<'c> DrawContext<'c> {
                 }
                 _ => {}
             },
-            _ => {}
         }
     }
     pub fn damage_queue(&self) -> &[Region] {

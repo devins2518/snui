@@ -167,6 +167,7 @@ impl<W: Style> WidgetStyle<W> {
 
 impl<W> Style for WidgetStyle<W> {
     fn set_radius(&mut self, radius: f32) {
+        self.background.radius = (radius, radius, radius, radius);
         let delta = minimum_padding(self.background.radius);
         self.widget.padding.0 = self.widget.padding.0.max(delta);
         self.widget.padding.1 = self.widget.padding.1.max(delta);
@@ -177,6 +178,7 @@ impl<W> Style for WidgetStyle<W> {
         self.border.set_radius(radius);
     }
     fn set_top_left_radius(&mut self, radius: f32) {
+        self.background.set_top_left_radius(radius);
         let delta = minimum_padding(self.background.radius);
         self.widget.padding.0 = self.widget.padding.0.max(delta);
         self.background
@@ -184,6 +186,7 @@ impl<W> Style for WidgetStyle<W> {
         self.border.set_top_left_radius(radius);
     }
     fn set_top_right_radius(&mut self, radius: f32) {
+        self.background.set_top_right_radius(radius);
         let delta = minimum_padding(self.background.radius);
         self.widget.padding.0 = self.widget.padding.1.max(delta);
         self.background
@@ -191,6 +194,7 @@ impl<W> Style for WidgetStyle<W> {
         self.border.set_top_right_radius(radius);
     }
     fn set_bottom_right_radius(&mut self, radius: f32) {
+        self.background.set_bottom_right_radius(radius);
         let delta = minimum_padding(self.background.radius);
         self.widget.padding.2 = self.widget.padding.2.max(delta);
         self.background
@@ -198,6 +202,7 @@ impl<W> Style for WidgetStyle<W> {
         self.border.set_bottom_right_radius(radius);
     }
     fn set_bottom_left_radius(&mut self, radius: f32) {
+        self.background.set_bottom_left_radius(radius);
         let delta = minimum_padding(self.background.radius);
         self.widget.padding.2 = self.widget.padding.3.max(delta);
         self.background
@@ -214,12 +219,12 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
         let Coords { x, y } = self.widget.coords();
         if !self.border.texture.is_transparent() || self.border.border_width > 0. {
             if let Some(scene) = scene.apply_border(&self.border) {
-                if let Some(scene) = scene.shift(x, y).apply_background(&self.background) {
+                if let Some(scene) = scene.translate(x, y).apply_background(&self.background) {
                     self.widget.deref_mut().draw_scene(scene);
                 }
             }
         } else if !self.background.texture.is_transparent() {
-            if let Some(scene) = scene.shift(x, y).apply_background(&self.background) {
+            if let Some(scene) = scene.translate(x, y).apply_background(&self.background) {
                 self.widget.deref_mut().draw_scene(scene);
             }
         } else {

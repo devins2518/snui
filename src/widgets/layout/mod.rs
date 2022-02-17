@@ -1,5 +1,4 @@
 pub mod flex;
-pub mod simple;
 
 use crate::*;
 use scene::Coords;
@@ -71,7 +70,7 @@ impl<W: Geometry> Geometry for Positioner<W> {
 impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
     fn draw_scene(&mut self, scene: Scene) {
         self.widget
-            .draw_scene(scene.shift(self.coords.x, self.coords.y))
+            .draw_scene(scene.translate(self.coords.x, self.coords.y))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         let damage = match event {

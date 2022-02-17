@@ -181,6 +181,28 @@ impl Drawable for Rectangle {
                             clipmask,
                         );
                     }
+                    Texture::Image(image) => {
+                        let sx = self.width() / image.width();
+                        let sy = self.height() / image.height();
+                        dt.fill_path(
+                            &path,
+                            &Paint {
+                                shader: Pattern::new(
+                                    image.pixmap(),
+                                    SpreadMode::Repeat,
+                                    FilterQuality::Bilinear,
+                                    1.0,
+                                    Transform::from_scale(sx, sy),
+                                ),
+                                blend_mode: BlendMode::SourceOver,
+                                anti_alias: true,
+                                force_hq_pipeline: false,
+                            },
+                            FillRule::Winding,
+                            transform,
+                            clipmask,
+                        );
+                    }
                     _ => {}
                 }
             }
@@ -217,7 +239,7 @@ impl<'p> From<&'p Rectangle> for PrimitiveRef<'p> {
 
 impl<D> Widget<D> for Rectangle {
     fn draw_scene(&mut self, mut scene: Scene) {
-        scene.push_primitive(self)
+        scene.insert_primitive(self)
     }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         Damage::None

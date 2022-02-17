@@ -133,7 +133,7 @@ fn sliders() -> Flex<impl Widget<Color>> {
 }
 
 fn ui_builder() -> Flex<impl Widget<Color>> {
-    let mut layout = Flex::new().orientation(Orientation::Vertical);
+    let mut layout = Flex::column();
 
     let listener = Listener::new("", ())
         .clamp()
@@ -141,7 +141,7 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
         .anchor(CENTER, START)
         .with_height(20.);
 
-    let mut indicator = Flex::new().orientation(Orientation::Vertical);
+    let mut indicator = Flex::column();
 
     indicator.add(listener);
     indicator.add(

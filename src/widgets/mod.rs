@@ -144,7 +144,7 @@ impl<W: Geometry> Geometry for Padding<W> {
 impl<D, W: Widget<D>> Widget<D> for Padding<W> {
     fn draw_scene(&mut self, scene: Scene) {
         let (top, _, _, left) = self.padding;
-        self.widget.draw_scene(scene.shift(left, top))
+        self.widget.draw_scene(scene.translate(left, top))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
         let (top, _, _, left) = self.padding;
@@ -270,24 +270,6 @@ impl<W: Geometry> Geometry for WidgetBox<W> {
 }
 
 impl<W> WidgetBox<W> {
-    fn maximum_height(&self) -> f32 {
-        match self.height {
-            Some(l_height) => match self.constraint {
-                Constraint::Upward | Constraint::Fixed => l_height,
-                Constraint::Downward => std::f32::INFINITY,
-            },
-            None => std::f32::INFINITY,
-        }
-    }
-    fn maximum_width(&self) -> f32 {
-        match self.width {
-            Some(l_width) => match self.constraint {
-                Constraint::Upward | Constraint::Fixed => l_width,
-                Constraint::Downward => std::f32::INFINITY,
-            },
-            None => std::f32::INFINITY,
-        }
-    }
     fn minimum_width_from(&self, width: f32) -> f32 {
         match self.width {
             Some(l_width) => match self.constraint {
@@ -359,8 +341,8 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
                             self.minimum_height_from(constraints.minimum_height()),
                         )
                         .with_max(
-                            self.maximum_width().min(constraints.maximum_width()),
-                            self.maximum_height().min(constraints.maximum_height()),
+                            width.min(constraints.maximum_width()),
+                            height.min(constraints.maximum_height()),
                         ),
                 },
             )

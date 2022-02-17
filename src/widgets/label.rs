@@ -30,44 +30,6 @@ pub struct LabelRef<'s> {
 }
 
 impl Label {
-    pub fn as_str(&self) -> &str {
-        self.text.as_str()
-    }
-    pub fn set_color(&mut self, color: u32) {
-        self.color = u32_to_source(color);
-    }
-}
-
-impl PartialEq for Label {
-    fn eq(&self, other: &Self) -> bool {
-        self.font_size == other.font_size
-            && self.text == other.text
-            && self.color == other.color
-            && self.settings == other.settings
-            && self.fonts.eq(&other.fonts)
-    }
-}
-
-impl Eq for Label {}
-
-impl std::fmt::Debug for Label {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Label")
-            .field("text", &self.text)
-            .field("font_size", &self.font_size)
-            .field("color", &self.color)
-            .field("fonts", &self.fonts)
-            .finish()
-    }
-}
-
-impl From<&str> for Label {
-    fn from(text: &str) -> Self {
-        Label::default(text)
-    }
-}
-
-impl Label {
     pub fn new<T: Into<String>>(text: T) -> Label {
         Label {
             text: text.into(),
@@ -97,6 +59,12 @@ impl Label {
             fonts: self.fonts.as_slice(),
         }
     }
+    pub fn as_str(&self) -> &str {
+        self.text.as_str()
+    }
+    pub fn set_color(&mut self, color: u32) {
+        self.color = u32_to_source(color);
+    }
     pub fn write(&mut self, s: &str) {
         self.text.push_str(s);
         self.size = None;
@@ -123,6 +91,34 @@ impl Label {
     pub fn settings(mut self, settings: LayoutSettings) -> Self {
         self.settings = settings;
         self
+    }
+}
+
+impl PartialEq for Label {
+    fn eq(&self, other: &Self) -> bool {
+        self.font_size == other.font_size
+            && self.text == other.text
+            && self.color == other.color
+            && self.fonts.eq(&other.fonts)
+    }
+}
+
+impl Eq for Label {}
+
+impl std::fmt::Debug for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Label")
+            .field("text", &self.text)
+            .field("font_size", &self.font_size)
+            .field("color", &self.color)
+            .field("fonts", &self.fonts)
+            .finish()
+    }
+}
+
+impl From<&str> for Label {
+    fn from(text: &str) -> Self {
+        Label::default(text)
     }
 }
 
@@ -206,7 +202,7 @@ impl<'p> From<&'p Label> for PrimitiveRef<'p> {
 
 impl<D> Widget<D> for Label {
     fn draw_scene(&mut self, mut scene: Scene) {
-        scene.push_primitive(self)
+        scene.insert_primitive(self)
     }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
@@ -236,6 +232,15 @@ use crate::mail::*;
 pub struct Listener<M> {
     message: M,
     label: Proxy<Label>,
+}
+
+impl<M> Listener<M> {
+    pub fn new<T: Into<Label>>(label: T, message: M) -> Self {
+        Self {
+            message,
+            label: Proxy::new(label.into()),
+        }
+    }
 }
 
 impl<M> Geometry for Listener<M> {
@@ -268,15 +273,6 @@ where
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         Widget::<()>::layout(&mut self.label, ctx, constraints)
-    }
-}
-
-impl<M> Listener<M> {
-    pub fn new<T: Into<Label>>(label: T, message: M) -> Self {
-        Self {
-            message,
-            label: Proxy::new(label.into()),
-        }
     }
 }
 

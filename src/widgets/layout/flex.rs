@@ -12,7 +12,7 @@ pub struct Flex<W> {
 
 impl<W> FromIterator<W> for Flex<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
-        let mut this = Flex::new();
+        let mut this = Flex::row();
         for widget in iter {
             this.children.push(child(widget));
         }
@@ -153,11 +153,18 @@ impl<D> Flex<Box<dyn Widget<D>>> {
 }
 
 impl<W> Flex<W> {
-    pub fn new() -> Self {
+    pub fn row() -> Self {
         Self {
             size: Size::default(),
             children: Vec::new(),
             orientation: Orientation::Horizontal,
+        }
+    }
+    pub fn column() -> Self {
+        Self {
+            size: Size::default(),
+            children: Vec::new(),
+            orientation: Orientation::Vertical,
         }
     }
     pub fn orientation(mut self, orientation: Orientation) -> Self {

@@ -18,6 +18,38 @@ pub struct Switch<M> {
     message: M,
 }
 
+impl<M> Switch<M> {
+    pub fn new(message: M) -> Self {
+        Self {
+            start: false,
+            toggle: Positioner::new(Rectangle::new(20., 20.).texture(theme::BG2)),
+            easer: Sinus::new(0., 0.5, 20.),
+            message,
+            duration: 500,
+            state: SwitchState::Deactivated,
+        }
+    }
+    fn set_state(&mut self, state: SwitchState) {
+        match state {
+            SwitchState::Activated => {
+                self.easer = Sinus::new(0.5, 1., self.toggle.width());
+            }
+            SwitchState::Deactivated => {
+                self.easer = Sinus::new(0., 0.5, self.toggle.width());
+            }
+        };
+        self.state = state;
+    }
+    /// Duration of the animation in ms
+    pub fn duration(mut self, duration: u32) -> Self {
+        self.duration = duration;
+        self
+    }
+    pub fn state(&self) -> SwitchState {
+        self.state
+    }
+}
+
 impl<M> Geometry for Switch<M> {
     fn width(&self) -> f32 {
         self.toggle.width() * 2.
@@ -103,38 +135,6 @@ where
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         (self.width(), self.height()).into()
-    }
-}
-
-impl<M> Switch<M> {
-    pub fn new(message: M) -> Self {
-        Self {
-            start: false,
-            toggle: Positioner::new(Rectangle::new(20., 20.).texture(theme::BG2)),
-            easer: Sinus::new(0., 0.5, 20.),
-            message,
-            duration: 500,
-            state: SwitchState::Deactivated,
-        }
-    }
-    fn set_state(&mut self, state: SwitchState) {
-        match state {
-            SwitchState::Activated => {
-                self.easer = Sinus::new(0.5, 1., self.toggle.width());
-            }
-            SwitchState::Deactivated => {
-                self.easer = Sinus::new(0., 0.5, self.toggle.width());
-            }
-        };
-        self.state = state;
-    }
-    /// Duration of the animation in ms
-    pub fn duration(mut self, duration: u32) -> Self {
-        self.duration = duration;
-        self
-    }
-    pub fn state(&self) -> SwitchState {
-        self.state
     }
 }
 

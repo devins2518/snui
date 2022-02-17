@@ -98,7 +98,7 @@ impl<E: Easer> Geometry for Animate<E> {
 impl<E: Easer> Widget<Demo> for Animate<E> {
     fn draw_scene(&mut self, scene: scene::Scene) {
         scene
-            .shift(self.position, 0.)
+            .translate(self.position, 0.)
             .push_primitive(&Rectangle::new(self.cursor, 30.).texture(theme::RED))
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<Demo>, event: Event) -> Damage {

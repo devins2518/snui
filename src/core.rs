@@ -315,6 +315,21 @@ pub trait WidgetExt: Sized + Geometry {
     fn padding_left(self, padding: f32) -> Padding<Self> {
         Padding::new(self).padding_left(padding)
     }
+    fn with_min_size(self, width: f32, height: f32) -> WidgetBox<Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Downward)
+            .with_size(width, height)
+    }
+    fn with_max_size(self, width: f32, height: f32) -> WidgetBox<Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Upward)
+            .with_size(width, height)
+    }
+    fn with_fixed_size(self, width: f32, height: f32) -> WidgetBox<Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Fixed)
+            .with_size(width, height)
+    }
     fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where
         F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer),

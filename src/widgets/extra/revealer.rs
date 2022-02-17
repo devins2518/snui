@@ -63,19 +63,6 @@ where
     }
 }
 
-impl<M, E, W> GeometryExt for Revealer<M, E, W>
-where
-    E: Easer,
-    W: GeometryExt,
-{
-    fn set_width(&mut self, width: f32) {
-        self.widget.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) {
-        self.widget.set_height(height)
-    }
-}
-
 impl<M, E, W, D> Widget<D> for Revealer<M, E, W>
 where
     E: Easer,

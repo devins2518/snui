@@ -89,6 +89,12 @@ impl From<ColorU8> for Texture {
     }
 }
 
+impl From<Image> for Texture {
+    fn from(raw: Image) -> Self {
+        Texture::Image(raw)
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Region {
     pub x: f32,
@@ -427,15 +433,12 @@ impl RenderNode {
             RenderNode::Container { bounds, .. } => Some(*bounds),
             RenderNode::Background {
                 coords, background, ..
-            } => {
-                let (tl, tr, br, bl) = background.radius;
-                Some(Region::new(
-                    coords.x + tl.max(bl),
-                    coords.y + tl.max(tr),
-                    background.width - tr.max(br),
-                    background.height - bl.max(br),
-                ))
-            }
+            } => Some(Region::new(
+                coords.x,
+                coords.y,
+                background.width,
+                background.height,
+            )),
             RenderNode::Primitive { coords, primitive } => Some(Region::new(
                 coords.x,
                 coords.y,
@@ -510,7 +513,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             },
         }
     }
-    pub fn shift(mut self, x: f32, y: f32) -> Self {
+    pub fn translate(mut self, x: f32, y: f32) -> Self {
         self.coords.x += x.round();
         self.coords.y += y.round();
         self
@@ -633,7 +636,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                         self.context,
                         transform.pre_translate(self.coords.x, self.coords.y),
                     );
-                    self.next()
+                    self.next_inner()
                 } else if self.coords.ne(&&coords) || border.ne(&rect) {
                     if border.ne(&rect) {
                         *border = rect.clone();
@@ -654,7 +657,8 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     );
                     self.next_inner_with_damage(true)
                 } else {
-                    self.next(damage)
+                    *coords = self.coords;
+                    self.next_inner()
                 }
             }
             _ => {
@@ -699,7 +703,6 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     },
                 };
                 let damage = if self.damage {
-                    *coords = self.coords;
                     *background = rect.clone();
                     background.draw(
                         self.context,
@@ -716,7 +719,6 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                             background.height(),
                         )),
                     );
-                    *coords = self.coords;
                     if background.ne(&rect) {
                         *background = rect.clone();
                     }
@@ -728,9 +730,14 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 } else {
                     false
                 };
-                self.next_inner_with_damage(damage).map(|scene| {
-                    scene.background = t_background;
-                    scene
+                *coords = self.coords;
+                Some(Scene {
+                    clip: None,
+                    damage,
+                    background: t_background,
+                    coords: self.coords,
+                    node: Rc::get_mut(child)?,
+                    context: self.context,
                 })
             }
             _ => {
@@ -759,20 +766,30 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     {
         let region = Region::new(self.coords.x, self.coords.y, size.width, size.height);
         match self.node {
-            RenderNode::Clip { bounds, .. } => {
-                if bounds.ne(&&region) || self.damage {
+            RenderNode::Clip { bounds, child } => {
+                if bounds.ne(&&region) {
                     self.context
                         .damage_region(&self.background, bounds.merge(&region));
-                    self.context.set_clip(*bounds);
                     *bounds = region;
-                    self.next_inner_with_damage(true).map(|scene| {
-                        scene.clip = Some(bounds);
-                        scene
+                    let clip = self.clip.map(|clip| clip.crop(bounds)).unwrap_or(*bounds);
+                    self.context.set_clip(clip);
+                    Some(Scene {
+                        damage: true,
+                        clip: Some(bounds),
+                        background: self.background,
+                        coords: self.coords,
+                        node: Rc::get_mut(child)?,
+                        context: self.context,
                     })
                 } else {
-                    self.next_inner_with_damage(false).map(|scene| {
-                        scene.clip = Some(bounds);
-                        scene
+                    self.context.set_clip(*bounds);
+                    Some(Scene {
+                        damage: self.damage,
+                        clip: Some(bounds),
+                        background: self.background,
+                        coords: self.coords,
+                        node: Rc::get_mut(child)?,
+                        context: self.context,
                     })
                 }
             }
@@ -793,7 +810,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             }
         }
     }
-    pub fn push_primitive<P>(&mut self, primitive: &P)
+    pub fn insert_primitive<P>(&mut self, primitive: &P)
     where
         for<'a> &'a P: Into<PrimitiveRef<'a>>,
     {

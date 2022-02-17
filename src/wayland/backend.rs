@@ -382,10 +382,9 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<D>>,
     ) -> Damage {
-        let mut damage = if event.is_configure() {
-            Damage::Partial
-        } else {
-            Damage::None
+        let mut damage = match event {
+            Event::Draw | Event::Configure(_) => Damage::Partial,
+            _ => Damage::None,
         };
         let mut handle = ViewHandle {
             conn,
@@ -530,11 +529,7 @@ where
         // If this is the case it means the callback failed so pending_cb callback should be reset
         } else if let Damage::Frame = damage {
             self.state.pending_cb = false;
-        } else {
-            eprintln!("CANNOT REQUEST ANOTHER FRAME")
         }
-        // println!("time - {:#?}", self.state.time);
-        // println!("{:#?}\n", self.state.render_node);
     }
 }
 
@@ -686,9 +681,6 @@ impl Surface {
             self.wl_surface
                 .damage(ch, d.x as i32, d.y as i32, d.width as i32, d.height as i32);
         }
-    }
-    fn set_size(&self, ch: &mut ConnectionHandle, width: u32, height: u32) {
-        self.shell.set_size(ch, width, height);
     }
     fn replace_buffer(&mut self, wl_buffer: wl_buffer::WlBuffer) {
         self.wl_buffer = Some(wl_buffer);
