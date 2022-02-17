@@ -150,7 +150,7 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
             height: 200.,
             color: tiny_skia::Color::WHITE,
         }
-        .clamp()
+        .clamp(),
     );
 
     layout.add(indicator);

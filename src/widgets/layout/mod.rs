@@ -7,7 +7,10 @@ use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
 /// Widgets which contain one or more widgets
-pub trait Container<D, W> where Self: Sized {
+pub trait Container<D, W>
+where
+    Self: Sized,
+{
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool {
         self.len() == 0

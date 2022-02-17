@@ -283,8 +283,8 @@ impl<W> Proxy<W> {
 }
 
 use scene::Texture;
-use widgets::Padding;
 use widgets::shapes::Style;
+use widgets::Padding;
 
 /// Additional method to build common widgets
 pub trait WidgetExt: Sized + Geometry {
@@ -301,24 +301,19 @@ pub trait WidgetExt: Sized + Geometry {
         self.style().border(texture, width)
     }
     fn padding(self, padding: f32) -> Padding<Self> {
-        Padding::new(self)
-        	.padding(padding)
+        Padding::new(self).padding(padding)
     }
     fn padding_top(self, padding: f32) -> Padding<Self> {
-        Padding::new(self)
-        	.padding_top(padding)
+        Padding::new(self).padding_top(padding)
     }
     fn padding_right(self, padding: f32) -> Padding<Self> {
-        Padding::new(self)
-        	.padding_right(padding)
+        Padding::new(self).padding_right(padding)
     }
     fn padding_bottom(self, padding: f32) -> Padding<Self> {
-        Padding::new(self)
-        	.padding_bottom(padding)
+        Padding::new(self).padding_bottom(padding)
     }
     fn padding_left(self, padding: f32) -> Padding<Self> {
-        Padding::new(self)
-        	.padding_left(padding)
+        Padding::new(self).padding_left(padding)
     }
     fn button<D, F>(self, cb: F) -> Button<D, Self, F>
     where

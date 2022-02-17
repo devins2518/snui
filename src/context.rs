@@ -213,7 +213,7 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
-    pub fn reset_clip(&mut self, region: Region) {
+    pub fn reset_clip(&mut self, region: &Region) {
         let width = self.width();
         let height = self.height();
         if let Some(clipmask) = &mut self.clipmask {
