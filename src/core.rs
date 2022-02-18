@@ -272,10 +272,11 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                 } else if self.entered {
                     let damage = self.inner.sync(ctx, event);
                     self.entered = self.contains(x, y) || damage.is_some();
-                    if self.entered {
-                        self.inner.sync(ctx, Event::Pointer(x, y, Pointer::Leave));
+                    if !self.entered {
+                        self.inner.sync(ctx, Event::Pointer(x, y, Pointer::Leave))
+                    } else {
+                        damage
                     }
-                    damage
                 } else {
                     Damage::None
                 }
@@ -296,19 +297,16 @@ use scene::Texture;
 use widgets::shapes::Style;
 use widgets::Padding;
 
-/// Additional method to build common widgets
+/// Additional method to help build common widgets.
 pub trait WidgetExt<T>: Widget<T> + Sized {
     fn clamp(self) -> WidgetBox<T, Self> {
         WidgetBox::new(self)
     }
-    fn style(self) -> WidgetStyle<T, Self> {
-        WidgetStyle::new(self)
-    }
     fn background(self, background: impl Into<Texture>) -> WidgetStyle<T, Self> {
-        Style::texture(self.style(), background)
+        Style::texture(WidgetStyle::new(self), background)
     }
     fn border(self, texture: impl Into<Texture>, width: f32) -> WidgetStyle<T, Self> {
-        self.style().border(texture, width)
+        WidgetStyle::new(self).border(texture, width)
     }
     fn padding(self, padding: f32) -> Padding<T, Self> {
         Padding::new(self).padding(padding)
@@ -360,6 +358,8 @@ pub trait WidgetExt<T>: Widget<T> + Sized {
             .constraint(widgets::Constraint::Fixed)
             .with_size(width, height)
     }
+    // TO-DO
+    // This should be a macro
     fn button<F>(self, cb: F) -> Proxy<Button<T, Self, F>>
     where
         Self: Widget<T>,

@@ -168,15 +168,6 @@ struct FrameRate {
     label: Label,
 }
 
-impl Geometry for FrameRate {
-    fn width(&self) -> f32 {
-        self.label.width()
-    }
-    fn height(&self) -> f32 {
-        self.label.height()
-    }
-}
-
 impl<D> Widget<D> for FrameRate {
     fn draw_scene(&mut self, scene: scene::Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)

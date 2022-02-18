@@ -466,6 +466,9 @@ impl RenderNode {
     }
 }
 
+/// A scene is an iterator over the RenderNode.
+///
+/// It provides contextual information necessary to damage the scene and helper methods to build it.
 pub struct Scene<'s, 'c, 'b> {
     damage: bool,
     coords: Coords,
@@ -588,7 +591,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             _ => None,
         }
     }
-    /// Puts the scene into a damage state.
+    /// Puts the scene into a damaged state.
     /// The damage will be passed down to all its child.
     pub fn damage(mut self, size: Size) -> Self {
         self.damage = true;
@@ -779,12 +782,12 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     self.context.clear(&self.background, bounds.merge(&region));
                     *bounds = region;
                     self.damage = true;
-                    let clip = self.clip.map(|clip| clip.crop(bounds)).unwrap_or(*bounds);
-                    self.context.set_clip(&clip);
                 } else {
+                    *bounds = region;
                     self.damage = false;
-                    self.context.set_clip(bounds);
                 }
+                let clip = self.clip.map(|clip| clip.crop(bounds)).unwrap_or(*bounds);
+                self.context.set_clip(&clip);
                 Some(Scene {
                     damage: self.damage,
                     clip: Some(bounds),

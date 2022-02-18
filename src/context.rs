@@ -82,17 +82,21 @@ impl<'c> LayoutCtx<'c> {
 
 /// A handle to the window state.
 pub trait WindowHandle {
+    /// Closes the window.
+    ///
+    /// This will terminate the application.
     fn close(&mut self) {}
     fn minimize(&mut self) {}
     fn maximize(&mut self) {}
     /// Launch a system menu
     fn menu(&mut self, _x: f32, _y: f32, _serial: u32) {}
-    /// Move the application window.
+    /// Move the window.
     ///
     /// The serial is provided by Event.Pointer.
     fn _move(&mut self, _serial: u32) {}
     fn set_title(&mut self, _title: String) {}
     fn set_cursor(&mut self, _cursor: Cursor) {}
+    /// Retreive the state of the window.
     fn get_state(&self) -> &[WindowState] {
         &WINDOW_STATE
     }
@@ -254,7 +258,7 @@ impl<'c> DrawContext<'c> {
                 }
             }
             blend = BlendMode::SourceOver;
-            self.commit(region);
+            self.pending_damage.push(region);
         }
         let clip_mask = self
             .clipmask

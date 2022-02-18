@@ -135,10 +135,10 @@ impl Rectangle {
         pb.finish()
     }
     fn minimum_height(&self) -> f32 {
-        self.radius.0 + self.radius.2
+        self.radius.0.max(self.radius.2)
     }
     fn minimum_width(&self) -> f32 {
-        self.radius.1 + self.radius.3
+        self.radius.1.max(self.radius.3)
     }
 }
 
@@ -318,10 +318,10 @@ impl BorderedRectangle {
         self
     }
     fn minimum_height(&self) -> f32 {
-        self.radius.0 + self.radius.2
+        self.radius.0.max(self.radius.2)
     }
     fn minimum_width(&self) -> f32 {
-        self.radius.1 + self.radius.3
+        self.radius.1.max(self.radius.3)
     }
 }
 

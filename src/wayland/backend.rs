@@ -136,7 +136,7 @@ where
     }
     pub fn new_window(
         &mut self,
-        data: D,
+        data: T,
         widget: impl Widget<T> + 'static,
         qh: &QueueHandle<Self>,
     ) {
@@ -155,7 +155,7 @@ where
     }
     pub fn new_widget(
         &mut self,
-        data: D,
+        data: T,
         widget: impl Widget<T> + 'static,
         config: LayerShellConfig,
         qh: &QueueHandle<Self>,
@@ -197,7 +197,7 @@ pub struct View<T>
 where
     T: Data,
 {
-    data: D,
+    data: T,
     state: State,
     surface: Surface,
     clipmask: Option<ClipMask>,
@@ -929,7 +929,7 @@ where
                 if view.state.pending_cb {
                     view.state.pending_cb = false;
                     // The view is rendered prior and the changes are commited here
-                    let frame_time = (callback_data - view.state.time).min(20);
+                    let frame_time = (callback_data - view.state.time).min(50);
                     view.state.time = callback_data;
                     // Send a callback event with the timeout the view
                     match view.sync(cache, Event::Callback(frame_time), conn, qh) {

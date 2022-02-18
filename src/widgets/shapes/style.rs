@@ -213,19 +213,18 @@ impl<T, W: Widget<T>> Style for WidgetStyle<T, W> {
 impl<T, W: Widget<T>> Widget<T> for WidgetStyle<T, W> {
     fn draw_scene<'b>(&'b mut self, mut scene: Scene<'_, '_, 'b>) {
         let Coords { x, y } = self.widget.coords();
-        if !self.border.texture.is_transparent() || self.border.border_width > 0. {
-            if let Some(scene) = scene.apply_border(&self.border) {
-                if let Some(scene) = scene.translate(x, y).apply_background(&self.background) {
-                    self.widget.deref_mut().draw_scene(scene);
-                };
-            };
-        } else if !self.background.texture.is_transparent() {
+        let min = minimum_padding(self.background.radius);
+        if self.widget.padding.0 < min
+        || self.widget.padding.1 < min
+        || self.widget.padding.2 < min
+        || self.widget.padding.3 < min {
+            scene = scene.damage(Size::new(self.width(), self.height()));
+        }
+        if let Some(scene) = scene.apply_border(&self.border) {
             if let Some(scene) = scene.translate(x, y).apply_background(&self.background) {
                 self.widget.deref_mut().draw_scene(scene);
-            }
-        } else {
-            self.widget.draw_scene(scene);
-        }
+            };
+        };
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
         self.widget.sync(ctx, event)
