@@ -200,11 +200,11 @@ impl<'p> From<&'p Label> for PrimitiveRef<'p> {
     }
 }
 
-impl<D> Widget<D> for Label {
+impl<T> Widget<T> for Label {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(self)
     }
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
             Damage::Partial
         } else {
@@ -252,15 +252,15 @@ impl<M> Geometry for Listener<M> {
     }
 }
 
-impl<M, D> Widget<D> for Listener<M>
+impl<M, T> Widget<T> for Listener<M>
 where
     M: Clone + Copy,
-    D: for<'s> Mail<M, &'s str, String>,
+    T: for<'s> Mail<M, &'s str, String>,
 {
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
             Event::Sync | Event::Draw => {
                 if let Some(string) = ctx.send(self.message, self.label.as_str()) {

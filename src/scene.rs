@@ -213,6 +213,9 @@ impl Region {
             height * transform.sy,
         )
     }
+    pub fn from_size(coords: Coords, size: Size) -> Region {
+        Self::new(coords.x, coords.y, size.width, size.height)
+    }
     pub fn translate(&self, x: f32, y: f32) -> Self {
         Region::new(self.x + x, self.y + y, self.width, self.height)
     }
@@ -301,7 +304,7 @@ impl<'p> From<PrimitiveRef<'p>> for Primitive {
 pub struct Background<'t, 'b> {
     pub(crate) rectangle: &'t Rectangle,
     pub(crate) previous: Option<&'b Background<'t, 'b>>,
-    pub(crate) region: Region,
+    // pub(crate) region: Region,
 }
 
 impl<'t, 'b> Deref for Background<'t, 'b> {
@@ -315,7 +318,7 @@ impl<'t, 'b> Background<'t, 'b> {
     pub fn new(rectangle: &'t Rectangle) -> Self {
         Background {
             rectangle,
-            region: Region::new(0., 0., rectangle.width(), rectangle.height()),
+            // region: Region::new(0., 0., rectangle.width(), rectangle.height()),
             previous: None,
         }
     }
@@ -513,11 +516,10 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             clip: None,
             node,
             context,
-            background: Background {
-                previous: None,
+            background: Background::new(
                 rectangle,
-                region: Region::new(0., 0., rectangle.width, rectangle.height),
-            },
+                // region: Region::new(0., 0., rectangle.width, rectangle.height),
+            ),
         }
     }
     /// Move the scene coords by a delta
@@ -579,7 +581,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     damage: self.damage,
                     coords: self.coords,
                     node,
-                    background: self.background.clone(),
+                    background: self.background,
                     context: self.context,
                 })
             }
@@ -588,8 +590,15 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     }
     /// Puts the scene into a damage state.
     /// The damage will be passed down to all its child.
-    pub fn damage(mut self) -> Self {
+    pub fn damage(mut self, size: Size) -> Self {
         self.damage = true;
+        let region = Region::from_size(self.coords, size);
+        let merge = self
+            .node
+            .region()
+            .map(|inner| inner.merge(&region))
+            .unwrap_or(region);
+        self.context.clear(&self.background, merge);
         self
     }
     /// Appends a new node to a container.
@@ -701,7 +710,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     Texture::Transparent => self.background,
                     _ => Background {
                         previous: (!rect.texture.is_opaque()).then(|| &self.background),
-                        region,
+                        // region,
                         rectangle: &rect,
                     },
                 };
@@ -767,8 +776,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         match self.node {
             RenderNode::Clip { bounds, child } => {
                 if bounds.ne(&&region) || self.damage {
-                    self.context
-                        .clear(&self.background, bounds.merge(&region));
+                    self.context.clear(&self.background, bounds.merge(&region));
                     *bounds = region;
                     self.damage = true;
                     let clip = self.clip.map(|clip| clip.crop(bounds)).unwrap_or(*bounds);
@@ -817,7 +825,6 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         );
         match self.node {
             RenderNode::Primitive { coords, primitive } => {
-                let mut damage = self.damage;
                 let damage_coords = self.coords.ne(&&coords);
                 let damage_prim = PrimitiveRef::from(&*primitive).ne(&primitive_ref);
                 if damage_coords || damage_prim || self.damage {

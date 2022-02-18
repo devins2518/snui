@@ -266,7 +266,7 @@ impl MouseButton {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Event<'d> {
     /// Sent by the display server when the application needs to be reconfigured
-    Configure(&'d [WindowState]),
+    Configure,
     /// Sent before a draw
     Draw,
     // Sent on a frame callback with the frame time in ms
@@ -293,7 +293,7 @@ impl<'d> Event<'d> {
     }
     pub fn is_configure(&self) -> bool {
         match self {
-            Self::Configure(_) => true,
+            Self::Configure => true,
             _ => false,
         }
     }
@@ -303,7 +303,7 @@ pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
     fn contains(&self, x: f32, y: f32) -> bool {
-        scene::Region::new(0., 0., self.width(), self.height()).contains(x, y)
+        x.is_sign_positive() && y.is_sign_positive() && x < self.width() && y < self.height()
     }
 }
 
@@ -316,8 +316,8 @@ pub trait Drawable: Geometry + std::fmt::Debug + DynEq + std::any::Any {
 
 use scene::Scene;
 
-pub trait Widget<D>: Geometry {
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage;
+pub trait Widget<T> {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage;
     /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size;
     fn draw_scene(&mut self, scene: Scene);

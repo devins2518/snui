@@ -6,8 +6,9 @@ use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
 /// Widgets which contain one or more widgets
-pub trait Container<D, W>
+pub trait Container<T, W>
 where
+    W: Widget<T>,
     Self: Sized,
 {
     fn len(&self) -> usize;
@@ -67,12 +68,12 @@ impl<W: Geometry> Geometry for Positioner<W> {
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for Positioner<W> {
+impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
     fn draw_scene(&mut self, scene: Scene) {
         self.widget
             .draw_scene(scene.translate(self.coords.x, self.coords.y))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
         let damage = match event {
             Event::Pointer(mut x, mut y, p) => {
                 x -= self.coords.x;

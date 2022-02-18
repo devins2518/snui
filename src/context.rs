@@ -90,7 +90,7 @@ pub trait WindowHandle {
     /// Move the application window.
     ///
     /// The serial is provided by Event.Pointer.
-    fn drag(&mut self, _serial: u32) {}
+    fn _move(&mut self, _serial: u32) {}
     fn set_title(&mut self, _title: String) {}
     fn set_cursor(&mut self, _cursor: Cursor) {}
     fn get_state(&self) -> &[WindowState] {
@@ -233,7 +233,7 @@ impl<'c> DrawContext<'c> {
             blend = BlendMode::SourceOver;
         } else {
             if let Some(last) = self.pending_damage.last() {
-                if last.intersect(&region) {
+                if last.contains(region.x, region.y) {
                     if last
                         .merge(&region)
                         .substract(*last)
@@ -254,8 +254,8 @@ impl<'c> DrawContext<'c> {
                 }
             }
             blend = BlendMode::SourceOver;
+            self.commit(region);
         }
-        self.commit(region);
         let clip_mask = self
             .clipmask
             .as_ref()
@@ -286,8 +286,8 @@ impl<'c> DrawContext<'c> {
             },
             Texture::Image(image) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
-                    let sx = background.region.width / image.width();
-                    let sy = background.region.height / image.height();
+                    let sx = background.rectangle.width / image.width();
+                    let sy = background.rectangle.height / image.height();
                     dt.fill_rect(
                         region.into(),
                         &Paint {

@@ -13,6 +13,7 @@ pub mod slider;
 use crate::*;
 use scroll::Scrollable;
 use shapes::Style;
+use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
@@ -51,18 +52,9 @@ pub enum Constraint {
     Downward,
 }
 
-impl Geometry for () {
-    fn height(&self) -> f32 {
-        0.
-    }
-    fn width(&self) -> f32 {
-        0.
-    }
-}
-
-impl<D> Widget<D> for () {
+impl<T> Widget<T> for () {
     fn draw_scene(&mut self, _: Scene) {}
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _event: Event) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
@@ -86,9 +78,9 @@ impl Geometry for Spacer {
     }
 }
 
-impl<D> Widget<D> for Spacer {
+impl<T> Widget<T> for Spacer {
     fn draw_scene<'b>(&mut self, _: Scene<'_, '_, 'b>) {}
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _event: Event) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
@@ -121,32 +113,18 @@ impl Default for Spacer {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Padding<W> {
-    pub padding: (f32, f32, f32, f32),
+pub struct Padding<T, W: Widget<T>> {
     pub widget: W,
+    pub padding: (f32, f32, f32, f32),
+    _data: PhantomData<T>,
 }
 
-impl<W: Geometry> Geometry for Padding<W> {
-    fn width(&self) -> f32 {
-        let (_, right, _, left) = self.padding;
-        self.widget.width() + right + left
-    }
-    fn height(&self) -> f32 {
-        let (top, _, bottom, _) = self.padding;
-        self.widget.height() + top + bottom
-    }
-    fn contains(&self, x: f32, y: f32) -> bool {
-        let (top, _, _, left) = self.padding;
-        self.widget.contains(x - left, y - top)
-    }
-}
-
-impl<D, W: Widget<D>> Widget<D> for Padding<W> {
+impl<T, W: Widget<T>> Widget<T> for Padding<T, W> {
     fn draw_scene(&mut self, scene: Scene) {
         let (top, _, _, left) = self.padding;
         self.widget.draw_scene(scene.translate(left, top))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
         let (top, _, _, left) = self.padding;
         if let Event::Pointer(mut x, mut y, p) = event {
             x -= left;
@@ -166,7 +144,7 @@ impl<D, W: Widget<D>> Widget<D> for Padding<W> {
     }
 }
 
-impl<W: Scrollable> Scrollable for Padding<W> {
+impl<T, W: Widget<T> + Scrollable> Scrollable for Padding<T, W> {
     fn forward(&mut self, step: Option<f32>) {
         self.widget.forward(step)
     }
@@ -187,10 +165,11 @@ impl<W: Scrollable> Scrollable for Padding<W> {
     }
 }
 
-impl<W> Padding<W> {
+impl<T, W: Widget<T>> Padding<T, W> {
     pub fn new(widget: W) -> Self {
         Self {
             widget,
+            _data: PhantomData,
             padding: (0., 0., 0., 0.),
         }
     }
@@ -234,14 +213,14 @@ impl<W> Padding<W> {
     }
 }
 
-impl<W> Deref for Padding<W> {
+impl<T, W: Widget<T>> Deref for Padding<T, W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.widget
     }
 }
 
-impl<W> DerefMut for Padding<W> {
+impl<T, W: Widget<T>> DerefMut for Padding<T, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.widget
     }
@@ -251,25 +230,52 @@ use layout::Positioner;
 
 /// Applies constraint to a widget's dimension.
 #[derive(Clone, Debug, PartialEq)]
-pub struct WidgetBox<W> {
+pub struct WidgetBox<T, W: Widget<T>> {
     pub(crate) widget: Positioner<W>,
     width: Option<f32>,
     height: Option<f32>,
-    size: Size,
     constraint: Constraint,
     anchor: (Alignment, Alignment),
+    _data: PhantomData<T>,
 }
 
-impl<W: Geometry> Geometry for WidgetBox<W> {
-    fn width(&self) -> f32 {
-        self.size.width
+impl<T, W: Widget<T>> WidgetBox<T, W> {
+    pub fn new(widget: W) -> Self {
+        Self {
+            widget: Positioner::new(widget),
+            width: None,
+            height: None,
+            anchor: (Alignment::Center, Alignment::Center),
+            constraint: Constraint::Downward,
+            _data: PhantomData,
+        }
     }
-    fn height(&self) -> f32 {
-        self.size.height
+    pub fn constraint(mut self, constraint: Constraint) -> Self {
+        self.constraint = constraint;
+        self
+    }
+    pub fn set_constraint(&mut self, constraint: Constraint) {
+        self.constraint = constraint;
+    }
+    pub fn anchor(mut self, x: Alignment, y: Alignment) -> Self {
+        self.anchor = (x, y);
+        self
+    }
+    pub fn set_anchor(&mut self, x: Alignment, y: Alignment) {
+        self.anchor = (x, y);
     }
 }
 
-impl<W> WidgetBox<W> {
+impl<T, W: Widget<T>> GeometryExt for WidgetBox<T, W> {
+    fn set_width(&mut self, width: f32) {
+        self.width = Some(width);
+    }
+    fn set_height(&mut self, height: f32) {
+        self.height = Some(height);
+    }
+}
+
+impl<T, W: Widget<T>> WidgetBox<T, W> {
     fn minimum_width_from(&self, width: f32) -> f32 {
         match self.width {
             Some(l_width) => match self.constraint {
@@ -292,20 +298,11 @@ impl<W> WidgetBox<W> {
     }
 }
 
-impl<W> GeometryExt for WidgetBox<W> {
-    fn set_width(&mut self, width: f32) {
-        self.width = Some(width);
-    }
-    fn set_height(&mut self, height: f32) {
-        self.height = Some(height);
-    }
-}
-
-impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
+impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
     fn draw_scene(&mut self, scene: Scene) {
         self.widget.draw_scene(scene)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
         self.widget.sync(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
@@ -360,47 +357,19 @@ impl<D, W: Widget<D>> Widget<D> for WidgetBox<W> {
             Alignment::Center => ((height - inner_height) / 2.).floor(),
             Alignment::End => (height - inner_height).floor(),
         };
-        self.size = (width, height).into();
         self.widget.set_coords(dx, dy);
-        self.size.into()
+        (width, height).into()
     }
 }
 
-impl<W: Geometry> WidgetBox<W> {
-    pub fn new(widget: W) -> Self {
-        Self {
-            size: Size::new(0., 0.),
-            widget: Positioner::new(widget),
-            width: None,
-            height: None,
-            anchor: (Alignment::Center, Alignment::Center),
-            constraint: Constraint::Downward,
-        }
-    }
-    pub fn constraint(mut self, constraint: Constraint) -> Self {
-        self.constraint = constraint;
-        self
-    }
-    pub fn set_constraint(&mut self, constraint: Constraint) {
-        self.constraint = constraint;
-    }
-    pub fn anchor(mut self, x: Alignment, y: Alignment) -> Self {
-        self.anchor = (x, y);
-        self
-    }
-    pub fn set_anchor(&mut self, x: Alignment, y: Alignment) {
-        self.anchor = (x, y);
-    }
-}
-
-impl<W> Deref for WidgetBox<W> {
+impl<T, W: Widget<T>> Deref for WidgetBox<T, W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         &self.widget
     }
 }
 
-impl<W> DerefMut for WidgetBox<W> {
+impl<T, W: Widget<T>> DerefMut for WidgetBox<T, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.widget
     }

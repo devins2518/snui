@@ -237,11 +237,11 @@ impl<'p> From<&'p Rectangle> for PrimitiveRef<'p> {
     }
 }
 
-impl<D> Widget<D> for Rectangle {
+impl<T> Widget<T> for Rectangle {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(self)
     }
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _: Event<'d>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

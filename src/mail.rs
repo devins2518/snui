@@ -28,6 +28,19 @@ where
     }
 }
 
+impl<F, M, D, U> Mail<M, D, U> for F
+where
+    F: Fn(M, Option<D>) -> Option<U>,
+    F: FnMut(M, Option<D>) -> Option<U>,
+{
+    fn get(&self, message: M) -> Option<U> {
+        (self)(message, None)
+    }
+    fn send(&mut self, message: M, data: D) -> Option<U> {
+        (self)(message, Some(data))
+    }
+}
+
 /// Keeps track of the state of your application.
 /// When your application needs to be updated, your widgets' sync method will be invoked.
 ///

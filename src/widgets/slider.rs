@@ -54,10 +54,10 @@ impl<M> Geometry for Slider<M> {
     }
 }
 
-impl<M, D> Widget<D> for Slider<M>
+impl<M, T> Widget<T> for Slider<M>
 where
     M: Clone + Copy,
-    D: Mail<M, f32, f32>,
+    T: Mail<M, f32, f32>,
 {
     fn draw_scene(&mut self, scene: Scene) {
         let (x, y) = if self.flip {
@@ -70,7 +70,7 @@ where
         };
         Widget::<()>::draw_scene(&mut self.slider, scene.translate(x, y))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, pointer) => {
                 if self.contains(x, y) {
@@ -184,7 +184,7 @@ where
                             }
                         },
                         Pointer::Leave => {
-                            self.pressed = false;
+                            return Damage::Partial;
                         }
                         _ => {}
                     }

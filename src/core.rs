@@ -204,9 +204,29 @@ pub enum WindowState {
 /// Track damage and filters events.
 #[derive(Debug)]
 pub struct Proxy<W> {
+    size: Size,
     damage: Damage,
     entered: bool,
     pub(crate) inner: W,
+}
+
+impl<W> Proxy<W> {
+    pub fn new(inner: W) -> Self {
+        Proxy {
+            inner,
+            size: Size::default(),
+            entered: false,
+            damage: Damage::None,
+        }
+    }
+    /// Increment the damage
+    pub fn load(&mut self) {
+        self.damage = self.damage.max(Damage::Partial);
+    }
+    /// Returns a mutable reference to the inner type without incrementing the damage.
+    pub fn get_mut(&mut self) -> &mut W {
+        &mut self.inner
+    }
 }
 
 impl<W> Deref for Proxy<W> {
@@ -223,12 +243,12 @@ impl<W> DerefMut for Proxy<W> {
     }
 }
 
-impl<W: Geometry> Geometry for Proxy<W> {
+impl<W> Geometry for Proxy<W> {
     fn width(&self) -> f32 {
-        self.inner.width()
+        self.size.width
     }
     fn height(&self) -> f32 {
-        self.inner.height()
+        self.size.height
     }
 }
 
@@ -243,42 +263,32 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         self.damage = self.damage.max(match event {
             Event::Pointer(x, y, _) => {
                 if self.contains(x, y) {
-                    self.entered = true;
-                    self.inner.sync(ctx, event)
+                    if self.entered {
+                        self.inner.sync(ctx, event)
+                    } else {
+                        self.entered = true;
+                        self.inner.sync(ctx, Event::Pointer(x, y, Pointer::Enter))
+                    }
                 } else if self.entered {
-                    let e = self.inner.sync(ctx, event);
-                    self.entered = self.contains(x, y) || e.is_some();
-                    e
+                    let damage = self.inner.sync(ctx, event);
+                    self.entered = self.contains(x, y) || damage.is_some();
+                    if self.entered {
+                        self.inner.sync(ctx, Event::Pointer(x, y, Pointer::Leave));
+                    }
+                    damage
                 } else {
                     Damage::None
                 }
             }
             Event::Keyboard(_) => todo!(),
-            Event::Configure(_) | Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
+            Event::Configure | Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
             _ => self.inner.sync(ctx, event),
         });
         self.damage
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        self.inner.layout(ctx, constraints)
-    }
-}
-
-impl<W> Proxy<W> {
-    pub fn new(inner: W) -> Self {
-        Proxy {
-            inner,
-            entered: false,
-            damage: Damage::None,
-        }
-    }
-    /// Increment the damage
-    pub fn load(&mut self) {
-        self.damage = self.damage.max(Damage::Partial);
-    }
-    /// Returns a mutable reference to the inner type without incrementing the damage.
-    pub fn get_mut(&mut self) -> &mut W {
-        &mut self.inner
+        self.size = self.inner.layout(ctx, constraints);
+        self.size
     }
 }
 
@@ -287,52 +297,73 @@ use widgets::shapes::Style;
 use widgets::Padding;
 
 /// Additional method to build common widgets
-pub trait WidgetExt: Sized + Geometry {
-    fn clamp(self) -> WidgetBox<Self> {
+pub trait WidgetExt<T>: Widget<T> + Sized {
+    fn clamp(self) -> WidgetBox<T, Self> {
         WidgetBox::new(self)
     }
-    fn style(self) -> WidgetStyle<Self> {
+    fn style(self) -> WidgetStyle<T, Self> {
         WidgetStyle::new(self)
     }
-    fn background(self, background: impl Into<Texture>) -> WidgetStyle<Self> {
+    fn background(self, background: impl Into<Texture>) -> WidgetStyle<T, Self> {
         Style::texture(self.style(), background)
     }
-    fn border(self, texture: impl Into<Texture>, width: f32) -> WidgetStyle<Self> {
+    fn border(self, texture: impl Into<Texture>, width: f32) -> WidgetStyle<T, Self> {
         self.style().border(texture, width)
     }
-    fn padding(self, padding: f32) -> Padding<Self> {
+    fn padding(self, padding: f32) -> Padding<T, Self> {
         Padding::new(self).padding(padding)
     }
-    fn padding_top(self, padding: f32) -> Padding<Self> {
+    fn padding_top(self, padding: f32) -> Padding<T, Self> {
         Padding::new(self).padding_top(padding)
     }
-    fn padding_right(self, padding: f32) -> Padding<Self> {
+    fn padding_right(self, padding: f32) -> Padding<T, Self> {
         Padding::new(self).padding_right(padding)
     }
-    fn padding_bottom(self, padding: f32) -> Padding<Self> {
+    fn padding_bottom(self, padding: f32) -> Padding<T, Self> {
         Padding::new(self).padding_bottom(padding)
     }
-    fn padding_left(self, padding: f32) -> Padding<Self> {
+    fn padding_left(self, padding: f32) -> Padding<T, Self> {
         Padding::new(self).padding_left(padding)
     }
-    fn with_min_size(self, width: f32, height: f32) -> WidgetBox<Self> {
+    fn with_min_width(self, width: f32) -> WidgetBox<T, Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Downward)
+            .with_width(width)
+    }
+    fn with_min_height(self, height: f32) -> WidgetBox<T, Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Downward)
+            .with_height(height)
+    }
+    fn with_min_size(self, width: f32, height: f32) -> WidgetBox<T, Self> {
         WidgetBox::new(self)
             .constraint(widgets::Constraint::Downward)
             .with_size(width, height)
     }
-    fn with_max_size(self, width: f32, height: f32) -> WidgetBox<Self> {
+    fn with_max_width(self, width: f32) -> WidgetBox<T, Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Upward)
+            .with_width(width)
+    }
+    fn with_max_height(self, height: f32) -> WidgetBox<T, Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Upward)
+            .with_height(height)
+    }
+    fn with_max_size(self, width: f32, height: f32) -> WidgetBox<T, Self> {
         WidgetBox::new(self)
             .constraint(widgets::Constraint::Upward)
             .with_size(width, height)
     }
-    fn with_fixed_size(self, width: f32, height: f32) -> WidgetBox<Self> {
+    fn with_fixed_size(self, width: f32, height: f32) -> WidgetBox<T, Self> {
         WidgetBox::new(self)
             .constraint(widgets::Constraint::Fixed)
             .with_size(width, height)
     }
-    fn button<D, F>(self, cb: F) -> Button<D, Self, F>
+    fn button<F>(self, cb: F) -> Proxy<Button<T, Self, F>>
     where
-        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<D>, Pointer),
+        Self: Widget<T>,
+        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<T>, Pointer),
     {
         Button::new(self, cb)
     }
@@ -382,16 +413,7 @@ where
     }
 }
 
-impl<W> WidgetExt for W where W: Geometry {}
-
-impl<D> Geometry for Box<dyn Widget<D>> {
-    fn height(&self) -> f32 {
-        self.as_ref().height()
-    }
-    fn width(&self) -> f32 {
-        self.as_ref().width()
-    }
-}
+impl<D, W> WidgetExt<D> for W where W: Widget<D> {}
 
 impl<D> Widget<D> for Box<dyn Widget<D>> {
     fn draw_scene(&mut self, scene: Scene) {

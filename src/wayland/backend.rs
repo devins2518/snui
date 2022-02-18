@@ -37,35 +37,35 @@ use smithay_client_toolkit::reexports::protocols::{
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
-use smithay_client_toolkit::shm::pool::raw::RawPool;
 use smithay_client_toolkit::shm::pool::PoolHandle;
+use smithay_client_toolkit::shm::{ShmHandler, ShmState};
 use wayland_cursor::CursorTheme;
 
-pub struct WaylandClient<D>
+pub struct WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     cache: Cache,
     current: Option<usize>,
     connection: Connection,
     event: Event<'static>,
     globals: Rc<RefCell<GlobalManager>>,
-    views: Vec<View<D>>,
+    views: Vec<View<T>>,
     pool: Option<MultiPool<wl_surface::WlSurface>>,
 }
 
-impl<D> AsMut<Cache> for WaylandClient<D>
+impl<T> AsMut<Cache> for WaylandClient<T>
 where
-    D: Data + Clone,
+    T: Data + Clone,
 {
     fn as_mut(&mut self) -> &mut Cache {
         &mut self.cache
     }
 }
 
-impl<D> WaylandClient<D>
+impl<T> WaylandClient<T>
 where
-    D: Data + Clone,
+    T: Data + Clone,
 {
     pub fn new() -> Option<(Self, EventQueue<Self>)> {
         let conn = Connection::connect_to_env().ok()?;
@@ -108,7 +108,10 @@ where
                 self.current = None;
                 self.event = Event::default();
                 let view = self.views.remove(i);
-                self.pool.as_mut().unwrap().remove(&view.surface.wl_surface, conn);
+                self.pool
+                    .as_mut()
+                    .unwrap()
+                    .remove(&view.surface.wl_surface, conn);
             }
         }
     }
@@ -124,16 +127,17 @@ where
             if !self.views[i].state.configured {
                 self.current = None;
                 let view = self.views.remove(i);
-                self.pool.as_mut().unwrap().remove(
-                    &view.surface.wl_surface,
-                    &mut self.connection.handle());
+                self.pool
+                    .as_mut()
+                    .unwrap()
+                    .remove(&view.surface.wl_surface, &mut self.connection.handle());
             }
         }
     }
     pub fn new_window(
         &mut self,
         data: D,
-        widget: impl Widget<D> + 'static,
+        widget: impl Widget<T> + 'static,
         qh: &QueueHandle<Self>,
     ) {
         let mut conn = self.connection.handle();
@@ -152,7 +156,7 @@ where
     pub fn new_widget(
         &mut self,
         data: D,
-        widget: impl Widget<D> + 'static,
+        widget: impl Widget<T> + 'static,
         config: LayerShellConfig,
         qh: &QueueHandle<Self>,
     ) {
@@ -180,24 +184,24 @@ where
     }
 }
 
-impl<D> Drop for WaylandClient<D>
+impl<T> Drop for WaylandClient<T>
 where
-    D: Data + Clone,
+    T: Data + Clone,
 {
     fn drop(&mut self) {
         self.globals.borrow().destroy(&mut self.connection.handle())
     }
 }
 
-pub struct View<D>
+pub struct View<T>
 where
-    D: Data,
+    T: Data,
 {
     data: D,
     state: State,
     surface: Surface,
     clipmask: Option<ClipMask>,
-    widget: Box<dyn Widget<D>>,
+    widget: Box<dyn Widget<T>>,
     globals: Rc<RefCell<GlobalManager>>,
 }
 
@@ -227,18 +231,22 @@ impl Default for State {
     }
 }
 
-impl<D> View<D>
+impl<T> View<T>
 where
-    D: Data + Clone,
+    T: Data + Clone,
 {
     fn eq_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         self.surface.wl_surface.eq(surface)
     }
-    fn handle<'v>(
-        &'v mut self,
-        conn: &'v mut ConnectionHandle<'v>,
-        qh: &'v QueueHandle<WaylandClient<D>>,
-    ) -> ViewHandle<D> {
+    fn handle<'t, 'v, 'c>(
+        &'t mut self,
+        conn: &'v mut ConnectionHandle<'c>,
+        qh: &'v QueueHandle<WaylandClient<T>>,
+    ) -> ViewHandle<'v, 'c, T>
+    where
+        't: 'v,
+        'c: 'v,
+    {
         ViewHandle {
             conn,
             globals: self.globals.borrow_mut(),
@@ -257,22 +265,22 @@ where
 use crate::context::WindowHandle;
 use std::cell::RefMut;
 
-struct ViewHandle<'v, 'c, D: 'static + Data + Clone> {
-    qh: &'v QueueHandle<WaylandClient<D>>,
+struct ViewHandle<'v, 'c, T: 'static + Data + Clone> {
+    qh: &'v QueueHandle<WaylandClient<T>>,
     globals: RefMut<'v, GlobalManager>,
     state: &'v mut State,
     conn: &'v mut ConnectionHandle<'c>,
     surface: &'v mut Surface,
 }
 
-impl<'v, 'c, D: Data + Clone> WindowHandle for ViewHandle<'v, 'c, D> {
+impl<'v, 'c, T: Data + Clone> WindowHandle for ViewHandle<'v, 'c, T> {
     fn close(&mut self) {
         // The WaylandClient will check if it's configured
         // and remove the View if it's not.
         self.state.configured = false;
         self.surface.destroy(self.conn);
     }
-    fn drag(&mut self, serial: u32) {
+    fn _move(&mut self, serial: u32) {
         match &self.surface.shell {
             Shell::Xdg { toplevel, .. } => {
                 for seat in &self.globals.seats {
@@ -373,19 +381,19 @@ impl<'v, 'c, D: Data + Clone> WindowHandle for ViewHandle<'v, 'c, D> {
     }
 }
 
-impl<D> View<D>
+impl<T> View<T>
 where
-    D: Data + std::clone::Clone,
+    T: Data + std::clone::Clone,
 {
     fn sync(
         &mut self,
         cache: &mut Cache,
         event: Event,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<D>>,
+        qh: &QueueHandle<WaylandClient<T>>,
     ) -> Damage {
         let mut damage = match event {
-            Event::Draw | Event::Configure(_) => Damage::Partial,
+            Event::Draw | Event::Configure => Damage::Partial,
             _ => Damage::None,
         };
         let mut handle = ViewHandle {
@@ -410,7 +418,7 @@ where
         cache: &mut Cache,
         event: Event,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<D>>,
+        qh: &QueueHandle<WaylandClient<T>>,
     ) {
         match self.sync(cache, event, conn, qh) {
             Damage::Partial => {
@@ -434,7 +442,7 @@ where
         pool: &mut MultiPool<wl_surface::WlSurface>,
         cache: &mut Cache,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<D>>,
+        qh: &QueueHandle<WaylandClient<T>>,
     ) {
         let scale = self
             .surface
@@ -463,7 +471,7 @@ where
                 .with_clipmask(self.clipmask.as_mut());
 
             self.state.offset = offset;
-            ctx.damage_region(
+            ctx.clear(
                 &Background::new(&region),
                 Region::new(0., 0., width, height),
             );
@@ -480,7 +488,7 @@ where
         cache: &mut Cache,
         damage: Damage,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<D>>,
+        qh: &QueueHandle<WaylandClient<T>>,
     ) {
         let scale = self
             .surface
@@ -511,7 +519,7 @@ where
 
             if offset != self.state.offset {
                 self.state.offset = offset;
-                ctx.damage_region(
+                ctx.clear(
                     &Background::new(&region),
                     Region::new(0., 0., width, height),
                 );
@@ -535,26 +543,14 @@ where
     }
 }
 
-impl<D> Geometry for View<D>
-where
-    D: Data,
-{
-    fn height(&self) -> f32 {
-        self.widget.height()
-    }
-    fn width(&self) -> f32 {
-        self.widget.width()
-    }
-}
-
 impl GlobalManager {
-    fn create_xdg_surface<D>(
+    fn create_xdg_surface<T>(
         &self,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<D>>,
+        qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<Surface>
     where
-        D: Data + Clone,
+        T: Data + Clone,
     {
         let wm_base = self.wm_base.as_ref()?;
         let compositor = self.compositor.as_ref()?;
@@ -579,25 +575,25 @@ impl GlobalManager {
             None,
         ))
     }
-    fn create_surface<D>(
+    fn create_surface<T>(
         &self,
         conn: &mut ConnectionHandle,
-        qh: &QueueHandle<WaylandClient<D>>,
+        qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<wl_surface::WlSurface>
     where
-        D: Data + Clone,
+        T: Data + Clone,
     {
         let compositor = self.compositor.as_ref()?;
         compositor.create_surface(conn, qh, ()).ok()
     }
-    fn create_layer_surface<D>(
+    fn create_layer_surface<T>(
         &self,
         conn: &mut ConnectionHandle,
         config: LayerShellConfig,
-        qh: &QueueHandle<WaylandClient<D>>,
+        qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<Surface>
     where
-        D: Data + Clone,
+        T: Data + Clone,
     {
         let layer_shell = self.layer_shell.as_ref()?;
         let compositor = self.compositor.as_ref()?;
@@ -696,9 +692,11 @@ impl Deref for Surface {
     }
 }
 
-impl<D> Dispatch<wl_registry::WlRegistry> for WaylandClient<D>
+use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryHandler};
+
+impl<T> Dispatch<wl_registry::WlRegistry> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -726,13 +724,18 @@ where
                         .ok();
                 }
                 "wl_shm" => {
+                    ShmState::new_global(self, conn, qh, name, &interface[..], 1);
                     let mut globals = self.globals.borrow_mut();
-                    globals.shm = registry
+                    let shm = registry
                         .bind::<wl_shm::WlShm, _>(conn, name, 1, qh, ())
                         .ok();
-                    if let Some(shm) = globals.shm.clone() {
-                        self.pool = Some(RawPool::new(1 << 10, &shm, conn, qh, ()).unwrap().into());
+                    if let Some(shm) = shm {
                         globals.cursor_theme = CursorTheme::load(conn, shm, 24).ok();
+                        self.pool = globals
+                            .shm
+                            .new_raw_pool(1 << 10, conn, qh, ())
+                            .ok()
+                            .map(|raw| raw.into());
                     }
                 }
                 "wl_seat" => {
@@ -761,17 +764,29 @@ where
     }
 }
 
-impl<'p, D: Data + Clone> From<&'p mut WaylandClient<D>>
+impl<'p, T: Data + Clone> From<&'p mut WaylandClient<T>>
     for PoolHandle<'p, MultiPool<wl_surface::WlSurface>>
 {
-    fn from(this: &'p mut WaylandClient<D>) -> Self {
+    fn from(this: &'p mut WaylandClient<T>) -> Self {
         PoolHandle::Ref(this.pool.as_mut().unwrap())
     }
 }
 
-impl<D> Dispatch<wl_buffer::WlBuffer> for WaylandClient<D>
+impl<T: Data + Clone> ShmHandler for WaylandClient<T> {
+    fn shm_state(&mut self) -> &mut ShmState {
+        unsafe { &mut (*self.globals.as_ptr()).shm }
+    }
+}
+
+impl<T: Data + Clone> ProvidesRegistryState for WaylandClient<T> {
+    fn registry(&mut self) -> &mut smithay_client_toolkit::registry::RegistryState {
+        unsafe { &mut (*self.globals.as_ptr()).registry }
+    }
+}
+
+impl<T> Dispatch<wl_buffer::WlBuffer> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -789,9 +804,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_compositor::WlCompositor> for WaylandClient<D>
+impl<T> Dispatch<wl_compositor::WlCompositor> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -807,9 +822,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_shm_pool::WlShmPool> for WaylandClient<D>
+impl<T> Dispatch<wl_shm_pool::WlShmPool> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -825,9 +840,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_subcompositor::WlSubcompositor> for WaylandClient<D>
+impl<T> Dispatch<wl_subcompositor::WlSubcompositor> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -843,9 +858,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_surface::WlSurface> for WaylandClient<D>
+impl<T> Dispatch<wl_surface::WlSurface> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -892,9 +907,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_callback::WlCallback> for WaylandClient<D>
+impl<T> Dispatch<wl_callback::WlCallback> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -939,9 +954,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_subsurface::WlSubsurface> for WaylandClient<D>
+impl<T> Dispatch<wl_subsurface::WlSubsurface> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -957,9 +972,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_region::WlRegion> for WaylandClient<D>
+impl<T> Dispatch<wl_region::WlRegion> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -991,9 +1006,9 @@ impl From<xdg_toplevel::State> for WindowState {
     }
 }
 
-impl<D> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<D>
+impl<T> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1061,9 +1076,9 @@ fn list_states(states: Vec<u8>) -> Vec<WindowState> {
         .collect()
 }
 
-impl<D> Dispatch<wl_shm::WlShm> for WaylandClient<D>
+impl<T> Dispatch<wl_shm::WlShm> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1079,9 +1094,9 @@ where
     }
 }
 
-impl<D> Dispatch<xdg_wm_base::XdgWmBase> for WaylandClient<D>
+impl<T> Dispatch<xdg_wm_base::XdgWmBase> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1099,9 +1114,9 @@ where
     }
 }
 
-impl<D> Dispatch<xdg_surface::XdgSurface> for WaylandClient<D>
+impl<T> Dispatch<xdg_surface::XdgSurface> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1135,9 +1150,9 @@ where
     }
 }
 
-impl<D> Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1> for WaylandClient<D>
+impl<T> Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1171,10 +1186,12 @@ where
                         if let Some(anchor) = config.anchor {
                             match anchor {
                                 Anchor::Left | Anchor::Right => {
-                                    layer_surface.set_exclusive_zone(conn, view.width() as i32)
+                                    let width = view.state.constraint.minimum_width();
+                                    layer_surface.set_exclusive_zone(conn, width as i32)
                                 }
                                 Anchor::Top | Anchor::Bottom => {
-                                    layer_surface.set_exclusive_zone(conn, view.height() as i32)
+                                    let height = view.state.constraint.minimum_height();
+                                    layer_surface.set_exclusive_zone(conn, height as i32)
                                 }
                                 _ => {}
                             }
@@ -1189,7 +1206,7 @@ where
                 view.update_scene(
                     self.pool.as_mut().unwrap(),
                     &mut self.cache,
-                    Event::Configure(&[WindowState::Activated]),
+                    Event::Configure,
                     conn,
                     qh,
                 )
@@ -1198,9 +1215,9 @@ where
     }
 }
 
-impl<D> Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1> for WaylandClient<D>
+impl<T> Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1216,9 +1233,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_seat::WlSeat> for WaylandClient<D>
+impl<T> Dispatch<wl_seat::WlSeat> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1261,9 +1278,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_pointer::WlPointer> for WaylandClient<D>
+impl<T> Dispatch<wl_pointer::WlPointer> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1350,6 +1367,7 @@ where
                     surface_y,
                     ..
                 } => {
+                    self.views[index].handle(conn, qh).set_cursor(Cursor::Arrow);
                     self.views[index].state.enter_serial = serial;
                     self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
                     self.flush_event(conn, qh);
@@ -1372,9 +1390,9 @@ where
     }
 }
 
-impl<D> Dispatch<wl_output::WlOutput> for WaylandClient<D>
+impl<T> Dispatch<wl_output::WlOutput> for WaylandClient<T>
 where
-    D: Data + Clone + 'static,
+    T: Data + Clone + 'static,
 {
     type UserData = ();
 
@@ -1430,27 +1448,27 @@ where
     }
 }
 
-impl<D, I> DelegateDispatchBase<I> for WaylandClient<D>
+impl<T, I> DelegateDispatchBase<I> for WaylandClient<T>
 where
     I: Proxy,
-    D: Data + Clone,
+    T: Data + Clone,
 {
     type UserData = ();
 }
 
-impl<D, I> DelegateDispatch<I, WaylandClient<D>> for WaylandClient<D>
+impl<T, I> DelegateDispatch<I, WaylandClient<T>> for WaylandClient<T>
 where
     I: Proxy,
-    D: Data + Clone,
+    T: Data + Clone,
     Self: Dispatch<I, UserData = Self::UserData>,
 {
     fn event(
-        data: &mut WaylandClient<D>,
+        data: &mut WaylandClient<T>,
         proxy: &I,
         event: <I as Proxy>::Event,
         udata: &Self::UserData,
         connhandle: &mut ConnectionHandle,
-        qhandle: &QueueHandle<WaylandClient<D>>,
+        qhandle: &QueueHandle<WaylandClient<T>>,
     ) {
         Dispatch::event(data, proxy, event, udata, connhandle, qhandle)
     }

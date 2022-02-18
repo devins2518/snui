@@ -9,13 +9,13 @@ use widgets::Padding;
 /// Main type used for styling.
 /// Any widget can be wrapped in a WidgetStyle and take advantage of the Style trait.
 #[derive(Debug)]
-pub struct WidgetStyle<W> {
+pub struct WidgetStyle<T, W: Widget<T>> {
     background: Rectangle,
     border: BorderedRectangle,
-    widget: Positioner<Padding<W>>,
+    widget: Positioner<Padding<T, W>>,
 }
 
-impl<W: Geometry> WidgetStyle<W> {
+impl<T, W: Widget<T>> WidgetStyle<T, W> {
     pub fn new(widget: W) -> Self {
         WidgetStyle {
             background: Rectangle::new(0., 0.),
@@ -74,20 +74,16 @@ fn minimum_padding(radius: (f32, f32, f32, f32)) -> f32 {
     return radius.floor();
 }
 
-impl<W: Geometry> Geometry for WidgetStyle<W> {
+impl<T, W: Widget<T>> Geometry for WidgetStyle<T, W> {
     fn width(&self) -> f32 {
         self.background.width().max(self.border.width())
     }
     fn height(&self) -> f32 {
         self.background.height().max(self.border.height())
     }
-    fn contains(&self, x: f32, y: f32) -> bool {
-        self.widget
-            .contains(x - self.border.border_width, y - self.border.border_width)
-    }
 }
 
-impl<W: Style> WidgetStyle<W> {
+impl<T, W: Widget<T> + Style> WidgetStyle<T, W> {
     pub fn set_top_left_radius(&mut self, radius: f32) {
         let radius = minimum_radius(radius, self.border.border_width);
         self.border.set_top_left_radius(radius);
@@ -165,7 +161,7 @@ impl<W: Style> WidgetStyle<W> {
     }
 }
 
-impl<W> Style for WidgetStyle<W> {
+impl<T, W: Widget<T>> Style for WidgetStyle<T, W> {
     fn set_radius(&mut self, radius: f32) {
         self.background.radius = (radius, radius, radius, radius);
         let delta = minimum_padding(self.background.radius);
@@ -214,15 +210,15 @@ impl<W> Style for WidgetStyle<W> {
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
+impl<T, W: Widget<T>> Widget<T> for WidgetStyle<T, W> {
     fn draw_scene<'b>(&'b mut self, mut scene: Scene<'_, '_, 'b>) {
         let Coords { x, y } = self.widget.coords();
         if !self.border.texture.is_transparent() || self.border.border_width > 0. {
             if let Some(scene) = scene.apply_border(&self.border) {
                 if let Some(scene) = scene.translate(x, y).apply_background(&self.background) {
                     self.widget.deref_mut().draw_scene(scene);
-                }
-            }
+                };
+            };
         } else if !self.background.texture.is_transparent() {
             if let Some(scene) = scene.translate(x, y).apply_background(&self.background) {
                 self.widget.deref_mut().draw_scene(scene);
@@ -231,7 +227,7 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
             self.widget.draw_scene(scene);
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
         self.widget.sync(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
@@ -248,14 +244,14 @@ impl<D, W: Widget<D>> Widget<D> for WidgetStyle<W> {
     }
 }
 
-impl<W> Deref for WidgetStyle<W> {
+impl<T, W: Widget<T>> Deref for WidgetStyle<T, W> {
     type Target = W;
     fn deref(&self) -> &Self::Target {
         self.widget.deref()
     }
 }
 
-impl<W> DerefMut for WidgetStyle<W> {
+impl<T, W: Widget<T>> DerefMut for WidgetStyle<T, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.widget.deref_mut()
     }

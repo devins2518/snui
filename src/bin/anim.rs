@@ -1,3 +1,4 @@
+use snui::context::SyncContext;
 use snui::mail::*;
 use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
@@ -198,14 +199,13 @@ impl<D> Widget<D> for FrameRate {
 }
 
 // Creates our user interface
-fn ui() -> impl Widget<Demo> {
+fn ui() -> Flex<Box<dyn Widget<Demo>>> {
     Flex::default()
         .with(
             FrameRate {
                 label: "frame rate".into(),
             }
-            .clamp()
-            .with_height(20.),
+            .with_min_height(20.),
         )
         .with(Animate::quadratic().clamp())
         .with(Animate::sinus().clamp())
@@ -215,7 +215,7 @@ fn ui() -> impl Widget<Demo> {
                 .duration(600)
                 .background(theme::BG1)
                 .radius(3.)
-                .button::<Demo, _>(move |this, ctx, p| {
+                .button(move |this, ctx: &mut SyncContext<Demo>, p| {
                     if p.left_button_click().is_some() {
                         match ctx.state {
                             AnimationState::Start => {

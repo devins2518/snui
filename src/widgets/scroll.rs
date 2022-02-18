@@ -39,7 +39,7 @@ impl<W> ScrollBox<W> {
     }
 }
 
-impl<W: Geometry> Scrollable for ScrollBox<W> {
+impl<W> Scrollable for ScrollBox<W> {
     fn forward(&mut self, step: Option<f32>) {
         let mut coords = self.widget.coords();
         match self.orientation {
@@ -89,7 +89,7 @@ impl<W: Geometry> Scrollable for ScrollBox<W> {
     }
 }
 
-impl<W: Geometry> Geometry for ScrollBox<W> {
+impl<W> Geometry for ScrollBox<W> {
     fn width(&self) -> f32 {
         match self.orientation {
             Orientation::Horizontal => self.bound,
@@ -104,16 +104,16 @@ impl<W: Geometry> Geometry for ScrollBox<W> {
     }
 }
 
-impl<D, W> Widget<D> for ScrollBox<W>
+impl<T, W> Widget<T> for ScrollBox<W>
 where
-    W: Widget<D>,
+    W: Widget<T>,
 {
     fn draw_scene(&mut self, mut scene: Scene) {
         if let Some(scene) = scene.apply_clip(Size::new(self.width(), self.height())) {
             self.widget.draw_scene(scene)
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(_, _, p) => match p {
                 Pointer::Scroll { orientation, step } => {

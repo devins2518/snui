@@ -47,13 +47,13 @@ impl Geometry for Image {
     }
 }
 
-impl<D> Widget<D> for Image {
+impl<T> Widget<T> for Image {
     fn draw_scene(&mut self, scene: Scene) {
         if let Some(image) = self.inner.as_mut() {
             Widget::<()>::draw_scene(image, scene)
         }
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<D>, _: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<T>, _: Event<'d>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
@@ -140,11 +140,11 @@ impl Geometry for InnerImage {
     }
 }
 
-impl<D> Widget<D> for InnerImage {
+impl<T> Widget<T> for InnerImage {
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.image, scene)
     }
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<D>, _event: Event) -> Damage {
+    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _event: Event) -> Damage {
         Damage::None
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

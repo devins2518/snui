@@ -1,66 +1,41 @@
-use crate::widgets::shapes::Style;
 use crate::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
-pub struct Button<D, W, F>
+pub struct Button<T, W, F>
 where
-    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
+    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<T>, Pointer),
 {
     cb: F,
-    entered: bool,
     proxy: Proxy<W>,
-    _data: PhantomData<D>,
+    _data: PhantomData<T>,
 }
 
-impl<D, W, F> Button<D, W, F>
+impl<T, W, F> Button<T, W, F>
 where
-    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
+    W: Widget<T>,
+    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<T>, Pointer),
 {
-    pub fn new(child: W, cb: F) -> Self {
-        Self {
+    pub fn new(child: W, cb: F) -> Proxy<Self> {
+        Proxy::new(Self {
             cb,
-            entered: false,
             proxy: Proxy::new(child),
             _data: PhantomData,
-        }
+        })
     }
 }
 
-impl<D, W, F> Geometry for Button<D, W, F>
+impl<T, W, F> Widget<T> for Button<T, W, F>
 where
-    W: Geometry,
-    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
-{
-    fn width(&self) -> f32 {
-        self.proxy.width()
-    }
-    fn height(&self) -> f32 {
-        self.proxy.height()
-    }
-}
-
-impl<D, W, F> Widget<D> for Button<D, W, F>
-where
-    W: Widget<D>,
-    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
+    W: Widget<T>,
+    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<T>, Pointer),
 {
     fn draw_scene(&mut self, scene: Scene) {
         self.proxy.draw_scene(scene);
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        if let Event::Pointer(x, y, pointer) = event {
-            if self.contains(x, y) {
-                if self.entered {
-                    (self.cb)(&mut self.proxy, ctx, pointer);
-                } else {
-                    self.entered = true;
-                    (self.cb)(&mut self.proxy, ctx, Pointer::Enter);
-                }
-            } else if self.entered {
-                self.entered = false;
-                (self.cb)(&mut self.proxy, ctx, Pointer::Leave);
-            }
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
+        if let Event::Pointer(_, _, pointer) = event {
+            (self.cb)(&mut self.proxy, ctx, pointer);
         }
         self.proxy.sync(ctx, event)
     }
@@ -69,32 +44,10 @@ where
     }
 }
 
-impl<D, W, F> Style for Button<D, W, F>
+impl<T, W, F> Deref for Button<T, W, F>
 where
-    W: Style,
-    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
-{
-    fn set_texture<B: Into<scene::Texture>>(&mut self, texture: B) {
-        self.proxy.set_texture(texture);
-    }
-    fn set_top_left_radius(&mut self, radius: f32) {
-        self.proxy.set_top_left_radius(radius);
-    }
-    fn set_top_right_radius(&mut self, radius: f32) {
-        self.proxy.set_top_right_radius(radius);
-    }
-    fn set_bottom_right_radius(&mut self, radius: f32) {
-        self.proxy.set_bottom_right_radius(radius);
-    }
-    fn set_bottom_left_radius(&mut self, radius: f32) {
-        self.proxy.set_radius(radius);
-    }
-}
-
-impl<D, W, F> Deref for Button<D, W, F>
-where
-    W: Widget<D>,
-    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
+    W: Widget<T>,
+    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<T>, Pointer),
 {
     type Target = Proxy<W>;
     fn deref(&self) -> &Self::Target {
@@ -102,10 +55,10 @@ where
     }
 }
 
-impl<D, W, F> DerefMut for Button<D, W, F>
+impl<T, W, F> DerefMut for Button<T, W, F>
 where
-    W: Widget<D>,
-    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<D>, Pointer),
+    W: Widget<T>,
+    F: for<'d> FnMut(&'d mut Proxy<W>, &'d mut SyncContext<T>, Pointer),
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.proxy

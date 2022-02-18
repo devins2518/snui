@@ -69,15 +69,15 @@ impl<M> GeometryExt for Switch<M> {
     }
 }
 
-impl<M, D> Widget<D> for Switch<M>
+impl<M, T> Widget<T> for Switch<M>
 where
     M: Clone + Copy,
-    D: Mail<M, bool, bool>,
+    T: Mail<M, bool, bool>,
 {
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.toggle, scene)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
                 if self.contains(x, y) && p.left_button_click().is_some() {

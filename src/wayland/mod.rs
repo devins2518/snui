@@ -22,6 +22,8 @@ use smithay_client_toolkit::reexports::protocols::{
     },
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
+use smithay_client_toolkit::registry::RegistryState;
+use smithay_client_toolkit::shm::ShmState;
 use wayland_cursor::CursorTheme;
 
 use crate::context::Backend;
@@ -192,8 +194,8 @@ impl Seat {
 pub struct GlobalManager {
     outputs: Vec<Output>,
     seats: Vec<Seat>,
-    shm: Option<WlShm>,
-    registry: WlRegistry,
+    shm: ShmState,
+    registry: RegistryState,
     pointer_surface: Option<WlSurface>,
     compositor: Option<WlCompositor>,
     cursor_theme: Option<CursorTheme>,
@@ -207,8 +209,8 @@ impl GlobalManager {
         Self {
             outputs: Vec::new(),
             seats: Vec::new(),
-            shm: None,
-            registry,
+            shm: ShmState::new(),
+            registry: RegistryState::new(registry),
             pointer_surface: None,
             cursor_theme: None,
             compositor: None,
@@ -240,7 +242,7 @@ impl GlobalManager {
 }
 
 impl Deref for GlobalManager {
-    type Target = WlRegistry;
+    type Target = RegistryState;
     fn deref(&self) -> &Self::Target {
         &self.registry
     }

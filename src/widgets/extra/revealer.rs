@@ -45,7 +45,7 @@ where
     action: Option<RevealerAction>,
 }
 
-impl<M, E, W: Geometry> Geometry for Revealer<M, E, W>
+impl<M, E, W> Geometry for Revealer<M, E, W>
 where
     E: Easer,
 {
@@ -63,12 +63,12 @@ where
     }
 }
 
-impl<M, E, W, D> Widget<D> for Revealer<M, E, W>
+impl<M, E, W, T> Widget<T> for Revealer<M, E, W>
 where
     E: Easer,
-    W: Widget<D>,
+    W: Widget<T>,
     M: Clone + Copy,
-    D: Mail<M, RevealerState, RevealerAction>,
+    T: Mail<M, RevealerState, RevealerAction>,
 {
     fn draw_scene(&mut self, mut scene: Scene) {
         match self.state {
@@ -80,7 +80,7 @@ where
             }
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
             Event::Sync => {
                 if self.state != RevealerState::Running {
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<M, W: Geometry> Revealer<M, Sinus, W> {
+impl<M, W> Revealer<M, Sinus, W> {
     pub fn sinus(widget: W, message: M) -> Self {
         Self {
             message,
@@ -180,7 +180,6 @@ impl<M, W: Geometry> Revealer<M, Sinus, W> {
 impl<M, E, W> Revealer<M, E, W>
 where
     E: Easer,
-    W: Geometry,
 {
     pub fn new(widget: W, message: M) -> Self {
         Self {

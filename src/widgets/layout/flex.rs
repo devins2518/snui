@@ -10,6 +10,33 @@ pub struct Flex<W> {
     children: Vec<Positioner<Proxy<W>>>,
 }
 
+impl<W> Flex<W> {
+    pub fn row() -> Self {
+        Self {
+            size: Size::default(),
+            children: Vec::new(),
+            orientation: Orientation::Horizontal,
+        }
+    }
+    pub fn column() -> Self {
+        Self {
+            size: Size::default(),
+            children: Vec::new(),
+            orientation: Orientation::Vertical,
+        }
+    }
+    pub fn orientation(mut self, orientation: Orientation) -> Self {
+        self.orientation = orientation;
+        self
+    }
+    pub fn clear(&mut self) {
+        self.children.clear();
+    }
+    pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
+        self.children.as_mut_slice()
+    }
+}
+
 impl<W> FromIterator<W> for Flex<W> {
     fn from_iter<T: IntoIterator<Item = W>>(iter: T) -> Self {
         let mut this = Flex::row();
@@ -20,9 +47,9 @@ impl<W> FromIterator<W> for Flex<W> {
     }
 }
 
-impl<D, W> Container<D, W> for Flex<W>
+impl<T, W> Container<T, W> for Flex<W>
 where
-    W: Widget<D>,
+    W: Widget<T>,
 {
     fn len(&self) -> usize {
         self.children.len()
@@ -41,7 +68,7 @@ where
     }
 }
 
-impl<W: Geometry> Geometry for Flex<W> {
+impl<W> Geometry for Flex<W> {
     fn width(&self) -> f32 {
         self.size.width
     }
@@ -50,7 +77,7 @@ impl<W: Geometry> Geometry for Flex<W> {
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for Flex<W> {
+impl<T, W: Widget<T>> Widget<T> for Flex<W> {
     fn draw_scene(&mut self, mut scene: Scene) {
         for widget in self.children.iter_mut() {
             if let Some(scene) = scene.next() {
@@ -63,7 +90,7 @@ impl<D, W: Widget<D>> Widget<D> for Flex<W> {
         }
         scene.truncate(self.len())
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         self.children
             .iter_mut()
             .map(|widget| widget.sync(ctx, event))
@@ -131,7 +158,7 @@ impl<D, W: Widget<D>> Widget<D> for Flex<W> {
     }
 }
 
-impl<D> Default for Flex<Box<dyn Widget<D>>> {
+impl<T> Default for Flex<Box<dyn Widget<T>>> {
     fn default() -> Self {
         Self {
             size: Size::default(),
@@ -141,40 +168,13 @@ impl<D> Default for Flex<Box<dyn Widget<D>>> {
     }
 }
 
-impl<D> Flex<Box<dyn Widget<D>>> {
-    pub fn add<W: Widget<D> + 'static>(&mut self, widget: W) {
+impl<T> Flex<Box<dyn Widget<T>>> {
+    pub fn add<W: Widget<T> + 'static>(&mut self, widget: W) {
         self.children.push(child(Box::new(widget)));
     }
-    pub fn with<W: Widget<D> + 'static>(mut self, widget: W) -> Self {
+    pub fn with<W: Widget<T> + 'static>(mut self, widget: W) -> Self {
         self.children
             .push(Positioner::new(Proxy::new(Box::new(widget))));
         self
-    }
-}
-
-impl<W> Flex<W> {
-    pub fn row() -> Self {
-        Self {
-            size: Size::default(),
-            children: Vec::new(),
-            orientation: Orientation::Horizontal,
-        }
-    }
-    pub fn column() -> Self {
-        Self {
-            size: Size::default(),
-            children: Vec::new(),
-            orientation: Orientation::Vertical,
-        }
-    }
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
-        self
-    }
-    pub fn clear(&mut self) {
-        self.children.clear();
-    }
-    pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
-        self.children.as_mut_slice()
     }
 }
