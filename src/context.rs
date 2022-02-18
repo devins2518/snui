@@ -213,22 +213,7 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
-    pub fn reset_clip(&mut self, region: &Region) {
-        let width = self.width();
-        let height = self.height();
-        if let Some(clipmask) = &mut self.clipmask {
-            if width == region.width && height == region.height {
-                clipmask.clear();
-            } else {
-                let mut pb = self.path_builder.take().unwrap();
-                pb.push_rect(region.x, region.y, region.width, region.height);
-                let path = pb.finish().unwrap();
-                clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
-                self.path_builder = Some(path.clear());
-            }
-        }
-    }
-    pub fn set_clip(&mut self, region: Region) {
+    pub fn set_clip(&mut self, region: &Region) {
         let width = self.width();
         let height = self.height();
         if let Some(clipmask) = &mut self.clipmask {
@@ -240,22 +225,22 @@ impl<'c> DrawContext<'c> {
         }
     }
     /// This method is usually called when you want to clean up an area to draw on it.
-    pub fn damage_region(&mut self, background: &Background, region: Region) {
+    pub fn clear(&mut self, background: &Background, region: Region) {
         let blend;
         if let Some(background) = background.previous {
-            self.damage_region(background, region);
+            self.clear(background, region);
             // Could perhaps be Source
             blend = BlendMode::SourceOver;
         } else {
             if let Some(last) = self.pending_damage.last() {
-                if last.contains(region.x, region.y) {
+                if last.intersect(&region) {
                     if last
                         .merge(&region)
                         .substract(*last)
                         .into_iter()
                         .filter_map(|region| {
                             if !region.is_empty() {
-                                self.damage_region(background, region);
+                                self.clear(background, region);
                                 Some(())
                             } else {
                                 None
@@ -269,8 +254,8 @@ impl<'c> DrawContext<'c> {
                 }
             }
             blend = BlendMode::SourceOver;
-            self.commit(region);
         }
+        self.commit(region);
         let clip_mask = self
             .clipmask
             .as_ref()
