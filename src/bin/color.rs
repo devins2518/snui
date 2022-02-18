@@ -84,7 +84,7 @@ impl Geometry for ColorBlock {
 
 impl Widget<Color> for ColorBlock {
     fn draw_scene(&mut self, mut scene: Scene) {
-        scene.push_primitive(
+        scene.insert_primitive(
             &Rectangle::new(self.width, self.height)
                 .texture(self.color)
                 .radius(5.),

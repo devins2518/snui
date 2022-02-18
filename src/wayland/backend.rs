@@ -108,7 +108,7 @@ where
                 self.current = None;
                 self.event = Event::default();
                 let view = self.views.remove(i);
-                self.pool.as_mut().unwrap().remove(&view.surface.wl_surface);
+                self.pool.as_mut().unwrap().remove(&view.surface.wl_surface, conn);
             }
         }
     }
@@ -124,7 +124,9 @@ where
             if !self.views[i].state.configured {
                 self.current = None;
                 let view = self.views.remove(i);
-                self.pool.as_mut().unwrap().remove(&view.surface.wl_surface);
+                self.pool.as_mut().unwrap().remove(
+                    &view.surface.wl_surface,
+                    &mut self.connection.handle());
             }
         }
     }
@@ -1038,7 +1040,7 @@ where
                     view.surface.destroy(conn);
                     self.current = None;
                     let view = self.views.remove(i);
-                    self.pool.as_mut().unwrap().remove(&view.surface);
+                    self.pool.as_mut().unwrap().remove(&view.surface, conn);
                 }
                 _ => {}
             }
