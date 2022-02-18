@@ -123,7 +123,7 @@ fn sliders() -> Flex<impl Widget<Color>> {
                     .texture(color)
                     .with_size(200., 8.)
                     .border(BG2, 1.)
-                    .radius(3.)
+                    .radius(3.),
             )
             .padding_top(5.)
             .padding_bottom(5.)

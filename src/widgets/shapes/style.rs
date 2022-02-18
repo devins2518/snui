@@ -215,9 +215,10 @@ impl<T, W: Widget<T>> Widget<T> for WidgetStyle<T, W> {
         let Coords { x, y } = self.widget.coords();
         let min = minimum_padding(self.background.radius);
         if self.widget.padding.0 < min
-        || self.widget.padding.1 < min
-        || self.widget.padding.2 < min
-        || self.widget.padding.3 < min {
+            || self.widget.padding.1 < min
+            || self.widget.padding.2 < min
+            || self.widget.padding.3 < min
+        {
             scene = scene.damage(Size::new(self.width(), self.height()));
         }
         if let Some(scene) = scene.apply_border(&self.border) {
