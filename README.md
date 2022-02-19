@@ -9,11 +9,11 @@
 
 ## Documentation
 
-See [doc/](doc/INTRODUCTION.md).
+Soon..
 
 ## Examples
 
-![color](doc/ressources/color.webm)
+![color](doc/ressources/color.mp4)
 
 ![animation](doc/ressources/anim.mp4)
 
