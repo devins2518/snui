@@ -5,6 +5,7 @@ use crate::scene::*;
 pub use rectangle::{BorderedRectangle, Rectangle};
 pub use style::WidgetStyle;
 
+// A trait used to theme widgets.
 pub trait Style: Sized {
     fn set_texture<B: Into<Texture>>(&mut self, texture: B);
     fn set_top_left_radius(&mut self, radius: f32);

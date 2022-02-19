@@ -149,16 +149,6 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
     }
 }
 
-impl<T> Default for Flex<Box<dyn Widget<T>>> {
-    fn default() -> Self {
-        Self {
-            size: Size::default(),
-            children: Vec::new(),
-            orientation: Orientation::Horizontal,
-        }
-    }
-}
-
 impl<T> Flex<Box<dyn Widget<T>>> {
     pub fn add<W: Widget<T> + 'static>(&mut self, widget: W) {
         self.children.push(child(Box::new(widget)));

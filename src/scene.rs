@@ -616,14 +616,16 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     /// Puts the scene into a damaged state.
     /// The damage will be passed down to all its child.
     pub fn damage(mut self, size: Size) -> Self {
-        self.damage = true;
-        let region = Region::from_size(self.coords, size);
-        let merge = self
-            .node
-            .region()
-            .map(|inner| inner.merge(&region))
-            .unwrap_or(region);
-        self.context.clear(&self.background, merge);
+        if !self.damage {
+            self.damage = true;
+            let region = Region::from_size(self.coords, size);
+            let merge = self
+                .node
+                .region()
+                .map(|inner| inner.merge(&region))
+                .unwrap_or(region);
+            self.context.clear(&self.background, merge);
+        }
         self
     }
     /// Appends a new node to a container.

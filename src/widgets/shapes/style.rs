@@ -85,24 +85,28 @@ impl<T, W: Widget<T>> Geometry for WidgetStyle<T, W> {
 
 impl<T, W: Widget<T> + Style> WidgetStyle<T, W> {
     pub fn set_top_left_radius(&mut self, radius: f32) {
-        self.border.set_top_left_radius(radius);
-        self.background.set_top_left_radius(radius);
+        let (top, _, _, left) = self.widget.padding;
+        self.border.set_top_left_radius(radius + top.max(left));
+        self.background.set_top_left_radius(radius + top.max(left));
         self.widget.set_top_left_radius(radius);
     }
     pub fn set_top_right_radius(&mut self, radius: f32) {
-        self.border.set_top_right_radius(radius);
-        self.background.set_top_right_radius(radius);
+        let (top, right, _, _) = self.widget.padding;
+        self.border.set_top_right_radius(radius + top.max(right));
+        self.background.set_top_right_radius(radius + top.max(right));
         self.widget.set_top_right_radius(radius);
     }
     pub fn set_bottom_right_radius(&mut self, radius: f32) {
-        self.border.set_bottom_right_radius(radius);
-        self.background.set_bottom_right_radius(radius);
+        let (_, right, bottom, _) = self.widget.padding;
+        self.border.set_bottom_right_radius(radius + bottom.max(right));
+        self.background.set_bottom_right_radius(radius + bottom.max(right));
         self.widget
             .set_bottom_right_radius(radius);
     }
     pub fn set_bottom_left_radius(&mut self, radius: f32) {
-        self.border.set_bottom_left_radius(radius);
-        self.background.set_bottom_left_radius(radius);
+        let (_, _, bottom, left) = self.widget.padding;
+        self.border.set_bottom_left_radius(radius + bottom.max(left));
+        self.background.set_bottom_left_radius(radius + bottom.max(left));
         self.widget
             .set_bottom_left_radius(radius);
     }

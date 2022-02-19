@@ -398,7 +398,7 @@ where
 
 fn headerbar<T: 'static>(widget: impl Widget<T> + 'static) -> impl Widget<T> {
     Flex::row()
-        .with(widget.clamp().anchor(START, CENTER))
+        .with(widget)
         .with(wm_button().clamp().anchor(END, CENTER))
 }
 

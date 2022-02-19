@@ -124,7 +124,6 @@ fn sliders() -> Flex<impl Widget<Color>> {
                     .with_size(200., 8.)
                     .border(BG2, 1.)
                     .radius(3.)
-                    .padding(0.)
             )
             .padding_top(5.)
             .padding_bottom(5.)
@@ -144,6 +143,8 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
             height: 200.,
             color: tiny_skia::Color::WHITE,
         }
+        .padding_top(5.)
+        .padding_bottom(5.)
         .clamp(),
     );
 
