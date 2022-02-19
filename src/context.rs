@@ -202,7 +202,7 @@ impl<'c> DrawContext<'c> {
     pub fn reset(&mut self, path_builder: PathBuilder) {
         self.path_builder = Some(path_builder);
     }
-    pub fn transform(&self) -> Transform {
+    pub(crate) fn transform(&self) -> Transform {
         self.transform
     }
     pub fn commit(&mut self, region: Region) {
@@ -223,7 +223,11 @@ impl<'c> DrawContext<'c> {
         if let Some(clipmask) = &mut self.clipmask {
             let mut pb = self.path_builder.take().unwrap();
             pb.push_rect(region.x, region.y, region.width, region.height);
-            let path = pb.finish().unwrap();
+            let path = pb
+                .finish()
+                .map(|path| path.transform(self.transform))
+                .flatten()
+                .unwrap();
             clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
             self.path_builder = Some(path.clear());
         }
@@ -258,7 +262,7 @@ impl<'c> DrawContext<'c> {
                 }
             }
             blend = BlendMode::SourceOver;
-            self.pending_damage.push(region);
+            self.commit(region);
         }
         let clip_mask = self
             .clipmask

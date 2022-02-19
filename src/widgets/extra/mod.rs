@@ -1,5 +1,6 @@
 //! Additional tools or widgets which aren't necessary
 
+// pub mod window;
 pub mod revealer;
 pub mod switch;
 

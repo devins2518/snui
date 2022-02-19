@@ -133,37 +133,28 @@ fn sliders() -> Flex<impl Widget<Color>> {
 }
 
 fn ui_builder() -> Flex<impl Widget<Color>> {
-    let mut layout = Flex::column();
-
     let listener = Listener::new("", ())
-        .clamp()
-        .constraint(Constraint::Fixed)
-        .anchor(CENTER, START)
-        .with_height(20.);
+        .with_fixed_height(25.)
+        .anchor(CENTER, START);
 
-    let mut indicator = Flex::column();
+    let indicator = Flex::column()
+    	.with(listener)
+        .with(
+            ColorBlock {
+                width: 200.,
+                height: 200.,
+                color: tiny_skia::Color::WHITE,
+            }
+            .clamp(),
+        );
 
-    indicator.add(listener);
-    indicator.add(
-        ColorBlock {
-            width: 200.,
-            height: 200.,
-            color: tiny_skia::Color::WHITE,
-        }
-        .clamp(),
-    );
-
-    layout.add(indicator);
-    layout.add(sliders().clamp());
-
-    layout
+	Flex::column()
+		.with(indicator)
+		.with(sliders().clamp())
 }
 
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
-
-    // let listener = Listener::new("", ());
-    // let window = window::default_window(listener, ui_builder().clamp().style().padding(10.));
 
     client.new_window(
         Color {
@@ -172,6 +163,7 @@ fn main() {
         },
         ui_builder()
             .clamp()
+            .padding(10.)
             .background(theme::BG0)
             .border(theme::BG2, 1.),
         &event_queue.handle(),

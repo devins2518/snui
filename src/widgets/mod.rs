@@ -8,7 +8,6 @@ pub mod layout;
 pub mod scroll;
 pub mod shapes;
 pub mod slider;
-// pub mod window;
 
 use crate::*;
 use scroll::Scrollable;

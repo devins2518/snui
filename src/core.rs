@@ -220,7 +220,7 @@ impl<W> Proxy<W> {
         }
     }
     /// Increment the damage
-    pub fn load(&mut self) {
+    pub fn upgrade(&mut self) {
         self.damage = self.damage.max(Damage::Partial);
     }
     /// Returns a mutable reference to the inner type without incrementing the damage.
@@ -254,7 +254,7 @@ impl<W> Geometry for Proxy<W> {
 
 impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     fn draw_scene(&mut self, scene: Scene) {
-        if self.damage.is_some() {
+        if self.damage.is_some() || scene.damage_state() {
             self.inner.draw_scene(scene)
         }
         self.damage = Damage::None
@@ -352,6 +352,16 @@ pub trait WidgetExt<T>: Widget<T> + Sized {
         WidgetBox::new(self)
             .constraint(widgets::Constraint::Upward)
             .with_size(width, height)
+    }
+    fn with_fixed_width(self, width: f32) -> WidgetBox<T, Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Fixed)
+            .with_width(width)
+    }
+    fn with_fixed_height(self, height: f32) -> WidgetBox<T, Self> {
+        WidgetBox::new(self)
+            .constraint(widgets::Constraint::Fixed)
+            .with_height(height)
     }
     fn with_fixed_size(self, width: f32, height: f32) -> WidgetBox<T, Self> {
         WidgetBox::new(self)

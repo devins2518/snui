@@ -43,6 +43,11 @@ impl<W> Positioner<W> {
             coords: Coords::new(0., 0.),
         }
     }
+    pub fn translate(mut self, x: f32, y: f32) -> Self {
+        self.coords = Coords::new(self.coords.x + x, self.coords.y + y);
+        self.old_coords = Coords::new(self.coords.x + x, self.coords.y + y);
+        self
+    }
     pub fn swap(&mut self, coords: Coords) {
         self.old_coords = self.coords;
         self.coords = coords;

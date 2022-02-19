@@ -68,15 +68,6 @@ where
     }
 }
 
-impl<W> Geometry for Flex<W> {
-    fn width(&self) -> f32 {
-        self.size.width
-    }
-    fn height(&self) -> f32 {
-        self.size.height
-    }
-}
-
 impl<T, W: Widget<T>> Widget<T> for Flex<W> {
     fn draw_scene(&mut self, mut scene: Scene) {
         for widget in self.children.iter_mut() {

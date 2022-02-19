@@ -228,7 +228,10 @@ fn main() {
 
     client.new_window(
         Demo::default(),
-        ui().clamp().background(theme::BG0).radius(5.),
+        ui().clamp()
+            .background(theme::BG0)
+            .radius(5.)
+            .border(theme::BG2, 1.),
         &event_queue.handle(),
     );
 

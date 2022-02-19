@@ -270,8 +270,8 @@ impl Style for BorderedRectangle {
     fn set_bottom_left_radius(&mut self, radius: f32) {
         self.radius.3 = radius;
     }
-    fn set_texture<B: Into<Texture>>(&mut self, background: B) {
-        self.texture = background.into();
+    fn set_texture<B: Into<Texture>>(&mut self, texture: B) {
+        self.texture = texture.into();
     }
 }
 
@@ -325,6 +325,12 @@ impl BorderedRectangle {
     }
 }
 
+impl<'p> From<&'p BorderedRectangle> for PrimitiveRef<'p> {
+    fn from(this: &'p BorderedRectangle) -> Self {
+        PrimitiveRef::BorderedRectangle(this)
+    }
+}
+
 impl Drawable for BorderedRectangle {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {
         let pb = ctx.path_builder();
@@ -349,6 +355,28 @@ impl Drawable for BorderedRectangle {
                             &path,
                             &Paint {
                                 shader: Shader::SolidColor(color.clone()),
+                                blend_mode: BlendMode::SourceOver,
+                                anti_alias: true,
+                                force_hq_pipeline: false,
+                            },
+                            &stroke,
+                            transform.pre_translate(self.border_width / 2., self.border_width / 2.),
+                            clipmask,
+                        );
+                    }
+                    Texture::Image(image) => {
+                        let sx = self.width() / image.width();
+                        let sy = self.height() / image.height();
+                        dt.stroke_path(
+                            &path,
+                            &Paint {
+                                shader: Pattern::new(
+                                    image.pixmap(),
+                                    SpreadMode::Repeat,
+                                    FilterQuality::Bilinear,
+                                    1.0,
+                                    Transform::from_scale(sx, sy),
+                                ),
                                 blend_mode: BlendMode::SourceOver,
                                 anti_alias: true,
                                 force_hq_pipeline: false,

@@ -2,7 +2,7 @@ pub mod rectangle;
 pub mod style;
 use crate::scene::*;
 
-pub use rectangle::Rectangle;
+pub use rectangle::{BorderedRectangle, Rectangle};
 pub use style::WidgetStyle;
 
 pub trait Style: Sized {

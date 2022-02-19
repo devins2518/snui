@@ -61,12 +61,14 @@ impl AsRef<[u8]> for RawImage {
 }
 
 impl ImageCache {
-    pub fn get_ref<P>(&self, path: P) -> Option<&RawImage>
+    pub fn try_get<P>(&self, path: P) -> Option<&RawImage>
     where
         P: AsRef<Path>,
     {
         self.cache.get(path.as_ref())
     }
+    /// Tries to retreive the image from the cache.
+    /// If it fails it will attempt to load it from the given path.
     pub fn get<P>(&mut self, path: P) -> Result<RawImage, Box<dyn std::error::Error>>
     where
         P: AsRef<Path>,

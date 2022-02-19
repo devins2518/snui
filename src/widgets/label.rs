@@ -243,15 +243,6 @@ impl<M> Listener<M> {
     }
 }
 
-impl<M> Geometry for Listener<M> {
-    fn width(&self) -> f32 {
-        self.label.width()
-    }
-    fn height(&self) -> f32 {
-        self.label.height()
-    }
-}
-
 impl<M, T> Widget<T> for Listener<M>
 where
     M: Clone + Copy,

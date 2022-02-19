@@ -251,14 +251,16 @@ impl Region {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Primitive {
-    Rectangle(Rectangle),
     Label(Label),
+    Rectangle(Rectangle),
+    BorderedRectangle(BorderedRectangle),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PrimitiveRef<'p> {
-    Rectangle(&'p Rectangle),
     Label(&'p Label),
+    Rectangle(&'p Rectangle),
+    BorderedRectangle(&'p BorderedRectangle),
 }
 
 impl Deref for Primitive {
@@ -267,6 +269,7 @@ impl Deref for Primitive {
         match self {
             Self::Rectangle(rect) => rect,
             Self::Label(label) => label,
+            Self::BorderedRectangle(rect) => rect,
         }
     }
 }
@@ -275,8 +278,9 @@ impl<'p> Deref for PrimitiveRef<'p> {
     type Target = dyn Drawable;
     fn deref(&self) -> &Self::Target {
         match *self {
-            Self::Rectangle(rect) => rect,
             Self::Label(label) => label,
+            Self::Rectangle(rect) => rect,
+            Self::BorderedRectangle(rect) => rect,
         }
     }
 }
@@ -286,6 +290,7 @@ impl<'p> From<&'p Primitive> for PrimitiveRef<'p> {
         match primitive {
             Primitive::Label(label) => PrimitiveRef::Label(label),
             Primitive::Rectangle(rect) => PrimitiveRef::Rectangle(rect),
+            Primitive::BorderedRectangle(rect) => PrimitiveRef::BorderedRectangle(rect),
         }
     }
 }
@@ -295,6 +300,7 @@ impl<'p> From<PrimitiveRef<'p>> for Primitive {
         match p_ref {
             PrimitiveRef::Label(label) => Primitive::Label(label.clone()),
             PrimitiveRef::Rectangle(rect) => Primitive::Rectangle(rect.clone()),
+            PrimitiveRef::BorderedRectangle(rect) => Primitive::BorderedRectangle(rect.clone()),
         }
     }
 }
@@ -590,6 +596,9 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             }
             _ => None,
         }
+    }
+    pub fn damage_state(&self) -> bool {
+        self.damage
     }
     /// Puts the scene into a damaged state.
     /// The damage will be passed down to all its child.

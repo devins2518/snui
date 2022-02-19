@@ -145,34 +145,20 @@ where
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.size = self.widget.layout(ctx, constraints);
-        let Coords { x, y } = self.widget.coords();
         let (width, height) = self.size.into();
-        match self.orientation {
-            Orientation::Vertical => match self.direction {
-                Direction::Normal => (width - x, height),
-                Direction::Inverted => (width + x, height),
+        match self.state {
+            RevealerState::Hidden => match self.orientation {
+                Orientation::Horizontal => Size::new(0., height),
+                Orientation::Vertical => Size::new(width, 0.),
             },
-            Orientation::Horizontal => match self.direction {
-                Direction::Normal => (width, height - y),
-                Direction::Inverted => (width, height + y),
-            },
-        }
-        .into()
-    }
-}
-
-impl<M, W> Revealer<M, Sinus, W> {
-    pub fn sinus(widget: W, message: M) -> Self {
-        Self {
-            message,
-            size: Size::default(),
-            direction: Direction::Inverted,
-            widget: Positioner::new(widget),
-            duration: 500,
-            action: None,
-            easer: Sinus::new(0., 0.5, 0.),
-            orientation: Orientation::Vertical,
-            state: RevealerState::Hidden,
+            _ => {
+                let direction = match self.direction {
+                    Direction::Normal => 1.,
+                    Direction::Inverted => -1.,
+                };
+                let Coords { x, y } = self.widget.coords();
+                Size::new(width - direction * x, height - direction * y)
+            }
         }
     }
 }
