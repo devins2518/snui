@@ -7,11 +7,14 @@ pub enum Cursor {
     TopRightCorner,
     BottomRightCorner,
     BottomLeftCorner,
+    Exchange,
     TopSide,
     BottomSide,
     RightSide,
     LeftSide,
     Cross,
+    Cursor,
+    Mouse,
     PointCenter,
     PointLeft,
     ColumnResize,
@@ -26,9 +29,11 @@ pub enum Cursor {
     Draft,
     Help,
     Kill,
+    Sizing,
     Blocked,
     Hand,
     OpenHand,
+    Watch,
     Wait,
 }
 
@@ -36,15 +41,18 @@ impl Cursor {
     pub fn as_str(&self) -> &str {
         match self {
             Self::Arrow => "arrow",
+            Self::Cursor => "cursor",
             Self::TopLeftCorner => "top_left_corner",
             Self::TopRightCorner => "top_right_corner",
             Self::BottomRightCorner => "bottom_right_corner",
             Self::BottomLeftCorner => "bottom_left_corner",
+            Self::Exchange => "exchange",
             Self::TopSide => "top_side",
             Self::BottomSide => "bottom_side",
             Self::RightSide => "right_side",
             Self::LeftSide => "left_side",
             Self::Cross => "cross",
+            Self::Mouse => "mouse",
             Self::PointCenter => "center_ptr",
             Self::PointLeft => "left_ptr",
             Self::ColumnResize => "",
@@ -59,10 +67,12 @@ impl Cursor {
             Self::Draft => "draft_large",
             Self::Help => "help",
             Self::Kill => "kill",
+            Self::Sizing => "sizing",
             Self::Blocked => "block",
             Self::Hand => "hand1",
             Self::OpenHand => "hand2",
             Self::Wait => "wait",
+            Self::Watch => "watch",
         }
     }
 }

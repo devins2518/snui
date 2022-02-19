@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
 const DEFAULT_FONT_SIZE: f32 = 15.;
+const DEFAULT_FONT_NAME: &str = "sans serif";
 
 /// Owned text widget
 #[derive(Clone)]
@@ -45,7 +46,7 @@ impl Label {
             text: text.into(),
             font_size: DEFAULT_FONT_SIZE,
             settings: LayoutSettings::default(),
-            fonts: vec![FontProperty::new("sans serif")],
+            fonts: vec![FontProperty::new(DEFAULT_FONT_NAME)],
             color: u32_to_source(FG0),
             size: None,
         }

@@ -54,7 +54,7 @@ impl Maximize {
         Maximize {
             maximized: false,
             rect: BorderedRectangle::new(11., 11.)
-                .texture(theme::BLU)
+                .texture(theme::BLUE)
                 .border_width(2.),
         }
     }
@@ -104,7 +104,7 @@ struct Minimize {
 impl Minimize {
     fn new() -> Minimize {
         Minimize {
-            rect: Rectangle::new(15., 4.).texture(theme::YEL),
+            rect: Rectangle::new(15., 4.).texture(theme::YELLOW),
         }
     }
 }
@@ -204,11 +204,11 @@ where
     header: Header<H>,
     /// The window's content
     window: Positioner<Proxy<WidgetStyle<T, W>>>,
-    /// The background of the headerbar decoration
-    background: Texture,
+    /// The background of the decorations
+    decoration: Texture,
     /// The radius of window borders
     radius: (f32, f32, f32, f32),
-    /// Alternative background of the decoration
+    /// Alternate background of the decorations
     alternate: Option<Texture>,
 }
 
@@ -228,15 +228,24 @@ where
             positioned: false,
             window: Positioner::new(Proxy::new(WidgetStyle::new(widget))),
             radius: (0., 0., 0., 0.),
-            background: theme::BG2.into(),
+            decoration: theme::BG2.into(),
             alternate: None,
         }
     }
-    pub fn set_alternate_background<B: Into<Texture>>(&mut self, background: B) {
-        self.alternate = Some(background.into());
+    pub fn set_decoration(&mut self, texture: impl Into<Texture>, width: f32) {
+        let texture = texture.into();
+        self.window.set_border(texture.clone(), width);
+        self.decoration = texture;
     }
-    pub fn alternate_background<B: Into<Texture>>(mut self, background: B) -> Self {
-        self.set_alternate_background(background);
+    pub fn decoration(mut self, texture: impl Into<Texture>, width: f32) -> Self {
+        self.set_decoration(texture, width);
+        self
+    }
+    pub fn set_alternate_decoration(&mut self, texture: impl Into<Texture>) {
+        self.alternate = Some(texture.into());
+    }
+    pub fn alternate_decoration(mut self, texture: impl Into<Texture>) -> Self {
+        self.set_alternate_decoration(texture);
         self
     }
 }
@@ -267,8 +276,8 @@ where
                             activated = true;
                             if self.alternate.is_some() {
                                 if !self.activated {
-                                    self.header.set_texture(self.background.clone());
-                                    self.window.set_border_texture(self.background.clone());
+                                    self.header.set_texture(self.decoration.clone());
+                                    self.window.set_border_texture(self.decoration.clone());
                                 }
                             }
                         }
@@ -410,7 +419,9 @@ where
     T: 'static,
     W: Widget<T>,
 {
-    let header = headerbar(header).background(theme::BG2).padding(10.);
-
-    Window::new(header, widget)
+    Window::new(
+        headerbar(header)
+        	.background(theme::BG2)
+        	.padding(10.),
+        widget)
 }

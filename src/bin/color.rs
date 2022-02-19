@@ -108,13 +108,13 @@ impl Widget<Color> for ColorBlock {
 }
 
 fn sliders() -> Flex<impl Widget<Color>> {
-    [RED, GRN, BLU, BG2]
+    [RED, GREEN, BLUE, BG2]
         .into_iter()
         .map(|color| {
             let message = match color {
                 RED => Channel::Red,
-                BLU => Channel::Blue,
-                GRN => Channel::Green,
+                BLUE => Channel::Blue,
+                GREEN => Channel::Green,
                 BG2 => Channel::Alpha,
                 _ => unreachable!(),
             };

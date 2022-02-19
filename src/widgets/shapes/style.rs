@@ -53,6 +53,10 @@ impl<T, W: Widget<T>> WidgetStyle<T, W> {
         self.widget.set_coords(width, width);
         self.border.set_border_width(width)
     }
+    pub fn set_border(&mut self, texture: impl Into<Texture>, width: f32) {
+        self.set_border_texture(texture);
+        self.set_border_width(width);
+    }
     pub fn border_width(mut self, width: f32) -> Self {
         self.set_border_width(width);
         self
@@ -61,8 +65,7 @@ impl<T, W: Widget<T>> WidgetStyle<T, W> {
         self.border.set_texture(texture);
     }
     pub fn border(mut self, texture: impl Into<Texture>, width: f32) -> Self {
-        self.set_border_texture(texture);
-        self.set_border_width(width);
+        self.set_border(texture, width);
         self
     }
 }

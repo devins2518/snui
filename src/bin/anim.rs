@@ -229,7 +229,11 @@ fn main() {
 
     client.new_window(
         Demo::default(),
-        window.texture(theme::BG0).radius(5.),
+        window
+        	.decoration(theme::BG2, 2.)
+        	.alternate_decoration(theme::PURPLE)
+        	.texture(theme::BG0)
+        	.radius(5.),
         &event_queue.handle(),
     );
 

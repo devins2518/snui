@@ -306,7 +306,6 @@ impl<'p> From<PrimitiveRef<'p>> for Primitive {
 pub struct Background<'t, 'b> {
     pub(crate) rectangle: &'t Rectangle,
     pub(crate) previous: Option<&'b Background<'t, 'b>>,
-    // pub(crate) region: Region,
 }
 
 impl<'t, 'b> Deref for Background<'t, 'b> {
@@ -593,6 +592,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             _ => None,
         }
     }
+    /// Automatically appends a new node the container comes to its limit
     pub fn auto_next<'n>(&'n mut self, size: Size) -> Option<Scene<'n, 'c, 'b>>
     where
         's: 'n,
