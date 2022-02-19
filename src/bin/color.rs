@@ -92,7 +92,7 @@ impl Widget<Color> for ColorBlock {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         match event {
-            Event::Draw | Event::Sync => {
+            Event::Configure | Event::Sync => {
                 self.color = ctx.color;
                 let title = ctx.as_string();
                 ctx.window().set_title(title);
@@ -123,7 +123,8 @@ fn sliders() -> Flex<impl Widget<Color>> {
                     .texture(color)
                     .with_size(200., 8.)
                     .border(BG2, 1.)
-                    .radius(3.),
+                    .radius(3.)
+                    .padding(0.)
             )
             .padding_top(5.)
             .padding_bottom(5.)
@@ -137,20 +138,16 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
         .with_fixed_height(25.)
         .anchor(CENTER, START);
 
-    let indicator = Flex::column()
-    	.with(listener)
-        .with(
-            ColorBlock {
-                width: 200.,
-                height: 200.,
-                color: tiny_skia::Color::WHITE,
-            }
-            .clamp(),
-        );
+    let indicator = Flex::column().with(listener).with(
+        ColorBlock {
+            width: 200.,
+            height: 200.,
+            color: tiny_skia::Color::WHITE,
+        }
+        .clamp(),
+    );
 
-	Flex::column()
-		.with(indicator)
-		.with(sliders().clamp())
+    Flex::column().with(indicator).with(sliders().clamp())
 }
 
 fn main() {

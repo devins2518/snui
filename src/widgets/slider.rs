@@ -190,7 +190,7 @@ where
                     }
                 }
             }
-            Event::Draw | Event::Sync => {
+            Event::Configure | Event::Sync => {
                 if let Some(ratio) = ctx.get(self.message) {
                     match &self.orientation {
                         Orientation::Horizontal => {

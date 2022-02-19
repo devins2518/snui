@@ -40,6 +40,7 @@ pub fn u32_to_source(color: u32) -> Color {
     Color::from_rgba8(color[3], color[2], color[1], color[0])
 }
 
+/// Used to determine damage nodes
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Damage {
     /// Nothing needs to be damaged
@@ -317,7 +318,7 @@ pub trait Drawable: Geometry + std::fmt::Debug + DynEq + std::any::Any {
 use scene::Scene;
 
 pub trait Widget<T> {
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage;
+    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage;
     /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size;
     fn draw_scene(&mut self, scene: Scene);

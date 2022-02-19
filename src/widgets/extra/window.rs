@@ -1,49 +1,40 @@
 use crate::*;
 use crate::{
-    scene::{Instruction, Region, Texture},
-    widgets::{
-        layout::{dynamic::DynamicLayout, simple::SimpleLayout},
-        shapes::*,
-        *,
-    },
+    scene::Texture,
+    widgets::{layout::flex::Flex, shapes::*, *},
 };
 use std::ops::{Deref, DerefMut};
+use widgets::shapes::Style;
 
-struct Close {}
+struct Close {
+    rect: Rectangle,
+}
 
-impl Geometry for Close {
-    fn height(&self) -> f32 {
-        15.
-    }
-    fn width(&self) -> f32 {
-        15.
+impl Close {
+    fn new() -> Self {
+        Close {
+            rect: Rectangle::new(15., 15.).texture(theme::RED),
+        }
     }
 }
 
-impl<D> Widget<D> for Close {
-    // fn create_node(&mut self, transform: Transform) -> RenderNode {
-    //     use std::f32::consts::FRAC_1_SQRT_2;
+impl Geometry for Close {
+    fn height(&self) -> f32 {
+        self.rect.width()
+    }
+    fn width(&self) -> f32 {
+        self.rect.height()
+    }
+}
 
-    //     let width = self.width() * FRAC_1_SQRT_2;
-    //     let height = self.height() * FRAC_1_SQRT_2;
-
-    //     let r = Rectangle::new(width, height).background(theme::RED);
-
-    //     let transform =
-    //         transform.pre_translate((self.width() - width) / 2., (self.height() - height) / 2.);
-
-    //     Instruction::new(
-    //         transform.pre_concat(Transform::from_rotate_at(45., width / 2., height / 2.)),
-    //         r,
-    //     )
-    //     .into()
-    // }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+impl<T> Widget<T> for Close {
+    fn draw_scene(&mut self, mut scene: Scene) {
+        scene.insert_primitive(&self.rect)
+    }
+    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if self.contains(x, y) && p.left_button_click().is_some() {
-                if let Some(w_handle) = ctx.handle() {
-                    w_handle.close();
-                }
+                ctx.window().close();
             }
         }
         Damage::None
@@ -53,61 +44,49 @@ impl<D> Widget<D> for Close {
     }
 }
 
-// This is essentially the close button
 struct Maximize {
     maximized: bool,
+    rect: BorderedRectangle,
+}
+
+impl Maximize {
+    fn new() -> Self {
+        Maximize {
+            maximized: false,
+            rect: BorderedRectangle::new(11., 11.)
+                .texture(theme::BLU)
+                .border_width(2.),
+        }
+    }
 }
 
 impl Geometry for Maximize {
     fn height(&self) -> f32 {
-        15.
+        self.rect.width()
     }
     fn width(&self) -> f32 {
-        15.
+        self.rect.height()
     }
 }
 
-impl<D> Widget<D> for Maximize {
-    // fn create_node(&mut self, transform: Transform) -> RenderNode {
-    //     if self.maximized {
-    //         Instruction {
-    //             transform,
-    //             primitive: Rectangle::new(self.width(), self.height())
-    //                 .background(theme::BLU)
-    //                 .into(),
-    //         }
-    //         .into()
-    //     } else {
-    //         let thickness = 2.;
-    //         Instruction {
-    //             transform,
-    //             primitive: Rectangle::new(
-    //                 self.width() - 2. * thickness,
-    //                 self.height() - 2. * thickness,
-    //             )
-    //             .border(theme::BLU, thickness)
-    //             .into(),
-    //         }
-    //         .into()
-    //     }
-    // }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+impl<T> Widget<T> for Maximize {
+    fn draw_scene(&mut self, mut scene: Scene) {
+        scene.insert_primitive(&self.rect)
+    }
+    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(x, y, p) => {
                 if self.contains(x, y) && p.left_button_click().is_some() {
-                    if let Some(w_handle) = ctx.handle() {
-                        w_handle.maximize();
-                    }
+                    ctx.window().maximize();
                 }
             }
             Event::Draw => {
-                if let Some(handle) = ctx.handle() {
-                    self.maximized = handle
-                        .get_state()
-                        .iter()
-                        .find(|s| WindowState::Maximized.eq(s))
-                        .is_some();
-                }
+                self.maximized = ctx
+                    .window()
+                    .get_state()
+                    .iter()
+                    .find(|s| WindowState::Maximized.eq(s))
+                    .is_some();
             }
             _ => {}
         }
@@ -118,29 +97,38 @@ impl<D> Widget<D> for Maximize {
     }
 }
 
-struct Minimize {}
+struct Minimize {
+    rect: Rectangle,
+}
 
-impl Geometry for Minimize {
-    fn height(&self) -> f32 {
-        15.
-    }
-    fn width(&self) -> f32 {
-        15.
+impl Minimize {
+    fn new() -> Minimize {
+        Minimize {
+            rect: Rectangle::new(15., 4.).texture(theme::YEL),
+        }
     }
 }
 
-impl<D> Widget<D> for Minimize {
-    // fn create_node(&mut self, transform: Transform) -> RenderNode {
-    //     let r = Rectangle::new(self.width(), 3.).background(theme::YEL);
+impl Geometry for Minimize {
+    fn height(&self) -> f32 {
+        self.rect.width()
+    }
+    fn width(&self) -> f32 {
+        self.rect.width()
+    }
+}
 
-    //     Instruction::new(transform.pre_translate(0., 6.), r).into()
-    // }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+impl<T> Widget<T> for Minimize {
+    fn draw_scene(&mut self, scene: Scene) {
+        let width = 3.;
+        scene
+            .translate(0., (self.height() - width) / 2.)
+            .insert_primitive(&self.rect)
+    }
+    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         if let Event::Pointer(x, y, p) = event {
             if self.contains(x, y) && p.left_button_click().is_some() {
-                if let Some(w_handle) = ctx.handle() {
-                    w_handle.minimize();
-                }
+                ctx.window().minimize();
             }
         }
         Damage::None
@@ -150,228 +138,44 @@ impl<D> Widget<D> for Minimize {
     }
 }
 
-fn wm_button<D>() -> impl Widget<D>
-where
-    D: 'static,
-{
-    let mut l = SimpleLayout::default().spacing(15.);
-    l.add(Minimize {});
-    l.add(Maximize { maximized: false });
-    l.add(Close {});
-    l.justify(CENTER);
-    l
+struct Header<W> {
+    widget: W,
+    size: Size,
 }
 
-fn headerbar<D: 'static>(widget: impl Widget<D> + 'static) -> impl Widget<D> {
-    let mut l = DynamicLayout::new();
-    l.add(widget.clamp().anchor(START, CENTER));
-    l.add(wm_button().clamp().anchor(END, CENTER));
-    l
-}
-
-pub struct Window<H, W> {
-    size: [Size; 2],
-    activated: bool,
-    positioned: bool,
-    /// Top window decoration
-    header: Header<H>,
-    /// The window's content
-    body: Positioner<Proxy<W>>,
-    /// The background of the headerbar decoration
-    background: Texture,
-    /// The radius of window borders
-    radius: (f32, f32, f32, f32),
-    /// Alternative background of the decoration
-    alternate: Option<Texture>,
-}
-
-impl<H, W> Window<H, W>
-where
-    H: Style,
-    W: Style,
-{
-    pub fn set_alternate_background<B: Into<Texture>>(&mut self, background: B) {
-        self.alternate = Some(background.into());
-    }
-    pub fn alternate_background<B: Into<Texture>>(mut self, background: B) -> Self {
-        self.set_alternate_background(background);
-        self
-    }
-}
-
-impl<H, W> Geometry for Window<H, W>
-where
-    H: Geometry,
-    W: Geometry,
-{
+impl<W> Geometry for Header<W> {
     fn width(&self) -> f32 {
-        self.size
-            .iter()
-            .map(|size| size.width)
-            .reduce(|accum, width| accum.max(width))
-            .unwrap_or_default()
+        self.size.width
     }
     fn height(&self) -> f32 {
-        self.size.iter().map(|size| size.height).sum()
+        self.size.height
     }
 }
 
-impl<D, H, W> Widget<D> for Window<H, W>
-where
-    H: Widget<D> + Style,
-    W: Widget<D> + Style,
-{
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+impl<T, W: Widget<T>> Widget<T> for Header<W> {
+    fn draw_scene(&mut self, scene: Scene) {
+        self.widget.draw_scene(scene)
+    }
+    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
-            Event::Pointer(_, _, p) => {
-                if let Pointer::Enter = p {
-                    if let Some(w_handle) = ctx.handle() {
-                        w_handle.set_cursor(Cursor::Arrow);
+            Event::Pointer(x, y, p) => {
+                if self.contains(x, y) {
+                    if let Some(serial) = p.left_button_click() {
+                        ctx.window()._move(serial);
+                    } else if let Some(serial) = p.right_button_click() {
+                        // Cursor position is relative.
+                        // Only works because the Header is the first entered widget
+                        ctx.window().menu(x, y, serial);
                     }
                 }
-                self.header.sync(ctx, event).max(self.body.sync(ctx, event))
             }
-            Event::Draw => {
-                if let Some(handle) = ctx.handle() {
-                    let state = handle.get_state();
-                    let mut activated = false;
-                    let mut positioned = false;
-                    for state in state.iter().rev() {
-                        match state {
-                            WindowState::Activated => {
-                                activated = true;
-                                if self.alternate.is_some() {
-                                    if !self.activated {
-                                        self.header.set_background(self.background.clone());
-                                        self.body.set_border_texture(self.background.clone());
-                                    }
-                                }
-                            }
-                            WindowState::TiledLeft
-                            | WindowState::TiledRight
-                            | WindowState::TiledBottom
-                            | WindowState::TiledTop
-                            | WindowState::Maximized
-                            | WindowState::Fullscreen => {
-                                positioned = true;
-                                self.header.set_top_left_radius(0.);
-                                self.header.set_top_right_radius(0.);
-                                self.body.set_bottom_right_radius(0.);
-                                self.body.set_bottom_left_radius(0.);
-                            }
-                            _ => {}
-                        }
-                    }
-                    if !activated {
-                        if let Some(ref texture) = self.alternate {
-                            self.header.set_background(texture.clone());
-                            self.body.set_border_texture(texture.clone());
-                        }
-                    }
-                    if !self.activated && !activated {
-                        self.set_top_left_radius(self.radius.0);
-                        self.set_top_right_radius(self.radius.1);
-                        self.set_bottom_right_radius(self.radius.2);
-                        self.set_bottom_left_radius(self.radius.3);
-                    }
-                    if !positioned && self.positioned {
-                        self.positioned = false;
-                        self.set_top_left_radius(self.radius.0);
-                        self.set_top_right_radius(self.radius.1);
-                        self.set_bottom_right_radius(self.radius.2);
-                        self.set_bottom_left_radius(self.radius.3);
-                    }
-                    self.activated = activated;
-                    self.positioned = positioned;
-                    self.header.sync(ctx, event).max(self.body.sync(ctx, event))
-                } else {
-                    self.header.sync(ctx, event).max(self.body.sync(ctx, event))
-                }
-            }
-            _ => self.header.sync(ctx, event).max(self.body.sync(ctx, event)),
+            _ => {}
         }
+        self.widget.sync(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        let (b_width, b_height) = self
-            .body
-            .layout(ctx, &constraints.crop(0., self.body.coords().y))
-            .into();
-        let (h_width, h_height) = self
-            .header
-            .layout(
-                ctx,
-                &constraints.with_min(b_width, 0.).with_max(b_width, 0.),
-            )
-            .into();
-        self.size = [Size::new(h_width, h_height), Size::new(b_width, b_height)];
-        (b_width.min(h_width), h_height + b_height).into()
-    }
-}
-
-impl<H, W> Style for Window<H, W>
-where
-    H: Style,
-    W: Style,
-{
-    fn set_background<B: Into<scene::Texture>>(&mut self, background: B) {
-        self.body.set_background(background.into());
-    }
-    fn set_border_texture<T: Into<Texture>>(&mut self, texture: T) {
-        let texture = texture.into();
-        self.background = texture.clone();
-        self.header.set_background(texture.clone());
-        self.body.set_border_texture(texture);
-    }
-    fn set_top_left_radius(&mut self, radius: f32) {
-        self.radius.0 = radius;
-        self.header.set_top_left_radius(radius);
-    }
-    fn set_top_right_radius(&mut self, radius: f32) {
-        self.radius.1 = radius;
-        self.header.set_top_right_radius(radius);
-    }
-    fn set_bottom_right_radius(&mut self, radius: f32) {
-        self.radius.2 = radius;
-        self.body.set_bottom_right_radius(radius);
-    }
-    fn set_bottom_left_radius(&mut self, radius: f32) {
-        self.radius.3 = radius;
-        self.body.set_bottom_left_radius(radius);
-    }
-    fn set_border_size(&mut self, size: f32) {
-        self.body.set_border_size(size);
-    }
-}
-
-impl<H, W> Deref for Window<H, W> {
-    type Target = W;
-    fn deref(&self) -> &Self::Target {
-        self.body.widget.deref()
-    }
-}
-
-impl<H, W> DerefMut for Window<H, W> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.body.widget.deref_mut()
-    }
-}
-
-impl<H, W> Window<H, W>
-where
-    H: Geometry + Style,
-    W: Geometry + Style,
-{
-    pub fn new(header: H, widget: W) -> Self {
-        Window {
-            size: Default::default(),
-            header: Header { widget: header },
-            activated: false,
-            positioned: false,
-            body: Positioner::new(Proxy::new(widget)),
-            radius: (0., 0., 0., 0.),
-            background: theme::BG2.into(),
-            alternate: None,
-        }
+        self.size = self.widget.layout(ctx, constraints);
+        self.size
     }
 }
 
@@ -388,54 +192,225 @@ impl<W> DerefMut for Header<W> {
     }
 }
 
-struct Header<W> {
-    widget: W,
+pub struct Window<T, H, W>
+where
+    H: Widget<T>,
+    W: Widget<T>,
+{
+    size: Size,
+    activated: bool,
+    positioned: bool,
+    /// Top window decoration
+    header: Header<H>,
+    /// The window's content
+    window: Positioner<Proxy<WidgetStyle<T, W>>>,
+    /// The background of the headerbar decoration
+    background: Texture,
+    /// The radius of window borders
+    radius: (f32, f32, f32, f32),
+    /// Alternative background of the decoration
+    alternate: Option<Texture>,
 }
 
-impl<W: Geometry> Geometry for Header<W> {
-    fn width(&self) -> f32 {
-        self.widget.width()
+impl<T, H, W> Window<T, H, W>
+where
+    H: Widget<T>,
+    W: Widget<T>,
+{
+    pub fn new(header: H, widget: W) -> Self {
+        Window {
+            size: Size::default(),
+            header: Header {
+                size: Size::default(),
+                widget: header,
+            },
+            activated: false,
+            positioned: false,
+            window: Positioner::new(Proxy::new(WidgetStyle::new(widget))),
+            radius: (0., 0., 0., 0.),
+            background: theme::BG2.into(),
+            alternate: None,
+        }
     }
-    fn height(&self) -> f32 {
-        self.widget.height()
+    pub fn set_alternate_background<B: Into<Texture>>(&mut self, background: B) {
+        self.alternate = Some(background.into());
+    }
+    pub fn alternate_background<B: Into<Texture>>(mut self, background: B) -> Self {
+        self.set_alternate_background(background);
+        self
     }
 }
 
-impl<D, W: Widget<D>> Widget<D> for Header<W> {
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+impl<T, H, W> Widget<T> for Window<T, H, W>
+where
+    H: Widget<T> + Style,
+    W: Widget<T>,
+{
+    fn draw_scene(&mut self, mut scene: Scene) {
+        if let Some(scene) = scene.auto_next(self.size) {
+            self.header.draw_scene(scene)
+        }
+        if let Some(scene) = scene.auto_next(self.size) {
+            self.window.draw_scene(scene)
+        }
+    }
+    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => {
-                if self.contains(x, y) {
-                    if let Some(w_handle) = ctx.handle() {
-                        if let Some(serial) = p.left_button_click() {
-                            w_handle.drag(serial);
-                        } else if let Some(serial) = p.right_button_click() {
-                            w_handle.menu(x, y, serial);
+            Event::Configure => {
+                let window = ctx.window();
+                let state = window.get_state();
+                let mut activated = false;
+                let mut positioned = false;
+                for state in state.iter().rev() {
+                    match state {
+                        WindowState::Activated => {
+                            activated = true;
+                            if self.alternate.is_some() {
+                                if !self.activated {
+                                    self.header.set_texture(self.background.clone());
+                                    self.window.set_border_texture(self.background.clone());
+                                }
+                            }
                         }
+                        WindowState::TiledLeft
+                        | WindowState::TiledRight
+                        | WindowState::TiledBottom
+                        | WindowState::TiledTop
+                        | WindowState::Maximized
+                        | WindowState::Fullscreen => {
+                            positioned = true;
+                            self.header.set_top_left_radius(0.);
+                            self.header.set_top_right_radius(0.);
+                            self.window.set_bottom_right_radius(0.);
+                            self.window.set_bottom_left_radius(0.);
+                        }
+                        _ => {}
                     }
                 }
+                if !activated {
+                    if let Some(ref texture) = self.alternate {
+                        self.header.set_texture(texture.clone());
+                        self.window.set_border_texture(texture.clone());
+                    }
+                }
+                if !self.activated && !activated {
+                    self.set_top_left_radius(self.radius.0);
+                    self.set_top_right_radius(self.radius.1);
+                    self.set_bottom_right_radius(self.radius.2);
+                    self.set_bottom_left_radius(self.radius.3);
+                }
+                if !positioned && self.positioned {
+                    self.positioned = false;
+                    self.set_top_left_radius(self.radius.0);
+                    self.set_top_right_radius(self.radius.1);
+                    self.set_bottom_right_radius(self.radius.2);
+                    self.set_bottom_left_radius(self.radius.3);
+                }
+                self.activated = activated;
+                self.positioned = positioned;
+                self.header
+                    .sync(ctx, event)
+                    .max(self.window.sync(ctx, event))
             }
-            _ => {}
+            _ => {
+                let header = self.header.sync(ctx, event);
+                let window = self.window.sync(ctx, event);
+                header.max(window)
+            }
         }
-        self.widget.sync(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        self.widget.layout(ctx, constraints)
+        let (h_width, h_height) = self
+            .header
+            .layout(
+                ctx,
+                &constraints
+                    .with_min(constraints.minimum_width(), 0.)
+                    .with_max(constraints.maximum_width(), 0.),
+            )
+            .into();
+        let (b_width, b_height) = self
+            .window
+            .layout(ctx, &constraints.crop(0., h_height))
+            .into();
+        self.window.set_coords(0., h_height);
+        self.size = (b_width.max(h_width), h_height + b_height).into();
+        self.size
     }
 }
 
-pub fn default_window<D, W>(
-    header: impl Widget<D> + 'static,
-    widget: W,
-) -> Window<impl Widget<D> + Style, W>
+impl<T, H, W> Style for Window<T, H, W>
 where
-    D: 'static,
-    W: Widget<D> + Style,
+    H: Widget<T> + Style,
+    W: Widget<T>,
 {
-    let header = headerbar(header)
-        .style()
-        .background(theme::BG2)
-        .padding(10.);
+    fn set_texture<B: Into<Texture>>(&mut self, texture: B) {
+        self.window.set_texture(texture);
+    }
+    fn set_top_left_radius(&mut self, radius: f32) {
+        self.radius.0 = radius;
+        self.header.set_top_left_radius(radius);
+    }
+    fn set_top_right_radius(&mut self, radius: f32) {
+        self.radius.1 = radius;
+        self.header.set_top_right_radius(radius);
+    }
+    fn set_bottom_right_radius(&mut self, radius: f32) {
+        self.radius.2 = radius;
+        self.window.set_bottom_right_radius(radius);
+    }
+    fn set_bottom_left_radius(&mut self, radius: f32) {
+        self.radius.3 = radius;
+        self.window.set_bottom_left_radius(radius);
+    }
+}
+
+impl<T, H, W> Deref for Window<T, H, W>
+where
+    H: Widget<T>,
+    W: Widget<T>,
+{
+    type Target = W;
+    fn deref(&self) -> &Self::Target {
+        self.window.widget.deref()
+    }
+}
+
+impl<T, H, W> DerefMut for Window<T, H, W>
+where
+    H: Widget<T>,
+    W: Widget<T>,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.window.widget.deref_mut()
+    }
+}
+
+fn wm_button<T>() -> impl Widget<T>
+where
+    T: 'static,
+{
+    Flex::row()
+        .with(Minimize::new().padding_left(5.).padding_right(5.))
+        .with(Maximize::new().padding_left(5.).padding_right(5.))
+        .with(Close::new().padding_left(5.))
+}
+
+fn headerbar<T: 'static>(widget: impl Widget<T> + 'static) -> impl Widget<T> {
+    Flex::row()
+        .with(widget.clamp().anchor(START, CENTER))
+        .with(wm_button().clamp().anchor(END, CENTER))
+}
+
+pub fn default_window<T, W>(
+    header: impl Widget<T> + 'static,
+    widget: W,
+) -> Window<T, impl Widget<T> + Style, W>
+where
+    T: 'static,
+    W: Widget<T>,
+{
+    let header = headerbar(header).background(theme::BG2).padding(10.);
 
     Window::new(header, widget)
 }

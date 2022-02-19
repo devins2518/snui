@@ -56,11 +56,7 @@ pub enum Texture {
 
 impl Texture {
     pub fn is_transparent(&self) -> bool {
-        match &self {
-            Texture::Transparent => true,
-            Texture::Image(_) => false,
-            Texture::Color(color) => color.eq(&tiny_skia::Color::TRANSPARENT),
-        }
+        !self.is_opaque()
     }
     pub fn is_opaque(&self) -> bool {
         match &self {
@@ -597,6 +593,23 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             _ => None,
         }
     }
+    pub fn auto_next<'n>(&'n mut self, size: Size) -> Option<Scene<'n, 'c, 'b>>
+    where
+        's: 'n,
+    {
+        match self.node {
+            RenderNode::Container {
+                children, cursor, ..
+            } => {
+                if children.len() == *cursor {
+                    self.append_node(RenderNode::None, size)
+                } else {
+                    self.next()
+                }
+            }
+            _ => self.append_node(RenderNode::None, size),
+        }
+    }
     pub fn damage_state(&self) -> bool {
         self.damage
     }
@@ -721,7 +734,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 let t_background = match rect.texture {
                     Texture::Transparent => self.background,
                     _ => Background {
-                        previous: (!rect.texture.is_opaque()).then(|| &self.background),
+                        previous: (rect.texture.is_transparent()).then(|| &self.background),
                         // region,
                         rectangle: &rect,
                     },

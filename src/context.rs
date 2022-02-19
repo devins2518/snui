@@ -1,3 +1,5 @@
+//! Contexts provided to snui widgets.
+
 use crate::cache::*;
 use crate::*;
 use scene::*;
@@ -75,7 +77,7 @@ impl<'c> LayoutCtx<'c> {
         }
     }
     /// Return a reference to the WindowHandle
-    pub fn handle(&mut self) -> Option<&mut &'c mut dyn WindowHandle> {
+    pub fn window(&mut self) -> Option<&mut &'c mut dyn WindowHandle> {
         self.handle.as_mut()
     }
 }

@@ -9,21 +9,34 @@ pub enum SwitchState {
     Deactivated,
 }
 
-pub struct Switch<M> {
+pub struct Switch<M, E: Easer> {
     start: bool,
     toggle: Positioner<Rectangle>,
     state: SwitchState,
-    easer: Sinus,
+    easer: E,
     duration: u32,
     message: M,
 }
 
-impl<M> Switch<M> {
+impl<M> Switch<M, Quadratic> {
+    pub fn default(message: M) -> Self {
+        Self {
+            start: false,
+            toggle: Positioner::new(Rectangle::new(20., 20.).texture(theme::BG2)),
+            easer: Easer::new(0., 0.5, 20.),
+            message,
+            duration: 500,
+            state: SwitchState::Deactivated,
+        }
+    }
+}
+
+impl<M, E: Easer> Switch<M, E> {
     pub fn new(message: M) -> Self {
         Self {
             start: false,
             toggle: Positioner::new(Rectangle::new(20., 20.).texture(theme::BG2)),
-            easer: Sinus::new(0., 0.5, 20.),
+            easer: Easer::new(0., 0.5, 20.),
             message,
             duration: 500,
             state: SwitchState::Deactivated,
@@ -32,10 +45,10 @@ impl<M> Switch<M> {
     fn set_state(&mut self, state: SwitchState) {
         match state {
             SwitchState::Activated => {
-                self.easer = Sinus::new(0.5, 1., self.toggle.width());
+                self.easer = Easer::new(0.5, 1., self.toggle.width());
             }
             SwitchState::Deactivated => {
-                self.easer = Sinus::new(0., 0.5, self.toggle.width());
+                self.easer = Easer::new(0., 0.5, self.toggle.width());
             }
         };
         self.state = state;
@@ -50,7 +63,7 @@ impl<M> Switch<M> {
     }
 }
 
-impl<M> Geometry for Switch<M> {
+impl<M, E: Easer> Geometry for Switch<M, E> {
     fn width(&self) -> f32 {
         self.toggle.width() * 2.
     }
@@ -59,7 +72,7 @@ impl<M> Geometry for Switch<M> {
     }
 }
 
-impl<M> GeometryExt for Switch<M> {
+impl<M, E: Easer> GeometryExt for Switch<M, E> {
     fn set_width(&mut self, width: f32) {
         self.toggle.set_width(width / 2.);
         self.easer.set_amplitude(self.toggle.width() / 2.);
@@ -69,9 +82,10 @@ impl<M> GeometryExt for Switch<M> {
     }
 }
 
-impl<M, T> Widget<T> for Switch<M>
+impl<M, E, T> Widget<T> for Switch<M, E>
 where
     M: Clone + Copy,
+    E: Easer,
     T: Mail<M, bool, bool>,
 {
     fn draw_scene(&mut self, scene: Scene) {
@@ -84,11 +98,11 @@ where
                     self.start = true;
                     let state = match self.state {
                         SwitchState::Activated => {
-                            self.easer = Sinus::new(0.5, 1., self.toggle.width());
+                            self.easer = Easer::new(0.5, 1., self.toggle.width());
                             SwitchState::Deactivated
                         }
                         SwitchState::Deactivated => {
-                            self.easer = Sinus::new(0., 0.5, self.toggle.width());
+                            self.easer = Easer::new(0., 0.5, self.toggle.width());
                             SwitchState::Activated
                         }
                     };
@@ -138,7 +152,7 @@ where
     }
 }
 
-impl<M> Style for Switch<M> {
+impl<M, E: Easer> Style for Switch<M, E> {
     fn set_texture<B: Into<scene::Texture>>(&mut self, texture: B) {
         self.toggle.set_texture(texture);
     }

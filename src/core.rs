@@ -379,7 +379,6 @@ pub trait WidgetExt<T>: Widget<T> + Sized {
     }
 }
 
-/// For widgets who's size can be determined at runtime
 pub trait GeometryExt: Sized {
     fn set_width(&mut self, width: f32);
     fn set_height(&mut self, height: f32);

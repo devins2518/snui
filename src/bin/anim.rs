@@ -1,7 +1,7 @@
 use snui::context::SyncContext;
 use snui::mail::*;
 use snui::wayland::backend::*;
-use snui::widgets::extra::{switch::*, Easer, Quadratic, Sinus};
+use snui::widgets::extra::{switch::*, window, Easer, Quadratic, Sinus};
 
 use snui::widgets::shapes::*;
 use snui::{
@@ -191,7 +191,7 @@ impl<D> Widget<D> for FrameRate {
 
 // Creates our user interface
 fn ui() -> Flex<Box<dyn Widget<Demo>>> {
-    Flex::default()
+    Flex::column()
         .with(
             FrameRate {
                 label: "frame rate".into(),
@@ -201,11 +201,11 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
         .with(Animate::quadratic().clamp())
         .with(Animate::sinus().clamp())
         .with(
-            Switch::new(Remote {})
+            Switch::default(Remote {})
                 .texture(theme::BG0)
                 .duration(600)
                 .background(theme::BG1)
-                .radius(3.)
+                .radius(4.)
                 .button(move |this, ctx: &mut SyncContext<Demo>, p| {
                     if p.left_button_click().is_some() {
                         match ctx.state {
@@ -220,18 +220,16 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
                 })
                 .clamp(),
         )
-        .orientation(Orientation::Vertical)
 }
 
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
+    let window = window::default_window(Label::default("Animation"), ui().clamp());
+
     client.new_window(
         Demo::default(),
-        ui().clamp()
-            .background(theme::BG0)
-            .radius(5.)
-            .border(theme::BG2, 1.),
+        window.texture(theme::BG0).radius(5.),
         &event_queue.handle(),
     );
 

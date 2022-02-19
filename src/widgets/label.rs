@@ -226,7 +226,7 @@ impl<T> Widget<T> for Label {
 
 use crate::mail::*;
 
-/// Updates the inner label on sync or prepare events.
+/// Updates the inner label on sync or configure.
 ///
 /// The text is fetched from the Data using the provided message.
 pub struct Listener<M> {
@@ -253,7 +253,7 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
-            Event::Sync | Event::Draw => {
+            Event::Sync | Event::Configure => {
                 if let Some(string) = ctx.send(self.message, self.label.as_str()) {
                     self.label.edit(string);
                 }

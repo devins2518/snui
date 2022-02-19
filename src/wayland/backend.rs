@@ -540,6 +540,7 @@ where
         } else if let Damage::Frame = damage {
             self.state.pending_cb = false;
         }
+        // println!("{:#?}", self.state.render_node);
     }
 }
 
@@ -1141,7 +1142,7 @@ where
                 view.update_scene(
                     self.pool.as_mut().unwrap(),
                     &mut self.cache,
-                    Event::Draw,
+                    Event::Configure,
                     conn,
                     qh,
                 )
