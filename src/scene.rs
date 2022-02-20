@@ -570,7 +570,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     {
         self.next_inner_with_damage(self.damage)
     }
-    pub fn next<'n>(&'n mut self) -> Option<Scene<'n, 'c, 'b>>
+    pub fn quick_next<'n>(&'n mut self) -> Option<Scene<'n, 'c, 'b>>
     where
         's: 'n,
     {
@@ -593,18 +593,28 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         }
     }
     /// Automatically appends a new node the container comes to its limit
-    pub fn auto_next<'n>(&'n mut self, size: Size) -> Option<Scene<'n, 'c, 'b>>
+    pub fn next<'n>(&'n mut self, size: Size) -> Option<Scene<'n, 'c, 'b>>
     where
         's: 'n,
     {
         match self.node {
             RenderNode::Container {
-                children, cursor, ..
+                children,
+                cursor,
+                bounds,
             } => {
                 if children.len() == *cursor {
                     self.append_node(RenderNode::None, size)
                 } else {
-                    self.next()
+                    if (self.coords.x != bounds.x || self.coords.y != bounds.y) && !self.damage {
+                        let region = Region::from_size(self.coords, size);
+                        self.damage = true;
+                        self.context.clear(&self.background, region.merge(bounds));
+                        *bounds = region;
+                    }
+                    bounds.x = self.coords.x;
+                    bounds.y = self.coords.y;
+                    self.quick_next()
                 }
             }
             _ => self.append_node(RenderNode::None, size),

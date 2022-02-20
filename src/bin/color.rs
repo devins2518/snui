@@ -123,7 +123,7 @@ fn sliders() -> Flex<impl Widget<Color>> {
                     .texture(color)
                     .with_size(200., 8.)
                     .border(BG2, 1.)
-                    .radius(3.)
+                    .radius(3.),
             )
             .padding_top(5.)
             .padding_bottom(5.)
@@ -137,7 +137,7 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
         .with_fixed_height(25.)
         .anchor(CENTER, START);
 
-    let indicator = Flex::column().with(listener).with(
+    let indicator = Flex::column().with_child(listener).with_child(
         ColorBlock {
             width: 200.,
             height: 200.,
@@ -148,22 +148,26 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
         .clamp(),
     );
 
-    Flex::column().with(indicator).with(sliders().clamp())
+    Flex::column()
+        .with_child(indicator)
+        .with_child(sliders().clamp())
 }
 
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
+
+    let window =
+        extra::window::default_window(Listener::new("", ()), ui_builder().clamp().padding(10.));
 
     client.new_window(
         Color {
             sync: false,
             color: tiny_skia::Color::WHITE,
         },
-        ui_builder()
-            .clamp()
-            .padding(10.)
-            .background(theme::BG0)
-            .border(theme::BG2, 1.),
+        window
+            .texture(theme::BG0)
+            .radius(5.)
+            .decoration(theme::BG2, 1.),
         &event_queue.handle(),
     );
 

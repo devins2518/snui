@@ -340,6 +340,12 @@ impl<'v, 'c, T: Data + Clone> WindowHandle for ViewHandle<'v, 'c, T> {
         }
     }
     fn set_cursor(&mut self, cursor: Cursor) {
+        let scale = self
+            .surface
+            .output
+            .as_ref()
+            .map(|output| output.scale)
+            .unwrap_or(1);
         let globals = &mut *self.globals;
         let surface = if let Some(surface) = globals.pointer_surface.as_ref() {
             surface
@@ -352,12 +358,14 @@ impl<'v, 'c, T: Data + Clone> WindowHandle for ViewHandle<'v, 'c, T> {
             globals.pointer_surface.as_ref().unwrap()
         };
         let seats = &globals.seats;
-        let cursor_theme = globals.cursor_theme.as_mut();
+        let cursor_size = 24 * scale as u32;
+        let cursor_theme = globals.cursor_theme.get_mut(&cursor_size);
         if let Some(cursor_theme) = cursor_theme {
             for seat in seats {
                 if let Some(cursor) = cursor_theme.get_cursor(self.conn, cursor.as_str()) {
                     let buffer = &cursor[0];
                     let (hotspot_x, hotspot_y) = buffer.hotspot();
+                    surface.set_buffer_scale(self.conn, scale);
                     surface.attach(self.conn, Some(&buffer), 0, 0);
                     surface.commit(self.conn);
                     seat.pointer
@@ -373,7 +381,15 @@ impl<'v, 'c, T: Data + Clone> WindowHandle for ViewHandle<'v, 'c, T> {
                 }
             }
         } else {
-            surface.destroy(self.conn);
+            if let Ok(cursor_theme) =
+                CursorTheme::load(self.conn, globals.shm.clone().unwrap(), 24 * scale as u32)
+            {
+                globals.cursor_theme.insert(cursor_size, cursor_theme);
+                std::mem::drop(globals);
+                self.set_cursor(cursor);
+            } else {
+                surface.destroy(self.conn);
+            }
         }
     }
     fn get_state(&self) -> &[WindowState] {
@@ -540,7 +556,6 @@ where
         } else if let Damage::Frame = damage {
             self.state.pending_cb = false;
         }
-        // println!("{:#?}", self.state.render_node);
     }
 }
 
@@ -727,17 +742,14 @@ where
                 "wl_shm" => {
                     ShmState::new_global(self, conn, qh, name, &interface[..], 1);
                     let mut globals = self.globals.borrow_mut();
-                    let shm = registry
+                    globals.shm = registry
                         .bind::<wl_shm::WlShm, _>(conn, name, 1, qh, ())
                         .ok();
-                    if let Some(shm) = shm {
-                        globals.cursor_theme = CursorTheme::load(conn, shm, 24).ok();
-                        self.pool = globals
-                            .shm
-                            .new_raw_pool(1 << 10, conn, qh, ())
-                            .ok()
-                            .map(|raw| raw.into());
-                    }
+                    self.pool = globals
+                        .shm_state
+                        .new_raw_pool(1 << 10, conn, qh, ())
+                        .ok()
+                        .map(|raw| raw.into());
                 }
                 "wl_seat" => {
                     registry
@@ -775,7 +787,7 @@ impl<'p, T: Data + Clone> From<&'p mut WaylandClient<T>>
 
 impl<T: Data + Clone> ShmHandler for WaylandClient<T> {
     fn shm_state(&mut self) -> &mut ShmState {
-        unsafe { &mut (*self.globals.as_ptr()).shm }
+        unsafe { &mut (*self.globals.as_ptr()).shm_state }
     }
 }
 
@@ -1040,7 +1052,7 @@ where
                             (width as f32, height as f32),
                             (width as f32, height as f32),
                         );
-                    } else if view.state.constraint.is_default() {
+                    } else {
                         let mut ctx = LayoutCtx::new(&mut self.cache);
                         let (r_width, r_height) = view
                             .widget

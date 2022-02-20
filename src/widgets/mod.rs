@@ -328,7 +328,7 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
                 &match self.constraint {
                     Constraint::Fixed => {
                         let width = self.width.unwrap_or(width);
-                        let height = self.width.unwrap_or(height);
+                        let height = self.height.unwrap_or(height);
                         BoxConstraints::new((width, height), (width, height))
                     }
                     _ => constraints

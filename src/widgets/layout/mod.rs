@@ -6,9 +6,8 @@ use std::ops::{Deref, DerefMut};
 use widgets::Style;
 
 /// Widgets which contain one or more widgets
-pub trait Container<T, W>
+pub trait Container<W>
 where
-    W: Widget<T>,
     Self: Sized,
 {
     fn len(&self) -> usize;

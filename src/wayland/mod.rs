@@ -29,7 +29,10 @@ use wayland_cursor::CursorTheme;
 use crate::context::Backend;
 use crate::PixmapMut;
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 
 const FORMAT: Format = Format::Argb8888;
 
@@ -194,11 +197,12 @@ impl Seat {
 pub struct GlobalManager {
     outputs: Vec<Output>,
     seats: Vec<Seat>,
-    shm: ShmState,
+    shm: Option<WlShm>,
+    shm_state: ShmState,
     registry: RegistryState,
     pointer_surface: Option<WlSurface>,
     compositor: Option<WlCompositor>,
-    cursor_theme: Option<CursorTheme>,
+    cursor_theme: HashMap<u32, CursorTheme>,
     subcompositor: Option<WlSubcompositor>,
     wm_base: Option<xdg_wm_base::XdgWmBase>,
     layer_shell: Option<ZwlrLayerShellV1>,
@@ -209,10 +213,11 @@ impl GlobalManager {
         Self {
             outputs: Vec::new(),
             seats: Vec::new(),
-            shm: ShmState::new(),
+            shm: None,
+            shm_state: ShmState::new(),
             registry: RegistryState::new(registry),
             pointer_surface: None,
-            cursor_theme: None,
+            cursor_theme: HashMap::new(),
             compositor: None,
             subcompositor: None,
             wm_base: None,

@@ -9,7 +9,6 @@ pub mod widgets;
 
 pub use crate::core::*;
 use context::*;
-use scene::RenderNode;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 use widgets::button::Button;

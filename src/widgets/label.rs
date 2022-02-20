@@ -136,8 +136,8 @@ impl Drawable for Label {
     fn draw(&self, context: &mut DrawContext, transform: tiny_skia::Transform) {
         let mut settings = self.settings.clone();
         let font_cache = &mut context.cache.font_cache;
-        settings.max_width = self.settings.max_width.map(|width| width * transform.tx);
-        settings.max_height = self.settings.max_height.map(|height| height * transform.ty);
+        settings.max_width = self.settings.max_width.map(|width| width * transform.sx);
+        settings.max_height = self.settings.max_height.map(|height| height * transform.sy);
 
         let clip_mask = context
             .clipmask
@@ -201,6 +201,15 @@ impl<'p> From<&'p Label> for PrimitiveRef<'p> {
     }
 }
 
+impl GeometryExt for Label {
+    fn set_width(&mut self, width: f32) {
+        self.settings.max_width = Some(width);
+    }
+    fn set_height(&mut self, height: f32) {
+        self.settings.max_height = Some(height);
+    }
+}
+
 impl<T> Widget<T> for Label {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(self)
@@ -215,13 +224,15 @@ impl<T> Widget<T> for Label {
     fn layout(&mut self, ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
         if self.size.is_none() {
             let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
+            // if !constraints.is_default() {
             // self.settings.max_width = Some(constraints.maximum_width());
             // self.settings.max_height = Some(constraints.maximum_height());
+            // }
             let layout = fc.layout(self.as_ref()).clone();
-            let size = cache::font::get_size(&layout);
-            self.size = Some(size.into());
+            let size = cache::font::get_size(&layout).into();
+            self.size = Some(size);
         }
-        self.size.unwrap_or_default()
+        return self.size.unwrap_or_default();
     }
 }
 
@@ -256,6 +267,8 @@ where
         match event {
             Event::Sync | Event::Configure => {
                 if let Some(string) = ctx.send(self.message, self.label.as_str()) {
+                    self.label.edit(string);
+                } else if let Some(string) = ctx.get(self.message) {
                     self.label.edit(string);
                 }
             }

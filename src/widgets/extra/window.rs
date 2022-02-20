@@ -256,10 +256,10 @@ where
     W: Widget<T>,
 {
     fn draw_scene(&mut self, mut scene: Scene) {
-        if let Some(scene) = scene.auto_next(self.size) {
+        if let Some(scene) = scene.next(self.size) {
             self.header.draw_scene(scene)
         }
-        if let Some(scene) = scene.auto_next(self.size) {
+        if let Some(scene) = scene.next(self.size) {
             self.window.draw_scene(scene)
         }
     }
@@ -331,12 +331,7 @@ where
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (h_width, h_height) = self
             .header
-            .layout(
-                ctx,
-                &constraints
-                    .with_min(constraints.minimum_width(), 0.)
-                    .with_max(constraints.maximum_width(), 0.),
-            )
+            .layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.))
             .into();
         let (b_width, b_height) = self
             .window
@@ -400,15 +395,15 @@ where
     T: 'static,
 {
     Flex::row()
-        .with(Minimize::new().padding_left(5.).padding_right(5.))
-        .with(Maximize::new().padding_left(5.).padding_right(5.))
-        .with(Close::new().padding_left(5.))
+        .with_child(Minimize::new().padding_left(5.).padding_right(5.))
+        .with_child(Maximize::new().padding_left(5.).padding_right(5.))
+        .with_child(Close::new().padding_left(5.))
 }
 
 fn headerbar<T: 'static>(widget: impl Widget<T> + 'static) -> impl Widget<T> {
     Flex::row()
-        .with(widget)
-        .with(wm_button().clamp().anchor(END, CENTER))
+        .with_child(widget.clamp().anchor(START, CENTER))
+        .with_child(wm_button().clamp().anchor(END, CENTER))
 }
 
 pub fn default_window<T, W>(
@@ -420,8 +415,7 @@ where
     W: Widget<T>,
 {
     Window::new(
-        headerbar(header)
-        	.background(theme::BG2)
-        	.padding(10.),
-        widget)
+        headerbar(header).background(theme::BG2).padding(10.),
+        widget,
+    )
 }

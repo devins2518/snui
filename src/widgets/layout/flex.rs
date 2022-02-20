@@ -47,10 +47,7 @@ impl<W> FromIterator<W> for Flex<W> {
     }
 }
 
-impl<T, W> Container<T, W> for Flex<W>
-where
-    W: Widget<T>,
-{
+impl<W> Container<W> for Flex<W> {
     fn len(&self) -> usize {
         self.children.len()
     }
@@ -71,11 +68,7 @@ where
 impl<T, W: Widget<T>> Widget<T> for Flex<W> {
     fn draw_scene(&mut self, mut scene: Scene) {
         for widget in self.children.iter_mut() {
-            if let Some(scene) = scene.next() {
-                widget.draw_scene(scene);
-                continue;
-            }
-            if let Some(scene) = scene.append_node(RenderNode::None, self.size) {
+            if let Some(scene) = scene.next(self.size) {
                 widget.draw_scene(scene);
             }
         }
@@ -89,7 +82,6 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
             .unwrap_or_default()
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        let mut delta = 0.;
         let len = self.len();
         self.size = match self.orientation {
             Orientation::Vertical => {
@@ -99,17 +91,16 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
                     .enumerate()
                     .map(move |(i, widget)| {
                         widget.set_coords(0., dy);
-                        let min_height = constraints.minimum_height() / (len - i) as f32 + delta;
+                        let height = (constraints.maximum_height() - dy) / (len - i) as f32;
                         let (width, height) = widget
                             .layout(
                                 ctx,
-                                &constraints.with_min(
-                                    constraints.minimum_width(),
-                                    min_height.min(constraints.maximum_height()) - dy,
+                                &constraints.with_max(
+                                    constraints.maximum_width(),
+                                    height.min(constraints.maximum_height()),
                                 ),
                             )
                             .into();
-                        delta = min_height - height;
                         dy += height;
                         Size::new(width, height)
                     })
@@ -124,18 +115,17 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
                     .iter_mut()
                     .enumerate()
                     .map(move |(i, widget)| {
-                        let min_width = constraints.minimum_width() / (len - i) as f32 + delta;
+                        let width = (constraints.maximum_width() - dx) / (len - i) as f32;
                         widget.set_coords(dx, 0.);
                         let (width, height) = widget
                             .layout(
                                 ctx,
-                                &constraints.with_min(
-                                    min_width.min(constraints.maximum_width()) - dx,
-                                    constraints.minimum_height(),
+                                &constraints.with_max(
+                                    width.min(constraints.maximum_width()),
+                                    constraints.maximum_height(),
                                 ),
                             )
                             .into();
-                        delta = min_width - width;
                         dx += width;
                         Size::new(width, height)
                     })
@@ -150,10 +140,10 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
 }
 
 impl<T> Flex<Box<dyn Widget<T>>> {
-    pub fn add<W: Widget<T> + 'static>(&mut self, widget: W) {
+    pub fn add_child<W: Widget<T> + 'static>(&mut self, widget: W) {
         self.children.push(child(Box::new(widget)));
     }
-    pub fn with<W: Widget<T> + 'static>(mut self, widget: W) -> Self {
+    pub fn with_child<W: Widget<T> + 'static>(mut self, widget: W) -> Self {
         self.children
             .push(Positioner::new(Proxy::new(Box::new(widget))));
         self

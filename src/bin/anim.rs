@@ -192,15 +192,15 @@ impl<D> Widget<D> for FrameRate {
 // Creates our user interface
 fn ui() -> Flex<Box<dyn Widget<Demo>>> {
     Flex::column()
-        .with(
+        .with_child(
             FrameRate {
                 label: "frame rate".into(),
             }
             .with_min_height(20.),
         )
-        .with(Animate::quadratic().clamp())
-        .with(Animate::sinus().clamp())
-        .with(
+        .with_child(Animate::quadratic().clamp())
+        .with_child(Animate::sinus().clamp())
+        .with_child(
             Switch::default(Remote {})
                 .texture(theme::BG0)
                 .duration(600)
@@ -230,10 +230,10 @@ fn main() {
     client.new_window(
         Demo::default(),
         window
-        	.decoration(theme::BG2, 2.)
-        	.alternate_decoration(theme::PURPLE)
-        	.texture(theme::BG0)
-        	.radius(5.),
+            .decoration(theme::BG2, 2.)
+            .alternate_decoration(theme::PURPLE)
+            .texture(theme::BG0)
+            .radius(5.),
         &event_queue.handle(),
     );
 

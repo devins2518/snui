@@ -53,6 +53,8 @@ pub struct DrawContext<'c> {
 ///
 /// Currently it only holds the Cache.
 pub struct LayoutCtx<'c> {
+    /// Forces Proxies to propagate the layout
+    pub(crate) force: bool,
     pub(crate) cache: &'c mut Cache,
     pub(crate) handle: Option<&'c mut dyn WindowHandle>,
 }
@@ -66,12 +68,14 @@ impl<'c> AsMut<Cache> for LayoutCtx<'c> {
 impl<'c> LayoutCtx<'c> {
     pub fn new(cache: &'c mut Cache) -> LayoutCtx {
         LayoutCtx {
+            force: false,
             cache,
             handle: None,
         }
     }
     pub fn new_with_handle(cache: &'c mut Cache, handle: &'c mut impl WindowHandle) -> Self {
         LayoutCtx {
+            force: true,
             cache,
             handle: Some(handle),
         }
