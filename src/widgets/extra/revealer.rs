@@ -39,6 +39,7 @@ where
     easer: E,
     duration: u32,
     size: Size,
+    clip: Size,
     direction: Direction,
     state: RevealerState,
     orientation: Orientation,
@@ -74,7 +75,7 @@ where
         match self.state {
             RevealerState::Hidden => {}
             _ => {
-                if let Some(scene) = scene.apply_clip(self.size) {
+                if let Some(scene) = scene.apply_clip(self.clip) {
                     self.widget.draw_scene(scene)
                 }
             }
@@ -146,7 +147,7 @@ where
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.size = self.widget.layout(ctx, constraints);
         let (width, height) = self.size.into();
-        match self.state {
+        self.clip = match self.state {
             RevealerState::Hidden => match self.orientation {
                 Orientation::Horizontal => Size::new(0., height),
                 Orientation::Vertical => Size::new(width, 0.),
@@ -160,6 +161,8 @@ where
                 Size::new(width - direction * x, height - direction * y)
             }
         }
+        .ceil();
+        self.clip
     }
 }
 
@@ -171,6 +174,7 @@ where
         Self {
             message,
             size: Default::default(),
+            clip: Default::default(),
             direction: Direction::Inverted,
             widget: Positioner::new(widget),
             duration: 500,

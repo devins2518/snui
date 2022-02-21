@@ -747,7 +747,6 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     Texture::Transparent => self.background,
                     _ => Background {
                         previous: (rect.texture.is_transparent()).then(|| &self.background),
-                        // region,
                         rectangle: &rect,
                     },
                 };
@@ -812,14 +811,11 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         let region = Region::new(self.coords.x, self.coords.y, size.width, size.height);
         match self.node {
             RenderNode::Clip { bounds, child } => {
-                if bounds.ne(&&region) || self.damage {
-                    self.context.clear(&self.background, bounds.merge(&region));
-                    *bounds = region;
+                if bounds.ne(&&region) && !self.damage {
+                    self.context.clear(&self.background, region.merge(&bounds));
                     self.damage = true;
-                } else {
-                    *bounds = region;
-                    self.damage = false;
                 }
+                *bounds = region;
                 let clip = self.clip.map(|clip| clip.crop(bounds)).unwrap_or(*bounds);
                 self.context.set_clip(&clip);
                 Some(Scene {

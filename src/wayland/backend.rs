@@ -1052,7 +1052,7 @@ where
                             (width as f32, height as f32),
                             (width as f32, height as f32),
                         );
-                    } else {
+                    } else if view.state.constraint.is_default() {
                         let mut ctx = LayoutCtx::new(&mut self.cache);
                         let (r_width, r_height) = view
                             .widget
