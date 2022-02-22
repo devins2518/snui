@@ -244,16 +244,10 @@ impl MouseButton {
         }
     }
     pub fn is_left(&self) -> bool {
-        match self {
-            MouseButton::Left => true,
-            _ => false,
-        }
+        matches!(self, MouseButton::Left)
     }
     pub fn is_right(&self) -> bool {
-        match self {
-            MouseButton::Right => true,
-            _ => false,
-        }
+        matches!(self, MouseButton::Right)
     }
     pub fn is_extra(self, button: u32) -> bool {
         match self {
@@ -286,16 +280,10 @@ impl<'d> Default for Event<'d> {
 
 impl<'d> Event<'d> {
     pub fn is_cb(&self) -> bool {
-        match self {
-            Self::Callback(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Callback(_))
     }
     pub fn is_configure(&self) -> bool {
-        match self {
-            Self::Configure => true,
-            _ => false,
-        }
+        matches!(self, Self::Configure)
     }
 }
 

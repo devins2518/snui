@@ -229,7 +229,7 @@ impl<T> Widget<T> for Label {
             // self.settings.max_height = Some(constraints.maximum_height());
             // }
             let layout = fc.layout(self.as_ref()).clone();
-            let size = cache::font::get_size(&layout).into();
+            let size = cache::font::get_size(layout).into();
             self.size = Some(size);
         }
         self.size.unwrap_or_default()

@@ -115,36 +115,33 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
-            Event::Pointer(_, _, p) => match p {
-                Pointer::Scroll { orientation, step } => {
-                    if orientation == self.orientation {
-                        match step {
-                            Step::Increment(i) => {
-                                if i.is_positive() {
-                                    for _ in 0..i {
-                                        self.forward(None);
-                                    }
-                                } else {
-                                    for _ in i..0 {
-                                        self.backward(None);
-                                    }
+            Event::Pointer(_, _, Pointer::Scroll { orientation, step }) => {
+                if orientation == self.orientation {
+                    match step {
+                        Step::Increment(i) => {
+                            if i.is_positive() {
+                                for _ in 0..i {
+                                    self.forward(None);
                                 }
-                            }
-                            Step::Value(value) => {
-                                if value.is_sign_positive() {
-                                    self.forward(Some(value.abs()));
-                                } else {
-                                    self.backward(Some(value.abs()));
+                            } else {
+                                for _ in i..0 {
+                                    self.backward(None);
                                 }
                             }
                         }
+                        Step::Value(value) => {
+                            if value.is_sign_positive() {
+                                self.forward(Some(value.abs()));
+                            } else {
+                                self.backward(Some(value.abs()));
+                            }
+                        }
                     }
-                    self.widget
-                        .sync(ctx, event)
-                        .max(self.widget.sync(ctx, Event::Draw))
                 }
-                _ => self.widget.sync(ctx, event),
-            },
+                self.widget
+                    .sync(ctx, event)
+                    .max(self.widget.sync(ctx, Event::Draw))
+            }
             _ => self.widget.sync(ctx, event),
         }
     }
