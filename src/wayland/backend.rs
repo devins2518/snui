@@ -48,6 +48,8 @@ where
     current: Option<usize>,
     connection: Connection,
     event: Event<'static>,
+    /// Used by views to insert new ones to the client.
+    view_handle: Option<View<T>>,
     globals: Rc<RefCell<GlobalManager>>,
     views: Vec<View<T>>,
     pool: Option<MultiPool<wl_surface::WlSurface>>,
@@ -80,6 +82,7 @@ where
         let mut wl_client = Self {
             current: None,
             pool: None,
+            view_handle: None,
             cache: Cache::default(),
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
             connection: conn,
@@ -95,9 +98,10 @@ where
     }
     fn flush_event(&mut self, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
         if let Some(i) = self.current {
-            // Forward the event to the View
+            // Forward the event processed by the WaylandClient to the View
             self.views[i].update_scene(
                 self.pool.as_mut().unwrap(),
+                &mut self.view_handle,
                 &mut self.cache,
                 self.event,
                 conn,
@@ -111,6 +115,8 @@ where
                     .as_mut()
                     .unwrap()
                     .remove(&view.surface.wl_surface, conn);
+            } else if let Some(view) = self.view_handle.take() {
+                self.views.push(view);
             }
         }
     }
@@ -118,6 +124,7 @@ where
         if let Some(i) = self.current {
             self.views[i].update_scene(
                 self.pool.as_mut().unwrap(),
+                &mut self.view_handle,
                 &mut self.cache,
                 event,
                 &mut self.connection.handle(),
@@ -130,6 +137,8 @@ where
                     .as_mut()
                     .unwrap()
                     .remove(&view.surface.wl_surface, &mut self.connection.handle());
+            } else if let Some(view) = self.view_handle.take() {
+                self.views.push(view);
             }
         }
     }
@@ -237,17 +246,19 @@ where
     fn eq_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         self.surface.wl_surface.eq(surface)
     }
-    fn handle<'t, 'v, 'c>(
+    fn handle<'t, 's, 'c>(
         &'t mut self,
-        conn: &'v mut ConnectionHandle<'c>,
-        qh: &'v QueueHandle<WaylandClient<T>>,
-    ) -> ViewHandle<'v, 'c, T>
+        view_handle: &'s mut Option<Self>,
+        conn: &'s mut ConnectionHandle<'c>,
+        qh: &'s QueueHandle<WaylandClient<T>>,
+    ) -> ViewHandle<'s, 'c, T>
     where
-        't: 'v,
-        'c: 'v,
+        't: 's,
+        'c: 's,
     {
         ViewHandle {
             conn,
+            view_handle,
             globals: self.globals.borrow_mut(),
             state: &mut self.state,
             qh,
@@ -264,15 +275,16 @@ where
 use crate::context::WindowHandle;
 use std::cell::RefMut;
 
-struct ViewHandle<'v, 'c, T: 'static + Data + Clone> {
-    qh: &'v QueueHandle<WaylandClient<T>>,
-    globals: RefMut<'v, GlobalManager>,
-    state: &'v mut State,
-    conn: &'v mut ConnectionHandle<'c>,
-    surface: &'v mut Surface,
+struct ViewHandle<'s, 'c, T: 'static + Data + Clone> {
+    qh: &'s QueueHandle<WaylandClient<T>>,
+    globals: RefMut<'s, GlobalManager>,
+    view_handle: &'s mut Option<View<T>>,
+    state: &'s mut State,
+    conn: &'s mut ConnectionHandle<'c>,
+    surface: &'s mut Surface,
 }
 
-impl<'v, 'c, T: Data + Clone> WindowHandle for ViewHandle<'v, 'c, T> {
+impl<'s, 'c, T: Data + Clone> WindowHandle for ViewHandle<'s, 'c, T> {
     fn close(&mut self) {
         // The WaylandClient will check if it's configured
         // and remove the View if it's not.
@@ -403,6 +415,7 @@ where
     fn sync(
         &mut self,
         cache: &mut Cache,
+        view_handle: &mut Option<Self>,
         event: Event,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<T>>,
@@ -413,6 +426,7 @@ where
         };
         let mut handle = ViewHandle {
             conn,
+            view_handle,
             globals: self.globals.borrow_mut(),
             state: &mut self.state,
             qh,
@@ -430,12 +444,13 @@ where
     fn update_scene(
         &mut self,
         pool: &mut MultiPool<wl_surface::WlSurface>,
+        view_handle: &mut Option<Self>,
         cache: &mut Cache,
         event: Event,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<T>>,
     ) {
-        match self.sync(cache, event, conn, qh) {
+        match self.sync(cache, view_handle, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     self.render(pool, cache, Damage::Partial, conn, qh);
@@ -936,7 +951,13 @@ where
                     let frame_time = (callback_data - view.state.time).min(50);
                     view.state.time = callback_data;
                     // Send a callback event with the timeout the view
-                    match view.sync(cache, Event::Callback(frame_time), conn, qh) {
+                    match view.sync(
+                        cache,
+                        &mut self.view_handle,
+                        Event::Callback(frame_time),
+                        conn,
+                        qh,
+                    ) {
                         Damage::Partial => {
                             view.render(pool, cache, Damage::Partial, conn, qh);
                         }
@@ -1144,6 +1165,7 @@ where
                 view.state.configured = true;
                 view.update_scene(
                     self.pool.as_mut().unwrap(),
+                    &mut self.view_handle,
                     &mut self.cache,
                     Event::Configure,
                     conn,
@@ -1209,6 +1231,7 @@ where
                 );
                 view.update_scene(
                     self.pool.as_mut().unwrap(),
+                    &mut self.view_handle,
                     &mut self.cache,
                     Event::Configure,
                     conn,
@@ -1371,7 +1394,9 @@ where
                     surface_y,
                     ..
                 } => {
-                    self.views[index].handle(conn, qh).set_cursor(Cursor::Arrow);
+                    self.views[index]
+                        .handle(&mut self.view_handle, conn, qh)
+                        .set_cursor(Cursor::Arrow);
                     self.views[index].state.enter_serial = serial;
                     self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
                     self.flush_event(conn, qh);
