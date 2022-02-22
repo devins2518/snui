@@ -237,6 +237,18 @@ fn main() {
         &event_queue.handle(),
     );
 
+    let window = window::default_window(Label::default("Animation"), ui().clamp());
+
+    client.new_window(
+        Demo::default(),
+        window
+            .decoration(theme::BG2, 2.)
+            .alternate_decoration(theme::PURPLE)
+            .texture(theme::BG0)
+            .radius(5.),
+        &event_queue.handle(),
+    );
+
     while client.has_view() {
         event_queue.blocking_dispatch(&mut client).unwrap();
     }

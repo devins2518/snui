@@ -113,7 +113,7 @@ impl From<&Region> for Rect {
 
 impl From<Region> for Rect {
     fn from(r: Region) -> Self {
-        Rect::from_xywh(r.x, r.y, r.width, r.height).expect(format!("{:?}", r).as_str())
+        Rect::from_xywh(r.x, r.y, r.width, r.height).unwrap()
     }
 }
 

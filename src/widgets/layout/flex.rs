@@ -25,6 +25,10 @@ impl<W> Flex<W> {
             orientation: Orientation::Vertical,
         }
     }
+    pub fn with(mut self, widget: W) -> Self {
+        self.add(widget);
+        self
+    }
     pub fn orientation(mut self, orientation: Orientation) -> Self {
         self.orientation = orientation;
         self

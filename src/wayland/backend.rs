@@ -37,7 +37,6 @@ use smithay_client_toolkit::reexports::protocols::{
     xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
-use smithay_client_toolkit::shm::pool::PoolHandle;
 use smithay_client_toolkit::shm::{ShmHandler, ShmState};
 use wayland_cursor::CursorTheme;
 
@@ -475,7 +474,6 @@ where
             width as u32 * scale as u32,
             height as u32 * scale as u32,
             &surface.wl_surface,
-            (),
             conn,
             qh,
         ) {
@@ -516,13 +514,11 @@ where
         let Size { width, height } = self.widget.layout(&mut layout, &self.state.constraint);
         let surface = &mut self.surface;
 
-        self.clipmask.as_mut().unwrap().clear();
         if let Some((offset, wl_buffer, backend)) = buffer(
             pool,
             width as u32 * scale as u32,
             height as u32 * scale as u32,
             &surface.wl_surface,
-            (),
             conn,
             qh,
         ) {
@@ -530,8 +526,8 @@ where
             surface.replace_buffer(wl_buffer);
             let region = Rectangle::new(width, height);
             let mut ctx = DrawContext::new(backend, cache)
-                .with_transform(transform)
-                .with_clipmask(self.clipmask.as_mut());
+                .with_clipmask(self.clipmask.as_mut())
+                .with_transform(transform);
 
             if offset != self.state.offset {
                 self.state.offset = offset;
@@ -777,14 +773,6 @@ where
     }
 }
 
-impl<'p, T: Data + Clone> From<&'p mut WaylandClient<T>>
-    for PoolHandle<'p, MultiPool<wl_surface::WlSurface>>
-{
-    fn from(this: &'p mut WaylandClient<T>) -> Self {
-        PoolHandle::Ref(this.pool.as_mut().unwrap())
-    }
-}
-
 impl<T: Data + Clone> ShmHandler for WaylandClient<T> {
     fn shm_state(&mut self) -> &mut ShmState {
         unsafe { &mut (*self.globals.as_ptr()).shm_state }
@@ -797,11 +785,14 @@ impl<T: Data + Clone> ProvidesRegistryState for WaylandClient<T> {
     }
 }
 
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 impl<T> Dispatch<wl_buffer::WlBuffer> for WaylandClient<T>
 where
     T: Data + Clone + 'static,
 {
-    type UserData = ();
+    type UserData = Arc<AtomicBool>;
 
     fn event(
         &mut self,

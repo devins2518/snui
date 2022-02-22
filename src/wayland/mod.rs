@@ -29,42 +29,38 @@ use wayland_cursor::CursorTheme;
 use crate::context::Backend;
 use crate::PixmapMut;
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
+    sync::atomic::AtomicBool,
 };
 
 const FORMAT: Format = Format::Argb8888;
 
-fn buffer<'b, D, U>(
+fn buffer<'b, D>(
     pool: &'b mut MultiPool<WlSurface>,
     width: u32,
     height: u32,
     surface: &WlSurface,
-    udata: U,
     conn: &mut ConnectionHandle,
     qh: &QueueHandle<D>,
 ) -> Option<(usize, WlBuffer, Backend<'b>)>
 where
-    D: Dispatch<WlBuffer, UserData = U> + 'static,
-    U: Send + Sync + 'static,
+    D: Dispatch<WlBuffer, UserData = Arc<AtomicBool>> + 'static,
 {
     let stride = width * 4;
-    let size = stride * height;
-    if pool.resize(size as usize, conn).is_ok() {
-        if let Some((offset, buffer, slice)) = pool.create_buffer(
-            width as i32,
-            stride as i32,
-            height as i32,
-            surface,
-            FORMAT,
-            udata,
-            conn,
-            qh,
-        ) {
-            if let Some(pixmap) = PixmapMut::from_bytes(slice, width, height) {
-                return Some((offset, buffer, Backend::Pixmap(pixmap)));
-            }
+    if let Some((offset, buffer, slice)) = pool.create_buffer(
+        width as i32,
+        stride as i32,
+        height as i32,
+        surface,
+        FORMAT,
+        conn,
+        qh,
+    ) {
+        if let Some(pixmap) = PixmapMut::from_bytes(slice, width, height) {
+            return Some((offset, buffer, Backend::Pixmap(pixmap)));
         }
     }
     None
