@@ -284,7 +284,7 @@ struct ViewHandle<'s, 'c, T: 'static + Data + Clone> {
     surface: &'s mut Surface,
 }
 
-impl<'s, 'c, T: Data + Clone> WindowHandle for ViewHandle<'s, 'c, T> {
+impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
     fn close(&mut self) {
         // The WaylandClient will check if it's configured
         // and remove the View if it's not.
@@ -320,13 +320,27 @@ impl<'s, 'c, T: Data + Clone> WindowHandle for ViewHandle<'s, 'c, T> {
                 // the size of the output
                 layer_surface.set_size(self.conn, 1 << 31, 1 << 31);
             }
+            _ => {}
         }
     }
-    fn menu(&mut self, x: f32, y: f32, serial: u32) {
+    fn show_menu(&mut self, x: f32, y: f32, menu: Menu<T>) {
         match &self.surface.shell {
             Shell::Xdg { toplevel, .. } => {
-                for seat in &self.globals.seats {
-                    toplevel.show_window_menu(self.conn, &seat.seat, serial, x as i32, y as i32);
+                match menu {
+                    Menu::System(serial) => {
+                        for seat in &self.globals.seats {
+                            toplevel.show_window_menu(self.conn, &seat.seat, serial, x as i32, y as i32);
+                        }
+                    }
+                    Menu::PopUp { data, widget } => {
+                        // self.view_handle = Some(View {
+                        //     data,
+                        //     widget,
+                        //     clipmask: Some(ClipMask::new()),
+                        //     globals: self.globals.clone(),
+                        //     state: State::default(),
+                        // });
+                    }
                 }
             }
             _ => {}
@@ -348,6 +362,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle for ViewHandle<'s, 'c, T> {
             Shell::LayerShell { ref mut config, .. } => {
                 config.namespace = title;
             }
+            _ => {}
         }
     }
     fn set_cursor(&mut self, cursor: Cursor) {

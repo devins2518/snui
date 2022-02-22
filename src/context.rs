@@ -1,5 +1,6 @@
 //! Contexts provided to snui widgets.
 
+use crate::mail::{Data, Mail};
 use crate::cache::*;
 use crate::*;
 use scene::*;
@@ -31,10 +32,10 @@ pub enum Backend<'b> {
 ///
 /// The context dereferences the Data so widgets can interact with it.
 /// It also contains the cache which is used for text layouting and fetching images.
-pub struct SyncContext<'c, D> {
-    data: &'c mut D,
+pub struct SyncContext<'c, T> {
+    data: &'c mut T,
     pub(crate) cache: &'c mut Cache,
-    pub(crate) handle: &'c mut dyn WindowHandle,
+    pub(crate) window: &'c mut dyn WindowHandle<T>,
 }
 
 /// A context provided to primitives during draw.
@@ -56,7 +57,6 @@ pub struct LayoutCtx<'c> {
     /// Forces Proxies to propagate the layout
     pub(crate) force: bool,
     pub(crate) cache: &'c mut Cache,
-    pub(crate) handle: Option<&'c mut dyn WindowHandle>,
 }
 
 impl<'c> AsMut<Cache> for LayoutCtx<'c> {
@@ -70,32 +70,28 @@ impl<'c> LayoutCtx<'c> {
         LayoutCtx {
             force: false,
             cache,
-            handle: None,
         }
-    }
-    pub fn new_with_handle(cache: &'c mut Cache, handle: &'c mut impl WindowHandle) -> Self {
-        LayoutCtx {
-            force: true,
-            cache,
-            handle: Some(handle),
-        }
-    }
-    /// Return a reference to the WindowHandle
-    pub fn window(&mut self) -> Option<&mut &'c mut dyn WindowHandle> {
-        self.handle.as_mut()
     }
 }
 
-/// A handle to the window state.
-pub trait WindowHandle {
+pub enum Menu<T> {
+    System(u32),
+    PopUp {
+        data: T,
+        widget: Box<dyn Widget<T>>
+    }
+}
+
+/// A window to the window state.
+pub trait WindowHandle<T> {
     /// Closes the window.
     ///
     /// This will terminate the application.
     fn close(&mut self) {}
     fn minimize(&mut self) {}
     fn maximize(&mut self) {}
-    /// Launch a system menu
-    fn menu(&mut self, _x: f32, _y: f32, _serial: u32) {}
+    /// Show a context menu
+    fn show_menu(&mut self, _x: f32, _y: f32, _menu: Menu<T>) {}
     /// Move the window.
     ///
     /// The serial is provided by Event.Pointer.
@@ -108,7 +104,7 @@ pub trait WindowHandle {
     }
 }
 
-impl WindowHandle for () {}
+impl<T> WindowHandle<T> for () {}
 
 impl<'b> Geometry for Backend<'b> {
     fn width(&self) -> f32 {
@@ -144,20 +140,37 @@ impl<'c> DerefMut for Backend<'c> {
     }
 }
 
-impl<'c, D> SyncContext<'c, D> {
+impl<'c, T> SyncContext<'c, T> {
     /// Creates a SyncContext with a WindowHandle
-    pub fn new(data: &'c mut D, cache: &'c mut Cache, handle: &'c mut impl WindowHandle) -> Self {
+    pub fn new(data: &'c mut T, cache: &'c mut Cache, window: &'c mut impl WindowHandle<T>) -> Self {
         Self {
             data,
             cache,
-            handle,
+            window,
         }
     }
     /// Return a reference to the WindowHandle
-    pub fn window(&mut self) -> &mut dyn WindowHandle {
-        &mut *self.handle
+    pub fn window(&mut self) -> &mut dyn WindowHandle<T> {
+        &mut *self.window
+    }
+    pub fn create_popup<F, M>(&'c mut self, x: f32, y: f32, data: M, builder: F)
+    where
+    	F: FnMut(&T) -> Menu<T>,
+        T: Mail<M, F, Menu<T>> + Data,
+    {
+        if let Some(menu) = self.data.send(data, builder) {
+            self.window.show_menu(x, y, menu);
+        }
     }
 }
+
+// impl<'c, T, F, W> Mail<T, F, &'c mut W> for SyncContext<'c, T>
+// where
+//     T: Data,
+//     W: Widget<T>,
+//     F: FnMut(&T) -> Menu<T>,
+// {
+// }
 
 impl<'c, D> Deref for SyncContext<'c, D> {
     type Target = D;

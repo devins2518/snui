@@ -165,7 +165,7 @@ impl<T, W: Widget<T>> Widget<T> for Header<W> {
                     } else if let Some(serial) = p.right_button_click() {
                         // Cursor position is relative.
                         // Only works because the Header is the first entered widget
-                        ctx.window().menu(x, y, serial);
+                        ctx.window().show_menu(x, y, Menu::System(serial));
                     }
                 }
             }
