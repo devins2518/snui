@@ -118,16 +118,17 @@ impl FontCache {
             self.load_font(font);
         }
         let fonts = Self::get_fonts(&self.fonts, label.fonts);
-        for (i, c) in label.text.chars().enumerate() {
+        for c in label.text.chars() {
             if let Some((font_index, _)) = fonts
                 .iter()
                 .enumerate()
                 .find(|(_, f)| f.lookup_glyph_index(c) > 0 || c.is_ascii_control())
             {
+                let mut tmp = [0u8; 4];
                 self.layout.append(
                     &fonts,
                     &TextStyle::with_user_data(
-                        &label.text[i..][..1],
+                        c.encode_utf8(&mut tmp),
                         label.font_size,
                         font_index,
                         label.color,

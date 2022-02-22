@@ -155,19 +155,6 @@ impl Region {
         self.width + other.width >= merge.width && self.height + other.height >= merge.height
     }
     /// Returns regions other doesn't occupy in Self.
-    /// Because of the way RenderNode are iterated and the layout of the widget system
-    /// it is not necessary to return a third Region to accurately damage the scene.
-    // +----------------+---------------+
-    // |				|				|
-    // |				|		2		|
-    // |				|				|
-    // |		1		+---------------+-----------+
-    // |				|							|
-    // |				|							|
-    // |				|			Other			|
-    // +----------------|							|
-    // 					|							|
-    // 					+---------------------------+
     pub fn substract(&self, other: Self) -> [Self; 4] {
         let crop = self.crop(&other);
         [
@@ -522,7 +509,6 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             context,
             background: Background::new(
                 rectangle,
-                // region: Region::new(0., 0., rectangle.width, rectangle.height),
             ),
         }
     }
@@ -531,6 +517,10 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         self.coords.x += x.round();
         self.coords.y += y.round();
         self
+    }
+    /// Returns the absolute position of the scene.
+    pub fn position(&self) -> Coords {
+        self.coords
     }
     fn next_inner_with_damage<'n>(&'n mut self, damage: bool) -> Option<Scene<'n, 'c, 'b>>
     where

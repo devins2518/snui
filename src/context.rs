@@ -159,6 +159,11 @@ impl<'c, T> SyncContext<'c, T> {
     pub fn window(&mut self) -> &mut dyn WindowHandle<T> {
         &mut *self.window
     }
+    /// Create a custom popup passed to the WindowHandle
+    ///
+    /// Note: Currently the x and y coordinates in the widget system are relative.
+    /// Only the the Scene and by extension the RenderNode know the abosule position
+    /// of things.
     pub fn create_popup<F, M>(&'c mut self, x: f32, y: f32, data: M, builder: F)
     where
         F: FnMut(&T) -> Menu<T>,
@@ -214,7 +219,7 @@ impl<'c> DrawContext<'c> {
     pub fn path_builder(&mut self) -> PathBuilder {
         self.path_builder
             .take()
-            .expect("Please reset the path_builder once you're finished.")
+            .expect("Please reset the path_builder once you're done.")
     }
     pub fn reset(&mut self, path_builder: PathBuilder) {
         self.path_builder = Some(path_builder);

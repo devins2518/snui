@@ -371,8 +371,6 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                                 widgets::Alignment::End => xdg_positioner::Anchor::BottomRight,
                             },
                         };
-                        // TO-DO: not precise enough
-                        // Perhaps add anchor to the PopUp
                         positioner.set_anchor(self.conn, anchor);
                         positioner.set_offset(self.conn, x as i32, y as i32);
                     }
