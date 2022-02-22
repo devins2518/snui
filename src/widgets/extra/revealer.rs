@@ -167,19 +167,19 @@ where
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
             Event::Sync => {
-                if self.state != RevealerState::Running {
-                    if ctx.send(self.message, self.state).is_some() {
-                        match self.state {
-                            RevealerState::Hidden => {
-                                self.reveal();
-                                return self.widget.sync(ctx, event).max(Damage::Frame);
-                            }
-                            RevealerState::Revealed => {
-                                self.hide();
-                                return self.widget.sync(ctx, event).max(Damage::Frame);
-                            }
-                            _ => {}
+                if self.state != RevealerState::Running
+                    && ctx.send(self.message, self.state).is_some()
+                {
+                    match self.state {
+                        RevealerState::Hidden => {
+                            self.reveal();
+                            return self.widget.sync(ctx, event).max(Damage::Frame);
                         }
+                        RevealerState::Revealed => {
+                            self.hide();
+                            return self.widget.sync(ctx, event).max(Damage::Frame);
+                        }
+                        _ => {}
                     }
                 }
             }

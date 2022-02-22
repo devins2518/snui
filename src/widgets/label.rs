@@ -134,7 +134,7 @@ impl Geometry for Label {
 
 impl Drawable for Label {
     fn draw(&self, context: &mut DrawContext, transform: tiny_skia::Transform) {
-        let mut settings = self.settings.clone();
+        let mut settings = self.settings;
         let font_cache = &mut context.cache.font_cache;
         settings.max_width = self.settings.max_width.map(|width| width * transform.sx);
         settings.max_height = self.settings.max_height.map(|height| height * transform.sy);
@@ -232,7 +232,7 @@ impl<T> Widget<T> for Label {
             let size = cache::font::get_size(&layout).into();
             self.size = Some(size);
         }
-        return self.size.unwrap_or_default();
+        self.size.unwrap_or_default()
     }
 }
 

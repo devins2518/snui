@@ -311,7 +311,7 @@ pub struct Background<'t, 'b> {
 impl<'t, 'b> Deref for Background<'t, 'b> {
     type Target = Rectangle;
     fn deref(&self) -> &Self::Target {
-        &self.rectangle
+        self.rectangle
     }
 }
 
@@ -542,7 +542,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 clip: self.clip,
                 coords: self.coords,
                 node: Rc::get_mut(child)?,
-                background: self.background.clone(),
+                background: self.background,
                 context: self.context,
             }),
             RenderNode::Clip { child, .. } => Some(Scene {
@@ -550,7 +550,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 clip: self.clip,
                 coords: self.coords,
                 node: Rc::get_mut(child)?,
-                background: self.background.clone(),
+                background: self.background,
                 context: self.context,
             }),
             RenderNode::Border { child, .. } => Some(Scene {
@@ -558,7 +558,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 clip: self.clip,
                 coords: self.coords,
                 node: Rc::get_mut(child)?,
-                background: self.background.clone(),
+                background: self.background,
                 context: self.context,
             }),
             _ => None,
@@ -658,7 +658,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     damage: true,
                     coords: self.coords,
                     node: children.last_mut()?,
-                    background: self.background.clone(),
+                    background: self.background,
                     context: self.context,
                 })
             }
@@ -689,7 +689,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         match self.node {
             RenderNode::Border { border, coords, .. } => {
                 let damage_border = border.ne(&rect);
-                let damage_coords = self.coords.ne(&&coords);
+                let damage_coords = self.coords.ne(coords);
                 if damage_border || damage_coords || self.damage {
                     if !self.damage {
                         let merge =
@@ -747,12 +747,12 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     Texture::Transparent => self.background,
                     _ => Background {
                         previous: (rect.texture.is_transparent()).then(|| &self.background),
-                        rectangle: &rect,
+                        rectangle: rect,
                     },
                 };
 
                 let damage_bg = background.ne(&rect);
-                let damage_coords = self.coords.ne(&&coords);
+                let damage_coords = self.coords.ne(coords);
                 if damage_bg || damage_coords || self.damage {
                     if !self.damage {
                         let merge = Region::new(
@@ -812,7 +812,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         match self.node {
             RenderNode::Clip { bounds, child } => {
                 if bounds.ne(&&region) && !self.damage {
-                    self.context.clear(&self.background, region.merge(&bounds));
+                    self.context.clear(&self.background, region.merge(bounds));
                     self.damage = true;
                 }
                 *bounds = region;
@@ -858,7 +858,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         );
         match self.node {
             RenderNode::Primitive { coords, primitive } => {
-                let damage_coords = self.coords.ne(&&coords);
+                let damage_coords = self.coords.ne(coords);
                 let damage_prim = PrimitiveRef::from(&*primitive).ne(&primitive_ref);
                 if damage_coords || damage_prim || self.damage {
                     let merge = region.merge(&Region::new(

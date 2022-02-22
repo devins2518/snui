@@ -158,6 +158,12 @@ impl Shell {
             Shell::LayerShell { .. } => None,
         }
     }
+    pub fn toplevel(&self) -> Option<&xdg_toplevel::XdgToplevel> {
+        match self {
+            Self::Xdg { toplevel, .. } => Some(toplevel),
+            _ => None,
+        }
+    }
     pub fn xdg_surface(&self) -> Option<&xdg_surface::XdgSurface> {
         match self {
             Self::Xdg { xdg_surface, .. } => Some(xdg_surface),

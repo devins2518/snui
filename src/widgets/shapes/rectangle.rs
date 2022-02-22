@@ -171,7 +171,7 @@ impl Drawable for Rectangle {
                         dt.fill_path(
                             &path,
                             &Paint {
-                                shader: Shader::SolidColor(color.clone()),
+                                shader: Shader::SolidColor(*color),
                                 blend_mode: BlendMode::SourceOver,
                                 anti_alias: true,
                                 force_hq_pipeline: false,
@@ -354,7 +354,7 @@ impl Drawable for BorderedRectangle {
                         dt.stroke_path(
                             &path,
                             &Paint {
-                                shader: Shader::SolidColor(color.clone()),
+                                shader: Shader::SolidColor(*color),
                                 blend_mode: BlendMode::SourceOver,
                                 anti_alias: true,
                                 force_hq_pipeline: false,

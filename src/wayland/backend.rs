@@ -303,11 +303,11 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
     fn maximize(&mut self) {
         match &self.surface.shell {
             Shell::Xdg { toplevel, .. } => {
-                if let Some(_) = self
+                if self
                     .state
                     .window_state
                     .iter()
-                    .find(|s| WindowState::Maximized.eq(s))
+                    .any(|s| WindowState::Maximized.eq(s))
                 {
                     toplevel.unset_maximized(self.conn);
                 } else {
@@ -335,7 +335,11 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                             .show_window_menu(self.conn, &seat.seat, serial, x as i32, y as i32);
                     }
                 }
-                Menu::PopUp { data, anchor, widget } => {
+                Menu::PopUp {
+                    data,
+                    anchor,
+                    widget,
+                } => {
                     let view = View {
                         data,
                         widget,
@@ -355,17 +359,17 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                                 widgets::Alignment::Start => xdg_positioner::Anchor::TopLeft,
                                 widgets::Alignment::Center => xdg_positioner::Anchor::Left,
                                 widgets::Alignment::End => xdg_positioner::Anchor::BottomLeft,
-                            }
+                            },
                             widgets::Alignment::Center => match anchor_y {
                                 widgets::Alignment::Start => xdg_positioner::Anchor::Top,
                                 widgets::Alignment::Center => xdg_positioner::Anchor::None,
                                 widgets::Alignment::End => xdg_positioner::Anchor::Bottom,
-                            }
+                            },
                             widgets::Alignment::End => match anchor_y {
                                 widgets::Alignment::Start => xdg_positioner::Anchor::TopRight,
                                 widgets::Alignment::Center => xdg_positioner::Anchor::Right,
                                 widgets::Alignment::End => xdg_positioner::Anchor::BottomRight,
-                            }
+                            },
                         };
                         // TO-DO: not precise enough
                         // Perhaps add anchor to the PopUp
@@ -425,7 +429,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                     let buffer = &cursor[0];
                     let (hotspot_x, hotspot_y) = buffer.hotspot();
                     surface.set_buffer_scale(self.conn, scale);
-                    surface.attach(self.conn, Some(&buffer), 0, 0);
+                    surface.attach(self.conn, Some(buffer), 0, 0);
                     surface.commit(self.conn);
                     seat.pointer
                         .as_ref()
@@ -433,7 +437,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                         .set_cursor(
                             self.conn,
                             self.state.enter_serial,
-                            Some(&surface),
+                            Some(surface),
                             hotspot_x as i32,
                             hotspot_y as i32,
                         );
@@ -506,11 +510,9 @@ where
                 }
             }
             Damage::Frame => {
-                if !self.state.pending_cb {
-                    if self.surface.frame(conn, qh, ()).is_ok() {
-                        self.state.pending_cb = true;
-                        self.render(pool, cache, Damage::Frame, conn, qh);
-                    }
+                if !self.state.pending_cb && self.surface.frame(conn, qh, ()).is_ok() {
+                    self.state.pending_cb = true;
+                    self.render(pool, cache, Damage::Frame, conn, qh);
                 }
             }
             _ => {}
@@ -756,11 +758,7 @@ impl Surface {
             shell,
             wl_region,
             output: None,
-            previous: if let Some(surface) = previous {
-                Some(Box::new(surface))
-            } else {
-                None
-            },
+            previous: previous.map(Box::new),
             wl_buffer: None,
         }
     }
@@ -955,15 +953,13 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some((i, view)) =
-            self.views
-                .iter_mut()
-                .enumerate()
-                .find(|(_, a)| match &a.surface.shell {
-                    wayland::Shell::PopUp { popup, .. } => popup.eq(xdg_popup),
-                    _ => false,
-                })
-        {
+        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, view)| {
+            view.surface
+                .shell
+                .popup()
+                .map(|inner| inner.eq(xdg_popup))
+                .unwrap_or_default()
+        }) {
             match event {
                 xdg_popup::Event::Configure {
                     x,
@@ -1062,7 +1058,7 @@ where
                     .views
                     .iter_mut()
                     .enumerate()
-                    .find(|a| a.1.eq_surface(&surface))
+                    .find(|(_, view)| view.eq_surface(surface))
                 {
                     self.current = Some(i);
                     if let Some(c_output) = view.surface.output.as_ref() {
@@ -1208,12 +1204,12 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, a)| {
-            let t_toplevel = toplevel;
-            match &a.surface.shell {
-                wayland::Shell::Xdg { toplevel, .. } => toplevel.eq(t_toplevel),
-                _ => false,
-            }
+        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, view)| {
+            view.surface
+                .shell
+                .toplevel()
+                .map(|inner| inner.eq(toplevel))
+                .unwrap_or_default()
         }) {
             match event {
                 xdg_toplevel::Event::Configure {
@@ -1260,7 +1256,7 @@ fn list_states(states: Vec<u8>) -> Vec<WindowState> {
             ]))
             .ok()
         })
-        .map(|state| WindowState::from(state))
+        .map(WindowState::from)
         .collect()
 }
 

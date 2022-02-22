@@ -85,8 +85,7 @@ impl<T> Widget<T> for Maximize {
                     .window()
                     .get_state()
                     .iter()
-                    .find(|s| WindowState::Maximized.eq(s))
-                    .is_some();
+                    .any(|s| WindowState::Maximized.eq(s));
             }
             _ => {}
         }
@@ -274,11 +273,9 @@ where
                     match state {
                         WindowState::Activated => {
                             activated = true;
-                            if self.alternate.is_some() {
-                                if !self.activated {
-                                    self.header.set_texture(self.decoration.clone());
-                                    self.window.set_border_texture(self.decoration.clone());
-                                }
+                            if self.alternate.is_some() && !self.activated {
+                                self.header.set_texture(self.decoration.clone());
+                                self.window.set_border_texture(self.decoration.clone());
                             }
                         }
                         WindowState::TiledLeft

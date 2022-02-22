@@ -12,7 +12,7 @@ use std::fs::read;
 use std::path::Path;
 use tiny_skia::*;
 
-pub fn get_size<U: Copy + Clone>(glyphs: &Vec<GlyphPosition<U>>) -> (f32, f32) {
+pub fn get_size<U: Copy + Clone>(glyphs: &[GlyphPosition<U>]) -> (f32, f32) {
     glyphs
         .iter()
         .map(|gp| (gp.width as f32 + gp.x, gp.height as f32 + gp.y))
@@ -69,6 +69,12 @@ pub struct FontCache {
     pub(crate) fonts: HashMap<FontProperty, GlyphCache>,
 }
 
+impl Default for FontCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FontCache {
     pub fn new() -> Self {
         FontCache {
@@ -92,7 +98,7 @@ impl FontCache {
             .collect()
     }
     pub fn load_font(&mut self, config: &FontProperty) {
-        if self.fonts.get(&config).is_none() {
+        if self.fonts.get(config).is_none() {
             if let Some(fc) = self.fc.as_ref() {
                 if let Some(fc_font) = fc.find(&config.name, config.style.as_str()) {
                     match GlyphCache::load(fc_font.path.as_path()) {
@@ -111,7 +117,7 @@ impl FontCache {
         for font in label.fonts {
             self.load_font(font);
         }
-        let fonts = Self::get_fonts(&self.fonts, &label.fonts);
+        let fonts = Self::get_fonts(&self.fonts, label.fonts);
         for (i, c) in label.text.chars().enumerate() {
             if let Some((font_index, _)) = fonts
                 .iter()
@@ -130,11 +136,11 @@ impl FontCache {
             }
         }
     }
-    pub fn layout(&mut self, label: LabelRef) -> &Vec<GlyphPosition<Color>> {
+    pub fn layout(&mut self, label: LabelRef) -> &[GlyphPosition<Color>] {
         for font in label.fonts {
             self.load_font(font);
         }
-        let fonts = Self::get_fonts(&self.fonts, &label.fonts);
+        let fonts = Self::get_fonts(&self.fonts, label.fonts);
         self.layout.reset(label.settings);
         for c in label.text.chars() {
             if let Some((font_index, _)) = fonts

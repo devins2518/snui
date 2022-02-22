@@ -74,7 +74,7 @@ fn minimum_padding(radius: (f32, f32, f32, f32)) -> f32 {
     let (tl, tr, br, bl) = radius;
     let max = tl.max(tr).max(br).max(bl);
     let radius = max * FRAC_1_SQRT_2;
-    return radius.floor();
+    radius.floor()
 }
 
 impl<T, W: Widget<T>> Geometry for WidgetStyle<T, W> {

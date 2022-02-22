@@ -2,8 +2,8 @@
 
 use crate::cache::*;
 use crate::mail::{Data, Mail};
-use crate::*;
 use crate::widgets::Alignment;
+use crate::*;
 use scene::*;
 use std::ops::{Deref, DerefMut};
 
@@ -173,13 +173,13 @@ impl<'c, T> SyncContext<'c, T> {
 impl<'c, D> Deref for SyncContext<'c, D> {
     type Target = D;
     fn deref(&self) -> &Self::Target {
-        &self.data
+        self.data
     }
 }
 
 impl<'c, D> DerefMut for SyncContext<'c, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        self.data
     }
 }
 
@@ -258,8 +258,8 @@ impl<'c> DrawContext<'c> {
             blend = BlendMode::SourceOver;
         } else {
             if let Some(last) = self.pending_damage.last() {
-                if last.contains(region.x, region.y) {
-                    if last
+                if last.contains(region.x, region.y)
+                    && last
                         .merge(&region)
                         .substract(*last)
                         .into_iter()
@@ -273,9 +273,8 @@ impl<'c> DrawContext<'c> {
                         })
                         .reduce(|_, _| ())
                         .is_some()
-                    {
-                        return;
-                    }
+                {
+                    return;
                 }
             }
             blend = BlendMode::SourceOver;
