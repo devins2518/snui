@@ -34,7 +34,7 @@ use smithay_client_toolkit::reexports::client::{
 };
 use smithay_client_toolkit::reexports::protocols::{
     wlr::unstable::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1},
-    xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base},
+    xdg_shell::client::{xdg_popup, xdg_positioner, xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 use smithay_client_toolkit::shm::pool::multi::MultiPool;
 use smithay_client_toolkit::shm::{ShmHandler, ShmState};
@@ -259,7 +259,7 @@ where
         ViewHandle {
             conn,
             view_handle,
-            globals: self.globals.borrow_mut(),
+            globals: self.globals.clone(),
             state: &mut self.state,
             qh,
             surface: &mut self.surface,
@@ -273,11 +273,10 @@ where
 }
 
 use crate::context::WindowHandle;
-use std::cell::RefMut;
 
 struct ViewHandle<'s, 'c, T: 'static + Data + Clone> {
     qh: &'s QueueHandle<WaylandClient<T>>,
-    globals: RefMut<'s, GlobalManager>,
+    globals: Rc<RefCell<GlobalManager>>,
     view_handle: &'s mut Option<View<T>>,
     state: &'s mut State,
     conn: &'s mut ConnectionHandle<'c>,
@@ -294,7 +293,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
     fn _move(&mut self, serial: u32) {
         match &self.surface.shell {
             Shell::Xdg { toplevel, .. } => {
-                for seat in &self.globals.seats {
+                for seat in &self.globals.borrow().seats {
                     toplevel._move(self.conn, &seat.seat, serial);
                 }
             }
@@ -325,24 +324,57 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
     }
     fn show_menu(&mut self, x: f32, y: f32, menu: Menu<T>) {
         match &self.surface.shell {
-            Shell::Xdg { toplevel, .. } => {
-                match menu {
-                    Menu::System(serial) => {
-                        for seat in &self.globals.seats {
-                            toplevel.show_window_menu(self.conn, &seat.seat, serial, x as i32, y as i32);
-                        }
-                    }
-                    Menu::PopUp { data, widget } => {
-                        // self.view_handle = Some(View {
-                        //     data,
-                        //     widget,
-                        //     clipmask: Some(ClipMask::new()),
-                        //     globals: self.globals.clone(),
-                        //     state: State::default(),
-                        // });
+            Shell::Xdg {
+                toplevel,
+                xdg_surface,
+                ..
+            } => match menu {
+                Menu::System(serial) => {
+                    for seat in &self.globals.borrow().seats {
+                        toplevel
+                            .show_window_menu(self.conn, &seat.seat, serial, x as i32, y as i32);
                     }
                 }
-            }
+                Menu::PopUp { data, anchor, widget } => {
+                    let view = View {
+                        data,
+                        widget,
+                        clipmask: Some(ClipMask::new()),
+                        globals: self.globals.clone(),
+                        state: State::default(),
+                        surface: self
+                            .globals
+                            .borrow()
+                            .create_popup_surface(xdg_surface, self.conn, self.qh)
+                            .unwrap(),
+                    };
+                    if let Some(positioner) = view.surface.shell.positioner() {
+                        let (anchor_x, anchor_y) = anchor;
+                        let anchor = match anchor_x {
+                            widgets::Alignment::Start => match anchor_y {
+                                widgets::Alignment::Start => xdg_positioner::Anchor::TopLeft,
+                                widgets::Alignment::Center => xdg_positioner::Anchor::Left,
+                                widgets::Alignment::End => xdg_positioner::Anchor::BottomLeft,
+                            }
+                            widgets::Alignment::Center => match anchor_y {
+                                widgets::Alignment::Start => xdg_positioner::Anchor::Top,
+                                widgets::Alignment::Center => xdg_positioner::Anchor::None,
+                                widgets::Alignment::End => xdg_positioner::Anchor::Bottom,
+                            }
+                            widgets::Alignment::End => match anchor_y {
+                                widgets::Alignment::Start => xdg_positioner::Anchor::TopRight,
+                                widgets::Alignment::Center => xdg_positioner::Anchor::Right,
+                                widgets::Alignment::End => xdg_positioner::Anchor::BottomRight,
+                            }
+                        };
+                        // TO-DO: not precise enough
+                        // Perhaps add anchor to the PopUp
+                        positioner.set_anchor(self.conn, anchor);
+                        positioner.set_offset(self.conn, x as i32, y as i32);
+                    }
+                    *self.view_handle = Some(view);
+                }
+            },
             _ => {}
         }
     }
@@ -372,7 +404,8 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
             .as_ref()
             .map(|output| output.scale)
             .unwrap_or(1);
-        let globals = &mut *self.globals;
+        let mut ref_global = self.globals.borrow_mut();
+        let globals = &mut *ref_global;
         let surface = if let Some(surface) = globals.pointer_surface.as_ref() {
             surface
         } else {
@@ -406,16 +439,17 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                         );
                 }
             }
+            return;
+        }
+        if let Ok(cursor_theme) =
+            CursorTheme::load(self.conn, globals.shm.clone().unwrap(), 24 * scale as u32)
+        {
+            globals.cursor_theme.insert(cursor_size, cursor_theme);
+            std::mem::drop(globals);
+            std::mem::drop(ref_global);
+            self.set_cursor(cursor);
         } else {
-            if let Ok(cursor_theme) =
-                CursorTheme::load(self.conn, globals.shm.clone().unwrap(), 24 * scale as u32)
-            {
-                globals.cursor_theme.insert(cursor_size, cursor_theme);
-                std::mem::drop(globals);
-                self.set_cursor(cursor);
-            } else {
-                surface.destroy(self.conn);
-            }
+            surface.destroy(self.conn);
         }
     }
     fn get_state(&self) -> &[WindowState] {
@@ -442,7 +476,7 @@ where
         let mut handle = ViewHandle {
             conn,
             view_handle,
-            globals: self.globals.borrow_mut(),
+            globals: self.globals.clone(),
             state: &mut self.state,
             qh,
             surface: &mut self.surface,
@@ -613,6 +647,39 @@ impl GlobalManager {
             Shell::Xdg {
                 xdg_surface,
                 toplevel,
+            },
+            None,
+        ))
+    }
+    fn create_popup_surface<T>(
+        &self,
+        parent: &xdg_surface::XdgSurface,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<WaylandClient<T>>,
+    ) -> Option<Surface>
+    where
+        T: Data + Clone,
+    {
+        let wm_base = self.wm_base.as_ref()?;
+        let compositor = self.compositor.as_ref()?;
+
+        let wl_surface = compositor.create_surface(conn, qh, ()).ok()?;
+        let wl_region = compositor.create_region(conn, qh, ()).ok()?;
+        let xdg_surface = wm_base.get_xdg_surface(conn, &wl_surface, qh, ()).ok()?;
+        let positioner = wm_base.create_positioner(conn, qh, ()).ok()?;
+        let popup = xdg_surface
+            .get_popup(conn, Some(parent), &positioner, qh, ())
+            .ok()?;
+
+        wl_surface.commit(conn);
+
+        Some(Surface::new(
+            wl_surface,
+            wl_region,
+            Shell::PopUp {
+                xdg_surface,
+                positioner,
+                popup,
             },
             None,
         ))
@@ -853,6 +920,87 @@ where
         _: &QueueHandle<Self>,
     ) {
         // wl_compositor has no event
+    }
+}
+
+impl<T> Dispatch<xdg_positioner::XdgPositioner> for WaylandClient<T>
+where
+    T: Data + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        _: &xdg_positioner::XdgPositioner,
+        _: xdg_positioner::Event,
+        _: &Self::UserData,
+        _: &mut ConnectionHandle,
+        _: &QueueHandle<Self>,
+    ) {
+        // xdg_positioner has no event
+    }
+}
+
+impl<T> Dispatch<xdg_popup::XdgPopup> for WaylandClient<T>
+where
+    T: Data + Clone + 'static,
+{
+    type UserData = ();
+
+    fn event(
+        &mut self,
+        xdg_popup: &xdg_popup::XdgPopup,
+        event: xdg_popup::Event,
+        _: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        _: &QueueHandle<Self>,
+    ) {
+        if let Some((i, view)) =
+            self.views
+                .iter_mut()
+                .enumerate()
+                .find(|(_, a)| match &a.surface.shell {
+                    wayland::Shell::PopUp { popup, .. } => popup.eq(xdg_popup),
+                    _ => false,
+                })
+        {
+            match event {
+                xdg_popup::Event::Configure {
+                    x,
+                    y,
+                    width,
+                    height,
+                } => {
+                    view.surface
+                        .shell
+                        .positioner()
+                        .unwrap()
+                        .set_anchor_rect(conn, x, y, width, height);
+                    if width > 0 && height > 0 {
+                        view.state.constraint = BoxConstraints::new(
+                            (width as f32, height as f32),
+                            (width as f32, height as f32),
+                        );
+                    } else if view.state.constraint.is_default() {
+                        let mut ctx = LayoutCtx::new(&mut self.cache);
+                        let (r_width, r_height) = view
+                            .widget
+                            .layout(&mut ctx, &BoxConstraints::default())
+                            .into();
+                        view.state.constraint =
+                            BoxConstraints::new((r_width, r_height), (r_width, r_height));
+                        view.widget.layout(&mut ctx, &view.state.constraint);
+                    }
+                }
+                // xdg_popup::Event::Repositioned { token } => {
+                //     xdg_popup.reposition
+                // }
+                xdg_popup::Event::PopupDone => {
+                    self.views.remove(i).surface.destroy(conn);
+                }
+                _ => {}
+            }
+        }
     }
 }
 

@@ -20,7 +20,7 @@ use smithay_client_toolkit::reexports::protocols::{
         zwlr_layer_shell_v1::{Layer, ZwlrLayerShellV1},
         zwlr_layer_surface_v1::{Anchor, KeyboardInteractivity, ZwlrLayerSurfaceV1},
     },
-    xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base, xdg_popup, xdg_positioner},
+    xdg_shell::client::{xdg_popup, xdg_positioner, xdg_surface, xdg_toplevel, xdg_wm_base},
 };
 use smithay_client_toolkit::registry::RegistryState;
 use smithay_client_toolkit::shm::ShmState;
@@ -80,7 +80,7 @@ pub enum Shell {
         xdg_surface: xdg_surface::XdgSurface,
         positioner: xdg_positioner::XdgPositioner,
         popup: xdg_popup::XdgPopup,
-    }
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -122,7 +122,11 @@ impl Shell {
                 xdg_surface.destroy(conn);
                 toplevel.destroy(conn);
             }
-            Self::PopUp { xdg_surface, positioner, popup } => {
+            Self::PopUp {
+                xdg_surface,
+                positioner,
+                popup,
+            } => {
                 xdg_surface.destroy(conn);
                 positioner.destroy(conn);
                 popup.destroy(conn);
@@ -144,14 +148,21 @@ impl Shell {
         match self {
             Self::PopUp { popup, .. } => Some(popup),
             Self::Xdg { .. } => None,
-            Shell::LayerShell {..} => None,
+            Shell::LayerShell { .. } => None,
+        }
+    }
+    pub fn positioner(&self) -> Option<&xdg_positioner::XdgPositioner> {
+        match self {
+            Self::PopUp { positioner, .. } => Some(positioner),
+            Self::Xdg { .. } => None,
+            Shell::LayerShell { .. } => None,
         }
     }
     pub fn xdg_surface(&self) -> Option<&xdg_surface::XdgSurface> {
         match self {
             Self::Xdg { xdg_surface, .. } => Some(xdg_surface),
             Self::PopUp { xdg_surface, .. } => Some(xdg_surface),
-            Shell::LayerShell {..} => None,
+            Shell::LayerShell { .. } => None,
         }
     }
 }

@@ -1,8 +1,9 @@
 //! Contexts provided to snui widgets.
 
-use crate::mail::{Data, Mail};
 use crate::cache::*;
+use crate::mail::{Data, Mail};
 use crate::*;
+use crate::widgets::Alignment;
 use scene::*;
 use std::ops::{Deref, DerefMut};
 
@@ -78,8 +79,9 @@ pub enum Menu<T> {
     System(u32),
     PopUp {
         data: T,
-        widget: Box<dyn Widget<T>>
-    }
+        widget: Box<dyn Widget<T>>,
+        anchor: (Alignment, Alignment),
+    },
 }
 
 /// A window to the window state.
@@ -142,7 +144,11 @@ impl<'c> DerefMut for Backend<'c> {
 
 impl<'c, T> SyncContext<'c, T> {
     /// Creates a SyncContext with a WindowHandle
-    pub fn new(data: &'c mut T, cache: &'c mut Cache, window: &'c mut impl WindowHandle<T>) -> Self {
+    pub fn new(
+        data: &'c mut T,
+        cache: &'c mut Cache,
+        window: &'c mut impl WindowHandle<T>,
+    ) -> Self {
         Self {
             data,
             cache,
@@ -155,7 +161,7 @@ impl<'c, T> SyncContext<'c, T> {
     }
     pub fn create_popup<F, M>(&'c mut self, x: f32, y: f32, data: M, builder: F)
     where
-    	F: FnMut(&T) -> Menu<T>,
+        F: FnMut(&T) -> Menu<T>,
         T: Mail<M, F, Menu<T>> + Data,
     {
         if let Some(menu) = self.data.send(data, builder) {
@@ -163,14 +169,6 @@ impl<'c, T> SyncContext<'c, T> {
         }
     }
 }
-
-// impl<'c, T, F, W> Mail<T, F, &'c mut W> for SyncContext<'c, T>
-// where
-//     T: Data,
-//     W: Widget<T>,
-//     F: FnMut(&T) -> Menu<T>,
-// {
-// }
 
 impl<'c, D> Deref for SyncContext<'c, D> {
     type Target = D;
