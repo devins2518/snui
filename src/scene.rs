@@ -48,10 +48,17 @@ impl Coords {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct LinearGradient {
+    pub stops: Vec<GradientStop>,
+    pub mode: SpreadMode,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Texture {
     Transparent,
     Image(Image),
     Color(Color),
+    LinearGradient(LinearGradient),
 }
 
 impl Texture {
@@ -60,9 +67,8 @@ impl Texture {
     }
     pub fn is_opaque(&self) -> bool {
         match &self {
-            Texture::Transparent => false,
-            Texture::Image(_) => false,
             Texture::Color(color) => color.is_opaque(),
+            _ => false,
         }
     }
 }
@@ -82,6 +88,12 @@ impl From<Color> for Texture {
 impl From<ColorU8> for Texture {
     fn from(color: ColorU8) -> Self {
         color.get().into()
+    }
+}
+
+impl From<LinearGradient> for Texture {
+    fn from(gradient: LinearGradient) -> Self {
+        Self::LinearGradient(gradient)
     }
 }
 
@@ -222,6 +234,12 @@ impl Region {
     pub fn is_empty(&self) -> bool {
         self.width == 0. || self.height == 0.
     }
+    pub fn start(&self) -> Coords {
+        Coords::new(self.x, self.y)
+    }
+    pub fn end(&self) -> Coords {
+        Coords::new(self.x + self.width, self.y + self.height)
+    }
     pub fn pad(&self, padding: f32) -> Region {
         Self {
             x: self.x - padding,
@@ -291,6 +309,7 @@ impl<'p> From<PrimitiveRef<'p>> for Primitive {
 // The current stack of background.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Background<'t, 'b> {
+    pub(crate) coords: Coords,
     pub(crate) rectangle: &'t Rectangle,
     pub(crate) previous: Option<&'b Background<'t, 'b>>,
 }
@@ -305,6 +324,7 @@ impl<'t, 'b> Deref for Background<'t, 'b> {
 impl<'t, 'b> Background<'t, 'b> {
     pub fn new(rectangle: &'t Rectangle) -> Self {
         Background {
+            coords: Default::default(),
             rectangle,
             // region: Region::new(0., 0., rectangle.width(), rectangle.height()),
             previous: None,
@@ -312,6 +332,14 @@ impl<'t, 'b> Background<'t, 'b> {
     }
     pub fn texture(&self) -> &Texture {
         &self.rectangle.texture
+    }
+    pub fn region(&self) -> Region {
+        Region::new(
+            self.coords.x,
+            self.coords.y,
+            self.rectangle.width(),
+            self.rectangle.height(),
+        )
     }
 }
 
@@ -734,6 +762,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                 let t_background = match rect.texture {
                     Texture::Transparent => self.background,
                     _ => Background {
+                        coords: self.coords,
                         previous: (rect.texture.is_transparent()).then(|| &self.background),
                         rectangle: rect,
                     },

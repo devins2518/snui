@@ -203,6 +203,28 @@ impl Drawable for Rectangle {
                             clipmask,
                         );
                     }
+                    Texture::LinearGradient(gradient) => {
+                        dt.fill_path(
+                            &path,
+                            &Paint {
+                                shader: LinearGradient::new(
+                                    Point::from_xy(0., 0.),
+                                    Point::from_xy(self.width(), self.height()),
+                                    gradient.stops.clone(),
+                                    gradient.mode,
+                                    Transform::identity(),
+                                    // Transform::from_scale(transform.sx, transform.sy),
+                                )
+                                .expect("Failed to build LinearGradient shader"),
+                                blend_mode: BlendMode::SourceOver,
+                                anti_alias: true,
+                                force_hq_pipeline: false,
+                            },
+                            FillRule::Winding,
+                            transform,
+                            clipmask,
+                        );
+                    }
                     _ => {}
                 }
             }
@@ -377,6 +399,28 @@ impl Drawable for BorderedRectangle {
                                     1.0,
                                     Transform::from_scale(sx, sy),
                                 ),
+                                blend_mode: BlendMode::SourceOver,
+                                anti_alias: true,
+                                force_hq_pipeline: false,
+                            },
+                            &stroke,
+                            transform.pre_translate(self.border_width / 2., self.border_width / 2.),
+                            clipmask,
+                        );
+                    }
+                    Texture::LinearGradient(gradient) => {
+                        dt.stroke_path(
+                            &path,
+                            &Paint {
+                                shader: LinearGradient::new(
+                                    Point::from_xy(0., 0.),
+                                    Point::from_xy(self.width(), self.height()),
+                                    gradient.stops.clone(),
+                                    gradient.mode,
+                                    Transform::identity(),
+                                    // Transform::from_scale(transform.sx, transform.sy),
+                                )
+                                .expect("Failed to build LinearGradient shader"),
                                 blend_mode: BlendMode::SourceOver,
                                 anti_alias: true,
                                 force_hq_pipeline: false,

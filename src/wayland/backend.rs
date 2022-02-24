@@ -681,21 +681,15 @@ where
                 .with_transform(transform);
 
             if offset != self.state.offset {
-                self.state.offset = offset;
-                ctx.clear(
-                    &Background::new(&region),
-                    Region::new(0., 0., width, height),
-                );
                 self.widget
                     .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
-                if ctx.damage_queue().is_empty() {
-                    self.state.render_node.render(&mut ctx, transform, None);
-                }
+                self.state.render_node.render(&mut ctx, transform, None);
             } else {
                 self.widget
                     .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
             }
 
+            self.state.offset = offset;
             surface.damage(conn, ctx.damage_queue());
             surface.commit(conn);
         } else if !self.state.pending_cb && surface.frame(conn, qh, ()).is_ok() {
@@ -776,7 +770,7 @@ impl GlobalManager {
             wl_surface,
             wl_region,
             Shell::Popup {
-                parent: parent_surface.map(|surface| surface.clone()),
+                parent: parent_surface.cloned(),
                 xdg_surface,
                 positioner,
                 popup,
@@ -1078,10 +1072,8 @@ where
                         );
                     } else {
                         let mut ctx = LayoutCtx::new(&mut self.cache);
-                        let Size { width, height } = view
-                            .widget
-                            .layout(&mut ctx, &BoxConstraints::default())
-                            .into();
+                        let Size { width, height } =
+                            view.widget.layout(&mut ctx, &BoxConstraints::default());
                         view.state.constraint = BoxConstraints::new((0., 0.), (width, height));
                         view.widget.layout(&mut ctx, &view.state.constraint);
                     }
@@ -1321,10 +1313,8 @@ where
                         );
                     } else if view.state.constraint.is_default() {
                         let mut ctx = LayoutCtx::new(&mut self.cache);
-                        let Size { width, height } = view
-                            .widget
-                            .layout(&mut ctx, &BoxConstraints::default())
-                            .into();
+                        let Size { width, height } =
+                            view.widget.layout(&mut ctx, &BoxConstraints::default());
                         view.state.constraint = BoxConstraints::new((0., 0.), (width, height));
                         view.widget.layout(&mut ctx, &view.state.constraint);
                         toplevel.set_min_size(conn, width as i32, height as i32)

@@ -222,6 +222,9 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
         )
 }
 
+use scene::LinearGradient;
+use tiny_skia::GradientStop;
+
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
@@ -231,7 +234,13 @@ fn main() {
         Demo::default(),
         window
             .decoration(theme::BG2, 2.)
-            .alternate_decoration(theme::PURPLE)
+            .alternate_decoration(LinearGradient {
+                mode: tiny_skia::SpreadMode::Repeat,
+                stops: vec![
+                    GradientStop::new(0., u32_to_source(theme::BLUE)),
+                    GradientStop::new(1., u32_to_source(theme::PURPLE)),
+                ],
+            })
             .texture(theme::BG0)
             .radius(5.),
         &event_queue.handle(),
@@ -243,7 +252,13 @@ fn main() {
         Demo::default(),
         window
             .decoration(theme::BG2, 2.)
-            .alternate_decoration(theme::PURPLE)
+            .alternate_decoration(LinearGradient {
+                mode: tiny_skia::SpreadMode::Repeat,
+                stops: vec![
+                    GradientStop::new(0., u32_to_source(theme::BLUE)),
+                    GradientStop::new(1., u32_to_source(theme::PURPLE)),
+                ],
+            })
             .texture(theme::BG0)
             .radius(5.),
         &event_queue.handle(),

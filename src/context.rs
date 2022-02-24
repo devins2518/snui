@@ -319,6 +319,30 @@ impl<'c> DrawContext<'c> {
                 }
                 _ => {}
             },
+            Texture::LinearGradient(gradient) => match &mut self.backend {
+                Backend::Pixmap(dt) => {
+                    let background_region = background.region();
+                    dt.fill_rect(
+                        region.into(),
+                        &Paint {
+                            shader: LinearGradient::new(
+                                background_region.start().into(),
+                                background_region.end().into(),
+                                gradient.stops.clone(),
+                                gradient.mode,
+                                self.transform,
+                            )
+                            .expect("Failed to build LinearGradient shader"),
+                            blend_mode: blend,
+                            anti_alias: false,
+                            force_hq_pipeline: false,
+                        },
+                        self.transform,
+                        clip_mask,
+                    );
+                }
+                _ => {}
+            },
             Texture::Image(image) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
                     let sx = background.rectangle.width / image.width();
@@ -331,7 +355,9 @@ impl<'c> DrawContext<'c> {
                                 SpreadMode::Repeat,
                                 FilterQuality::Bilinear,
                                 1.0,
-                                Transform::from_scale(sx, sy),
+                                self.transform
+                                    .post_translate(background.coords.x, background.coords.y)
+                                    .post_scale(sx, sy),
                             ),
                             blend_mode: blend,
                             anti_alias: false,

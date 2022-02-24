@@ -101,26 +101,24 @@ impl Widget<Color> for ColorBlock {
                 return Damage::Partial;
             }
             Event::Pointer(x, y, p) => {
-                if self.contains(x, y) {
-                    if let Some(_) = p.left_button_click() {
-                        ctx.create_popup(|color, mut ctx| {
-                            let mut label = Label::default(color.as_string())
-                                .background(theme::BEIGE)
-                                .padding(5.)
-                                .button(|_, ctx: &mut SyncContext<Color>, p| {
-                                    if p.left_button_click().is_some() {
-                                        ctx.window().close();
-                                    }
-                                });
-                            Menu::Popup {
-                                data: color.clone(),
-                                offset: Coords::new(self.abs.x + x, self.abs.y + y),
-                                anchor: (START, START),
-                                size: label.layout(&mut ctx, &BoxConstraints::default()),
-                                widget: Box::new(label),
-                            }
-                        });
-                    }
+                if self.contains(x, y) && p.left_button_click().is_some() {
+                    ctx.create_popup(|color, mut ctx| {
+                        let mut label = Label::default(color.as_string())
+                            .background(color.color)
+                            .padding(5.)
+                            .button(|_, ctx: &mut SyncContext<Color>, p| {
+                                if p.left_button_click().is_some() {
+                                    ctx.window().close();
+                                }
+                            });
+                        Menu::Popup {
+                            data: color.clone(),
+                            offset: Coords::new(self.abs.x + x, self.abs.y + y),
+                            anchor: (START, START),
+                            size: label.layout(&mut ctx, &BoxConstraints::default()),
+                            widget: Box::new(label),
+                        }
+                    });
                 }
             }
             _ => {}
