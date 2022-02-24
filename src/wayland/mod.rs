@@ -76,7 +76,8 @@ pub enum Shell {
         xdg_surface: xdg_surface::XdgSurface,
         toplevel: xdg_toplevel::XdgToplevel,
     },
-    PopUp {
+    Popup {
+        parent: Option<WlSurface>,
         xdg_surface: xdg_surface::XdgSurface,
         positioner: xdg_positioner::XdgPositioner,
         popup: xdg_popup::XdgPopup,
@@ -122,10 +123,11 @@ impl Shell {
                 xdg_surface.destroy(conn);
                 toplevel.destroy(conn);
             }
-            Self::PopUp {
+            Self::Popup {
                 xdg_surface,
                 positioner,
                 popup,
+                ..
             } => {
                 xdg_surface.destroy(conn);
                 positioner.destroy(conn);
@@ -146,14 +148,14 @@ impl Shell {
     }
     pub fn popup(&self) -> Option<&xdg_popup::XdgPopup> {
         match self {
-            Self::PopUp { popup, .. } => Some(popup),
+            Self::Popup { popup, .. } => Some(popup),
             Self::Xdg { .. } => None,
             Shell::LayerShell { .. } => None,
         }
     }
     pub fn positioner(&self) -> Option<&xdg_positioner::XdgPositioner> {
         match self {
-            Self::PopUp { positioner, .. } => Some(positioner),
+            Self::Popup { positioner, .. } => Some(positioner),
             Self::Xdg { .. } => None,
             Shell::LayerShell { .. } => None,
         }
@@ -167,8 +169,20 @@ impl Shell {
     pub fn xdg_surface(&self) -> Option<&xdg_surface::XdgSurface> {
         match self {
             Self::Xdg { xdg_surface, .. } => Some(xdg_surface),
-            Self::PopUp { xdg_surface, .. } => Some(xdg_surface),
+            Self::Popup { xdg_surface, .. } => Some(xdg_surface),
             Shell::LayerShell { .. } => None,
+        }
+    }
+    pub fn layer_surface(&self) -> Option<&ZwlrLayerSurfaceV1> {
+        match self {
+            Shell::LayerShell { layer_surface, .. } => Some(layer_surface),
+            _ => None,
+        }
+    }
+    pub fn parent(&self) -> Option<&WlSurface> {
+        match self {
+            Self::Popup { parent, .. } => parent.as_ref(),
+            _ => None,
         }
     }
 }
@@ -181,6 +195,7 @@ pub struct Surface {
     output: Option<Output>,
     wl_buffer: Option<WlBuffer>,
     previous: Option<Box<Self>>,
+    children: Vec<WlSurface>,
 }
 
 #[derive(Debug, Clone)]

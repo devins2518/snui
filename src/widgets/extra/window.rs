@@ -164,7 +164,10 @@ impl<T, W: Widget<T>> Widget<T> for Header<W> {
                     } else if let Some(serial) = p.right_button_click() {
                         // Cursor position is relative.
                         // Only works because the Header is the first entered widget
-                        ctx.window().show_menu(x, y, Menu::System(serial));
+                        ctx.window().show_menu(Menu::System {
+                            position: scene::Coords::new(x, y),
+                            serial,
+                        });
                     }
                 }
             }
@@ -325,7 +328,7 @@ where
             }
         }
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+    fn layout<'l>(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (h_width, h_height) = self
             .header
             .layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.))
@@ -334,8 +337,16 @@ where
             .window
             .layout(ctx, &constraints.crop(0., h_height))
             .into();
-        self.window.set_coords(0., h_height);
-        self.size = (b_width.max(h_width), h_height + b_height).into();
+        if h_width != b_width {
+            let Size { width, height } = self
+                .header
+                .layout(ctx.force(), &constraints.with_max(b_width, 0.));
+            self.window.set_coords(0., height);
+            self.size = Size::new(b_width.max(width), height + b_height);
+        } else {
+            self.window.set_coords(0., h_height);
+            self.size = Size::new(b_width.max(h_width), h_height + b_height);
+        }
         self.size
     }
 }

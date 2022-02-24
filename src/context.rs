@@ -1,9 +1,7 @@
 //! Contexts provided to snui widgets.
 
-use crate::cache::*;
-use crate::mail::{Data, Mail};
-use crate::widgets::Alignment;
 use crate::*;
+use crate::{cache::*, widgets::Alignment};
 use scene::*;
 use std::ops::{Deref, DerefMut};
 
@@ -73,14 +71,23 @@ impl<'c> LayoutCtx<'c> {
             cache,
         }
     }
+    pub fn force(&mut self) -> &mut Self {
+        self.force = true;
+        self
+    }
 }
 
 pub enum Menu<T> {
-    System(u32),
-    PopUp {
+    System {
+        position: Coords,
+        serial: u32,
+    },
+    Popup {
         data: T,
-        widget: Box<dyn Widget<T>>,
+        size: Size,
+        offset: Coords,
         anchor: (Alignment, Alignment),
+        widget: Box<dyn Widget<T>>,
     },
 }
 
@@ -93,7 +100,7 @@ pub trait WindowHandle<T> {
     fn minimize(&mut self) {}
     fn maximize(&mut self) {}
     /// Show a context menu
-    fn show_menu(&mut self, _x: f32, _y: f32, _menu: Menu<T>) {}
+    fn show_menu(&mut self, _menu: Menu<T>) {}
     /// Move the window.
     ///
     /// The serial is provided by Event.Pointer.
@@ -164,14 +171,13 @@ impl<'c, T> SyncContext<'c, T> {
     /// Note: Currently the x and y coordinates in the widget system are relative.
     /// Only the the Scene and by extension the RenderNode know the abosule position
     /// of things.
-    pub fn create_popup<F, M>(&'c mut self, x: f32, y: f32, data: M, builder: F)
+    pub fn create_popup<F>(&mut self, mut builder: F)
     where
-        F: FnMut(&T) -> Menu<T>,
-        T: Mail<M, F, Menu<T>> + Data,
+        F: FnMut(&T, LayoutCtx) -> Menu<T>,
     {
-        if let Some(menu) = self.data.send(data, builder) {
-            self.window.show_menu(x, y, menu);
-        }
+        let layout = LayoutCtx::new(self.cache);
+        let menu = builder(self.data, layout);
+        self.window.show_menu(menu);
     }
 }
 

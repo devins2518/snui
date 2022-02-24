@@ -13,7 +13,7 @@ fontconfig = "0.2.1"
 image = { version="0.23.14", features=["jpeg", "png"] }
 # smithay-client-toolkit = { path="../client-toolkit/", optional= true }
 smithay-client-toolkit = { git="https://github.com/snakedye/client-toolkit.git", branch="snakedye-multipool-rebased", optional= true }
-wayland-cursor = { version="0.30.0-alpha3", optional= true }
+wayland-cursor = { version="0.30.0-alpha5", optional= true }
 
 [features]
 default = ["wayland"]

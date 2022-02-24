@@ -507,9 +507,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             clip: None,
             node,
             context,
-            background: Background::new(
-                rectangle,
-            ),
+            background: Background::new(rectangle),
         }
     }
     /// Move the scene coords by a delta

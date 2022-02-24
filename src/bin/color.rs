@@ -70,6 +70,7 @@ impl Color {
 struct ColorBlock {
     width: f32,
     height: f32,
+    abs: Coords,
     color: tiny_skia::Color,
 }
 
@@ -84,6 +85,7 @@ impl Geometry for ColorBlock {
 
 impl Widget<Color> for ColorBlock {
     fn draw_scene(&mut self, mut scene: Scene) {
+        self.abs = scene.position();
         scene.insert_primitive(
             &Rectangle::new(self.width, self.height)
                 .texture(self.color)
@@ -97,6 +99,29 @@ impl Widget<Color> for ColorBlock {
                 let title = ctx.as_string();
                 ctx.window().set_title(title);
                 return Damage::Partial;
+            }
+            Event::Pointer(x, y, p) => {
+                if self.contains(x, y) {
+                    if let Some(_) = p.left_button_click() {
+                        ctx.create_popup(|color, mut ctx| {
+                            let mut label = Label::default(color.as_string())
+                                .background(theme::BEIGE)
+                                .padding(5.)
+                                .button(|_, ctx: &mut SyncContext<Color>, p| {
+                                    if p.left_button_click().is_some() {
+                                        ctx.window().close();
+                                    }
+                                });
+                            Menu::Popup {
+                                data: color.clone(),
+                                offset: Coords::new(self.abs.x + x, self.abs.y + y),
+                                anchor: (START, START),
+                                size: label.layout(&mut ctx, &BoxConstraints::default()),
+                                widget: Box::new(label),
+                            }
+                        });
+                    }
+                }
             }
             _ => {}
         }
@@ -141,6 +166,7 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
         ColorBlock {
             width: 200.,
             height: 200.,
+            abs: Coords::default(),
             color: tiny_skia::Color::WHITE,
         }
         .padding_top(5.)

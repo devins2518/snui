@@ -11,12 +11,8 @@
 ///	/// This example is inspired by the slider
 /// ```
 pub trait Mail<M, D, U> {
-    fn get(&self, _message: M) -> Option<U> {
-        None
-    }
-    fn send(&mut self, _message: M, _data: D) -> Option<U> {
-        None
-    }
+    fn get(&self, message: M) -> Option<U>;
+    fn send(&mut self, message: M, data: D) -> Option<U>;
 }
 
 trait SimpleMail<M, D, U>: Mail<M, D, U> {
