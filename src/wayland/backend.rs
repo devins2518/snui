@@ -640,7 +640,10 @@ where
                 &Background::new(&region),
                 Region::new(0., 0., width, height),
             );
-            self.state.render_node.render(&mut ctx, transform, None);
+            self.widget.draw_scene(
+                Scene::new(&mut self.state.render_node, &mut ctx, &region)
+                    .damage(Size::new(width, height)),
+            );
 
             surface.damage(conn, ctx.damage_queue());
             surface.commit(conn);

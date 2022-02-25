@@ -185,14 +185,6 @@ impl Drawable for Label {
     }
 }
 
-use crate::scene::PrimitiveRef;
-
-impl<'p> From<&'p Label> for PrimitiveRef<'p> {
-    fn from(this: &'p Label) -> Self {
-        PrimitiveRef::Label(this)
-    }
-}
-
 impl GeometryExt for Label {
     fn set_width(&mut self, width: f32) {
         self.settings.max_width = Some(width);

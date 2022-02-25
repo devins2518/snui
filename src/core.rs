@@ -83,6 +83,15 @@ pub struct Size {
     pub height: f32,
 }
 
+impl Geometry for Size {
+    fn width(&self) -> f32 {
+        self.width
+    }
+    fn height(&self) -> f32 {
+        self.height
+    }
+}
+
 impl Size {
     pub fn new(width: f32, height: f32) -> Self {
         Size { width, height }

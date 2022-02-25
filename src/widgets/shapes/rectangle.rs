@@ -1,6 +1,5 @@
 use crate::widgets::shapes::*;
 use crate::*;
-use scene::PrimitiveRef;
 use std::f32::consts::FRAC_1_SQRT_2;
 use tiny_skia::*;
 
@@ -261,12 +260,6 @@ impl Style for Rectangle {
     }
 }
 
-impl<'p> From<&'p Rectangle> for PrimitiveRef<'p> {
-    fn from(this: &'p Rectangle) -> Self {
-        PrimitiveRef::Rectangle(this)
-    }
-}
-
 impl<T> Widget<T> for Rectangle {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(self)
@@ -352,12 +345,6 @@ impl BorderedRectangle {
     }
     fn minimum_width(&self) -> f32 {
         self.radius.1.max(self.radius.3)
-    }
-}
-
-impl<'p> From<&'p BorderedRectangle> for PrimitiveRef<'p> {
-    fn from(this: &'p BorderedRectangle) -> Self {
-        PrimitiveRef::BorderedRectangle(this)
     }
 }
 

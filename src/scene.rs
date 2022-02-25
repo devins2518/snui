@@ -5,7 +5,6 @@ use std::rc::Rc;
 use tiny_skia::*;
 
 use cache::image::RawImage as Image;
-use widgets::label::*;
 use widgets::shapes::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -285,84 +284,6 @@ pub trait Merge<T> {
     fn merge(&mut self, other: T);
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Primitive {
-    Label(Label),
-    Rectangle(Rectangle),
-    BorderedRectangle(BorderedRectangle),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum PrimitiveRef<'p> {
-    Label(&'p Label),
-    Rectangle(&'p Rectangle),
-    BorderedRectangle(&'p BorderedRectangle),
-}
-
-impl Deref for Primitive {
-    type Target = dyn Drawable;
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Self::Rectangle(rect) => rect,
-            Self::Label(label) => label,
-            Self::BorderedRectangle(rect) => rect,
-        }
-    }
-}
-
-impl<'p> Deref for PrimitiveRef<'p> {
-    type Target = dyn Drawable;
-    fn deref(&self) -> &Self::Target {
-        match *self {
-            Self::Label(label) => label,
-            Self::Rectangle(rect) => rect,
-            Self::BorderedRectangle(rect) => rect,
-        }
-    }
-}
-
-impl<'p> From<&'p Primitive> for PrimitiveRef<'p> {
-    fn from(primitive: &'p Primitive) -> Self {
-        match primitive {
-            Primitive::Label(label) => PrimitiveRef::Label(label),
-            Primitive::Rectangle(rect) => PrimitiveRef::Rectangle(rect),
-            Primitive::BorderedRectangle(rect) => PrimitiveRef::BorderedRectangle(rect),
-        }
-    }
-}
-
-impl<'p> From<PrimitiveRef<'p>> for Primitive {
-    fn from(p_ref: PrimitiveRef<'p>) -> Self {
-        match p_ref {
-            PrimitiveRef::Label(label) => Primitive::Label(label.clone()),
-            PrimitiveRef::Rectangle(rect) => Primitive::Rectangle(rect.clone()),
-            PrimitiveRef::BorderedRectangle(rect) => Primitive::BorderedRectangle(rect.clone()),
-        }
-    }
-}
-
-impl<'p> Merge<PrimitiveRef<'p>> for Primitive {
-    fn merge(&mut self, other: PrimitiveRef<'p>) {
-        if let Self::Label(label) = self {
-            if let PrimitiveRef::Label(other) = other {
-                label.text.replace_range(0.., other.as_str());
-                for (t_font, font) in label.fonts.iter_mut().zip(other.fonts.iter()) {
-                    if t_font.ne(&font) {
-                        t_font.name.replace_range(0.., &font.name);
-                        t_font.style = font.style;
-                    }
-                }
-                label.settings = other.settings;
-                label.font_size = other.font_size;
-                label.color = other.color;
-                label.size = other.size;
-                return;
-            }
-        }
-        *self = Primitive::from(other);
-    }
-}
-
 // The current stack of background.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Background<'t, 'b> {
@@ -383,7 +304,6 @@ impl<'t, 'b> Background<'t, 'b> {
         Background {
             coords: Default::default(),
             rectangle,
-            // region: Region::new(0., 0., rectangle.width(), rectangle.height()),
             previous: None,
         }
     }
@@ -400,12 +320,11 @@ impl<'t, 'b> Background<'t, 'b> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum RenderNode {
     None,
     Primitive {
-        coords: Coords,
-        primitive: Primitive,
+        region: Region,
     },
     Container {
         bounds: Region,
@@ -429,58 +348,8 @@ pub enum RenderNode {
 }
 
 impl RenderNode {
-    pub fn render(
-        &self,
-        ctx: &mut DrawContext,
-        transform: tiny_skia::Transform,
-        clip: Option<&Region>,
-    ) {
-        match self {
-            RenderNode::None => {}
-            RenderNode::Primitive { coords, primitive } => {
-                let transform = ctx.transform().pre_translate(coords.x, coords.y);
-                primitive.draw(ctx, transform);
-            }
-            RenderNode::Clip { bounds, child } => {
-                ctx.set_clip(bounds);
-                child.render(ctx, transform, clip);
-                if let Some(region) = clip {
-                    ctx.set_clip(region);
-                }
-            }
-            RenderNode::Container { children, .. } => {
-                for child in children {
-                    child.render(ctx, transform, clip)
-                }
-            }
-            RenderNode::Background {
-                coords,
-                background,
-                child,
-            } => {
-                let transform = ctx.transform().pre_translate(coords.x, coords.y);
-                background.draw(ctx, transform);
-                child.render(ctx, transform, clip);
-            }
-            RenderNode::Border {
-                coords,
-                border,
-                child,
-            } => {
-                let transform = ctx.transform().pre_translate(coords.x, coords.y);
-                border.draw(ctx, transform);
-                child.render(ctx, transform, clip);
-            }
-        }
-    }
-}
-
-impl RenderNode {
-    fn primitive(coords: Coords, primitive: impl Into<Primitive>) -> Self {
-        RenderNode::Primitive {
-            coords,
-            primitive: primitive.into(),
-        }
+    fn primitive(region: Region) -> Self {
+        RenderNode::Primitive { region }
     }
     fn background(coords: Coords, background: Rectangle, child: RenderNode) -> Self {
         RenderNode::Background {
@@ -522,12 +391,7 @@ impl RenderNode {
                 background.width,
                 background.height,
             )),
-            RenderNode::Primitive { coords, primitive } => Some(Region::new(
-                coords.x,
-                coords.y,
-                primitive.width(),
-                primitive.height(),
-            )),
+            RenderNode::Primitive { region } => Some(*region),
             RenderNode::Border { coords, border, .. } => Some(Region::new(
                 coords.x,
                 coords.y,
@@ -918,58 +782,45 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
             }
         }
     }
-    pub fn insert_primitive<P>(&mut self, primitive: &P)
-    where
-        for<'a> &'a P: Into<PrimitiveRef<'a>>,
-    {
-        let primitive_ref = primitive.into();
+    // Since primitives are at the end of a branch of the scene graph
+    // and widget tree, they would only be inserted if the proxies
+    // gates up to it were open.
+    pub fn insert_primitive<P: Drawable>(&mut self, primitive: &P) {
         let transform = self.context.transform();
-        let region = Region::new(
+        let primitive_region = Region::new(
             self.coords.x,
             self.coords.y,
-            primitive_ref.width(),
-            primitive_ref.height(),
+            primitive.width(),
+            primitive.height(),
         );
         match self.node {
-            RenderNode::Primitive { coords, primitive } => {
-                let damage_coords = self.coords.ne(coords);
-                let damage_prim = PrimitiveRef::from(&*primitive).ne(&primitive_ref);
-                if damage_coords || damage_prim || self.damage {
-                    let merge = region.merge(&Region::new(
-                        coords.x,
-                        coords.y,
-                        primitive.width(),
-                        primitive.height(),
-                    ));
-                    if damage_prim {
-                        primitive.merge(primitive_ref);
-                    }
-                    if !self.damage {
-                        self.context.clear(&self.background, merge);
-                    }
-                    primitive.draw(
-                        self.context,
-                        transform.pre_translate(self.coords.x, self.coords.y),
-                    );
-                    *coords = self.coords;
+            RenderNode::Primitive { region } => {
+                let merge = region.merge(&primitive_region);
+                if !self.damage {
+                    self.context.clear(&self.background, merge);
                 }
+                primitive.draw(
+                    self.context,
+                    transform.pre_translate(self.coords.x, self.coords.y),
+                );
+                *region = primitive_region;
             }
             _ => {
                 let merge = self
                     .node
                     .region()
-                    .map(|inner| inner.merge(&region))
-                    .unwrap_or(region);
+                    .map(|inner| inner.merge(&primitive_region))
+                    .unwrap_or(primitive_region);
                 if !self.damage {
                     // The space occupied by the previous node and the new one is cleaned.
                     self.context.clear(&self.background, merge);
                 }
                 // We replace the invalidated node.
-                primitive_ref.draw(
+                primitive.draw(
                     self.context,
                     transform.pre_translate(self.coords.x, self.coords.y),
                 );
-                *self.node = RenderNode::primitive(self.coords, Primitive::from(primitive_ref));
+                *self.node = RenderNode::primitive(primitive_region);
             }
         }
     }
