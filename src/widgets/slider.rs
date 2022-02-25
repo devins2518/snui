@@ -195,15 +195,15 @@ where
                     match &self.orientation {
                         Orientation::Horizontal => {
                             let width = self.slider.width();
-                            let _ = self.slider.set_width(ratio * self.size);
-                            if width.round() != (ratio * self.size).round() {
+                            self.slider.set_width(ratio * self.size);
+                            if width != self.slider.width() {
                                 return Damage::Partial;
                             }
                         }
                         Orientation::Vertical => {
                             let height = self.slider.height();
-                            let _ = self.slider.set_height(ratio * self.size);
-                            if height.round() != (ratio * self.size).round() {
+                            self.slider.set_height(ratio * self.size);
+                            if height != self.slider.height() {
                                 return Damage::Partial;
                             }
                         }
