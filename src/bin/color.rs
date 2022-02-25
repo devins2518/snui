@@ -103,7 +103,7 @@ impl Widget<Color> for ColorBlock {
             Event::Pointer(x, y, p) => {
                 if self.contains(x, y) && p.left_button_click().is_some() {
                     ctx.create_popup(|color, mut ctx| {
-                        let mut label = Label::default(color.as_string())
+                        let mut label = Label::new(color.as_string())
                             .background(color.color)
                             .padding(5.)
                             .button(|_, ctx: &mut SyncContext<Color>, p| {

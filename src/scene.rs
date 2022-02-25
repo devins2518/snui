@@ -49,8 +49,27 @@ impl Coords {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LinearGradient {
+    pub orientation: Orientation,
     pub stops: Vec<GradientStop>,
     pub mode: SpreadMode,
+}
+
+impl LinearGradient {
+    pub fn new(stops: Vec<GradientStop>) -> LinearGradient {
+        LinearGradient {
+            stops,
+            mode: SpreadMode::Reflect,
+            orientation: Orientation::Horizontal,
+        }
+    }
+    pub fn mode(mut self, mode: SpreadMode) -> Self {
+        self.mode = mode;
+        self
+    }
+    pub fn orientation(mut self, orientation: Orientation) -> Self {
+        self.orientation = orientation;
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -234,6 +253,18 @@ impl Region {
     pub fn is_empty(&self) -> bool {
         self.width == 0. || self.height == 0.
     }
+    pub fn top_anchor(&self) -> Coords {
+        Coords::new(self.x + self.width / 2., self.y)
+    }
+    pub fn left_anchor(&self) -> Coords {
+        Coords::new(self.x, self.y + self.height / 2.)
+    }
+    pub fn bottom_anchor(&self) -> Coords {
+        Coords::new(self.x + self.width / 2., self.y + self.height)
+    }
+    pub fn right_anchor(&self) -> Coords {
+        Coords::new(self.x + self.width, self.y + self.height / 2.)
+    }
     pub fn start(&self) -> Coords {
         Coords::new(self.x, self.y)
     }
@@ -248,6 +279,10 @@ impl Region {
             height: self.height + 2. * padding,
         }
     }
+}
+
+pub trait Merge<T> {
+    fn merge(&mut self, other: T);
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -303,6 +338,28 @@ impl<'p> From<PrimitiveRef<'p>> for Primitive {
             PrimitiveRef::Rectangle(rect) => Primitive::Rectangle(rect.clone()),
             PrimitiveRef::BorderedRectangle(rect) => Primitive::BorderedRectangle(rect.clone()),
         }
+    }
+}
+
+impl<'p> Merge<PrimitiveRef<'p>> for Primitive {
+    fn merge(&mut self, other: PrimitiveRef<'p>) {
+        if let Self::Label(label) = self {
+            if let PrimitiveRef::Label(other) = other {
+                label.text.replace_range(0.., other.as_str());
+                for (t_font, font) in label.fonts.iter_mut().zip(other.fonts.iter()) {
+                    if t_font.ne(&font) {
+                        t_font.name.replace_range(0.., &font.name);
+                        t_font.style = font.style;
+                    }
+                }
+                label.settings = other.settings;
+                label.font_size = other.font_size;
+                label.color = other.color;
+                label.size = other.size;
+                return;
+            }
+        }
+        *self = Primitive::from(other);
     }
 }
 
@@ -885,7 +942,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                         primitive.height(),
                     ));
                     if damage_prim {
-                        *primitive = primitive_ref.into();
+                        primitive.merge(primitive_ref);
                     }
                     if !self.damage {
                         self.context.clear(&self.background, merge);

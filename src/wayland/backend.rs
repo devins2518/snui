@@ -603,7 +603,7 @@ where
             _ => {}
         }
     }
-    fn quick_render(
+    fn direct_render(
         &mut self,
         pool: &mut MultiPool<wl_surface::WlSurface>,
         cache: &mut Cache,
@@ -681,9 +681,10 @@ where
                 .with_transform(transform);
 
             if offset != self.state.offset {
-                self.widget
-                    .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
-                self.state.render_node.render(&mut ctx, transform, None);
+                self.widget.draw_scene(
+                    Scene::new(&mut self.state.render_node, &mut ctx, &region)
+                        .damage(Size::new(width, height)),
+                );
             } else {
                 self.widget
                     .draw_scene(Scene::new(&mut self.state.render_node, &mut ctx, &region));
@@ -1156,7 +1157,7 @@ where
                             view.surface.output = Some(output.clone());
                             std::mem::drop(output);
                             std::mem::drop(globals);
-                            view.quick_render(
+                            view.direct_render(
                                 self.pool.as_mut().unwrap(),
                                 &mut self.cache,
                                 conn,
@@ -1165,7 +1166,7 @@ where
                         }
                     } else {
                         view.surface.output = Some(output.clone());
-                        view.quick_render(self.pool.as_mut().unwrap(), &mut self.cache, conn, qh)
+                        view.direct_render(self.pool.as_mut().unwrap(), &mut self.cache, conn, qh)
                     }
                 }
             }

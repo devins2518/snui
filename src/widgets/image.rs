@@ -11,7 +11,7 @@ use super::shapes::{Rectangle, Style};
 #[derive(Clone, PartialEq, Debug, Hash, Eq)]
 pub enum Scale {
     Fill,
-    Fit,
+    KeepAspect,
 }
 
 pub struct Image {
@@ -32,18 +32,16 @@ impl Image {
 
 impl Geometry for Image {
     fn width(&self) -> f32 {
-        if let Some(image) = self.inner.as_ref() {
-            image.width()
-        } else {
-            0.
-        }
+        self.inner
+            .as_ref()
+            .map(|inner| inner.width())
+            .unwrap_or_default()
     }
     fn height(&self) -> f32 {
-        if let Some(image) = self.inner.as_ref() {
-            image.height()
-        } else {
-            0.
-        }
+        self.inner
+            .as_ref()
+            .map(|inner| inner.height())
+            .unwrap_or_default()
     }
 }
 
@@ -86,7 +84,7 @@ pub struct InnerImage {
 impl From<RawImage> for InnerImage {
     fn from(raw: RawImage) -> Self {
         Self {
-            scale: Scale::Fit,
+            scale: Scale::KeepAspect,
             image: Rectangle::new(raw.width(), raw.height()).texture(raw),
         }
     }
@@ -116,19 +114,6 @@ impl InnerImage {
     pub fn set_scale(&mut self, scale: Scale) {
         self.scale = scale;
     }
-    pub fn scale(&self) -> (f32, f32) {
-        let raw = match &self.image.texture {
-            scene::Texture::Image(raw) => raw,
-            _ => unreachable!(),
-        };
-        match &self.scale {
-            Scale::Fit => (self.width() / raw.width(), self.height() / raw.height()),
-            Scale::Fill => {
-                let ratio = (self.width() / raw.width()).max(self.height() / raw.height());
-                (ratio, ratio)
-            }
-        }
-    }
 }
 
 impl Geometry for InnerImage {
@@ -149,7 +134,7 @@ impl<T> Widget<T> for InnerImage {
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         match self.scale {
-            Scale::Fit => {
+            Scale::KeepAspect => {
                 let raw = match self.image.texture {
                     scene::Texture::Image(ref raw) => raw,
                     _ => unreachable!(),

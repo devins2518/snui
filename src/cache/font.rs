@@ -12,6 +12,8 @@ use std::fs::read;
 use std::path::Path;
 use tiny_skia::*;
 
+const DEFAULT_FONT_NAME: &str = "sans serif";
+
 pub fn get_size<U: Copy + Clone>(glyphs: &[GlyphPosition<U>]) -> (f32, f32) {
     glyphs
         .iter()
@@ -20,7 +22,7 @@ pub fn get_size<U: Copy + Clone>(glyphs: &[GlyphPosition<U>]) -> (f32, f32) {
         .unwrap_or_default()
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum FontStyle {
     Regular,
     Italic,
@@ -41,6 +43,12 @@ impl FontStyle {
 pub struct FontProperty {
     pub name: String,
     pub style: FontStyle,
+}
+
+impl Default for FontProperty {
+    fn default() -> Self {
+        FontProperty::from(DEFAULT_FONT_NAME)
+    }
 }
 
 impl From<&str> for FontProperty {
@@ -117,6 +125,7 @@ impl FontCache {
         for font in label.fonts {
             self.load_font(font);
         }
+        let mut tmp = [0u8; 4];
         let fonts = Self::get_fonts(&self.fonts, label.fonts);
         for c in label.text.chars() {
             if let Some((font_index, _)) = fonts
@@ -124,7 +133,6 @@ impl FontCache {
                 .enumerate()
                 .find(|(_, f)| f.lookup_glyph_index(c) > 0 || c.is_ascii_control())
             {
-                let mut tmp = [0u8; 4];
                 self.layout.append(
                     &fonts,
                     &TextStyle::with_user_data(
@@ -141,6 +149,7 @@ impl FontCache {
         for font in label.fonts {
             self.load_font(font);
         }
+        let mut tmp = [0u8; 4];
         let fonts = Self::get_fonts(&self.fonts, label.fonts);
         self.layout.reset(label.settings);
         for c in label.text.chars() {
@@ -149,7 +158,6 @@ impl FontCache {
                 .enumerate()
                 .find(|(_, f)| f.lookup_glyph_index(c) > 0 || c.is_ascii_control())
             {
-                let mut tmp = [0u8; 4];
                 self.layout.append(
                     &fonts,
                     &TextStyle::with_user_data(

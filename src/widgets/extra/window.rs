@@ -216,7 +216,7 @@ where
 
 impl<T, H, W> Window<T, H, W>
 where
-    H: Widget<T>,
+    H: Widget<T> + Style,
     W: Widget<T>,
 {
     pub fn new(header: H, widget: W) -> Self {
@@ -236,6 +236,7 @@ where
     }
     pub fn set_decoration(&mut self, texture: impl Into<Texture>, width: f32) {
         let texture = texture.into();
+        self.header.set_texture(texture.clone());
         self.window.set_border(texture.clone(), width);
         self.decoration = texture;
     }

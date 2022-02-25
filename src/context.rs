@@ -7,18 +7,6 @@ use std::ops::{Deref, DerefMut};
 
 const WINDOW_STATE: [WindowState; 0] = [];
 
-pub const PIX_PAINT: PixmapPaint = PixmapPaint {
-    blend_mode: BlendMode::SourceOver,
-    opacity: 1.0,
-    quality: FilterQuality::Nearest,
-};
-
-pub const TEXT: PixmapPaint = PixmapPaint {
-    blend_mode: BlendMode::SourceAtop,
-    opacity: 1.0,
-    quality: FilterQuality::Bilinear,
-};
-
 /// Available rendering Backends
 pub enum Backend<'b> {
     /// A wrapper around a buffer from TinySkia
@@ -322,12 +310,20 @@ impl<'c> DrawContext<'c> {
             Texture::LinearGradient(gradient) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
                     let background_region = background.region();
+                    let start = match gradient.orientation {
+                        Orientation::Horizontal => background_region.start(),
+                        Orientation::Vertical => background_region.top_anchor(),
+                    };
+                    let end = match gradient.orientation {
+                        Orientation::Horizontal => background_region.end(),
+                        Orientation::Vertical => background_region.bottom_anchor(),
+                    };
                     dt.fill_rect(
                         region.into(),
                         &Paint {
                             shader: LinearGradient::new(
-                                background_region.start().into(),
-                                background_region.end().into(),
+                                start.into(),
+                                end.into(),
                                 gradient.stops.clone(),
                                 gradient.mode,
                                 self.transform,

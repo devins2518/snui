@@ -177,7 +177,7 @@ impl<D> Widget<D> for FrameRate {
             Event::Callback(frame_time) => {
                 if frame_time > 0 {
                     let frame_rate = 1000 / frame_time;
-                    self.label.edit(frame_rate);
+                    self.label.edit(&frame_rate.to_string());
                 }
                 self.label.sync(ctx, event)
             }
@@ -228,37 +228,32 @@ use tiny_skia::GradientStop;
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let window = window::default_window(Label::default("Animation"), ui().clamp());
+    let window = window::default_window(Label::new("Animation"), ui().clamp());
 
     client.new_window(
         Demo::default(),
         window
             .decoration(theme::BG2, 2.)
-            .alternate_decoration(LinearGradient {
-                mode: tiny_skia::SpreadMode::Repeat,
-                stops: vec![
-                    GradientStop::new(0., u32_to_source(theme::BLUE)),
-                    GradientStop::new(1., u32_to_source(theme::PURPLE)),
-                ],
-            })
+            .alternate_decoration(LinearGradient::new(vec![
+                GradientStop::new(0., u32_to_source(theme::BLUE)),
+                GradientStop::new(1., u32_to_source(theme::PURPLE)),
+            ]))
             .texture(theme::BG0)
             .radius(5.),
         &event_queue.handle(),
     );
 
-    let window = window::default_window(Label::default("Animation"), ui().clamp());
+    let window = window::default_window(Label::new("Animation"), ui().clamp());
 
     client.new_window(
         Demo::default(),
         window
             .decoration(theme::BG2, 2.)
-            .alternate_decoration(LinearGradient {
-                mode: tiny_skia::SpreadMode::Repeat,
-                stops: vec![
-                    GradientStop::new(0., u32_to_source(theme::BLUE)),
-                    GradientStop::new(1., u32_to_source(theme::PURPLE)),
-                ],
-            })
+            .alternate_decoration(theme::PURPLE)
+            .alternate_decoration(LinearGradient::new(vec![
+                GradientStop::new(0., u32_to_source(theme::BLUE)),
+                GradientStop::new(1., u32_to_source(theme::PURPLE)),
+            ]))
             .texture(theme::BG0)
             .radius(5.),
         &event_queue.handle(),

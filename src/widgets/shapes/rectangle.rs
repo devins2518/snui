@@ -204,16 +204,24 @@ impl Drawable for Rectangle {
                         );
                     }
                     Texture::LinearGradient(gradient) => {
+                        let region = Region::new(0., 0., self.width(), self.height());
+                        let start = match gradient.orientation {
+                            Orientation::Horizontal => region.start(),
+                            Orientation::Vertical => region.top_anchor(),
+                        };
+                        let end = match gradient.orientation {
+                            Orientation::Horizontal => region.end(),
+                            Orientation::Vertical => region.bottom_anchor(),
+                        };
                         dt.fill_path(
                             &path,
                             &Paint {
                                 shader: LinearGradient::new(
-                                    Point::from_xy(0., 0.),
-                                    Point::from_xy(self.width(), self.height()),
+                                    start.into(),
+                                    end.into(),
                                     gradient.stops.clone(),
                                     gradient.mode,
-                                    Transform::identity(),
-                                    // Transform::from_scale(transform.sx, transform.sy),
+                                    Transform::from_scale(transform.sx, transform.sy),
                                 )
                                 .expect("Failed to build LinearGradient shader"),
                                 blend_mode: BlendMode::SourceOver,
@@ -409,16 +417,24 @@ impl Drawable for BorderedRectangle {
                         );
                     }
                     Texture::LinearGradient(gradient) => {
+                        let region = Region::new(0., 0., self.width(), self.height());
+                        let start = match gradient.orientation {
+                            Orientation::Horizontal => region.start(),
+                            Orientation::Vertical => region.top_anchor(),
+                        };
+                        let end = match gradient.orientation {
+                            Orientation::Horizontal => region.end(),
+                            Orientation::Vertical => region.bottom_anchor(),
+                        };
                         dt.stroke_path(
                             &path,
                             &Paint {
                                 shader: LinearGradient::new(
-                                    Point::from_xy(0., 0.),
-                                    Point::from_xy(self.width(), self.height()),
+                                    start.into(),
+                                    end.into(),
                                     gradient.stops.clone(),
                                     gradient.mode,
-                                    Transform::identity(),
-                                    // Transform::from_scale(transform.sx, transform.sy),
+                                    Transform::from_scale(transform.sx, transform.sy),
                                 )
                                 .expect("Failed to build LinearGradient shader"),
                                 blend_mode: BlendMode::SourceOver,

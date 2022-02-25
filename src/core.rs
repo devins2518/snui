@@ -412,28 +412,6 @@ pub trait GeometryExt: Sized {
     }
 }
 
-/// Implement PartialEq across different types.
-///
-/// It is automatically implemented if a type implements PartialEq
-pub trait DynEq {
-    fn same(&self, other: &dyn std::any::Any) -> bool;
-    fn not_same(&self, other: &dyn std::any::Any) -> bool {
-        !self.same(other)
-    }
-}
-
-impl<T> DynEq for T
-where
-    T: PartialEq + 'static,
-{
-    fn same(&self, other: &dyn std::any::Any) -> bool {
-        if let Some(other) = other.downcast_ref::<T>() {
-            return self.eq(other);
-        }
-        false
-    }
-}
-
 impl<D, W> WidgetExt<D> for W where W: Widget<D> {}
 
 impl<D> Widget<D> for Box<dyn Widget<D>> {

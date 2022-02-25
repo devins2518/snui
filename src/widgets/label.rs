@@ -5,7 +5,12 @@ use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
 const DEFAULT_FONT_SIZE: f32 = 15.;
-const DEFAULT_FONT_NAME: &str = "sans serif";
+
+pub const TEXT: PixmapPaint = PixmapPaint {
+    blend_mode: BlendMode::SourceAtop,
+    opacity: 1.0,
+    quality: FilterQuality::Bilinear,
+};
 
 /// Owned text widget
 #[derive(Clone)]
@@ -14,7 +19,7 @@ pub struct Label {
     pub(crate) font_size: f32,
     pub(crate) color: Color,
     pub(crate) settings: LayoutSettings,
-    pub(crate) fonts: Vec<FontProperty>,
+    pub(crate) fonts: [FontProperty; 2],
     pub(crate) size: Option<Size>,
 }
 
@@ -35,18 +40,8 @@ impl Label {
         Label {
             text: text.into(),
             font_size: DEFAULT_FONT_SIZE,
-            fonts: Vec::new(),
+            fonts: Default::default(),
             settings: LayoutSettings::default(),
-            color: u32_to_source(FG0),
-            size: None,
-        }
-    }
-    pub fn default<T: Into<String>>(text: T) -> Label {
-        Label {
-            text: text.into(),
-            font_size: DEFAULT_FONT_SIZE,
-            settings: LayoutSettings::default(),
-            fonts: vec![FontProperty::new(DEFAULT_FONT_NAME)],
             color: u32_to_source(FG0),
             size: None,
         }
@@ -70,15 +65,18 @@ impl Label {
         self.text.push_str(s);
         self.size = None;
     }
-    pub fn edit<S: ToString>(&mut self, s: S) {
-        let s = s.to_string();
+    pub fn edit(&mut self, s: &str) {
         if s.ne(self.text.as_str()) {
-            self.text = s;
+            self.text.replace_range(0.., s);
             self.size = None;
         }
     }
-    pub fn font<F: Into<FontProperty>>(mut self, font: F) -> Self {
-        self.fonts.push(font.into());
+    pub fn primary_font<F: Into<FontProperty>>(mut self, font: F) -> Self {
+        self.fonts[0] = font.into();
+        self
+    }
+    pub fn secondary_font<F: Into<FontProperty>>(mut self, font: F) -> Self {
+        self.fonts[1] = font.into();
         self
     }
     pub fn color(mut self, color: u32) -> Self {
@@ -119,7 +117,7 @@ impl std::fmt::Debug for Label {
 
 impl From<&str> for Label {
     fn from(text: &str) -> Self {
-        Label::default(text)
+        Label::new(text)
     }
 }
 
@@ -142,13 +140,7 @@ impl Drawable for Label {
         let clip_mask = context
             .clipmask
             .as_ref()
-            .map(|clipmask| {
-                if !clipmask.is_empty() {
-                    Some(&**clipmask)
-                } else {
-                    None
-                }
-            })
+            .map(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask))
             .flatten();
 
         let x = transform.tx.round();
@@ -267,9 +259,9 @@ where
         match event {
             Event::Sync | Event::Configure => {
                 if let Some(string) = ctx.send(self.message, self.label.as_str()) {
-                    self.label.edit(string);
+                    self.label.edit(&string);
                 } else if let Some(string) = ctx.get(self.message) {
-                    self.label.edit(string);
+                    self.label.edit(&string);
                 }
             }
             _ => {}

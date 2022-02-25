@@ -298,7 +298,7 @@ pub trait Geometry {
 /// Drawable objects.
 ///
 /// They are given access to the drawing backend.
-pub trait Drawable: Geometry + std::fmt::Debug + DynEq + std::any::Any {
+pub trait Drawable: Geometry + std::fmt::Debug + std::any::Any {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform);
 }
 
