@@ -34,7 +34,7 @@ pub mod theme {
     pub const TRANSPARENT: Texture = Texture::Transparent;
 }
 
-pub fn u32_to_source(color: u32) -> Color {
+pub fn to_color(color: u32) -> Color {
     let color = color.to_be_bytes();
     Color::from_rgba8(color[3], color[2], color[1], color[0])
 }
@@ -66,6 +66,10 @@ impl Damage {
     }
     pub fn is_some(&self) -> bool {
         !self.is_none()
+    }
+    pub fn upgrade(&mut self) -> Self {
+        *self = (*self).max(Damage::Partial);
+        *self
     }
 }
 
@@ -298,7 +302,7 @@ pub trait Geometry {
 /// Drawable objects.
 ///
 /// They are given access to the drawing backend.
-pub trait Drawable: Geometry {
+pub trait Primitive: Geometry {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform);
 }
 

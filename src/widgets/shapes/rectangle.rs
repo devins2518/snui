@@ -159,7 +159,7 @@ impl GeometryExt for Rectangle {
     }
 }
 
-impl Drawable for Rectangle {
+impl Primitive for Rectangle {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {
         let pb = ctx.path_builder();
         if let Some(path) = Rectangle::path(pb, self.width, self.height, self.radius) {
@@ -348,7 +348,7 @@ impl BorderedRectangle {
     }
 }
 
-impl Drawable for BorderedRectangle {
+impl Primitive for BorderedRectangle {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {
         let pb = ctx.path_builder();
         if let Some(path) = Rectangle::path(

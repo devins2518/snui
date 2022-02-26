@@ -636,10 +636,6 @@ where
                 .with_clipmask(self.clipmask.as_mut());
 
             self.state.offset = offset;
-            ctx.clear(
-                &Background::new(&region),
-                Region::new(0., 0., width, height),
-            );
             self.widget.draw_scene(
                 Scene::new(&mut self.state.render_node, &mut ctx, &region)
                     .damage(Size::new(width, height)),
@@ -647,7 +643,6 @@ where
 
             surface.damage(conn, ctx.damage_queue());
             surface.commit(conn);
-            self.clipmask.as_mut().unwrap().clear();
         }
     }
     fn render(

@@ -154,8 +154,6 @@ impl BoxConstraints {
         }
     }
     pub fn with_max(&self, width: f32, height: f32) -> Self {
-        let width = self.maximum_width().min(width);
-        let height = self.maximum_height().min(height);
         BoxConstraints {
             minimum: Size::new(
                 width.min(self.minimum_width()),
@@ -226,7 +224,6 @@ pub struct Proxy<W> {
     size: Size,
     damage: Damage,
     entered: bool,
-    configured: bool,
     pub(crate) inner: W,
 }
 
@@ -236,7 +233,6 @@ impl<W> Proxy<W> {
             inner,
             size: Size::default(),
             entered: false,
-            configured: false,
             damage: Damage::Partial,
         }
     }
@@ -259,7 +255,7 @@ impl<W> Deref for Proxy<W> {
 
 impl<W> DerefMut for Proxy<W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.damage = self.damage.max(Damage::Partial);
+        self.damage.upgrade();
         &mut self.inner
     }
 }
@@ -278,7 +274,6 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         if self.damage.is_some() || scene.damage_state() {
             self.inner.draw_scene(scene)
         }
-        self.configured = false;
         self.damage = Damage::None
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
@@ -304,17 +299,13 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                 }
             }
             Event::Keyboard(_) => todo!(),
-            Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
-            Event::Configure => {
-                self.configured = true;
-                self.inner.sync(ctx, event)
-            }
+            Event::Configure | Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
             _ => self.inner.sync(ctx, event),
         });
         self.damage
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        if self.damage.is_some() || self.configured || ctx.force {
+        if self.damage.is_some() || ctx.force {
             self.size = self.inner.layout(ctx, constraints);
         }
         self.size

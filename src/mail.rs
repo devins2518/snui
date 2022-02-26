@@ -8,7 +8,6 @@
 /// # Usage
 ///
 /// ```
-///	/// This example is inspired by the slider
 /// ```
 pub trait Mail<M, D, U> {
     fn get(&self, message: M) -> Option<U>;

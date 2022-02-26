@@ -42,7 +42,7 @@ impl Label {
             font_size: DEFAULT_FONT_SIZE,
             fonts: Default::default(),
             settings: LayoutSettings::default(),
-            color: u32_to_source(FG0),
+            color: to_color(FG0),
             size: None,
         }
     }
@@ -59,7 +59,7 @@ impl Label {
         self.text.as_str()
     }
     pub fn set_color(&mut self, color: u32) {
-        self.color = u32_to_source(color);
+        self.color = to_color(color);
     }
     pub fn write(&mut self, s: &str) {
         self.text.push_str(s);
@@ -80,7 +80,7 @@ impl Label {
         self
     }
     pub fn color(mut self, color: u32) -> Self {
-        self.color = u32_to_source(color);
+        self.color = to_color(color);
         self
     }
     pub fn font_size(mut self, font_size: f32) -> Self {
@@ -130,7 +130,7 @@ impl Geometry for Label {
     }
 }
 
-impl Drawable for Label {
+impl Primitive for Label {
     fn draw(&self, context: &mut DrawContext, transform: tiny_skia::Transform) {
         let mut settings = self.settings;
         let font_cache = &mut context.cache.font_cache;

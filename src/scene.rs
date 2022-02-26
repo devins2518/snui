@@ -93,7 +93,7 @@ impl Texture {
 
 impl From<u32> for Texture {
     fn from(color: u32) -> Self {
-        Texture::Color(u32_to_source(color))
+        Texture::Color(to_color(color))
     }
 }
 
@@ -278,10 +278,6 @@ impl Region {
             height: self.height + 2. * padding,
         }
     }
-}
-
-pub trait Merge<T> {
-    fn merge(&mut self, other: T);
 }
 
 // The current stack of background.
@@ -785,7 +781,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     // Since primitives are at the end of a branch of the scene graph
     // and widget tree, they would only be inserted if the proxies
     // gates up to it were open.
-    pub fn insert_primitive<P: Drawable>(&mut self, primitive: &P) {
+    pub fn insert_primitive<P: Primitive>(&mut self, primitive: &P) {
         let transform = self.context.transform();
         let primitive_region = Region::new(
             self.coords.x,

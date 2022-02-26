@@ -200,8 +200,8 @@ where
                                 };
                                 return self
                                     .widget
-                                    .sync(ctx, event)
-                                    .max(self.widget.sync(ctx, Event::Draw));
+                                    .sync(ctx, Event::Draw)
+                                    .max(self.widget.sync(ctx, event))
                             }
                         }
                     }
