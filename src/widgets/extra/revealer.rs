@@ -202,6 +202,7 @@ where
                                     .widget
                                     .sync(ctx, Event::Draw)
                                     .max(self.widget.sync(ctx, event))
+                                    .max(Damage::Frame);
                             }
                         }
                     }

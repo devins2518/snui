@@ -1077,9 +1077,9 @@ where
                         view.widget.layout(&mut ctx, &view.state.constraint);
                     }
                 }
-                // xdg_popup::Event::Repositioned { token } => {
-                //     xdg_popup.reposition
-                // }
+                xdg_popup::Event::Repositioned { token } => {
+                    xdg_popup.reposition(conn, view.surface.shell.positioner().unwrap(), token);
+                }
                 xdg_popup::Event::PopupDone => {
                     self.views.remove(i).surface.destroy(conn);
                 }

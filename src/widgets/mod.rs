@@ -78,7 +78,7 @@ impl Geometry for Spacer {
 }
 
 impl<T> Widget<T> for Spacer {
-    fn draw_scene<'b>(&mut self, _: Scene<'_, '_, 'b>) {}
+    fn draw_scene(&mut self, _: Scene) {}
     fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _event: Event) -> Damage {
         Damage::None
     }
@@ -114,17 +114,17 @@ impl Default for Spacer {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Padding<T, W: Widget<T>> {
     pub widget: W,
-    pub padding: (f32, f32, f32, f32),
+    pub padding: [f32; 4],
     _data: PhantomData<T>,
 }
 
 impl<T, W: Widget<T>> Widget<T> for Padding<T, W> {
     fn draw_scene(&mut self, scene: Scene) {
-        let (top, _, _, left) = self.padding;
+        let [top, _, _, left] = self.padding;
         self.widget.draw_scene(scene.translate(left, top))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
-        let (top, _, _, left) = self.padding;
+        let [top, _, _, left] = self.padding;
         if let Event::Pointer(mut x, mut y, p) = event {
             x -= left;
             y -= top;
@@ -134,7 +134,7 @@ impl<T, W: Widget<T>> Widget<T> for Padding<T, W> {
         }
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        let (top, right, bottom, left) = self.padding;
+        let [top, right, bottom, left] = self.padding;
         let (width, height) = self
             .widget
             .layout(ctx, &constraints.crop(left + right, top + bottom))
@@ -169,20 +169,20 @@ impl<T, W: Widget<T>> Padding<T, W> {
         Self {
             widget,
             _data: PhantomData,
-            padding: (0., 0., 0., 0.),
+            padding: [0.; 4],
         }
     }
     pub fn set_padding_top(&mut self, padding: f32) {
-        self.padding.0 = padding;
+        self.padding[0] = padding;
     }
     pub fn set_padding_right(&mut self, padding: f32) {
-        self.padding.1 = padding;
+        self.padding[1] = padding;
     }
     pub fn set_padding_bottom(&mut self, padding: f32) {
-        self.padding.2 = padding;
+        self.padding[2] = padding;
     }
     pub fn set_padding_left(&mut self, padding: f32) {
-        self.padding.3 = padding;
+        self.padding[3] = padding;
     }
     pub fn padding_top(mut self, padding: f32) -> Self {
         self.set_padding_top(padding);

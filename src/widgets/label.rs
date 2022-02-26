@@ -4,6 +4,17 @@ use fontdue::layout::LayoutSettings;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
 
+const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = LayoutSettings {
+    x: 0.,
+    y: 0.,
+    max_width: None,
+    max_height: None,
+    horizontal_align: fontdue::layout::HorizontalAlign::Left,
+    vertical_align: fontdue::layout::VerticalAlign::Bottom,
+    wrap_style: fontdue::layout::WrapStyle::Word,
+    wrap_hard_breaks: true,
+};
+
 const DEFAULT_FONT_SIZE: f32 = 15.;
 
 pub const TEXT: PixmapPaint = PixmapPaint {
@@ -33,6 +44,20 @@ pub struct LabelRef<'s> {
     pub color: Color,
     pub settings: &'s LayoutSettings,
     pub fonts: &'s [FontProperty],
+    pub size: Option<Size>,
+}
+
+impl<'s> LabelRef<'s> {
+    pub fn new(text: &'s str, fonts: &'s [FontProperty]) -> Self {
+        LabelRef {
+            text,
+            font_size: DEFAULT_FONT_SIZE,
+            fonts,
+            settings: &DEFAULT_LAYOUT_SETTINGS,
+            color: to_color(FG0),
+            size: None,
+        }
+    }
 }
 
 impl Label {
@@ -41,7 +66,7 @@ impl Label {
             text: text.into(),
             font_size: DEFAULT_FONT_SIZE,
             fonts: Default::default(),
-            settings: LayoutSettings::default(),
+            settings: DEFAULT_LAYOUT_SETTINGS,
             color: to_color(FG0),
             size: None,
         }
@@ -53,6 +78,7 @@ impl Label {
             font_size: self.font_size,
             settings: &self.settings,
             fonts: self.fonts.as_slice(),
+            size: self.size,
         }
     }
     pub fn as_str(&self) -> &str {
@@ -121,7 +147,7 @@ impl From<&str> for Label {
     }
 }
 
-impl Geometry for Label {
+impl<'s> Geometry for LabelRef<'s> {
     fn width(&self) -> f32 {
         self.size.unwrap_or_default().width
     }
@@ -130,9 +156,10 @@ impl Geometry for Label {
     }
 }
 
-impl Primitive for Label {
+impl<'s> Primitive for LabelRef<'s> {
     fn draw(&self, context: &mut DrawContext, transform: tiny_skia::Transform) {
-        let mut settings = self.settings;
+        let mut label = *self;
+        let mut settings = label.settings.clone();
         let font_cache = &mut context.cache.font_cache;
         settings.max_width = self.settings.max_width.map(|width| width * transform.sx);
         settings.max_height = self.settings.max_height.map(|height| height * transform.sy);
@@ -147,10 +174,9 @@ impl Primitive for Label {
         let y = transform.ty.round();
 
         for gp in {
-            let mut label = self.as_ref();
             label.font_size = self.font_size * transform.sy;
             label.settings = &settings;
-            font_cache.layout(label);
+            font_cache.layout(&label);
             font_cache.layout.glyphs()
         } {
             if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index]) {
@@ -196,7 +222,7 @@ impl GeometryExt for Label {
 
 impl<T> Widget<T> for Label {
     fn draw_scene(&mut self, mut scene: Scene) {
-        scene.insert_primitive(self)
+        scene.insert_primitive(&self.as_ref())
     }
     fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _: Event<'d>) -> Damage {
         if self.size.is_none() {
@@ -212,9 +238,7 @@ impl<T> Widget<T> for Label {
             // self.settings.max_width = Some(constraints.maximum_width());
             // self.settings.max_height = Some(constraints.maximum_height());
             // }
-            let layout = fc.layout(self.as_ref()).clone();
-            let size = cache::font::get_size(layout).into();
-            self.size = Some(size);
+            self.size = fc.layout(&self.as_ref()).size;
         }
         self.size.unwrap_or_default()
     }

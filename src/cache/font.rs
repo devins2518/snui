@@ -145,7 +145,7 @@ impl FontCache {
             }
         }
     }
-    pub fn layout(&mut self, label: LabelRef) -> &[GlyphPosition<Color>] {
+    pub fn layout<'s>(&mut self, label: &LabelRef<'s>) -> LabelRef<'s> {
         for font in label.fonts {
             self.load_font(font);
         }
@@ -169,7 +169,9 @@ impl FontCache {
                 );
             }
         }
-        self.layout.glyphs()
+        let mut label = *label;
+        label.size = Some(get_size(self.layout.glyphs()).into());
+        label
     }
 }
 

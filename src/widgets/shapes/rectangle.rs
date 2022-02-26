@@ -8,7 +8,7 @@ pub struct Rectangle {
     pub(crate) width: f32,
     pub(crate) height: f32,
     pub(crate) texture: Texture,
-    pub(crate) radius: (f32, f32, f32, f32),
+    pub(crate) radius: [f32; 4],
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -17,36 +17,29 @@ pub struct BorderedRectangle {
     pub(crate) height: f32,
     pub(crate) border_width: f32,
     pub(crate) texture: Texture,
-    pub(crate) radius: (f32, f32, f32, f32),
+    pub(crate) radius: [f32; 4],
+}
+
+impl Default for Rectangle {
+    fn default() -> Self {
+        Rectangle::new(0., 0.)
+    }
 }
 
 impl Rectangle {
-    pub fn square(size: f32) -> Self {
-        Rectangle {
-            width: size,
-            height: size,
-            radius: (0., 0., 0., 0.),
-            texture: Texture::Transparent,
-        }
-    }
     pub fn new(width: f32, height: f32) -> Self {
         Rectangle {
             width,
             height,
-            radius: (0., 0., 0., 0.),
+            radius: [0.; 4],
             texture: Texture::Transparent,
         }
     }
-    fn path(
-        mut pb: PathBuilder,
-        width: f32,
-        height: f32,
-        radius: (f32, f32, f32, f32),
-    ) -> Option<Path> {
+    fn path(mut pb: PathBuilder, width: f32, height: f32, radius: [f32; 4]) -> Option<Path> {
         let (x, y) = (0., 0.);
         let mut cursor = Coords::new(x, y);
 
-        let (tl, tr, br, bl) = radius;
+        let [tl, tr, br, bl] = radius;
 
         // Positioning the cursor
         cursor.y += tl;
@@ -134,10 +127,10 @@ impl Rectangle {
         pb.finish()
     }
     fn minimum_height(&self) -> f32 {
-        self.radius.0.max(self.radius.2)
+        self.radius[0].max(self.radius[2])
     }
     fn minimum_width(&self) -> f32 {
-        self.radius.1.max(self.radius.3)
+        self.radius[1].max(self.radius[3])
     }
 }
 
@@ -244,16 +237,16 @@ impl Primitive for Rectangle {
 
 impl Style for Rectangle {
     fn set_top_left_radius(&mut self, radius: f32) {
-        self.radius.0 = radius;
+        self.radius[0] = radius;
     }
     fn set_top_right_radius(&mut self, radius: f32) {
-        self.radius.1 = radius;
+        self.radius[1] = radius;
     }
     fn set_bottom_right_radius(&mut self, radius: f32) {
-        self.radius.2 = radius;
+        self.radius[2] = radius;
     }
     fn set_bottom_left_radius(&mut self, radius: f32) {
-        self.radius.3 = radius;
+        self.radius[3] = radius;
     }
     fn set_texture<B: Into<Texture>>(&mut self, background: B) {
         self.texture = background.into();
@@ -282,16 +275,16 @@ impl<T> Widget<T> for Rectangle {
 
 impl Style for BorderedRectangle {
     fn set_top_left_radius(&mut self, radius: f32) {
-        self.radius.0 = radius;
+        self.radius[0] = radius;
     }
     fn set_top_right_radius(&mut self, radius: f32) {
-        self.radius.1 = radius;
+        self.radius[1] = radius;
     }
     fn set_bottom_right_radius(&mut self, radius: f32) {
-        self.radius.2 = radius;
+        self.radius[2] = radius;
     }
     fn set_bottom_left_radius(&mut self, radius: f32) {
-        self.radius.3 = radius;
+        self.radius[3] = radius;
     }
     fn set_texture<B: Into<Texture>>(&mut self, texture: B) {
         self.texture = texture.into();
@@ -328,7 +321,7 @@ impl BorderedRectangle {
         BorderedRectangle {
             width,
             height,
-            radius: (0., 0., 0., 0.),
+            radius: [0.; 4],
             border_width: 0.,
             texture: Texture::Transparent,
         }
@@ -341,10 +334,10 @@ impl BorderedRectangle {
         self
     }
     fn minimum_height(&self) -> f32 {
-        self.radius.0.max(self.radius.2)
+        self.radius[0].max(self.radius[2])
     }
     fn minimum_width(&self) -> f32 {
-        self.radius.1.max(self.radius.3)
+        self.radius[1].max(self.radius[3])
     }
 }
 

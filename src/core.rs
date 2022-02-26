@@ -224,6 +224,7 @@ pub struct Proxy<W> {
     size: Size,
     damage: Damage,
     entered: bool,
+    configured: bool,
     pub(crate) inner: W,
 }
 
@@ -231,6 +232,7 @@ impl<W> Proxy<W> {
     pub fn new(inner: W) -> Self {
         Proxy {
             inner,
+            configured: false,
             size: Size::default(),
             entered: false,
             damage: Damage::Partial,
@@ -299,13 +301,17 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                 }
             }
             Event::Keyboard(_) => todo!(),
-            Event::Configure | Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
+            Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
+            Event::Configure => {
+                self.configured = true;
+                self.inner.sync(ctx, event)
+            }
             _ => self.inner.sync(ctx, event),
         });
         self.damage
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        if self.damage.is_some() || ctx.force {
+        if self.damage.is_some() || ctx.force || self.configured {
             self.size = self.inner.layout(ctx, constraints);
         }
         self.size

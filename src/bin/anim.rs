@@ -9,6 +9,9 @@ use snui::{
     *,
 };
 
+use scene::LinearGradient;
+use tiny_skia::GradientStop;
+
 // The state of the animations in the Demo
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum AnimationState {
@@ -222,9 +225,6 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
         )
 }
 
-use scene::LinearGradient;
-use tiny_skia::GradientStop;
-
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
@@ -235,8 +235,8 @@ fn main() {
         window
             .decoration(theme::BG2, 2.)
             .alternate_decoration(LinearGradient::new(vec![
-                GradientStop::new(0., u32_to_source(theme::BLUE)),
-                GradientStop::new(1., u32_to_source(theme::PURPLE)),
+                GradientStop::new(0., to_color(theme::BLUE)),
+                GradientStop::new(1., to_color(theme::PURPLE)),
             ]))
             .texture(theme::BG0)
             .radius(5.),
@@ -251,8 +251,8 @@ fn main() {
             .decoration(theme::BG2, 2.)
             .alternate_decoration(theme::PURPLE)
             .alternate_decoration(LinearGradient::new(vec![
-                GradientStop::new(0., u32_to_source(theme::BLUE)),
-                GradientStop::new(1., u32_to_source(theme::PURPLE)),
+                GradientStop::new(0., to_color(theme::BLUE)),
+                GradientStop::new(1., to_color(theme::PURPLE)),
             ]))
             .texture(theme::BG0)
             .radius(5.),
