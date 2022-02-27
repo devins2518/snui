@@ -660,7 +660,22 @@ where
             .map(|output| output.scale)
             .unwrap_or(1);
         let mut layout = LayoutCtx::new(cache);
-        let Size { width, height } = self.widget.layout(&mut layout, &self.state.constraint);
+        let Size {
+            mut width,
+            mut height,
+        } = self.widget.layout(&mut layout, &self.state.constraint);
+        if self.state.constraint.maximum_width() != width
+            || self.state.constraint.maximum_height() != height
+        {
+            self.state.constraint = self
+                .state
+                .constraint
+                .with_min(width, height)
+                .with_max(width, height);
+            Size { width, height } = self
+                .widget
+                .layout(&mut layout.force(), &self.state.constraint);
+        }
         let surface = &mut self.surface;
 
         if let Some((offset, wl_buffer, backend)) = buffer(
@@ -1310,18 +1325,16 @@ where
                     {
                         view.state.window_state.push(WindowState::Resizing);
                     }
-                    if width > 0 && height > 0 {
-                        view.state.constraint = BoxConstraints::new(
-                            (width as f32, height as f32),
-                            (width as f32, height as f32),
-                        );
-                    } else if view.state.constraint.is_default() {
-                        let mut ctx = LayoutCtx::new(&mut self.cache);
-                        let Size { width, height } =
-                            view.widget.layout(&mut ctx, &BoxConstraints::default());
-                        view.state.constraint = BoxConstraints::new((0., 0.), (width, height));
-                        view.widget.layout(&mut ctx, &view.state.constraint);
-                        toplevel.set_min_size(conn, width as i32, height as i32);
+                    view.state.constraint = view
+                        .state
+                        .constraint
+                        .with_min(width as f32, height as f32)
+                        .with_max(width as f32, height as f32);
+                    let mut ctx = LayoutCtx::new(&mut self.cache);
+                    let (t_width, t_height) =
+                        view.widget.layout(&mut ctx, &view.state.constraint).into();
+                    if width * height == 0 {
+                        toplevel.set_min_size(conn, t_width as i32, t_height as i32);
                     }
                 }
                 xdg_toplevel::Event::Close => {

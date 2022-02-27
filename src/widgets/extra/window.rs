@@ -338,16 +338,8 @@ where
             .window
             .layout(ctx, &constraints.crop(0., h_height))
             .into();
-        if h_width != b_width {
-            let Size { width, height } = self
-                .header
-                .layout(ctx.force(), &constraints.with_max(b_width, 0.));
-            self.window.set_coords(0., height);
-            self.size = Size::new(b_width.max(width), height + b_height);
-        } else {
-            self.window.set_coords(0., h_height);
-            self.size = Size::new(b_width.max(h_width), h_height + b_height);
-        }
+        self.window.set_coords(0., h_height);
+        self.size = Size::new(b_width.max(h_width), h_height + b_height);
         self.size
     }
 }

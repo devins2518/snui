@@ -309,7 +309,7 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
             Some(l_width) => match self.constraint {
                 Constraint::Fixed => l_width,
                 Constraint::Upward => l_width.min(constraints.maximum_width()),
-                Constraint::Downward => l_width.max(constraints.minimum_width()),
+                Constraint::Downward => l_width.max(constraints.maximum_width()),
             },
             None => constraints.minimum_width(),
         };
@@ -317,7 +317,7 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
             Some(l_height) => match self.constraint {
                 Constraint::Fixed => l_height,
                 Constraint::Upward => l_height.min(constraints.maximum_height()),
-                Constraint::Downward => l_height.max(constraints.minimum_height()),
+                Constraint::Downward => l_height.max(constraints.maximum_height()),
             },
             None => constraints.minimum_height(),
         };
@@ -336,10 +336,7 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
                             self.minimum_width_from(constraints.minimum_width()),
                             self.minimum_height_from(constraints.minimum_height()),
                         )
-                        .with_max(
-                            width.min(constraints.maximum_width()),
-                            height.min(constraints.maximum_height()),
-                        ),
+                        .with_max(width, height),
                 },
             )
             .into();
