@@ -9,6 +9,7 @@ use snui::{theme::*, *};
 struct Color {
     sync: bool,
     color: tiny_skia::Color,
+    string: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -19,7 +20,7 @@ enum Channel {
     Alpha,
 }
 
-impl Mail<Channel, f32, f32> for Color {
+impl<'a> Mail<'a, Channel, f32, f32> for Color {
     fn get(&self, message: Channel) -> Option<f32> {
         Some(match message {
             Channel::Alpha => self.color.alpha(),
@@ -40,12 +41,13 @@ impl Mail<Channel, f32, f32> for Color {
     }
 }
 
-impl<'s> Mail<(), &'s str, String> for Color {
-    fn get(&self, _: ()) -> Option<String> {
-        Some(self.as_string())
+impl<'a, 's> Mail<'a, (), &'s str, &'a str> for Color {
+    fn get(&'a self, _: ()) -> Option<&'a str> {
+        None
     }
-    fn send(&mut self, _: (), _: &'s str) -> Option<String> {
-        Some(self.as_string())
+    fn send(&'a mut self, _: (), _: &'s str) -> Option<&'a str> {
+        self.string = self.as_string();
+        Some(&self.string)
     }
 }
 
@@ -66,7 +68,7 @@ impl Color {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 struct ColorBlock {
     width: f32,
     height: f32,
@@ -94,7 +96,12 @@ impl Widget<Color> for ColorBlock {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         match event {
-            Event::Configure | Event::Sync => {
+            Event::Configure => {
+                if !ctx.window().get_state().is_empty() {
+                    ctx.sync = true;
+                }
+            }
+            Event::Sync => {
                 self.color = ctx.color;
                 let title = ctx.as_string();
                 ctx.window().set_title(title);
@@ -188,6 +195,7 @@ fn main() {
         Color {
             sync: false,
             color: tiny_skia::Color::WHITE,
+            string: String::new(),
         },
         window
             .texture(theme::BG0)

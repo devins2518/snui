@@ -196,6 +196,12 @@ impl BoxConstraints {
     pub fn maximum_height(&self) -> f32 {
         self.maximum.height
     }
+    pub fn maximum(&self) -> Size {
+        self.maximum
+    }
+    pub fn minimum(&self) -> Size {
+        self.minimum
+    }
     pub fn is_default(&self) -> bool {
         self.minimum.width == 0.
             && self.minimum.height == 0.
@@ -224,7 +230,6 @@ pub struct Proxy<W> {
     size: Size,
     damage: Damage,
     entered: bool,
-    configured: bool,
     pub(crate) inner: W,
 }
 
@@ -232,7 +237,6 @@ impl<W> Proxy<W> {
     pub fn new(inner: W) -> Self {
         Proxy {
             inner,
-            configured: false,
             size: Size::default(),
             entered: false,
             damage: Damage::Partial,
@@ -301,17 +305,24 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                 }
             }
             Event::Keyboard(_) => todo!(),
-            Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
-            Event::Configure => {
-                self.configured = true;
-                self.inner.sync(ctx, event)
+            Event::Draw | Event::Configure => {
+                if ctx
+                    .window()
+                    .get_state()
+                    .iter()
+                    .any(|state| matches!(state, WindowState::Resizing))
+                {
+                    Damage::Partial.max(self.inner.sync(ctx, event))
+                } else {
+                    self.inner.sync(ctx, event)
+                }
             }
             _ => self.inner.sync(ctx, event),
         });
         self.damage
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        if self.damage.is_some() || ctx.force || self.configured {
+        if self.damage.is_some() || ctx.force {
             self.size = self.inner.layout(ctx, constraints);
         }
         self.size

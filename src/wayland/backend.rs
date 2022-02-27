@@ -1305,6 +1305,11 @@ where
                     states,
                 } => {
                     view.state.window_state = list_states(states);
+                    if view.state.constraint.minimum_width() as i32 != width
+                        || view.state.constraint.minimum_height() as i32 != height
+                    {
+                        view.state.window_state.push(WindowState::Resizing);
+                    }
                     if width > 0 && height > 0 {
                         view.state.constraint = BoxConstraints::new(
                             (width as f32, height as f32),
@@ -1316,7 +1321,7 @@ where
                             view.widget.layout(&mut ctx, &BoxConstraints::default());
                         view.state.constraint = BoxConstraints::new((0., 0.), (width, height));
                         view.widget.layout(&mut ctx, &view.state.constraint);
-                        toplevel.set_min_size(conn, width as i32, height as i32)
+                        toplevel.set_min_size(conn, width as i32, height as i32);
                     }
                 }
                 xdg_toplevel::Event::Close => {

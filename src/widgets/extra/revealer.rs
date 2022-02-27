@@ -152,7 +152,7 @@ where
     W: Widget<T>,
     M: Clone + Copy,
     // if Some is returned the transition wil be executed
-    T: Mail<M, RevealerState, ()>,
+    T: for<'a> Mail<'a, M, RevealerState, ()>,
 {
     fn draw_scene(&mut self, mut scene: Scene) {
         match self.state {

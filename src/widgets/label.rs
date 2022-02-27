@@ -10,7 +10,7 @@ const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = LayoutSettings {
     max_width: None,
     max_height: None,
     horizontal_align: fontdue::layout::HorizontalAlign::Left,
-    vertical_align: fontdue::layout::VerticalAlign::Bottom,
+    vertical_align: fontdue::layout::VerticalAlign::Top,
     wrap_style: fontdue::layout::WrapStyle::Word,
     wrap_hard_breaks: true,
 };
@@ -237,15 +237,13 @@ impl<T> Widget<T> for Label {
             Damage::None
         }
     }
-    fn layout(&mut self, ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
-        if self.size.is_none() {
-            let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
-            // if !constraints.is_default() {
-            // self.settings.max_width = Some(constraints.maximum_width());
-            // self.settings.max_height = Some(constraints.maximum_height());
-            // }
-            self.size = fc.layout(&self.as_ref()).size;
+    fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
+        let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
+        if !constraints.is_default() {
+            self.settings.max_width = Some(constraints.maximum_width());
+            self.settings.max_height = Some(constraints.maximum_height());
         }
+        self.size = fc.layout(&self.as_ref()).size;
         self.size.unwrap_or_default()
     }
 }
@@ -281,14 +279,14 @@ impl<M> GeometryExt for Listener<M> {
 impl<M, T> Widget<T> for Listener<M>
 where
     M: Clone + Copy,
-    T: for<'s> Mail<M, &'s str, String>,
+    T: for<'a, 's> Mail<'a, M, &'s str, &'a str>,
 {
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
+    fn sync(&mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
         match event {
-            Event::Sync | Event::Configure => {
+            Event::Sync => {
                 if let Some(string) = ctx.send(self.message, self.label.as_str()) {
                     self.label.edit(&string);
                 } else if let Some(string) = ctx.get(self.message) {

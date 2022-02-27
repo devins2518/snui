@@ -57,7 +57,7 @@ impl<M> Geometry for Slider<M> {
 impl<M, T> Widget<T> for Slider<M>
 where
     M: Clone + Copy,
-    T: Mail<M, f32, f32>,
+    T: for<'a> Mail<'a, M, f32, f32>,
 {
     fn draw_scene(&mut self, scene: Scene) {
         let (x, y) = if self.flip {

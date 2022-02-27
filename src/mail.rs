@@ -9,33 +9,20 @@
 ///
 /// ```
 /// ```
-pub trait Mail<M, D, U> {
-    fn get(&self, message: M) -> Option<U>;
-    fn send(&mut self, message: M, data: D) -> Option<U>;
+pub trait Mail<'a, M, D, U> {
+    fn get(&'a self, message: M) -> Option<U>;
+    fn send(&'a mut self, message: M, data: D) -> Option<U>;
 }
 
-trait SimpleMail<M, D, U>: Mail<M, D, U> {
-    fn send(&mut self, message: M) -> Option<U>;
-}
-
-impl<M, U, T> SimpleMail<M, (), U> for T
-where
-    T: Mail<M, (), U>,
-{
-    fn send(&mut self, message: M) -> Option<U> {
-        Mail::send(self, message, ())
-    }
-}
-
-impl<F, M, D, U> Mail<M, D, U> for F
+impl<'a, F, M, D, U> Mail<'a, M, D, U> for F
 where
     F: Fn(M, Option<D>) -> Option<U>,
     F: FnMut(M, Option<D>) -> Option<U>,
 {
-    fn get(&self, message: M) -> Option<U> {
+    fn get(&'a self, message: M) -> Option<U> {
         (self)(message, None)
     }
-    fn send(&mut self, message: M, data: D) -> Option<U> {
+    fn send(&'a mut self, message: M, data: D) -> Option<U> {
         (self)(message, Some(data))
     }
 }

@@ -153,7 +153,7 @@ impl<T> Flex<Box<dyn Widget<T>>> {
             .push(Positioner::new(Proxy::new(Box::new(widget))));
         self
     }
-    pub fn with_spacing(mut self, size: f32) -> Self {
+    pub fn with_spacing(self, size: f32) -> Self {
         match self.orientation {
             Orientation::Vertical => self.with_child(Spacer::height(size)),
             Orientation::Horizontal => self.with_child(Spacer::width(size)),

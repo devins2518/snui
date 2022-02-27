@@ -86,7 +86,7 @@ impl<M, E, T> Widget<T> for Switch<M, E>
 where
     M: Clone + Copy,
     E: Easer,
-    T: Mail<M, bool, bool>,
+    T: for<'a> Mail<'a, M, bool, bool>,
 {
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.toggle, scene)

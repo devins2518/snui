@@ -42,7 +42,7 @@ impl Default for Demo {
 }
 
 // The Switch will use this trait to change the state of our Demo
-impl Mail<Remote, bool, bool> for Demo {
+impl Mail<'_, Remote, bool, bool> for Demo {
     fn get(&self, _: Remote) -> Option<bool> {
         None
     }
@@ -208,6 +208,7 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
                 .texture(theme::BG0)
                 .duration(600)
                 .background(theme::BG1)
+                .padding(2.)
                 .radius(4.)
                 .button(move |this, ctx: &mut SyncContext<Demo>, p| {
                     if p.left_button_click().is_some() {
