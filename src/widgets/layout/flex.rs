@@ -1,6 +1,7 @@
 //! A layout widget that supports interactive resize.
 
 use crate::widgets::layout::*;
+use crate::widgets::Spacer;
 use crate::*;
 use scene::Scene;
 
@@ -151,5 +152,11 @@ impl<T> Flex<Box<dyn Widget<T>>> {
         self.children
             .push(Positioner::new(Proxy::new(Box::new(widget))));
         self
+    }
+    pub fn with_spacing(mut self, size: f32) -> Self {
+        match self.orientation {
+            Orientation::Vertical => self.with_child(Spacer::height(size)),
+            Orientation::Horizontal => self.with_child(Spacer::width(size)),
+        }
     }
 }

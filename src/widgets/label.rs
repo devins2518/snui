@@ -147,6 +147,12 @@ impl From<&str> for Label {
     }
 }
 
+impl From<String> for Label {
+    fn from(text: String) -> Self {
+        Label::new(text)
+    }
+}
+
 impl<'s> Geometry for LabelRef<'s> {
     fn width(&self) -> f32 {
         self.size.unwrap_or_default().width
@@ -260,6 +266,15 @@ impl<M> Listener<M> {
             message,
             label: Proxy::new(label.into()),
         }
+    }
+}
+
+impl<M> GeometryExt for Listener<M> {
+    fn set_width(&mut self, width: f32) {
+        self.label.set_width(width)
+    }
+    fn set_height(&mut self, height: f32) {
+        self.label.set_height(height)
     }
 }
 
