@@ -284,31 +284,26 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.damage = self.damage.max(match event {
-            Event::Pointer(pointer) => {
-                match pointer {
-                    Pointer::Hover { x, y } => {
-                        if self.contains(x, y) {
-                            if self.entered {
-                                self.inner.sync(ctx, event)
-                            } else {
-                                self.entered = true;
-                                self.inner.sync(ctx, Event::Pointer(Pointer::Enter))
-                            }
-                        } else if self.entered {
-                            let damage = self.inner.sync(ctx, event);
-                            self.entered = self.contains(x, y) || damage.is_some();
-                            if !self.entered {
-                                self.inner.sync(ctx, Event::Pointer(Pointer::Leave))
-                            } else {
-                                damage
-                            }
-                        } else {
-                            Damage::None
-                        }
-                    }
-                    _ => if self.entered {
+            Event::Pointer(MouseEvent { ref position, .. }) => {
+                if self.contains(position) {
+                    if self.entered {
                         self.inner.sync(ctx, event)
-                    } else { Damage::None }
+                    } else {
+                        self.entered = true;
+                        self.inner
+                            .sync(ctx, MouseEvent::new(*position, Pointer::Enter))
+                    }
+                } else if self.entered {
+                    let damage = self.inner.sync(ctx, event);
+                    self.entered = self.contains(position) || damage.is_some();
+                    if !self.entered {
+                        self.inner
+                            .sync(ctx, MouseEvent::new(*position, Pointer::Leave))
+                    } else {
+                        damage
+                    }
+                } else {
+                    Damage::None
                 }
             }
             Event::Keyboard(_) => todo!(),

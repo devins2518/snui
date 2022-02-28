@@ -32,8 +32,12 @@ impl<T> Widget<T> for Close {
         scene.insert_primitive(&self.rect)
     }
     fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
-        if let Event::Pointer(x, y, p) = event {
-            if self.contains(x, y) && p.left_button_click().is_some() {
+        if let Event::Pointer(MouseEvent {
+            pointer,
+            ref position,
+        }) = event
+        {
+            if self.contains(position) && pointer.left_button_click().is_some() {
                 ctx.window().close();
             }
         }
@@ -75,12 +79,15 @@ impl<T> Widget<T> for Maximize {
     }
     fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => {
-                if self.contains(x, y) && p.left_button_click().is_some() {
+            Event::Pointer(MouseEvent {
+                pointer,
+                ref position,
+            }) => {
+                if self.contains(position) && pointer.left_button_click().is_some() {
                     ctx.window().maximize();
                 }
             }
-            Event::Draw => {
+            Event::Configure => {
                 self.maximized = ctx
                     .window()
                     .get_state()
@@ -125,8 +132,12 @@ impl<T> Widget<T> for Minimize {
             .insert_primitive(&self.rect)
     }
     fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
-        if let Event::Pointer(x, y, p) = event {
-            if self.contains(x, y) && p.left_button_click().is_some() {
+        if let Event::Pointer(MouseEvent {
+            pointer,
+            ref position,
+        }) = event
+        {
+            if self.contains(position) && pointer.left_button_click().is_some() {
                 ctx.window().minimize();
             }
         }
@@ -157,17 +168,14 @@ impl<T, W: Widget<T>> Widget<T> for Header<W> {
     }
     fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => {
-                if self.contains(x, y) {
-                    if let Some(serial) = p.left_button_click() {
+            Event::Pointer(MouseEvent { pointer, position }) => {
+                if self.contains(&position) {
+                    if let Some(serial) = pointer.left_button_click() {
                         ctx.window()._move(serial);
-                    } else if let Some(serial) = p.right_button_click() {
+                    } else if let Some(serial) = pointer.right_button_click() {
                         // Cursor position is relative.
                         // Only works because the Header is the first entered widget
-                        ctx.window().show_menu(Menu::System {
-                            position: scene::Coords::new(x, y),
-                            serial,
-                        });
+                        ctx.window().show_menu(Menu::System { position, serial });
                     }
                 }
             }

@@ -143,6 +143,27 @@ pub enum Step {
     Increment(i32),
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct MouseEvent {
+    pub pointer: Pointer,
+    pub position: Coords,
+}
+
+impl MouseEvent {
+    pub fn new(position: Coords, pointer: Pointer) -> Event<'static> {
+        Event::Pointer(Self { pointer, position })
+    }
+}
+
+impl Default for MouseEvent {
+    fn default() -> Self {
+        Self {
+            pointer: Pointer::Hover,
+            position: Default::default(),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Pointer {
     MouseClick {
@@ -154,7 +175,7 @@ pub enum Pointer {
         orientation: Orientation,
         step: Step,
     },
-    Hover { x: f32, y: f32 },
+    Hover,
     Enter,
     Leave,
 }
@@ -271,7 +292,7 @@ pub enum Event<'d> {
     /// Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     /// Pointer position and type
-    Pointer(Pointer),
+    Pointer(MouseEvent),
 }
 
 impl<'d> Default for Event<'d> {
@@ -295,8 +316,11 @@ pub trait Geometry {
     fn size(&self) -> Size {
         Size::new(self.width(), self.height())
     }
-    fn contains(&self, x: f32, y: f32) -> bool {
-        x.is_sign_positive() && y.is_sign_positive() && x < self.width() && y < self.height()
+    fn contains(&self, position: &Coords) -> bool {
+        position.x.is_sign_positive()
+            && position.y.is_sign_positive()
+            && position.x < self.width()
+            && position.y < self.height()
     }
 }
 
@@ -307,7 +331,7 @@ pub trait Primitive: Geometry {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform);
 }
 
-use scene::Scene;
+use scene::{Coords, Scene};
 
 pub trait Widget<T> {
     fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage;

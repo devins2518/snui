@@ -37,7 +37,6 @@ impl<W> Positioner<W> {
     }
     pub fn translate(mut self, x: f32, y: f32) -> Self {
         self.coords = Coords::new(self.coords.x + x, self.coords.y + y);
-        self.old_coords = Coords::new(self.coords.x + x, self.coords.y + y);
         self
     }
     pub fn swap(&mut self, coords: Coords) {
@@ -60,8 +59,9 @@ impl<W: Geometry> Geometry for Positioner<W> {
     fn height(&self) -> f32 {
         self.widget.height()
     }
-    fn contains(&self, x: f32, y: f32) -> bool {
-        self.widget.contains(x + self.coords.x, y + self.coords.y)
+    fn contains(&self, position: &scene::Coords) -> bool {
+        self.widget
+            .contains(&position.translate(self.coords.x, self.coords.y))
     }
 }
 
@@ -72,18 +72,17 @@ impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
         let damage = match event {
-            Event::Pointer(mut x, mut y, p) => {
-                x -= self.coords.x;
-                y -= self.coords.y;
-                self.widget.sync(ctx, Event::Pointer(x, y, p))
-            }
+            Event::Pointer(MouseEvent { position, pointer }) => self.widget.sync(
+                ctx,
+                MouseEvent::new(position.translate(-self.coords.x, -self.coords.y), pointer),
+            ),
             _ => self.widget.sync(ctx, event),
         };
         self.old_coords
             .ne(&self.coords)
             .then(|| {
                 self.old_coords = self.coords;
-                damage.max(Damage::Partial)
+                self.widget.sync(ctx, Event::Draw).max(damage)
             })
             .unwrap_or(damage)
     }

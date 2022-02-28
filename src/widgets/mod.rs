@@ -124,11 +124,12 @@ impl<T, W: Widget<T>> Widget<T> for Padding<T, W> {
         self.widget.draw_scene(scene.translate(left, top))
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
-        let [top, _, _, left] = self.padding;
-        if let Event::Pointer(mut x, mut y, p) = event {
-            x -= left;
-            y -= top;
-            self.widget.sync(ctx, Event::Pointer(x, y, p))
+        if let Event::Pointer(MouseEvent { pointer, position }) = event {
+            let [top, _, _, left] = self.padding;
+            self.widget.sync(
+                ctx,
+                MouseEvent::new(position.translate(-left, -top), pointer),
+            )
         } else {
             self.widget.sync(ctx, event)
         }

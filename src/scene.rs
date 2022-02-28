@@ -44,6 +44,18 @@ impl Coords {
     pub fn new(x: f32, y: f32) -> Coords {
         Coords { x, y }
     }
+    pub fn translate(self, x: f32, y: f32) -> Self {
+        Self {
+            x: self.x + x,
+            y: self.y + y,
+        }
+    }
+    pub fn translate_from(self, other: &Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

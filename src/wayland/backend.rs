@@ -47,7 +47,6 @@ where
     cache: Cache,
     current: Option<usize>,
     connection: Connection,
-    event: Event<'static>,
     /// Used by views to insert new ones to the client.
     view_slot: Option<View<T>>,
     globals: Rc<RefCell<GlobalManager>>,
@@ -86,7 +85,6 @@ where
             cache: Cache::default(),
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
             connection: conn,
-            event: Event::default(),
             views: Vec::new(),
         };
 
@@ -96,20 +94,18 @@ where
 
         Some((wl_client, event_queue))
     }
-    fn flush_event(&mut self, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
+    fn dispatch(&mut self, event: Event, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
         if let Some(i) = self.current {
-            // Forward the event processed by the WaylandClient to the View
             self.views[i].update_scene(
                 self.pool.as_mut().unwrap(),
                 &mut self.view_slot,
                 &mut self.cache,
-                self.event,
+                event,
                 conn,
                 qh,
             );
             if !self.views[i].state.configured {
                 self.current = None;
-                self.event = Event::default();
                 let mut view = self.views.remove(i);
                 self.pool
                     .as_mut()
@@ -117,30 +113,6 @@ where
                     .remove(view.surface.deref(), conn);
                 view.surface.destroy(conn);
                 self.remove_children(conn, view.surface.wl_surface);
-            } else if let Some(view) = self.view_slot.take() {
-                self.views.push(view);
-            }
-        }
-    }
-    pub fn send_event(&mut self, event: Event, qh: &QueueHandle<Self>) {
-        if let Some(i) = self.current {
-            let mut conn = self.connection.handle();
-            self.views[i].update_scene(
-                self.pool.as_mut().unwrap(),
-                &mut self.view_slot,
-                &mut self.cache,
-                event,
-                &mut conn,
-                qh,
-            );
-            if !self.views[i].state.configured {
-                self.current = None;
-                let mut view = self.views.remove(i);
-                self.pool
-                    .as_mut()
-                    .unwrap()
-                    .remove(view.surface.deref(), &mut conn);
-                view.surface.destroy(&mut conn);
             } else if let Some(view) = self.view_slot.take() {
                 self.views.push(view);
             }
@@ -179,6 +151,7 @@ where
         let view = View {
             state: State::default(),
             data,
+            cursor: Default::default(),
             globals: self.globals.clone(),
             widget: Box::new(widget),
             clipmask: Some(ClipMask::new()),
@@ -203,6 +176,7 @@ where
         let view = View {
             state: State::default(),
             data,
+            cursor: Default::default(),
             globals: self.globals.clone(),
             clipmask: Some(ClipMask::new()),
             widget: Box::new(widget),
@@ -235,6 +209,7 @@ where
     data: T,
     state: State,
     surface: Surface,
+    cursor: MouseEvent,
     clipmask: Option<ClipMask>,
     widget: Box<dyn Widget<T>>,
     globals: Rc<RefCell<GlobalManager>>,
@@ -404,6 +379,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                         Shell::Xdg { xdg_surface, .. } => View {
                             data,
                             widget,
+                            cursor: Default::default(),
                             clipmask: Some(ClipMask::new()),
                             globals: self.globals.clone(),
                             state: State::default(),
@@ -435,6 +411,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                             View {
                                 data,
                                 widget,
+                                cursor: Default::default(),
                                 clipmask: Some(ClipMask::new()),
                                 globals: self.globals.clone(),
                                 state: State::default(),
@@ -444,6 +421,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                         Shell::Popup { xdg_surface, .. } => View {
                             data,
                             widget,
+                            cursor: Default::default(),
                             clipmask: Some(ClipMask::new()),
                             globals: self.globals.clone(),
                             state: State::default(),
@@ -1064,7 +1042,7 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, view)| {
+        if let Some(view) = self.views.iter_mut().find(|view| {
             view.surface
                 .shell
                 .popup()
@@ -1095,9 +1073,13 @@ where
                     xdg_popup.reposition(conn, view.surface.shell.positioner().unwrap(), token);
                 }
                 xdg_popup::Event::PopupDone => {
-                    self.views.remove(i).surface.destroy(conn);
+                    view.state.configured = false;
                 }
                 _ => {}
+            }
+            if !view.surface.children.is_empty() {
+                let surface = view.surface.wl_surface.clone();
+                self.remove_children(conn, surface);
             }
         }
     }
@@ -1164,6 +1146,7 @@ where
                     .find(|(_, view)| view.eq_surface(surface))
                 {
                     self.current = Some(i);
+                    view.sync(&mut self.cache, &mut self.view_slot, Event::Focus, conn, qh);
                     if let Some(c_output) = view.surface.output.as_ref() {
                         if c_output.scale != output.scale {
                             view.surface.output = Some(output.clone());
@@ -1305,7 +1288,7 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, view)| {
+        if let Some(view) = self.views.iter_mut().find(|view| {
             view.surface
                 .shell
                 .toplevel()
@@ -1338,10 +1321,14 @@ where
                 xdg_toplevel::Event::Close => {
                     view.surface.destroy(conn);
                     self.current = None;
-                    let view = self.views.remove(i);
+                    view.state.configured = false;
                     self.pool.as_mut().unwrap().remove(&view.surface, conn);
                 }
                 _ => {}
+            }
+            if !view.surface.children.is_empty() {
+                let surface = view.surface.wl_surface.clone();
+                self.remove_children(conn, surface);
             }
         }
     }
@@ -1570,82 +1557,77 @@ where
 
     fn event(
         &mut self,
-        pointer: &wl_pointer::WlPointer,
+        wl_pointer: &wl_pointer::WlPointer,
         event: wl_pointer::Event,
         data: &Self::UserData,
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<Self>,
     ) {
-        if let Some(index) = self.current {
+        if let Some(view) = self.current.map(|i| self.views.get_mut(i)).flatten() {
             match event {
                 wl_pointer::Event::Button {
                     serial,
-                    time: _,
+                    time,
                     button,
                     state,
                 } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event {
-                        *p = Pointer::MouseClick {
-                            serial,
-                            button: MouseButton::new(button),
-                            pressed: if let WEnum::Value(state) = state {
-                                state == ButtonState::Pressed
-                            } else {
-                                false
+                    if !view.state.pending_cb {
+                        view.state.time = time;
+                    }
+                    view.cursor.pointer = Pointer::MouseClick {
+                        serial,
+                        button: MouseButton::new(button),
+                        pressed: if let WEnum::Value(state) = state {
+                            state == ButtonState::Pressed
+                        } else {
+                            false
+                        },
+                    };
+                }
+                wl_pointer::Event::Axis { time, axis, value } => {
+                    if !view.state.pending_cb {
+                        view.state.time = time;
+                    }
+                    if let WEnum::Value(axis) = axis {
+                        view.cursor.pointer = Pointer::Scroll {
+                            orientation: match axis {
+                                Axis::VerticalScroll => Orientation::Vertical,
+                                Axis::HorizontalScroll => Orientation::Horizontal,
+                                _ => unreachable!(),
                             },
+                            step: Step::Value(value as f32),
                         };
                     }
                 }
-                wl_pointer::Event::Axis {
-                    time: _,
-                    axis,
-                    value,
-                } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event {
-                        if let WEnum::Value(axis) = axis {
-                            *p = Pointer::Scroll {
-                                orientation: match axis {
-                                    Axis::VerticalScroll => Orientation::Vertical,
-                                    Axis::HorizontalScroll => Orientation::Horizontal,
-                                    _ => unreachable!(),
-                                },
-                                step: Step::Value(value as f32),
-                            };
-                        }
-                    }
-                }
                 wl_pointer::Event::AxisDiscrete { axis, discrete } => {
-                    if let Event::Pointer(p) = &mut self.event {
-                        if let WEnum::Value(axis) = axis {
-                            *p = Pointer::Scroll {
-                                orientation: match axis {
-                                    Axis::VerticalScroll => Orientation::Vertical,
-                                    Axis::HorizontalScroll => Orientation::Horizontal,
-                                    _ => unreachable!(),
-                                },
-                                step: Step::Increment(discrete),
-                            };
-                        }
+                    if let WEnum::Value(axis) = axis {
+                        view.cursor.pointer = Pointer::Scroll {
+                            orientation: match axis {
+                                Axis::VerticalScroll => Orientation::Vertical,
+                                Axis::HorizontalScroll => Orientation::Horizontal,
+                                _ => unreachable!(),
+                            },
+                            step: Step::Increment(discrete),
+                        };
                     }
                 }
                 wl_pointer::Event::Motion {
-                    time: _,
+                    time,
                     surface_x,
                     surface_y,
                 } => {
-                    self.event = Event::Pointer(Pointer::Hover {
-                        x: surface_x as f32,
-                        y: surface_y as f32,
-                    });
+                    view.cursor.pointer = Pointer::Hover;
+                    view.cursor.position = Coords::new(surface_x as f32, surface_y as f32);
+                    if !view.state.pending_cb {
+                        view.state.time = time;
+                    }
                 }
                 wl_pointer::Event::Frame => {
-                    self.flush_event(conn, qh);
+                    let cursor = view.cursor;
+                    self.dispatch(Event::Pointer(cursor), conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {
-                    if let Event::Pointer(p) = &mut self.event {
-                        *p = Pointer::Leave;
-                    }
-                    self.flush_event(conn, qh);
+                    view.cursor.pointer = Pointer::Leave;
                     self.current = None;
                 }
                 wl_pointer::Event::Enter {
@@ -1654,16 +1636,11 @@ where
                     surface_y,
                     ..
                 } => {
-                    self.views[index]
-                        .handle(&mut self.view_slot, conn, qh)
+                    view.handle(&mut self.view_slot, conn, qh)
                         .set_cursor(Cursor::Arrow);
-                    self.views[index].state.enter_serial = serial;
-                    self.event = Event::Pointer(Pointer::Hover {
-                        x: surface_x as f32,
-                        y: surface_y as f32,
-                    });
-                    self.views[index].sync(&mut self.cache, &mut self.view_slot, Event::Focus, conn, qh);
-                    self.flush_event(conn, qh);
+                    view.state.enter_serial = serial;
+                    view.cursor.position = Coords::new(surface_x as f32, surface_y as f32);
+                    view.cursor.pointer = Pointer::Enter;
                 }
                 _ => {}
             }
@@ -1672,7 +1649,7 @@ where
                 wl_pointer::Event::Enter { ref surface, .. } => {
                     self.current =
                         (0..self.views.len()).find(|i| self.views[*i].eq_surface(surface));
-                    self.event(pointer, event, data, conn, qh);
+                    self.event(wl_pointer, event, data, conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {
                     self.current = None;

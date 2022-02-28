@@ -198,19 +198,11 @@ where
                                     true => RevealerState::Revealed,
                                     false => RevealerState::Hidden,
                                 };
-                                return self
-                                    .widget
-                                    .sync(ctx, Event::Draw)
-                                    .max(self.widget.sync(ctx, event))
-                                    .max(Damage::Frame);
+                                return self.widget.sync(ctx, event).max(Damage::Frame);
                             }
                         }
                     }
-                    return self
-                        .widget
-                        .sync(ctx, Event::Draw)
-                        .max(self.widget.sync(ctx, event))
-                        .max(Damage::Frame);
+                    return self.widget.sync(ctx, event).max(Damage::Frame);
                 }
             }
             Event::Draw => {

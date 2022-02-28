@@ -85,7 +85,7 @@ impl Demo {
 // Moves a rectangle across a box
 struct Animate<E: Easer> {
     start: bool,
-    cursor: f32,
+    cursor: Rectangle,
     position: f32,
     easer: E,
 }
@@ -103,7 +103,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
     fn draw_scene(&mut self, scene: scene::Scene) {
         scene
             .translate(self.position, 0.)
-            .insert_primitive(&Rectangle::new(self.cursor, 30.).texture(theme::RED))
+            .insert_primitive(&self.cursor)
     }
     fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<Demo>, event: Event) -> Damage {
         match event {
@@ -140,7 +140,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut context::LayoutCtx, _constraints: &BoxConstraints) -> Size {
-        (self.width(), self.height()).into()
+        self.size()
     }
 }
 
@@ -149,7 +149,7 @@ impl Animate<Quadratic> {
         Animate {
             position: 0.,
             start: false,
-            cursor: 20.,
+            cursor: Rectangle::new(20., 30.).texture(theme::RED),
             easer: Quadratic::new(0., 1., 400. - 20.),
         }
     }
@@ -160,7 +160,7 @@ impl Animate<Sinus> {
         Animate {
             position: 0.,
             start: false,
-            cursor: 20.,
+            cursor: Rectangle::new(20., 30.).texture(theme::RED),
             easer: Sinus::new(0., 1., 400. - 20.),
         }
     }

@@ -115,7 +115,10 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
-            Event::Pointer(Pointer::Scroll { orientation, step }) => {
+            Event::Pointer(MouseEvent {
+                pointer: Pointer::Scroll { orientation, step },
+                ..
+            }) => {
                 if orientation == self.orientation {
                     match step {
                         Step::Increment(i) => {
@@ -138,9 +141,7 @@ where
                         }
                     }
                 }
-                self.widget
-                    .sync(ctx, event)
-                    .max(self.widget.sync(ctx, Event::Draw))
+                self.widget.sync(ctx, event)
             }
             _ => self.widget.sync(ctx, event),
         }
