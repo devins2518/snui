@@ -226,7 +226,8 @@ impl Region {
             height * transform.sy,
         )
     }
-    pub fn from_size(coords: Coords, size: Size) -> Region {
+    pub fn from_geometry(coords: Coords, geometry: &impl Geometry) -> Region {
+        let size = geometry.size();
         Self::new(coords.x, coords.y, size.width, size.height)
     }
     pub fn translate(&self, x: f32, y: f32) -> Self {
@@ -540,7 +541,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     self.append_node(RenderNode::None, size)
                 } else {
                     if (self.coords.x != bounds.x || self.coords.y != bounds.y) && !self.damage {
-                        let region = Region::from_size(self.coords, size);
+                        let region = Region::from_geometry(self.coords, &size);
                         self.damage = true;
                         self.context.clear(&self.background, region.merge(bounds));
                         *bounds = region;
@@ -561,7 +562,7 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
     pub fn damage(mut self, size: Size) -> Self {
         if !self.damage {
             self.damage = true;
-            let region = Region::from_size(self.coords, size);
+            let region = Region::from_geometry(self.coords, &size);
             let merge = self
                 .node
                 .region()

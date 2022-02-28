@@ -73,6 +73,7 @@ struct ColorBlock {
     width: f32,
     height: f32,
     abs: Coords,
+    configured: bool,
     color: tiny_skia::Color,
 }
 
@@ -97,8 +98,11 @@ impl Widget<Color> for ColorBlock {
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
         match event {
             Event::Configure => {
-                if !ctx.window().get_state().is_empty() {
-                    ctx.sync = true;
+                if !self.configured {
+                    self.configured = true;
+                    if !ctx.window().get_state().is_empty() {
+                        ctx.sync = true;
+                    }
                 }
             }
             Event::Sync => {
@@ -173,6 +177,7 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
             width: 200.,
             height: 200.,
             abs: Coords::default(),
+            configured: false,
             color: tiny_skia::Color::WHITE,
         }
         .padding_top(5.)
@@ -191,7 +196,7 @@ fn main() {
     let window =
         extra::window::default_window(Listener::new("", ()), ui_builder().clamp().padding(10.));
 
-    client.new_window(
+    client.create_window(
         Color {
             sync: false,
             color: tiny_skia::Color::WHITE,

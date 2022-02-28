@@ -311,7 +311,7 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
                 Constraint::Upward => l_width.min(constraints.maximum_width()),
                 Constraint::Downward => l_width.max(constraints.maximum_width()),
             },
-            None => constraints.minimum_width(),
+            None => constraints.maximum_width(),
         };
         let mut height = match self.height {
             Some(l_height) => match self.constraint {
@@ -319,7 +319,7 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
                 Constraint::Upward => l_height.min(constraints.maximum_height()),
                 Constraint::Downward => l_height.max(constraints.maximum_height()),
             },
-            None => constraints.minimum_height(),
+            None => constraints.maximum_height(),
         };
         let (inner_width, inner_height) = self
             .widget

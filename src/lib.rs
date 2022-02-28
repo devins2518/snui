@@ -59,10 +59,7 @@ impl Default for Damage {
 
 impl Damage {
     pub fn is_none(&self) -> bool {
-        match self {
-            Damage::None => true,
-            _ => false,
-        }
+        matches!(self, Damage::None)
     }
     pub fn is_some(&self) -> bool {
         !self.is_none()
@@ -267,6 +264,7 @@ pub enum Event<'d> {
     Configure,
     /// Sent before a draw
     Draw,
+    Focus,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
     Sync,
@@ -294,6 +292,9 @@ impl<'d> Event<'d> {
 pub trait Geometry {
     fn width(&self) -> f32;
     fn height(&self) -> f32;
+    fn size(&self) -> Size {
+        Size::new(self.width(), self.height())
+    }
     fn contains(&self, x: f32, y: f32) -> bool {
         x.is_sign_positive() && y.is_sign_positive() && x < self.width() && y < self.height()
     }

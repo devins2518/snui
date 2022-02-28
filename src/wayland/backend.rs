@@ -168,12 +168,12 @@ where
             }
         }
     }
-    pub fn new_window(
+    pub fn create_window(
         &mut self,
         data: T,
         widget: impl Widget<T> + 'static,
         qh: &QueueHandle<Self>,
-    ) {
+    ) -> &mut View<T> {
         let mut conn = self.connection.handle();
         let surface = self.globals.borrow().create_xdg_surface(&mut conn, qh);
         let view = View {
@@ -186,8 +186,9 @@ where
         };
 
         self.views.push(view);
+        self.views.last_mut().unwrap()
     }
-    pub fn new_widget(
+    pub fn create_widget(
         &mut self,
         data: T,
         widget: impl Widget<T> + 'static,
@@ -672,9 +673,7 @@ where
                 .constraint
                 .with_min(width, height)
                 .with_max(width, height);
-            Size { width, height } = self
-                .widget
-                .layout(&mut layout.force(), &self.state.constraint);
+            Size { width, height } = self.widget.layout(&mut layout, &self.state.constraint);
         }
         let surface = &mut self.surface;
 
@@ -1320,21 +1319,20 @@ where
                     states,
                 } => {
                     view.state.window_state = list_states(states);
-                    if view.state.constraint.minimum_width() as i32 != width
-                        || view.state.constraint.minimum_height() as i32 != height
+                    if view.state.constraint.maximum_width() as i32 != width
+                        || view.state.constraint.maximum_height() as i32 != height
                     {
                         view.state.window_state.push(WindowState::Resizing);
                     }
-                    view.state.constraint = view
-                        .state
-                        .constraint
-                        .with_min(width as f32, height as f32)
-                        .with_max(width as f32, height as f32);
+                    view.state.constraint =
+                        view.state.constraint.with_max(width as f32, height as f32);
                     let mut ctx = LayoutCtx::new(&mut self.cache);
-                    let (t_width, t_height) =
-                        view.widget.layout(&mut ctx, &view.state.constraint).into();
                     if width * height == 0 {
-                        toplevel.set_min_size(conn, t_width as i32, t_height as i32);
+                        let Size { width, height } =
+                            view.widget.layout(&mut ctx, &view.state.constraint);
+                        view.state.constraint = view.state.constraint.with_max(width, height);
+                        toplevel.set_min_size(conn, width as i32, height as i32);
+                        view.state.window_state.push(WindowState::Resizing);
                     }
                 }
                 xdg_toplevel::Event::Close => {
@@ -1658,6 +1656,7 @@ where
                         .set_cursor(Cursor::Arrow);
                     self.views[index].state.enter_serial = serial;
                     self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
+                    self.views[index].sync(&mut self.cache, &mut self.view_slot, Event::Focus, conn, qh);
                     self.flush_event(conn, qh);
                 }
                 _ => {}

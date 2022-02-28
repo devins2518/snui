@@ -305,7 +305,8 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                 }
             }
             Event::Keyboard(_) => todo!(),
-            Event::Draw | Event::Configure => {
+            Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
+            Event::Configure => {
                 if ctx
                     .window()
                     .get_state()
@@ -322,9 +323,7 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         self.damage
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        if self.damage.is_some() || ctx.force {
-            self.size = self.inner.layout(ctx, constraints);
-        }
+        self.size = self.inner.layout(ctx, constraints);
         self.size
     }
 }

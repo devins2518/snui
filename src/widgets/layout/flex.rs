@@ -94,18 +94,16 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
                 self.children
                     .iter_mut()
                     .enumerate()
-                    .map(move |(i, widget)| {
+                    .map(|(i, widget)| {
                         widget.set_coords(0., dy);
                         let height = (constraints.maximum_height() - dy) / (len - i) as f32;
-                        let (width, height) = widget
-                            .layout(
-                                ctx,
-                                &constraints.with_max(
-                                    constraints.maximum_width(),
-                                    height.min(constraints.maximum_height()),
-                                ),
-                            )
-                            .into();
+                        let Size { width, height } = widget.layout(
+                            ctx,
+                            &constraints.with_max(
+                                constraints.maximum_width(),
+                                height.min(constraints.maximum_height()),
+                            ),
+                        );
                         dy += height;
                         Size::new(width, height)
                     })
@@ -119,18 +117,16 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
                 self.children
                     .iter_mut()
                     .enumerate()
-                    .map(move |(i, widget)| {
+                    .map(|(i, widget)| {
                         let width = (constraints.maximum_width() - dx) / (len - i) as f32;
                         widget.set_coords(dx, 0.);
-                        let (width, height) = widget
-                            .layout(
-                                ctx,
-                                &constraints.with_max(
-                                    width.min(constraints.maximum_width()),
-                                    constraints.maximum_height(),
-                                ),
-                            )
-                            .into();
+                        let Size { width, height } = widget.layout(
+                            ctx,
+                            &constraints.with_max(
+                                width.min(constraints.maximum_width()),
+                                constraints.maximum_height(),
+                            ),
+                        );
                         dx += width;
                         Size::new(width, height)
                     })

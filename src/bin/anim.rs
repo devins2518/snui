@@ -229,28 +229,12 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let window = window::default_window(Label::new("Animation"), ui().clamp());
+    let window = window::default_window(Label::new("Animation"), ui());
 
-    client.new_window(
+    client.create_window(
         Demo::default(),
         window
             .decoration(theme::BG2, 2.)
-            .alternate_decoration(LinearGradient::new(vec![
-                GradientStop::new(0., to_color(theme::BLUE)),
-                GradientStop::new(1., to_color(theme::PURPLE)),
-            ]))
-            .texture(theme::BG0)
-            .radius(5.),
-        &event_queue.handle(),
-    );
-
-    let window = window::default_window(Label::new("Animation"), ui().clamp());
-
-    client.new_window(
-        Demo::default(),
-        window
-            .decoration(theme::BG2, 2.)
-            .alternate_decoration(theme::PURPLE)
             .alternate_decoration(LinearGradient::new(vec![
                 GradientStop::new(0., to_color(theme::BLUE)),
                 GradientStop::new(1., to_color(theme::PURPLE)),

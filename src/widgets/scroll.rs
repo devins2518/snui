@@ -109,7 +109,7 @@ where
     W: Widget<T>,
 {
     fn draw_scene(&mut self, mut scene: Scene) {
-        if let Some(scene) = scene.apply_clip(Size::new(self.width(), self.height())) {
+        if let Some(scene) = scene.apply_clip(self.size()) {
             self.widget.draw_scene(scene)
         }
     }

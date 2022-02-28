@@ -217,15 +217,6 @@ impl<'s> Primitive for LabelRef<'s> {
     }
 }
 
-impl GeometryExt for Label {
-    fn set_width(&mut self, width: f32) {
-        self.settings.max_width = Some(width);
-    }
-    fn set_height(&mut self, height: f32) {
-        self.settings.max_height = Some(height);
-    }
-}
-
 impl<T> Widget<T> for Label {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(&self.as_ref())
@@ -264,15 +255,6 @@ impl<M> Listener<M> {
             message,
             label: Proxy::new(label.into()),
         }
-    }
-}
-
-impl<M> GeometryExt for Listener<M> {
-    fn set_width(&mut self, width: f32) {
-        self.label.set_width(width)
-    }
-    fn set_height(&mut self, height: f32) {
-        self.label.set_height(height)
     }
 }
 
