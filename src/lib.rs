@@ -154,7 +154,7 @@ pub enum Pointer {
         orientation: Orientation,
         step: Step,
     },
-    Hover,
+    Hover { x: f32, y: f32 },
     Enter,
     Leave,
 }
@@ -271,7 +271,7 @@ pub enum Event<'d> {
     /// Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     /// Pointer position and type
-    Pointer(f32, f32, Pointer),
+    Pointer(Pointer),
 }
 
 impl<'d> Default for Event<'d> {

@@ -93,8 +93,8 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
-            Event::Pointer(x, y, p) => {
-                if self.contains(x, y) && p.left_button_click().is_some() {
+            Event::Pointer(p) => {
+                if p.left_button_click().is_some() {
                     self.start = true;
                     let state = match self.state {
                         SwitchState::Activated => {

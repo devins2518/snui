@@ -72,8 +72,7 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
-            Event::Pointer(x, y, pointer) => {
-                if self.contains(x, y) {
+            Event::Pointer(pointer) => {
                     match pointer {
                         Pointer::MouseClick {
                             serial: _,
@@ -84,10 +83,10 @@ where
                             if self.pressed && button.is_left() {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
-                                        self.slider.set_width(x.round());
+                                        // self.slider.set_width(x.round());
                                     }
                                     Orientation::Vertical => {
-                                        self.slider.set_height(y.round());
+                                        // self.slider.set_height(y.round());
                                     }
                                 }
                             }
@@ -132,7 +131,7 @@ where
                             ctx.send(self.message, ratio);
                             return Damage::Partial;
                         }
-                        Pointer::Hover => {
+                        Pointer::Hover{ x, y} => {
                             if self.pressed {
                                 match &self.orientation {
                                     Orientation::Horizontal => {
@@ -152,43 +151,6 @@ where
                         }
                         _ => {}
                     }
-                } else if self.pressed {
-                    match pointer {
-                        Pointer::MouseClick {
-                            serial: _,
-                            button,
-                            pressed,
-                        } => {
-                            if button.is_left() {
-                                self.pressed = pressed;
-                                if pressed {
-                                    ctx.window().set_cursor(Cursor::Hand);
-                                } else {
-                                    ctx.window().set_cursor(Cursor::Arrow);
-                                }
-                                return Damage::Partial;
-                            }
-                        }
-                        Pointer::Hover => match &self.orientation {
-                            Orientation::Horizontal => {
-                                let width = x.clamp(0., self.size);
-                                self.slider.set_width(x.round());
-                                ctx.send(self.message, width / self.size);
-                                return Damage::Partial;
-                            }
-                            Orientation::Vertical => {
-                                let height = y.clamp(0., self.size);
-                                self.slider.set_width(height);
-                                ctx.send(self.message, height / self.size);
-                                return Damage::Partial;
-                            }
-                        },
-                        Pointer::Leave => {
-                            return Damage::Partial;
-                        }
-                        _ => {}
-                    }
-                }
             }
             Event::Sync => {
                 if let Some(ratio) = ctx.get(self.message) {

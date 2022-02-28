@@ -284,24 +284,31 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
         self.damage = self.damage.max(match event {
-            Event::Pointer(x, y, _) => {
-                if self.contains(x, y) {
-                    if self.entered {
+            Event::Pointer(pointer) => {
+                match pointer {
+                    Pointer::Hover { x, y } => {
+                        if self.contains(x, y) {
+                            if self.entered {
+                                self.inner.sync(ctx, event)
+                            } else {
+                                self.entered = true;
+                                self.inner.sync(ctx, Event::Pointer(Pointer::Enter))
+                            }
+                        } else if self.entered {
+                            let damage = self.inner.sync(ctx, event);
+                            self.entered = self.contains(x, y) || damage.is_some();
+                            if !self.entered {
+                                self.inner.sync(ctx, Event::Pointer(Pointer::Leave))
+                            } else {
+                                damage
+                            }
+                        } else {
+                            Damage::None
+                        }
+                    }
+                    _ => if self.entered {
                         self.inner.sync(ctx, event)
-                    } else {
-                        self.entered = true;
-                        self.inner.sync(ctx, Event::Pointer(x, y, Pointer::Enter))
-                    }
-                } else if self.entered {
-                    let damage = self.inner.sync(ctx, event);
-                    self.entered = self.contains(x, y) || damage.is_some();
-                    if !self.entered {
-                        self.inner.sync(ctx, Event::Pointer(x, y, Pointer::Leave))
-                    } else {
-                        damage
-                    }
-                } else {
-                    Damage::None
+                    } else { Damage::None }
                 }
             }
             Event::Keyboard(_) => todo!(),

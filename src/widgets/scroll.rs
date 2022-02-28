@@ -115,7 +115,7 @@ where
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
         match event {
-            Event::Pointer(_, _, Pointer::Scroll { orientation, step }) => {
+            Event::Pointer(Pointer::Scroll { orientation, step }) => {
                 if orientation == self.orientation {
                     match step {
                         Step::Increment(i) => {

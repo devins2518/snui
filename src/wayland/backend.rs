@@ -1615,7 +1615,7 @@ where
                     }
                 }
                 wl_pointer::Event::AxisDiscrete { axis, discrete } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event {
+                    if let Event::Pointer(p) = &mut self.event {
                         if let WEnum::Value(axis) = axis {
                             *p = Pointer::Scroll {
                                 orientation: match axis {
@@ -1633,13 +1633,16 @@ where
                     surface_x,
                     surface_y,
                 } => {
-                    self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Hover);
+                    self.event = Event::Pointer(Pointer::Hover {
+                        x: surface_x as f32,
+                        y: surface_y as f32,
+                    });
                 }
                 wl_pointer::Event::Frame => {
                     self.flush_event(conn, qh);
                 }
                 wl_pointer::Event::Leave { .. } => {
-                    if let Event::Pointer(_, _, p) = &mut self.event {
+                    if let Event::Pointer(p) = &mut self.event {
                         *p = Pointer::Leave;
                     }
                     self.flush_event(conn, qh);
@@ -1655,7 +1658,10 @@ where
                         .handle(&mut self.view_slot, conn, qh)
                         .set_cursor(Cursor::Arrow);
                     self.views[index].state.enter_serial = serial;
-                    self.event = Event::Pointer(surface_x as f32, surface_y as f32, Pointer::Enter);
+                    self.event = Event::Pointer(Pointer::Hover {
+                        x: surface_x as f32,
+                        y: surface_y as f32,
+                    });
                     self.views[index].sync(&mut self.cache, &mut self.view_slot, Event::Focus, conn, qh);
                     self.flush_event(conn, qh);
                 }

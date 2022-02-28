@@ -34,7 +34,7 @@ where
         self.proxy.draw_scene(scene);
     }
     fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
-        if let Event::Pointer(_, _, pointer) = event {
+        if let Event::Pointer(pointer) = event {
             (self.cb)(&mut self.proxy, ctx, pointer);
         }
         self.proxy.sync(ctx, event)
