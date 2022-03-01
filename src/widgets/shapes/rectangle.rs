@@ -263,7 +263,10 @@ impl<T> Widget<T> for Rectangle {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(self)
     }
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _: Event<'d>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

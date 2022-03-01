@@ -164,25 +164,24 @@ where
             }
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
-        match event {
-            Event::Sync => {
-                if self.state != RevealerState::Running
-                    && ctx.send(self.message, self.state).is_some()
-                {
-                    match self.state {
-                        RevealerState::Hidden => {
-                            self.reveal();
-                            return self.widget.sync(ctx, event).max(Damage::Frame);
-                        }
-                        RevealerState::Revealed => {
-                            self.hide();
-                            return self.widget.sync(ctx, event).max(Damage::Frame);
-                        }
-                        _ => {}
-                    }
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        if self.state != RevealerState::Running && ctx.send(self.message, self.state).is_some() {
+            match self.state {
+                RevealerState::Hidden => {
+                    self.reveal();
+                    return self.widget.update(ctx).max(Damage::Frame);
                 }
+                RevealerState::Revealed => {
+                    self.hide();
+                    return self.widget.update(ctx).max(Damage::Frame);
+                }
+                _ => {}
             }
+        }
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+        match event {
             Event::Callback(frame_time) => {
                 if let RevealerState::Running = self.state {
                     let steps =
@@ -198,23 +197,18 @@ where
                                     true => RevealerState::Revealed,
                                     false => RevealerState::Hidden,
                                 };
-                                return self.widget.sync(ctx, event).max(Damage::Frame);
+                                return self.widget.event(ctx, event).max(Damage::Frame);
                             }
                         }
                     }
-                    return self.widget.sync(ctx, event).max(Damage::Frame);
-                }
-            }
-            Event::Draw => {
-                if self.state == RevealerState::Hidden {
-                    return Damage::None;
+                    return self.widget.event(ctx, event).max(Damage::Frame);
                 }
             }
             _ => {}
         }
         match self.state {
             RevealerState::Hidden => Damage::None,
-            _ => self.widget.sync(ctx, event),
+            _ => self.widget.event(ctx, event),
         }
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

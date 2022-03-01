@@ -282,23 +282,26 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         }
         self.damage = Damage::None
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
+        self.inner.update(ctx)
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {
         self.damage = self.damage.max(match event {
             Event::Pointer(MouseEvent { ref position, .. }) => {
                 if self.contains(position) {
                     if self.entered {
-                        self.inner.sync(ctx, event)
+                        self.inner.event(ctx, event)
                     } else {
                         self.entered = true;
                         self.inner
-                            .sync(ctx, MouseEvent::new(*position, Pointer::Enter))
+                            .event(ctx, MouseEvent::new(*position, Pointer::Enter))
                     }
                 } else if self.entered {
-                    let damage = self.inner.sync(ctx, event);
+                    let damage = self.inner.event(ctx, event);
                     self.entered = self.contains(position) || damage.is_some();
                     if !self.entered {
                         self.inner
-                            .sync(ctx, MouseEvent::new(*position, Pointer::Leave))
+                            .event(ctx, MouseEvent::new(*position, Pointer::Leave))
                     } else {
                         damage
                     }
@@ -307,7 +310,6 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                 }
             }
             Event::Keyboard(_) => todo!(),
-            Event::Draw => Damage::Partial.max(self.inner.sync(ctx, event)),
             Event::Configure => {
                 if ctx
                     .window()
@@ -315,12 +317,12 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                     .iter()
                     .any(|state| matches!(state, WindowState::Resizing))
                 {
-                    Damage::Partial.max(self.inner.sync(ctx, event))
+                    Damage::Partial.max(self.inner.event(ctx, event))
                 } else {
-                    self.inner.sync(ctx, event)
+                    self.inner.event(ctx, event)
                 }
             }
-            _ => self.inner.sync(ctx, event),
+            _ => self.inner.event(ctx, event),
         });
         self.damage
     }
@@ -445,8 +447,11 @@ impl<D> Widget<D> for Box<dyn Widget<D>> {
     fn draw_scene(&mut self, scene: Scene) {
         self.deref_mut().draw_scene(scene)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<D>, event: Event<'d>) -> Damage {
-        self.deref_mut().sync(ctx, event)
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
+        self.deref_mut().update(ctx)
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {
+        self.deref_mut().event(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.deref_mut().layout(ctx, constraints)

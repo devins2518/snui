@@ -283,22 +283,13 @@ impl MouseButton {
 pub enum Event<'d> {
     /// Sent by the display server when the application needs to be reconfigured
     Configure,
-    /// Sent before a draw
-    Draw,
     Focus,
     // Sent on a frame callback with the frame time in ms
     Callback(u32),
-    Sync,
     /// Waiting for Wayland-rs 0.3.0 to implement it
     Keyboard(Key<'d>),
     /// Pointer position and type
     Pointer(MouseEvent),
-}
-
-impl<'d> Default for Event<'d> {
-    fn default() -> Self {
-        Self::Draw
-    }
 }
 
 impl<'d> Event<'d> {
@@ -334,7 +325,8 @@ pub trait Primitive: Geometry {
 use scene::{Coords, Scene};
 
 pub trait Widget<T> {
-    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage;
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage;
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage;
     /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size;
     fn draw_scene(&mut self, scene: Scene);

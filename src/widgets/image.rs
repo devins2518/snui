@@ -51,7 +51,10 @@ impl<T> Widget<T> for Image {
             Widget::<()>::draw_scene(image, scene)
         }
     }
-    fn sync<'d>(&'d mut self, _ctx: &mut SyncContext<T>, _: Event<'d>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+        Damage::None
+    }
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
@@ -129,7 +132,10 @@ impl<T> Widget<T> for InnerImage {
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.image, scene)
     }
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _event: Event) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+        Damage::None
+    }
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

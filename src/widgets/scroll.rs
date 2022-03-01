@@ -113,7 +113,7 @@ where
             self.widget.draw_scene(scene)
         }
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(MouseEvent {
                 pointer: Pointer::Scroll { orientation, step },
@@ -141,10 +141,13 @@ where
                         }
                     }
                 }
-                self.widget.sync(ctx, event)
+                self.widget.event(ctx, event)
             }
-            _ => self.widget.sync(ctx, event),
+            _ => self.widget.event(ctx, event),
         }
+    }
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        self.widget.update(ctx)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.size = self.widget.layout(ctx, constraints);

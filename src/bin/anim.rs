@@ -105,7 +105,22 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
             .translate(self.position, 0.)
             .insert_primitive(&self.cursor)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<Demo>, event: Event) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<Demo>) -> Damage {
+        match ctx.state {
+            AnimationState::Start => {
+                self.start = true;
+                return Damage::Frame;
+            }
+            AnimationState::Pause => {
+                self.start = false;
+            }
+            AnimationState::Stop => {
+                self.start = false;
+            }
+        }
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<Demo>, event: Event<'s>) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if self.start {
@@ -123,18 +138,6 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
                     return Damage::Frame;
                 }
             }
-            Event::Sync => match ctx.state {
-                AnimationState::Start => {
-                    self.start = true;
-                    return Damage::Frame;
-                }
-                AnimationState::Pause => {
-                    self.start = false;
-                }
-                AnimationState::Stop => {
-                    self.start = false;
-                }
-            },
             _ => {}
         }
         Damage::None
@@ -175,16 +178,19 @@ impl<D> Widget<D> for FrameRate {
     fn draw_scene(&mut self, scene: scene::Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut context::SyncContext<D>, event: Event<'d>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if frame_time > 0 {
                     let frame_rate = 1000 / frame_time;
                     self.label.edit(&frame_rate.to_string());
                 }
-                self.label.sync(ctx, event)
+                self.label.event(ctx, event)
             }
-            _ => self.label.sync(ctx, event),
+            _ => self.label.event(ctx, event),
         }
     }
     fn layout(&mut self, ctx: &mut context::LayoutCtx, constraints: &BoxConstraints) -> Size {

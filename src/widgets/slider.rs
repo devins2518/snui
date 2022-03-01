@@ -70,7 +70,7 @@ where
         };
         Widget::<()>::draw_scene(&mut self.slider, scene.translate(x, y))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(MouseEvent {
                 pointer,
@@ -193,27 +193,28 @@ where
                     }
                 }
             }
-            Event::Sync => {
-                if let Some(ratio) = ctx.get(self.message) {
-                    match &self.orientation {
-                        Orientation::Horizontal => {
-                            let width = self.slider.width();
-                            self.slider.set_width(ratio * self.size);
-                            if width != self.slider.width() {
-                                return Damage::Partial;
-                            }
-                        }
-                        Orientation::Vertical => {
-                            let height = self.slider.height();
-                            self.slider.set_height(ratio * self.size);
-                            if height != self.slider.height() {
-                                return Damage::Partial;
-                            }
-                        }
+            _ => {}
+        }
+        Damage::None
+    }
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        if let Some(ratio) = ctx.get(self.message) {
+            match &self.orientation {
+                Orientation::Horizontal => {
+                    let width = self.slider.width();
+                    self.slider.set_width(ratio * self.size);
+                    if width != self.slider.width() {
+                        return Damage::Partial;
+                    }
+                }
+                Orientation::Vertical => {
+                    let height = self.slider.height();
+                    self.slider.set_height(ratio * self.size);
+                    if height != self.slider.height() {
+                        return Damage::Partial;
                     }
                 }
             }
-            _ => {}
         }
         Damage::None
     }

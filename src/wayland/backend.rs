@@ -529,7 +529,7 @@ impl<T> View<T>
 where
     T: Data + std::clone::Clone,
 {
-    fn sync(
+    fn event(
         &mut self,
         cache: &mut Cache,
         view_slot: &mut Option<Self>,
@@ -538,7 +538,7 @@ where
         qh: &QueueHandle<WaylandClient<T>>,
     ) -> Damage {
         let mut damage = match event {
-            Event::Draw | Event::Configure => Damage::Partial,
+            Event::Configure => Damage::Partial,
             _ => Damage::None,
         };
         let mut handle = ViewHandle {
@@ -550,10 +550,10 @@ where
             surface: &mut self.surface,
         };
         let mut ctx = SyncContext::new(&mut self.data, cache, &mut handle);
-        damage = damage.max(self.widget.sync(&mut ctx, event));
+        damage = damage.max(self.widget.event(&mut ctx, event));
 
         while ctx.sync() {
-            damage = damage.max(self.widget.sync(&mut ctx, Event::Sync));
+            damage = damage.max(self.widget.update(&mut ctx));
         }
 
         damage
@@ -567,7 +567,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<WaylandClient<T>>,
     ) {
-        match self.sync(cache, view_slot, event, conn, qh) {
+        match self.event(cache, view_slot, event, conn, qh) {
             Damage::Partial => {
                 if !self.state.pending_cb {
                     self.render(pool, cache, Damage::Partial, conn, qh);
@@ -1148,7 +1148,7 @@ where
                     .find(|(_, view)| view.eq_surface(surface))
                 {
                     self.current = Some(i);
-                    view.sync(&mut self.cache, &mut self.view_slot, Event::Focus, conn, qh);
+                    view.event(&mut self.cache, &mut self.view_slot, Event::Focus, conn, qh);
                     if let Some(c_output) = view.surface.output.as_ref() {
                         if c_output.scale != output.scale {
                             view.surface.output = Some(output.clone());
@@ -1196,7 +1196,7 @@ where
                     let frame_time = (callback_data - view.state.time).min(50);
                     view.state.time = callback_data;
                     // Send a callback event with the timeout the view
-                    match view.sync(
+                    match view.event(
                         cache,
                         &mut self.view_slot,
                         Event::Callback(frame_time),

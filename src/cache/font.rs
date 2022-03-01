@@ -181,7 +181,7 @@ pub struct GlyphCache {
     glyphs: HashMap<GlyphKey, Vec<u32>>,
 }
 
-#[derive(Debug, Clone, Hash,PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct GlyphKey {
     color: u32,
     config: GlyphRasterConfig,
@@ -191,7 +191,7 @@ impl From<&'_ GlyphPosition<Color>> for GlyphKey {
     fn from(gp: &'_ GlyphPosition<Color>) -> Self {
         GlyphKey {
             color: gp.user_data.to_color_u8().get(),
-            config: gp.key
+            config: gp.key,
         }
     }
 }
@@ -231,7 +231,7 @@ impl GlyphCache {
                 None => {
                     let (_, coverage) = self.font.rasterize_config(glyph.key);
                     let pixmap: Vec<u32> = coverage
-                    	.into_iter()
+                        .into_iter()
                         .map(|a| {
                             if a == 0 {
                                 0
@@ -242,21 +242,16 @@ impl GlyphCache {
                             }
                         })
                         .collect();
-                    self.glyphs.insert(
-                        glyph.into(),
-                        pixmap
-                    );
-                    self.glyphs
-                    	.get(&glyph.into())
-                    	.map(|vec| {
-                            let pixmap = vec.as_slice();
-                        	unsafe {
-                                std::slice::from_raw_parts(
-                                    pixmap.as_ptr() as *mut u8,
-                                    pixmap.len() * std::mem::size_of::<u32>(),
-                                )
-                        	}
-                    	})
+                    self.glyphs.insert(glyph.into(), pixmap);
+                    self.glyphs.get(&glyph.into()).map(|vec| {
+                        let pixmap = vec.as_slice();
+                        unsafe {
+                            std::slice::from_raw_parts(
+                                pixmap.as_ptr() as *mut u8,
+                                pixmap.len() * std::mem::size_of::<u32>(),
+                            )
+                        }
+                    })
                 }
             }
         } else {

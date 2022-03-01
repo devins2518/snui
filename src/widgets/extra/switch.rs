@@ -91,7 +91,21 @@ where
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.toggle, scene)
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event<'d>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        if let Some(state) = ctx.get(self.message) {
+            let state = if state {
+                SwitchState::Activated
+            } else {
+                SwitchState::Deactivated
+            };
+            if state != self.state {
+                self.set_state(state);
+                return Damage::Frame;
+            }
+        }
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(MouseEvent {
                 pointer,
@@ -115,19 +129,6 @@ where
                         SwitchState::Deactivated => ctx.send(self.message, false),
                     };
                     return Damage::Frame;
-                }
-            }
-            Event::Sync => {
-                if let Some(state) = ctx.get(self.message) {
-                    let state = if state {
-                        SwitchState::Activated
-                    } else {
-                        SwitchState::Deactivated
-                    };
-                    if state != self.state {
-                        self.set_state(state);
-                        return Damage::Frame;
-                    }
                 }
             }
             Event::Callback(frame_time) => {

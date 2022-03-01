@@ -31,7 +31,10 @@ impl<T> Widget<T> for Close {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(&self.rect)
     }
-    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         if let Event::Pointer(MouseEvent {
             pointer,
             ref position,
@@ -77,7 +80,10 @@ impl<T> Widget<T> for Maximize {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(&self.rect)
     }
-    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(MouseEvent {
                 pointer,
@@ -131,7 +137,10 @@ impl<T> Widget<T> for Minimize {
             .translate(0., (self.height() - width) / 2.)
             .insert_primitive(&self.rect)
     }
-    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        Damage::None
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         if let Event::Pointer(MouseEvent {
             pointer,
             ref position,
@@ -166,7 +175,10 @@ impl<T, W: Widget<T>> Widget<T> for Header<W> {
     fn draw_scene(&mut self, scene: Scene) {
         self.widget.draw_scene(scene)
     }
-    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        self.widget.update(ctx)
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(MouseEvent { pointer, position }) => {
                 if self.contains(&position) {
@@ -181,7 +193,7 @@ impl<T, W: Widget<T>> Widget<T> for Header<W> {
             }
             _ => {}
         }
-        self.widget.sync(ctx, event)
+        self.widget.event(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         self.size = self.widget.layout(ctx, constraints);
@@ -277,7 +289,12 @@ where
             }
         }
     }
-    fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        let header = self.header.update(ctx);
+        let window = self.window.update(ctx);
+        header.max(window)
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Configure => {
                 let window = ctx.window();
@@ -329,12 +346,12 @@ where
                 self.activated = activated;
                 self.positioned = positioned;
                 self.header
-                    .sync(ctx, event)
-                    .max(self.window.sync(ctx, event))
+                    .event(ctx, event)
+                    .max(self.window.event(ctx, event))
             }
             _ => {
-                let header = self.header.sync(ctx, event);
-                let window = self.window.sync(ctx, event);
+                let header = self.header.event(ctx, event);
+                let window = self.window.event(ctx, event);
                 header.max(window)
             }
         }

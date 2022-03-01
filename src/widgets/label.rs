@@ -184,11 +184,9 @@ impl<'s> Primitive for LabelRef<'s> {
         } {
             if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index]) {
                 if let Some(pixmap) = glyph_cache.render_glyph(gp) {
-                    if let Some(pixmap) = PixmapRef::from_bytes(
-                        pixmap,
-                        gp.width as u32,
-                        gp.height as u32,
-                    ) {
+                    if let Some(pixmap) =
+                        PixmapRef::from_bytes(pixmap, gp.width as u32, gp.height as u32)
+                    {
                         match &mut context.backend {
                             Backend::Pixmap(dt) => {
                                 dt.draw_pixmap(
@@ -213,12 +211,11 @@ impl<T> Widget<T> for Label {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(&self.as_ref())
     }
-    fn sync<'d>(&'d mut self, _: &mut SyncContext<T>, _: Event<'d>) -> Damage {
-        if self.size.is_none() {
-            Damage::Partial
-        } else {
-            Damage::None
-        }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+        self.size.map(|_| Damage::Partial).unwrap_or_default()
+    }
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        self.size.map(|_| Damage::Partial).unwrap_or_default()
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
@@ -258,18 +255,16 @@ where
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)
     }
-    fn sync(&mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
-        match event {
-            Event::Sync => {
-                if let Some(string) = ctx.send(self.message, self.label.as_str()) {
-                    self.label.edit(&string);
-                } else if let Some(string) = ctx.get(self.message) {
-                    self.label.edit(&string);
-                }
-            }
-            _ => {}
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        if let Some(string) = ctx.send(self.message, self.label.as_str()) {
+            self.label.edit(&string);
+        } else if let Some(string) = ctx.get(self.message) {
+            self.label.edit(&string);
         }
-        self.label.sync(ctx, event)
+        self.label.update(ctx)
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+        self.label.event(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         Widget::<()>::layout(&mut self.label, ctx, constraints)

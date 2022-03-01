@@ -63,18 +63,21 @@ impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
         self.widget
             .draw_scene(scene.translate(self.coords.x, self.coords.y))
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         let damage = match event {
-            Event::Pointer(MouseEvent { position, pointer }) => self.widget.sync(
+            Event::Pointer(MouseEvent { position, pointer }) => self.widget.event(
                 ctx,
                 MouseEvent::new(position.translate(-self.coords.x, -self.coords.y), pointer),
             ),
-            _ => self.widget.sync(ctx, event),
+            _ => self.widget.event(ctx, event),
         };
         self.old_coords
             .ne(&self.coords)
             .then(|| Damage::Partial.max(damage))
             .unwrap_or(damage)
+    }
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        self.widget.update(ctx)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> crate::Size {
         self.size = self.widget.layout(ctx, constraints);

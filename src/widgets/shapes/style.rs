@@ -228,8 +228,11 @@ impl<T, W: Widget<T>> Widget<T> for WidgetStyle<T, W> {
             };
         };
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<T>, event: Event) -> Damage {
-        self.widget.sync(ctx, event)
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+        self.widget.update(ctx)
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+        self.widget.event(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let size = self
