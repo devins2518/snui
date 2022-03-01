@@ -53,10 +53,10 @@ pub enum Constraint {
 
 impl<T> Widget<T> for () {
     fn draw_scene(&mut self, _: Scene) {}
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, _ctx: &mut SyncContext<T>, _event: Event<'s>) -> Damage {
         Damage::None
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
@@ -82,10 +82,10 @@ impl Geometry for Spacer {
 
 impl<T> Widget<T> for Spacer {
     fn draw_scene(&mut self, _: Scene) {}
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, _ctx: &mut SyncContext<T>, _event: Event<'s>) -> Damage {
         Damage::None
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {

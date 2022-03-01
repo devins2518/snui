@@ -178,7 +178,7 @@ impl<D> Widget<D> for FrameRate {
     fn draw_scene(&mut self, scene: scene::Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<D>) -> Damage {
         Damage::None
     }
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {

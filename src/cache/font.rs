@@ -170,7 +170,7 @@ impl FontCache {
             }
         }
         let mut label = *label;
-        label.size = Some(get_size(self.layout.glyphs()).into());
+        label.size = get_size(self.layout.glyphs()).into();
         label
     }
 }

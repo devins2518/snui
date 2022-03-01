@@ -283,7 +283,8 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         self.damage = Damage::None
     }
     fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
-        self.inner.update(ctx)
+        self.damage = self.damage.max(self.inner.update(ctx));
+        self.damage
     }
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {
         self.damage = self.damage.max(match event {

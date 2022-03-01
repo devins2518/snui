@@ -95,7 +95,13 @@ impl Widget<Color> for ColorBlock {
                 .radius(5.),
         )
     }
-    fn sync<'d>(&'d mut self, ctx: &mut SyncContext<Color>, event: Event) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut SyncContext<Color>) -> Damage {
+        self.color = ctx.color;
+        let title = ctx.as_string();
+        ctx.window().set_title(title);
+        Damage::Partial
+    }
+    fn event<'s>(&'s mut self, ctx: &mut SyncContext<Color>, event: Event<'s>) -> Damage {
         match event {
             Event::Configure => {
                 if !self.configured {
@@ -104,12 +110,6 @@ impl Widget<Color> for ColorBlock {
                         ctx.sync = true;
                     }
                 }
-            }
-            Event::Sync => {
-                self.color = ctx.color;
-                let title = ctx.as_string();
-                ctx.window().set_title(title);
-                return Damage::Partial;
             }
             Event::Pointer(MouseEvent {
                 pointer,

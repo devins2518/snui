@@ -31,7 +31,7 @@ impl<T> Widget<T> for Close {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(&self.rect)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
         Damage::None
     }
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
@@ -80,7 +80,7 @@ impl<T> Widget<T> for Maximize {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(&self.rect)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
         Damage::None
     }
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
@@ -137,7 +137,7 @@ impl<T> Widget<T> for Minimize {
             .translate(0., (self.height() - width) / 2.)
             .insert_primitive(&self.rect)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
         Damage::None
     }
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
