@@ -10,6 +10,7 @@ use widgets::Padding;
 /// Any widget can be wrapped in a WidgetStyle and take advantage of the Style trait.
 #[derive(Debug)]
 pub struct WidgetStyle<T, W: Widget<T>> {
+    contained: bool,
     extra_radius: bool,
     background: Rectangle,
     border: BorderedRectangle,
@@ -19,6 +20,7 @@ pub struct WidgetStyle<T, W: Widget<T>> {
 impl<T, W: Widget<T>> WidgetStyle<T, W> {
     pub fn new(widget: W) -> Self {
         WidgetStyle {
+            contained: false,
             extra_radius: false,
             background: Rectangle::new(0., 0.),
             border: BorderedRectangle::new(0., 0.),
@@ -68,6 +70,13 @@ impl<T, W: Widget<T>> WidgetStyle<T, W> {
     }
     pub fn border(mut self, texture: impl Into<Texture>, width: f32) -> Self {
         self.set_border(texture, width);
+        self
+    }
+    /// A promise that the widget's content will not exceed the boundaries.
+    /// This enables some optimization to avoid redrawing the whole widget
+    /// if it's child doesn't have enough padding
+    pub fn contained(mut self) -> Self {
+        self.contained = true;
         self
     }
 }
@@ -201,14 +210,17 @@ impl<T, W: Widget<T>> Style for WidgetStyle<T, W> {
 impl<T, W: Widget<T>> Widget<T> for WidgetStyle<T, W> {
     fn draw_scene(&mut self, mut scene: Scene) {
         let Coords { x, y } = self.widget.coords();
-        let [tl, tr, br, bl] = self.background.radius;
-        let [_, right, _, left] = self.widget.padding;
-        if left < ((tl.max(bl) - if self.extra_radius { left } else { 0. }) * FRAC_1_SQRT_2).floor()
-            || right
-                < ((br.max(tr) - if self.extra_radius { right } else { 0. }) * FRAC_1_SQRT_2)
-                    .floor()
-        {
-            scene = scene.damage(Size::new(self.width(), self.height()));
+        if !self.contained {
+            let [tl, tr, br, bl] = self.background.radius;
+            let [_, right, _, left] = self.widget.padding;
+            if left
+                < ((tl.max(bl) - if self.extra_radius { left } else { 0. }) * FRAC_1_SQRT_2).floor()
+                || right
+                    < ((br.max(tr) - if self.extra_radius { right } else { 0. }) * FRAC_1_SQRT_2)
+                        .floor()
+            {
+                scene = scene.damage(Size::new(self.width(), self.height()));
+            }
         }
         if let Some(scene) = scene.apply_border(&self.border) {
             if let Some(scene) = scene.translate(x, y).apply_background(&self.background) {

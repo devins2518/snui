@@ -111,7 +111,10 @@ impl Widget<Color> for ColorBlock {
                 ctx.window().set_title(title);
                 return Damage::Partial;
             }
-            Event::Pointer(MouseEvent { pointer, ref position }) => {
+            Event::Pointer(MouseEvent {
+                pointer,
+                ref position,
+            }) => {
                 if self.contains(position) && pointer.left_button_click().is_some() {
                     ctx.create_popup(|color, mut ctx| {
                         let mut label = Label::new(color.as_string())

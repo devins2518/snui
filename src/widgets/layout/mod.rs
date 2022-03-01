@@ -24,6 +24,7 @@ pub trait Container<W> {
 pub struct Positioner<W> {
     coords: Coords,
     old_coords: Coords,
+    size: Size,
     pub(crate) widget: W,
 }
 
@@ -31,6 +32,7 @@ impl<W> Positioner<W> {
     pub(crate) fn new(widget: W) -> Self {
         Positioner {
             widget,
+            size: Size::default(),
             old_coords: Coords::new(0., 0.),
             coords: Coords::new(0., 0.),
         }
@@ -52,21 +54,12 @@ impl<W> Positioner<W> {
     }
 }
 
-impl<W: Geometry> Geometry for Positioner<W> {
-    fn width(&self) -> f32 {
-        self.widget.width()
-    }
-    fn height(&self) -> f32 {
-        self.widget.height()
-    }
-    fn contains(&self, position: &scene::Coords) -> bool {
-        self.widget
-            .contains(&position.translate(self.coords.x, self.coords.y))
-    }
-}
-
 impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
-    fn draw_scene(&mut self, scene: Scene) {
+    fn draw_scene(&mut self, mut scene: Scene) {
+        if self.old_coords != self.coords {
+            self.old_coords = self.coords;
+            scene = scene.damage(self.size)
+        }
         self.widget
             .draw_scene(scene.translate(self.coords.x, self.coords.y))
     }
@@ -80,14 +73,12 @@ impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
         };
         self.old_coords
             .ne(&self.coords)
-            .then(|| {
-                self.old_coords = self.coords;
-                self.widget.sync(ctx, Event::Draw).max(damage)
-            })
+            .then(|| Damage::Partial.max(damage))
             .unwrap_or(damage)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> crate::Size {
-        self.widget.layout(ctx, constraints)
+        self.size = self.widget.layout(ctx, constraints);
+        self.size
     }
 }
 

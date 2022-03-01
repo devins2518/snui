@@ -141,15 +141,12 @@ impl std::fmt::Debug for Label {
     }
 }
 
-impl From<&str> for Label {
-    fn from(text: &str) -> Self {
-        Label::new(text)
-    }
-}
-
-impl From<String> for Label {
-    fn from(text: String) -> Self {
-        Label::new(text)
+impl<T> From<T> for Label
+where
+    T: ToString,
+{
+    fn from(label: T) -> Self {
+        Label::new(label.to_string())
     }
 }
 
@@ -188,12 +185,7 @@ impl<'s> Primitive for LabelRef<'s> {
             if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index]) {
                 if let Some(pixmap) = glyph_cache.render_glyph(gp) {
                     if let Some(pixmap) = PixmapRef::from_bytes(
-                        unsafe {
-                            std::slice::from_raw_parts(
-                                pixmap.as_ptr() as *mut u8,
-                                pixmap.len() * std::mem::size_of::<u32>(),
-                            )
-                        },
+                        pixmap,
                         gp.width as u32,
                         gp.height as u32,
                     ) {

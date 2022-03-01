@@ -42,6 +42,7 @@ pub struct DrawContext<'c> {
 /// Currently it only holds the Cache.
 pub struct LayoutCtx<'c> {
     /// Forces Proxies to propagate the layout
+    pub(crate) force: bool,
     pub(crate) cache: &'c mut Cache,
 }
 
@@ -53,7 +54,14 @@ impl<'c> AsMut<Cache> for LayoutCtx<'c> {
 
 impl<'c> LayoutCtx<'c> {
     pub fn new(cache: &'c mut Cache) -> LayoutCtx {
-        LayoutCtx { cache }
+        LayoutCtx {
+            force: false,
+            cache,
+        }
+    }
+    pub fn force(&mut self) -> &mut Self {
+        self.force = true;
+        self
     }
 }
 

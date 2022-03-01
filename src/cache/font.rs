@@ -178,7 +178,22 @@ impl FontCache {
 #[derive(Debug, Clone)]
 pub struct GlyphCache {
     pub font: Font,
-    glyphs: HashMap<GlyphRasterConfig, Vec<u8>>,
+    glyphs: HashMap<GlyphKey, Vec<u32>>,
+}
+
+#[derive(Debug, Clone, Hash,PartialEq, Eq)]
+struct GlyphKey {
+    color: u32,
+    config: GlyphRasterConfig,
+}
+
+impl From<&'_ GlyphPosition<Color>> for GlyphKey {
+    fn from(gp: &'_ GlyphPosition<Color>) -> Self {
+        GlyphKey {
+            color: gp.user_data.to_color_u8().get(),
+            config: gp.key
+        }
+    }
 }
 
 impl GlyphCache {
@@ -200,40 +215,52 @@ impl GlyphCache {
             Err(_) => FontResult::Err("Invalid path"),
         }
     }
-    pub fn render_glyph(&mut self, glyph: &GlyphPosition<Color>) -> Option<Vec<u32>> {
+    pub fn render_glyph(&mut self, glyph: &GlyphPosition<Color>) -> Option<&[u8]> {
         if !glyph.char_data.is_missing() {
-            let pixmap: Vec<u32>;
-            if let Some(coverage) = self.glyphs.get(&glyph.key) {
-                pixmap = coverage
-                    .iter()
-                    .map(|a| {
-                        if a == &0 {
-                            0
-                        } else {
-                            let mut color = glyph.user_data;
-                            color.apply_opacity(*a as f32 / 255.);
-                            color.premultiply().to_color_u8().get()
-                        }
+            match self.glyphs.get(&glyph.into()) {
+                Some(pixmap) => {
+                    // Disconnect the lifetime of the pixmap
+                    // to circumvent Polonious' limitations
+                    Some(unsafe {
+                        std::slice::from_raw_parts(
+                            pixmap.as_ptr() as *mut u8,
+                            pixmap.len() * std::mem::size_of::<u32>(),
+                        )
                     })
-                    .collect();
-            } else {
-                let (_, coverage) = self.font.rasterize_config(glyph.key);
-                pixmap = coverage
-                    .iter()
-                    .map(|a| {
-                        if a == &0 {
-                            0
-                        } else {
-                            let mut color = glyph.user_data;
-                            color.apply_opacity(*a as f32 / 255.);
-                            color.premultiply().to_color_u8().get()
-                        }
-                    })
-                    .collect();
-                self.glyphs.insert(glyph.key, coverage);
+                }
+                None => {
+                    let (_, coverage) = self.font.rasterize_config(glyph.key);
+                    let pixmap: Vec<u32> = coverage
+                    	.into_iter()
+                        .map(|a| {
+                            if a == 0 {
+                                0
+                            } else {
+                                let mut color = glyph.user_data;
+                                color.apply_opacity(a as f32 / 255.);
+                                color.premultiply().to_color_u8().get()
+                            }
+                        })
+                        .collect();
+                    self.glyphs.insert(
+                        glyph.into(),
+                        pixmap
+                    );
+                    self.glyphs
+                    	.get(&glyph.into())
+                    	.map(|vec| {
+                            let pixmap = vec.as_slice();
+                        	unsafe {
+                                std::slice::from_raw_parts(
+                                    pixmap.as_ptr() as *mut u8,
+                                    pixmap.len() * std::mem::size_of::<u32>(),
+                                )
+                        	}
+                    	})
+                }
             }
-            return Some(pixmap);
+        } else {
+            None
         }
-        None
     }
 }

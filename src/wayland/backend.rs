@@ -651,7 +651,9 @@ where
                 .constraint
                 .with_min(width, height)
                 .with_max(width, height);
-            Size { width, height } = self.widget.layout(&mut layout, &self.state.constraint);
+            Size { width, height } = self
+                .widget
+                .layout(&mut layout.force(), &self.state.constraint);
         }
         let surface = &mut self.surface;
 

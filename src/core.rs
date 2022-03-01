@@ -325,7 +325,9 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         self.damage
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
-        self.size = self.inner.layout(ctx, constraints);
+        if self.damage.is_some() || ctx.force {
+            self.size = self.inner.layout(ctx, constraints);
+        }
         self.size
     }
 }

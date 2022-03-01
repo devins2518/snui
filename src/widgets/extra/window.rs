@@ -207,15 +207,15 @@ where
     H: Widget<T>,
     W: Widget<T>,
 {
-    size: Size,
     activated: bool,
     positioned: bool,
     /// Top window decoration
-    header: Header<H>,
+    header: Positioner<Header<H>>,
     /// The window's content
     window: Positioner<Proxy<WidgetStyle<T, W>>>,
     /// The background of the decorations
     decoration: Texture,
+    border: BorderedRectangle,
     /// The radius of window borders
     radius: (f32, f32, f32, f32),
     /// Alternate background of the decorations
@@ -229,13 +229,13 @@ where
 {
     pub fn new(header: H, widget: W) -> Self {
         Window {
-            size: Size::default(),
-            header: Header {
+            header: Positioner::new(Header {
                 size: Size::default(),
                 widget: header,
-            },
+            }),
             activated: false,
             positioned: false,
+            border: BorderedRectangle::default(),
             window: Positioner::new(Proxy::new(WidgetStyle::new(widget))),
             radius: (0., 0., 0., 0.),
             decoration: theme::BG2.into(),
@@ -244,8 +244,9 @@ where
     }
     pub fn set_decoration(&mut self, texture: impl Into<Texture>, width: f32) {
         let texture = texture.into();
+        self.border.set_border_width(width);
+        self.border.set_texture(texture.clone());
         self.header.set_texture(texture.clone());
-        self.window.set_border(texture.clone(), width);
         self.decoration = texture;
     }
     pub fn decoration(mut self, texture: impl Into<Texture>, width: f32) -> Self {
@@ -267,11 +268,13 @@ where
     W: Widget<T>,
 {
     fn draw_scene(&mut self, mut scene: Scene) {
-        if let Some(scene) = scene.next(self.size) {
-            self.header.draw_scene(scene)
-        }
-        if let Some(scene) = scene.next(self.size) {
-            self.window.draw_scene(scene)
+        if let Some(mut scene) = scene.apply_border(&self.border) {
+            if let Some(scene) = scene.next(self.border.size()) {
+                self.header.draw_scene(scene)
+            }
+            if let Some(scene) = scene.next(self.border.size()) {
+                self.window.draw_scene(scene)
+            }
         }
     }
     fn sync<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
@@ -287,7 +290,7 @@ where
                             activated = true;
                             if self.alternate.is_some() && !self.activated {
                                 self.header.set_texture(self.decoration.clone());
-                                self.window.set_border_texture(self.decoration.clone());
+                                self.border.set_texture(self.decoration.clone());
                             }
                         }
                         WindowState::TiledLeft
@@ -297,18 +300,17 @@ where
                         | WindowState::Maximized
                         | WindowState::Fullscreen => {
                             positioned = true;
-                            self.header.set_top_left_radius(0.);
-                            self.header.set_top_right_radius(0.);
-                            self.window.set_bottom_right_radius(0.);
-                            self.window.set_bottom_left_radius(0.);
+                            let radius = self.radius;
+                            self.set_radius(0.);
+                            self.radius = radius;
                         }
                         _ => {}
                     }
                 }
                 if !activated {
                     if let Some(ref texture) = self.alternate {
+                        self.border.set_texture(texture.clone());
                         self.header.set_texture(texture.clone());
-                        self.window.set_border_texture(texture.clone());
                     }
                 }
                 if !self.activated && !activated {
@@ -340,17 +342,36 @@ where
     fn layout<'l>(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let (h_width, h_height) = self
             .header
-            .layout(ctx, &constraints.with_max(constraints.maximum_width(), 0.))
+            .layout(
+                ctx,
+                &constraints
+                    .with_max(constraints.maximum_width(), 0.)
+                    .crop(self.border.border_width * 2., 0.),
+            )
             .into();
-        let (b_width, b_height) = self
+        let (w_width, w_height) = self
             .window
-            .layout(ctx, &constraints.crop(0., h_height))
+            .layout(
+                ctx,
+                &constraints.crop(
+                    self.border.border_width * 2.,
+                    h_height + self.border.border_width * 2.,
+                ),
+            )
             .into();
-        self.window.set_coords(0., h_height);
-        self.size = Size::new(b_width.max(h_width), h_height + b_height);
-        self.size
+        self.header
+            .set_coords(self.border.border_width, self.border.border_width);
+        self.window.set_coords(
+            self.border.border_width,
+            h_height + self.border.border_width,
+        );
+        self.border
+            .set_size(w_width.max(h_width), h_height + w_height);
+        self.border.size()
     }
 }
+
+use std::f32::consts::FRAC_1_SQRT_2;
 
 impl<T, H, W> Style for Window<T, H, W>
 where
@@ -362,19 +383,23 @@ where
     }
     fn set_top_left_radius(&mut self, radius: f32) {
         self.radius.0 = radius;
-        self.header.set_top_left_radius(radius);
+        self.header.set_top_left_radius(radius * FRAC_1_SQRT_2);
+        self.border.set_top_left_radius(radius);
     }
     fn set_top_right_radius(&mut self, radius: f32) {
         self.radius.1 = radius;
-        self.header.set_top_right_radius(radius);
+        self.header.set_top_right_radius(radius * FRAC_1_SQRT_2);
+        self.border.set_top_right_radius(radius);
     }
     fn set_bottom_right_radius(&mut self, radius: f32) {
         self.radius.2 = radius;
-        self.window.set_bottom_right_radius(radius);
+        self.window.set_bottom_right_radius(radius * FRAC_1_SQRT_2);
+        self.border.set_bottom_right_radius(radius);
     }
     fn set_bottom_left_radius(&mut self, radius: f32) {
         self.radius.3 = radius;
-        self.window.set_bottom_left_radius(radius);
+        self.window.set_bottom_left_radius(radius * FRAC_1_SQRT_2);
+        self.border.set_bottom_left_radius(radius);
     }
 }
 

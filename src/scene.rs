@@ -805,13 +805,15 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
         match self.node {
             RenderNode::Primitive { region } => {
                 let merge = region.merge(&primitive_region);
-                if !self.damage {
-                    self.context.clear(&self.background, merge);
+                if self.clip.map(|clip| merge.intersect(clip)).unwrap_or(true) {
+                    if !self.damage {
+                        self.context.clear(&self.background, merge);
+                    }
+                    primitive.draw(
+                        self.context,
+                        transform.pre_translate(self.coords.x, self.coords.y),
+                    );
                 }
-                primitive.draw(
-                    self.context,
-                    transform.pre_translate(self.coords.x, self.coords.y),
-                );
                 *region = primitive_region;
             }
             _ => {
@@ -820,15 +822,17 @@ impl<'s, 'c, 'b> Scene<'s, 'c, 'b> {
                     .region()
                     .map(|inner| inner.merge(&primitive_region))
                     .unwrap_or(primitive_region);
-                if !self.damage {
-                    // The space occupied by the previous node and the new one is cleaned.
-                    self.context.clear(&self.background, merge);
+                if self.clip.map(|clip| merge.intersect(clip)).unwrap_or(true) {
+                    if !self.damage {
+                        // The space occupied by the previous node and the new one is cleaned.
+                        self.context.clear(&self.background, merge);
+                    }
+                    // We replace the invalidated node.
+                    primitive.draw(
+                        self.context,
+                        transform.pre_translate(self.coords.x, self.coords.y),
+                    );
                 }
-                // We replace the invalidated node.
-                primitive.draw(
-                    self.context,
-                    transform.pre_translate(self.coords.x, self.coords.y),
-                );
                 *self.node = RenderNode::primitive(primitive_region);
             }
         }

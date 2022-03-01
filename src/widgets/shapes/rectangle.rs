@@ -26,6 +26,12 @@ impl Default for Rectangle {
     }
 }
 
+impl Default for BorderedRectangle {
+    fn default() -> Self {
+        Self::new(0., 0.)
+    }
+}
+
 impl Rectangle {
     pub fn new(width: f32, height: f32) -> Self {
         Rectangle {
