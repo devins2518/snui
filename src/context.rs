@@ -240,9 +240,7 @@ impl<'c> DrawContext<'c> {
             let mut pb = self.path_builder.take().unwrap();
             pb.push_rect(region.x, region.y, region.width, region.height);
             let path = pb
-                .finish()
-                .map(|path| path.transform(self.transform))
-                .flatten()
+                .finish().and_then(|path| path.transform(self.transform))
                 .unwrap();
             clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
             self.path_builder = Some(path.clear());
@@ -268,15 +266,13 @@ impl<'c> DrawContext<'c> {
         }
         let clip_mask = self
             .clipmask
-            .as_ref()
-            .map(|clipmask| {
+            .as_ref().and_then(|clipmask| {
                 if !clipmask.is_empty() {
                     Some(&**clipmask)
                 } else {
                     None
                 }
-            })
-            .flatten();
+            });
         match background.texture() {
             Texture::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
@@ -377,15 +373,13 @@ impl<'c> DrawContext<'c> {
         (
             &mut self.backend,
             self.clipmask
-                .as_ref()
-                .map(|clipmask| {
+                .as_ref().and_then(|clipmask| {
                     if !clipmask.is_empty() {
                         Some(&**clipmask)
                     } else {
                         None
                     }
-                })
-                .flatten(),
+                }),
         )
     }
 }

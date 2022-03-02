@@ -653,7 +653,7 @@ where
                 .with_max(width, height);
             Size { width, height } = self
                 .widget
-                .layout(&mut layout.force(), &self.state.constraint);
+                .layout(layout.force(), &self.state.constraint);
         }
         let surface = &mut self.surface;
 
@@ -1566,7 +1566,7 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<Self>,
     ) {
-        if let Some(view) = self.current.map(|i| self.views.get_mut(i)).flatten() {
+        if let Some(view) = self.current.and_then(|i| self.views.get_mut(i)) {
             match event {
                 wl_pointer::Event::Button {
                     serial,

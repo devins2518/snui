@@ -162,16 +162,14 @@ impl<'s> Geometry for LabelRef<'s> {
 impl<'s> Primitive for LabelRef<'s> {
     fn draw(&self, context: &mut DrawContext, transform: tiny_skia::Transform) {
         let mut label = *self;
-        let mut settings = label.settings.clone();
+        let mut settings = *label.settings;
         let font_cache = &mut context.cache.font_cache;
         settings.max_width = self.settings.max_width.map(|width| width * transform.sx);
         settings.max_height = self.settings.max_height.map(|height| height * transform.sy);
 
         let clip_mask = context
             .clipmask
-            .as_ref()
-            .map(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask))
-            .flatten();
+            .as_ref().and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
 
         let x = transform.tx.round();
         let y = transform.ty.round();
@@ -257,9 +255,9 @@ where
     }
     fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
         if let Some(string) = ctx.send(self.message, self.label.as_str()) {
-            self.label.edit(&string);
+            self.label.edit(string);
         } else if let Some(string) = ctx.get(self.message) {
-            self.label.edit(&string);
+            self.label.edit(string);
         }
         self.label.update(ctx)
     }

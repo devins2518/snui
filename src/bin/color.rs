@@ -99,11 +99,9 @@ impl Widget<Color> for ColorBlock {
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<Color>, event: Event<'s>) -> Damage {
         match event {
             Event::Configure => {
-                if !self.configured {
-                    if !ctx.window().get_state().is_empty() {
-                        self.configured = true;
-                        ctx.sync = true;
-                    }
+                if !self.configured && !ctx.window().get_state().is_empty() {
+                    self.configured = true;
+                    ctx.sync = true;
                 }
             }
             Event::Pointer(MouseEvent {
