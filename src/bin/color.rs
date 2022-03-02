@@ -93,6 +93,7 @@ impl Widget<Color> for ColorBlock {
             Event::Configure => {
                 if !self.configured && !ctx.window().get_state().is_empty() {
                     self.configured = true;
+                    ctx.update();
                 }
             }
             Event::Pointer(MouseEvent {
@@ -178,24 +179,25 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
 }
 
 fn main() {
-    let (mut client, mut event_queue) = WaylandClient::new().unwrap();
-
     let window = extra::window::default_window(
         Listener::new("color", ()),
         ui_builder().clamp().padding(10.),
     );
-
-    client.create_window(
-        Color {
-            color: tiny_skia::Color::WHITE,
-            string: String::new(),
-        },
-        window
-            .texture(theme::BG0)
-            .radius(5.)
-            .decoration(theme::BG2, 1.),
-        &event_queue.handle(),
-    );
+    let (mut client, mut event_queue) = WaylandClient::new_with_cb(|client, conn, qh| {
+        client.create_window(
+            Color {
+                color: tiny_skia::Color::WHITE,
+                string: String::new(),
+            },
+            window
+                .texture(theme::BG0)
+                .radius(5.)
+                .decoration(theme::BG2, 1.),
+            conn,
+            qh,
+        );
+    })
+    .unwrap();
 
     while client.has_view() {
         event_queue.blocking_dispatch(&mut client).unwrap();

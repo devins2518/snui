@@ -45,9 +45,9 @@ where
 {
     cache: Cache,
     current: Option<usize>,
-    connection: Connection,
     /// Used by views to insert new ones to the client.
     view_slot: Option<View<T>>,
+    connection: Option<Connection>,
     globals: Rc<RefCell<GlobalManager>>,
     views: Vec<View<T>>,
     pool: Option<MultiPool<wl_surface::WlSurface>>,
@@ -66,30 +66,63 @@ impl<T> WaylandClient<T>
 where
     T: Clone + 'static,
 {
-    pub fn new() -> Option<(Self, EventQueue<Self>)> {
+    pub fn new() -> Option<(Self, Connection, EventQueue<Self>)> {
         let conn = Connection::connect_to_env().ok()?;
 
         let mut event_queue = conn.new_event_queue();
-        let qhandle = event_queue.handle();
+        let qh = event_queue.handle();
 
         let display = conn.handle().display();
-        let registry = display
-            .get_registry(&mut conn.handle(), &qhandle, ())
-            .ok()?;
+        let registry = display.get_registry(&mut conn.handle(), &qh, ()).ok()?;
 
         let mut wl_client = Self {
             current: None,
             pool: None,
             view_slot: None,
             cache: Cache::default(),
+            connection: Some(conn.clone()),
             globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
-            connection: conn,
+            views: Vec::new(),
+        };
+
+        let _ = display.sync(&mut conn.handle(), &qh, ());
+
+        for _ in 0..2 {
+            event_queue.blocking_dispatch(&mut wl_client).unwrap();
+        }
+
+        Some((wl_client, conn, event_queue))
+    }
+    pub fn new_with_cb<F>(f: F) -> Option<(Self, EventQueue<Self>)>
+    where
+        F: FnOnce(&mut Self, &mut ConnectionHandle, &QueueHandle<Self>),
+    {
+        let conn = Connection::connect_to_env().ok()?;
+
+        let mut event_queue = conn.new_event_queue();
+        let qh = event_queue.handle();
+
+        let display = conn.handle().display();
+        let registry = display.get_registry(&mut conn.handle(), &qh, ()).ok()?;
+
+        let mut wl_client = Self {
+            pool: None,
+            current: None,
+            view_slot: None,
+            connection: None,
+            cache: Cache::default(),
+            globals: Rc::new(RefCell::new(GlobalManager::new(registry))),
             views: Vec::new(),
         };
 
         for _ in 0..2 {
             event_queue.blocking_dispatch(&mut wl_client).unwrap();
         }
+
+        f(&mut wl_client, &mut conn.handle(), &qh);
+
+        let _ = display.sync(&mut conn.handle(), &qh, ());
+        wl_client.connection = Some(conn);
 
         Some((wl_client, event_queue))
     }
@@ -139,14 +172,17 @@ where
             }
         }
     }
-    pub fn create_window(
-        &mut self,
+    pub fn create_window<'s, 'c>(
+        &'s mut self,
         data: T,
         widget: impl Widget<T> + 'static,
-        qh: &QueueHandle<Self>,
-    ) -> &mut View<T> {
-        let mut conn = self.connection.handle();
-        let surface = self.globals.borrow().create_xdg_surface(&mut conn, qh);
+        conn: &'s mut ConnectionHandle<'c>,
+        qh: &'s QueueHandle<Self>,
+    ) -> ViewHandle<'s, 'c, T>
+    where
+        'c: 's,
+    {
+        let surface = self.globals.borrow().create_xdg_surface(conn, qh);
         let view = View {
             state: State::default(),
             data,
@@ -158,20 +194,23 @@ where
         };
 
         self.views.push(view);
-        self.views.last_mut().unwrap()
+        self.views
+            .last_mut()
+            .unwrap()
+            .handle(&mut self.view_slot, conn, qh)
     }
-    pub fn create_widget(
-        &mut self,
+    pub fn create_widget<'s, 'c>(
+        &'s mut self,
         data: T,
         widget: impl Widget<T> + 'static,
         config: LayerShellConfig,
-        qh: &QueueHandle<Self>,
-    ) {
-        let mut conn = self.connection.handle();
-        let surface = self
-            .globals
-            .borrow()
-            .create_layer_surface(&mut conn, config, qh);
+        conn: &'s mut ConnectionHandle<'c>,
+        qh: &'s QueueHandle<Self>,
+    ) -> ViewHandle<'s, 'c, T>
+    where
+        'c: 's,
+    {
+        let surface = self.globals.borrow().create_layer_surface(conn, config, qh);
         let view = View {
             state: State::default(),
             data,
@@ -183,6 +222,10 @@ where
         };
 
         self.views.push(view);
+        self.views
+            .last_mut()
+            .unwrap()
+            .handle(&mut self.view_slot, conn, qh)
     }
     pub fn has_view(&self) -> bool {
         !self.views.is_empty()
@@ -197,7 +240,9 @@ where
     T: Clone,
 {
     fn drop(&mut self) {
-        self.globals.borrow().destroy(&mut self.connection.handle())
+        self.globals
+            .borrow()
+            .destroy(&mut self.connection.as_ref().unwrap().handle())
     }
 }
 
@@ -272,13 +317,27 @@ where
 
 use crate::context::WindowHandle;
 
-struct ViewHandle<'s, 'c, T: 'static + Clone> {
+pub struct ViewHandle<'s, 'c, T: 'static + Clone> {
     qh: &'s QueueHandle<WaylandClient<T>>,
     globals: Rc<RefCell<GlobalManager>>,
     view_slot: &'s mut Option<View<T>>,
     state: &'s mut State,
     conn: &'s mut ConnectionHandle<'c>,
     surface: &'s mut Surface,
+}
+
+impl<'s, 'c, T: Clone> ViewHandle<'s, 'c, T> {
+    pub fn set_app_id(&mut self, app_id: String) {
+        match self.surface.shell {
+            Shell::Xdg { ref toplevel, .. } => {
+                toplevel.set_app_id(self.conn, app_id);
+            }
+            Shell::LayerShell { ref mut config, .. } => {
+                config.namespace = app_id;
+            }
+            _ => {}
+        }
+    }
 }
 
 impl<'s, 'c, T: Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
@@ -647,7 +706,9 @@ where
                 .constraint
                 .with_min(width, height)
                 .with_max(width, height);
-            Size { width, height } = self.widget.layout(layout.force(), &self.state.constraint);
+            Size { width, height } = self
+                .widget
+                .layout(&mut layout.force(), &self.state.constraint);
         }
         let surface = &mut self.surface;
 
@@ -1285,20 +1346,21 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some(view) = self.views.iter_mut().find(|view| {
+        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, view)| {
             view.surface
                 .shell
                 .toplevel()
                 .map(|inner| inner.eq(toplevel))
                 .unwrap_or_default()
         }) {
+            self.current = Some(i);
             match event {
                 xdg_toplevel::Event::Configure {
                     width,
                     height,
                     states,
                 } => {
-                    view.state.window_state = list_states(states);
+                    collect_states(&mut view.state.window_state, states);
                     if view.state.constraint.maximum_width() as i32 != width
                         || view.state.constraint.maximum_height() as i32 != height
                     {
@@ -1316,10 +1378,12 @@ where
                     }
                 }
                 xdg_toplevel::Event::Close => {
+                    std::mem::drop(view);
+                    let mut view = self.views.remove(i);
                     view.surface.destroy(conn);
-                    self.current = None;
-                    view.state.configured = false;
                     self.pool.as_mut().unwrap().remove(&view.surface, conn);
+                    self.remove_children(conn, view.surface.wl_surface);
+                    return;
                 }
                 _ => {}
             }
@@ -1331,17 +1395,19 @@ where
     }
 }
 
-fn list_states(states: Vec<u8>) -> Vec<WindowState> {
-    states
-        .chunks(4)
-        .filter_map(|endian| {
-            xdg_toplevel::State::try_from(u32::from_ne_bytes([
-                endian[0], endian[1], endian[2], endian[3],
-            ]))
-            .ok()
-        })
-        .map(WindowState::from)
-        .collect()
+fn collect_states(vec: &mut Vec<WindowState>, states: Vec<u8>) {
+    vec.clear();
+    vec.extend(
+        states
+            .chunks(4)
+            .filter_map(|endian| {
+                xdg_toplevel::State::try_from(u32::from_ne_bytes([
+                    endian[0], endian[1], endian[2], endian[3],
+                ]))
+                .ok()
+            })
+            .map(WindowState::from),
+    )
 }
 
 impl<T> Dispatch<wl_shm::WlShm> for WaylandClient<T>
@@ -1433,51 +1499,67 @@ where
         conn: &mut ConnectionHandle,
         qh: &QueueHandle<Self>,
     ) {
-        if let zwlr_layer_surface_v1::Event::Configure {
-            serial,
-            width,
-            height,
-        } = event
-        {
-            layer_surface.ack_configure(conn, serial);
-            if let Some(view) = self.views.iter_mut().find(|view| {
-                view.surface
-                    .shell
-                    .layer_surface()
-                    .map(|inner| inner.eq(layer_surface))
-                    .unwrap_or_default()
-            }) {
-                if let Shell::LayerShell { config, .. } = &view.surface.shell {
-                    if config.exclusive {
-                        use zwlr_layer_surface_v1::Anchor;
-                        if let Some(anchor) = config.anchor {
-                            match anchor {
-                                Anchor::Left | Anchor::Right => {
-                                    let width = view.state.constraint.minimum_width();
-                                    layer_surface.set_exclusive_zone(conn, width as i32)
+        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, view)| {
+            view.surface
+                .shell
+                .layer_surface()
+                .map(|inner| inner.eq(layer_surface))
+                .unwrap_or_default()
+        }) {
+            match event {
+                zwlr_layer_surface_v1::Event::Configure {
+                    serial,
+                    width,
+                    height,
+                } => {
+                    layer_surface.ack_configure(conn, serial);
+                    if let Shell::LayerShell { config, .. } = &view.surface.shell {
+                        if config.exclusive {
+                            use zwlr_layer_surface_v1::Anchor;
+                            if let Some(anchor) = config.anchor {
+                                match anchor {
+                                    Anchor::Left | Anchor::Right => {
+                                        let width = view.state.constraint.minimum_width();
+                                        layer_surface.set_exclusive_zone(conn, width as i32)
+                                    }
+                                    Anchor::Top | Anchor::Bottom => {
+                                        let height = view.state.constraint.minimum_height();
+                                        layer_surface.set_exclusive_zone(conn, height as i32)
+                                    }
+                                    _ => {}
                                 }
-                                Anchor::Top | Anchor::Bottom => {
-                                    let height = view.state.constraint.minimum_height();
-                                    layer_surface.set_exclusive_zone(conn, height as i32)
-                                }
-                                _ => {}
                             }
                         }
                     }
+                    view.state.configured = true;
+                    view.state.window_state.clear();
+                    view.state.window_state.push(WindowState::Resizing);
+                    view.state.constraint = BoxConstraints::new(
+                        (width as f32, height as f32),
+                        (width as f32, height as f32),
+                    );
+                    view.update_scene(
+                        self.pool.as_mut().unwrap(),
+                        &mut self.view_slot,
+                        &mut self.cache,
+                        Event::Configure,
+                        conn,
+                        qh,
+                    )
                 }
-                view.state.configured = true;
-                view.state.constraint = BoxConstraints::new(
-                    (width as f32, height as f32),
-                    (width as f32, height as f32),
-                );
-                view.update_scene(
-                    self.pool.as_mut().unwrap(),
-                    &mut self.view_slot,
-                    &mut self.cache,
-                    Event::Configure,
-                    conn,
-                    qh,
-                )
+                zwlr_layer_surface_v1::Event::Closed => {
+                    std::mem::drop(view);
+                    let mut view = self.views.remove(i);
+                    view.surface.destroy(conn);
+                    self.pool.as_mut().unwrap().remove(&view.surface, conn);
+                    self.remove_children(conn, view.surface.wl_surface);
+                    return;
+                }
+                _ => unreachable!(),
+            }
+            if !view.surface.children.is_empty() {
+                let surface = view.surface.wl_surface.clone();
+                self.remove_children(conn, surface);
             }
         }
     }

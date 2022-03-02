@@ -19,9 +19,9 @@ pub enum Backend<'b> {
 ///
 /// The context dereferences the Data so widgets can interact with it.
 /// It also contains the cache which is used for text layouting and fetching images.
-pub struct UpdateContext<'c, T> {
+pub struct UpdateContext<'c, 't, T> {
     updated: bool,
-    data: &'c mut T,
+    data: &'t mut T,
     pub(crate) cache: &'c mut Cache,
     pub(crate) window: &'c mut dyn WindowHandle<T>,
 }
@@ -60,9 +60,14 @@ impl<'c> LayoutCtx<'c> {
             cache,
         }
     }
-    pub fn force(&mut self) -> &mut Self {
-        self.force = true;
-        self
+    pub fn force<'s, 'n>(&'s mut self) -> LayoutCtx<'n>
+    where
+        's: 'n,
+    {
+        LayoutCtx {
+            force: true,
+            cache: self.cache,
+        }
     }
 }
 
@@ -138,13 +143,9 @@ impl<'c> DerefMut for Backend<'c> {
     }
 }
 
-impl<'c, T> UpdateContext<'c, T> {
+impl<'c, 't, T> UpdateContext<'c, 't, T> {
     /// Creates a UpdateContext with a WindowHandle
-    pub fn new(
-        data: &'c mut T,
-        cache: &'c mut Cache,
-        window: &'c mut impl WindowHandle<T>,
-    ) -> Self {
+    pub fn new(data: &'t mut T, cache: &'c mut Cache, window: &'c mut dyn WindowHandle<T>) -> Self {
         Self {
             data,
             cache,
@@ -169,26 +170,33 @@ impl<'c, T> UpdateContext<'c, T> {
         let menu = builder(self.data, layout);
         self.window.show_menu(menu);
     }
+    /// Creates a new instance of an UpdateContext with different data
+    pub fn fork<'s, 'f>(&'s mut self, data: &'f mut T) -> UpdateContext<'s, 'f, T> {
+        UpdateContext::new(data, self.cache, self.window)
+    }
+    pub fn update(&mut self) {
+        self.updated = true;
+    }
     pub fn updated(&self) -> bool {
         self.updated
     }
 }
 
-impl<'c, D> Deref for UpdateContext<'c, D> {
-    type Target = D;
+impl<'c, 't, T> Deref for UpdateContext<'c, 't, T> {
+    type Target = T;
     fn deref(&self) -> &Self::Target {
         self.data
     }
 }
 
-impl<'c, D> DerefMut for UpdateContext<'c, D> {
+impl<'c, 't, T> DerefMut for UpdateContext<'c, 't, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.updated = true;
         self.data
     }
 }
 
-impl<'c, D> AsMut<Cache> for UpdateContext<'c, D> {
+impl<'c, 't, T> AsMut<Cache> for UpdateContext<'c, 't, T> {
     fn as_mut(&mut self) -> &mut Cache {
         self.cache
     }
