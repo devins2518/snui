@@ -1,4 +1,4 @@
-use snui::context::SyncContext;
+use snui::context::UpdateContext;
 use snui::mail::*;
 use snui::wayland::backend::*;
 use snui::widgets::extra::{switch::*, window, Easer, Quadratic, Sinus};
@@ -20,8 +20,6 @@ enum AnimationState {
     Pause,
 }
 
-// Our Data.
-// Holds the state and is responsible for communicating changes across the widget tree
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Demo {
     sync: bool,
@@ -47,20 +45,11 @@ impl Mail<'_, Remote, bool, bool> for Demo {
         None
     }
     fn send(&mut self, _: Remote, data: bool) -> Option<bool> {
-        // When the state of the animation is changed,
-        // we want our Data to be shared again to the widgets so they are aware of the new state
-        self.sync = true;
         match data {
             true => self.start(),
             false => self.pause(),
         }
         None
-    }
-}
-
-impl Data for Demo {
-    fn sync(&mut self) -> bool {
-        std::mem::take(&mut self.sync)
     }
 }
 
@@ -99,7 +88,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
             .translate(self.position, 0.)
             .insert_primitive(&self.cursor)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<Demo>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<Demo>) -> Damage {
         match ctx.state {
             AnimationState::Start => {
                 self.start = true;
@@ -114,7 +103,7 @@ impl<E: Easer> Widget<Demo> for Animate<E> {
         }
         Damage::None
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<Demo>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<Demo>, event: Event<'s>) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if self.start {
@@ -172,10 +161,10 @@ impl<D> Widget<D> for FrameRate {
     fn draw_scene(&mut self, scene: scene::Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<D>) -> Damage {
         self.label.update(ctx)
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<D>, event: Event<'s>) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if frame_time > 0 {
@@ -210,7 +199,7 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
                 .background(theme::BG1)
                 .padding(2.)
                 .radius(4.)
-                .button(move |this, ctx: &mut SyncContext<Demo>, p| {
+                .button(move |this, ctx: &mut UpdateContext<Demo>, p| {
                     if p.left_button_click().is_some() {
                         match ctx.state {
                             AnimationState::Start => {

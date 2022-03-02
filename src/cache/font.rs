@@ -145,7 +145,7 @@ impl FontCache {
             }
         }
     }
-    pub fn layout<'s>(&mut self, label: &LabelRef<'s>) -> LabelRef<'s> {
+    pub fn layout<'s>(&mut self, label: &LabelRef<'s>) -> &[GlyphPosition<Color>] {
         for font in label.fonts {
             self.load_font(font);
         }
@@ -169,9 +169,7 @@ impl FontCache {
                 );
             }
         }
-        let mut label = *label;
-        label.size = Some(get_size(self.layout.glyphs()).into());
-        label
+        self.layout.glyphs().as_slice()
     }
 }
 
@@ -215,12 +213,12 @@ impl GlyphCache {
             Err(_) => FontResult::Err("Invalid path"),
         }
     }
-    pub fn render_glyph(&mut self, glyph: &GlyphPosition<Color>) -> Option<&[u8]> {
+    pub fn get(&mut self, glyph: &GlyphPosition<Color>) -> Option<&[u8]> {
         if !glyph.char_data.is_missing() {
             match self.glyphs.get(&glyph.into()) {
                 Some(pixmap) => {
                     // Disconnect the lifetime of the pixmap
-                    // to circumvent Polonious' limitations
+                    // from the GlyphCache to circumvent Polonius' limitations
                     Some(unsafe {
                         std::slice::from_raw_parts(
                             pixmap.as_ptr() as *mut u8,

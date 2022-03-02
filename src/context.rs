@@ -19,7 +19,8 @@ pub enum Backend<'b> {
 ///
 /// The context dereferences the Data so widgets can interact with it.
 /// It also contains the cache which is used for text layouting and fetching images.
-pub struct SyncContext<'c, T> {
+pub struct UpdateContext<'c, T> {
+    updated: bool,
     data: &'c mut T,
     pub(crate) cache: &'c mut Cache,
     pub(crate) window: &'c mut dyn WindowHandle<T>,
@@ -137,8 +138,8 @@ impl<'c> DerefMut for Backend<'c> {
     }
 }
 
-impl<'c, T> SyncContext<'c, T> {
-    /// Creates a SyncContext with a WindowHandle
+impl<'c, T> UpdateContext<'c, T> {
+    /// Creates a UpdateContext with a WindowHandle
     pub fn new(
         data: &'c mut T,
         cache: &'c mut Cache,
@@ -148,6 +149,7 @@ impl<'c, T> SyncContext<'c, T> {
             data,
             cache,
             window,
+            updated: false,
         }
     }
     /// Return a reference to the WindowHandle
@@ -167,22 +169,26 @@ impl<'c, T> SyncContext<'c, T> {
         let menu = builder(self.data, layout);
         self.window.show_menu(menu);
     }
+    pub fn updated(&self) -> bool {
+        self.updated
+    }
 }
 
-impl<'c, D> Deref for SyncContext<'c, D> {
+impl<'c, D> Deref for UpdateContext<'c, D> {
     type Target = D;
     fn deref(&self) -> &Self::Target {
         self.data
     }
 }
 
-impl<'c, D> DerefMut for SyncContext<'c, D> {
+impl<'c, D> DerefMut for UpdateContext<'c, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        self.updated = true;
         self.data
     }
 }
 
-impl<'c, D> AsMut<Cache> for SyncContext<'c, D> {
+impl<'c, D> AsMut<Cache> for UpdateContext<'c, D> {
     fn as_mut(&mut self) -> &mut Cache {
         self.cache
     }
@@ -196,8 +202,8 @@ impl<'c> DrawContext<'c> {
             cache,
             backend,
             clipmask: None,
-            transform: Transform::identity(),
             pending_damage: Vec::new(),
+            transform: Transform::identity(),
             path_builder: Some(PathBuilder::new()),
         }
     }
@@ -209,14 +215,12 @@ impl<'c> DrawContext<'c> {
         self.transform = transform;
         self
     }
-    /// Returns the PathBuilder.
-    pub fn path_builder(&mut self) -> PathBuilder {
-        self.path_builder
-            .take()
-            .expect("Please reset the path_builder once you're done.")
-    }
-    pub fn reset(&mut self, path_builder: PathBuilder) {
-        self.path_builder = Some(path_builder);
+    pub fn draw<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut Self, PathBuilder) -> Path,
+    {
+        let pb = self.path_builder.take().unwrap();
+        self.path_builder = Some(f(self, pb).clear());
     }
     pub(crate) fn transform(&self) -> Transform {
         self.transform
@@ -240,7 +244,8 @@ impl<'c> DrawContext<'c> {
             let mut pb = self.path_builder.take().unwrap();
             pb.push_rect(region.x, region.y, region.width, region.height);
             let path = pb
-                .finish().and_then(|path| path.transform(self.transform))
+                .finish()
+                .and_then(|path| path.transform(self.transform))
                 .unwrap();
             clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
             self.path_builder = Some(path.clear());
@@ -264,15 +269,13 @@ impl<'c> DrawContext<'c> {
             blend = BlendMode::SourceOver;
             self.commit(region);
         }
-        let clip_mask = self
-            .clipmask
-            .as_ref().and_then(|clipmask| {
-                if !clipmask.is_empty() {
-                    Some(&**clipmask)
-                } else {
-                    None
-                }
-            });
+        let clip_mask = self.clipmask.as_ref().and_then(|clipmask| {
+            if !clipmask.is_empty() {
+                Some(&**clipmask)
+            } else {
+                None
+            }
+        });
         match background.texture() {
             Texture::Color(color) => match &mut self.backend {
                 Backend::Pixmap(dt) => {
@@ -372,14 +375,13 @@ impl<'c> DrawContext<'c> {
     pub fn draw_kit(&mut self) -> (&mut Backend<'c>, Option<&ClipMask>) {
         (
             &mut self.backend,
-            self.clipmask
-                .as_ref().and_then(|clipmask| {
-                    if !clipmask.is_empty() {
-                        Some(&**clipmask)
-                    } else {
-                        None
-                    }
-                }),
+            self.clipmask.as_ref().and_then(|clipmask| {
+                if !clipmask.is_empty() {
+                    Some(&**clipmask)
+                } else {
+                    None
+                }
+            }),
         )
     }
 }

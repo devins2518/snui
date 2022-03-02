@@ -282,11 +282,11 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
         }
         self.damage = Damage::None
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<D>) -> Damage {
         self.damage = self.damage.max(self.inner.update(ctx));
         self.damage
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<D>, event: Event<'s>) -> Damage {
         self.damage = self.damage.max(match event {
             Event::Pointer(MouseEvent { ref position, .. }) => {
                 if self.contains(position) {
@@ -415,7 +415,7 @@ pub trait WidgetExt<T>: Widget<T> + Sized {
     fn button<F>(self, cb: F) -> Proxy<Button<T, Self, F>>
     where
         Self: Widget<T>,
-        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut SyncContext<T>, Pointer),
+        F: for<'d> FnMut(&'d mut Proxy<Self>, &'d mut UpdateContext<T>, Pointer),
     {
         Button::new(self, cb)
     }
@@ -448,10 +448,10 @@ impl<D> Widget<D> for Box<dyn Widget<D>> {
     fn draw_scene(&mut self, scene: Scene) {
         self.deref_mut().draw_scene(scene)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<D>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<D>) -> Damage {
         self.deref_mut().update(ctx)
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<D>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<D>, event: Event<'s>) -> Damage {
         self.deref_mut().event(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

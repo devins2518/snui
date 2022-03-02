@@ -164,7 +164,7 @@ where
             }
         }
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         if self.state != RevealerState::Running && ctx.send(self.message, self.state).is_some() {
             match self.state {
                 RevealerState::Hidden => {
@@ -180,7 +180,7 @@ where
         }
         self.widget.update(ctx)
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Callback(frame_time) => {
                 if let RevealerState::Running = self.state {

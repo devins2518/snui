@@ -42,14 +42,14 @@ impl<M> Geometry for Slider<M> {
         if let Orientation::Horizontal = &self.orientation {
             self.size
         } else {
-            self.slider.width()
+            self.slider.width
         }
     }
     fn height(&self) -> f32 {
         if let Orientation::Vertical = &self.orientation {
             self.size
         } else {
-            self.slider.height()
+            self.slider.height
         }
     }
 }
@@ -70,7 +70,7 @@ where
         };
         Widget::<()>::draw_scene(&mut self.slider, scene.translate(x, y))
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(MouseEvent {
                 pointer,
@@ -81,57 +81,61 @@ where
                     button,
                     pressed,
                 } => {
-                    self.pressed = pressed;
-                    if self.pressed && button.is_left() {
-                        match &self.orientation {
-                            Orientation::Horizontal => {
-                                self.slider.set_width(position.x.round());
-                            }
-                            Orientation::Vertical => {
-                                self.slider.set_height(position.y.round());
+                    if self.pressed || self.contains(position) {
+                        self.pressed = pressed;
+                        if self.pressed && button.is_left() {
+                            match &self.orientation {
+                                Orientation::Horizontal => {
+                                    self.slider.set_width(position.x.round());
+                                }
+                                Orientation::Vertical => {
+                                    self.slider.set_height(position.y.round());
+                                }
                             }
                         }
+                        if pressed && button.is_left() {
+                            ctx.window().set_cursor(Cursor::Hand);
+                        } else {
+                            ctx.window().set_cursor(Cursor::Arrow);
+                        }
+                        let ratio = match &self.orientation {
+                            Orientation::Horizontal => self.slider.width() / self.size,
+                            Orientation::Vertical => self.slider.height() / self.size,
+                        };
+                        ctx.send(self.message, ratio);
+                        return Damage::Partial;
                     }
-                    if pressed && button.is_left() {
-                        ctx.window().set_cursor(Cursor::Hand);
-                    } else {
-                        ctx.window().set_cursor(Cursor::Arrow);
-                    }
-                    let ratio = match &self.orientation {
-                        Orientation::Horizontal => self.slider.width() / self.size,
-                        Orientation::Vertical => self.slider.height() / self.size,
-                    };
-                    ctx.send(self.message, ratio);
-                    return Damage::Partial;
                 }
                 Pointer::Scroll {
                     orientation: _,
                     step,
                 } => {
-                    let ratio = match &self.orientation {
-                        Orientation::Horizontal => {
-                            let width = (self.slider.width()
-                                - match step {
-                                    Step::Value(v) => v,
-                                    Step::Increment(s) => (s as f32 * self.size) / 100.,
-                                })
-                            .clamp(0., self.size);
-                            self.slider.set_width(width);
-                            width / self.size
-                        }
-                        Orientation::Vertical => {
-                            let height = (self.slider.height()
-                                - match step {
-                                    Step::Value(v) => v,
-                                    Step::Increment(s) => (s as f32 * self.size) / 100.,
-                                })
-                            .clamp(0., self.size);
-                            self.slider.set_height(height);
-                            height / self.size
-                        }
-                    };
-                    ctx.send(self.message, ratio);
-                    return Damage::Partial;
+                    if self.contains(position) {
+                        let ratio = match &self.orientation {
+                            Orientation::Horizontal => {
+                                let width = (self.slider.width()
+                                    - match step {
+                                        Step::Value(v) => v,
+                                        Step::Increment(s) => (s as f32 * self.size) / 100.,
+                                    })
+                                .clamp(0., self.size);
+                                self.slider.set_width(width);
+                                width / self.size
+                            }
+                            Orientation::Vertical => {
+                                let height = (self.slider.height()
+                                    - match step {
+                                        Step::Value(v) => v,
+                                        Step::Increment(s) => (s as f32 * self.size) / 100.,
+                                    })
+                                .clamp(0., self.size);
+                                self.slider.set_height(height);
+                                height / self.size
+                            }
+                        };
+                        ctx.send(self.message, ratio);
+                        return Damage::Partial;
+                    }
                 }
                 Pointer::Leave => {
                     self.pressed = false;
@@ -160,7 +164,7 @@ where
         }
         Damage::None
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         if let Some(ratio) = ctx.get(self.message) {
             match &self.orientation {
                 Orientation::Horizontal => {

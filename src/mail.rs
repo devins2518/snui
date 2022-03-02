@@ -26,11 +26,3 @@ where
         (self)(message, Some(data))
     }
 }
-
-/// Keeps track of the state of your application.
-/// When your application needs to be updated, your widgets' sync method will be invoked.
-///
-/// If sync returns true, your widgets will receive a Sync event along with your Data.
-pub trait Data {
-    fn sync(&mut self) -> bool;
-}

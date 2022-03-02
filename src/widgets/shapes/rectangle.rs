@@ -160,8 +160,8 @@ impl GeometryExt for Rectangle {
 
 impl Primitive for Rectangle {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {
-        let pb = ctx.path_builder();
-        if let Some(path) = Rectangle::path(pb, self.width, self.height, self.radius) {
+        ctx.draw(|ctx, pb| {
+            let path = Rectangle::path(pb, self.width, self.height, self.radius).unwrap();
             let (backend, clipmask) = ctx.draw_kit();
             if let Backend::Pixmap(dt) = backend {
                 match &self.texture {
@@ -234,10 +234,8 @@ impl Primitive for Rectangle {
                     _ => {}
                 }
             }
-            ctx.reset(path.clear());
-        } else {
-            ctx.reset(PathBuilder::new());
-        }
+            path
+        })
     }
 }
 
@@ -263,10 +261,10 @@ impl<T> Widget<T> for Rectangle {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(self)
     }
-    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut UpdateContext<T>) -> Damage {
         Damage::None
     }
-    fn event<'s>(&'s mut self, _ctx: &mut SyncContext<T>, _event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, _ctx: &mut UpdateContext<T>, _event: Event<'s>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
@@ -352,13 +350,14 @@ impl BorderedRectangle {
 
 impl Primitive for BorderedRectangle {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {
-        let pb = ctx.path_builder();
-        if let Some(path) = Rectangle::path(
-            pb,
-            self.width + self.border_width,
-            self.height + self.border_width,
-            self.radius,
-        ) {
+        ctx.draw(|ctx, pb| {
+            let path = Rectangle::path(
+                pb,
+                self.width + self.border_width,
+                self.height + self.border_width,
+                self.radius,
+            )
+            .unwrap();
             let (backend, clipmask) = ctx.draw_kit();
             if let Backend::Pixmap(dt) = backend {
                 let stroke = Stroke {
@@ -438,9 +437,7 @@ impl Primitive for BorderedRectangle {
                     _ => {}
                 }
             }
-            ctx.reset(path.clear());
-        } else {
-            ctx.reset(PathBuilder::new());
-        }
+            path
+        })
     }
 }

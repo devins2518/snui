@@ -53,10 +53,10 @@ pub enum Constraint {
 
 impl<T> Widget<T> for () {
     fn draw_scene(&mut self, _: Scene) {}
-    fn event<'s>(&'s mut self, _ctx: &mut SyncContext<T>, _event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, _ctx: &mut UpdateContext<T>, _event: Event<'s>) -> Damage {
         Damage::None
     }
-    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut UpdateContext<T>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
@@ -82,10 +82,10 @@ impl Geometry for Spacer {
 
 impl<T> Widget<T> for Spacer {
     fn draw_scene(&mut self, _: Scene) {}
-    fn event<'s>(&'s mut self, _ctx: &mut SyncContext<T>, _event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, _ctx: &mut UpdateContext<T>, _event: Event<'s>) -> Damage {
         Damage::None
     }
-    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut UpdateContext<T>) -> Damage {
         Damage::None
     }
     fn layout(&mut self, _ctx: &mut LayoutCtx, _constraints: &BoxConstraints) -> Size {
@@ -129,7 +129,7 @@ impl<T, W: Widget<T>> Widget<T> for Padding<T, W> {
         let [top, _, _, left] = self.padding;
         self.widget.draw_scene(scene.translate(left, top))
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         if let Event::Pointer(MouseEvent { pointer, position }) = event {
             let [top, _, _, left] = self.padding;
             self.widget.event(
@@ -140,7 +140,7 @@ impl<T, W: Widget<T>> Widget<T> for Padding<T, W> {
             self.widget.event(ctx, event)
         }
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         self.widget.update(ctx)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
@@ -311,10 +311,10 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
     fn draw_scene(&mut self, scene: Scene) {
         self.widget.draw_scene(scene)
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         self.widget.event(ctx, event)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         self.widget.update(ctx)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

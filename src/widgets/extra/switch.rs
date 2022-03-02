@@ -91,7 +91,7 @@ where
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.toggle, scene)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         if let Some(state) = ctx.get(self.message) {
             let state = if state {
                 SwitchState::Activated
@@ -105,7 +105,7 @@ where
         }
         Damage::None
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         match event {
             Event::Pointer(MouseEvent {
                 pointer,

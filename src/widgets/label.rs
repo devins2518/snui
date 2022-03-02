@@ -169,7 +169,8 @@ impl<'s> Primitive for LabelRef<'s> {
 
         let clip_mask = context
             .clipmask
-            .as_ref().and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
+            .as_ref()
+            .and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
 
         let x = transform.tx.round();
         let y = transform.ty.round();
@@ -181,7 +182,7 @@ impl<'s> Primitive for LabelRef<'s> {
             font_cache.layout.glyphs()
         } {
             if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index]) {
-                if let Some(pixmap) = glyph_cache.render_glyph(gp) {
+                if let Some(pixmap) = glyph_cache.get(gp) {
                     if let Some(pixmap) =
                         PixmapRef::from_bytes(pixmap, gp.width as u32, gp.height as u32)
                     {
@@ -209,10 +210,10 @@ impl<T> Widget<T> for Label {
     fn draw_scene(&mut self, mut scene: Scene) {
         scene.insert_primitive(&self.as_ref())
     }
-    fn event<'s>(&'s mut self, _ctx: &mut SyncContext<T>, _event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, _ctx: &mut UpdateContext<T>, _event: Event<'s>) -> Damage {
         self.size.map(|_| Damage::None).unwrap_or(Damage::Partial)
     }
-    fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, _ctx: &mut UpdateContext<T>) -> Damage {
         self.size.map(|_| Damage::None).unwrap_or(Damage::Partial)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
@@ -221,7 +222,7 @@ impl<T> Widget<T> for Label {
             self.settings.max_width = Some(constraints.maximum_width());
             self.settings.max_height = Some(constraints.maximum_height());
         }
-        self.size = fc.layout(&self.as_ref()).size;
+        self.size = Some(crate::cache::font::get_size(fc.layout(&self.as_ref())).into());
         self.size.unwrap_or_default()
     }
 }
@@ -253,7 +254,7 @@ where
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.label, scene)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         if let Some(string) = ctx.send(self.message, self.label.as_str()) {
             self.label.edit(string);
         } else if let Some(string) = ctx.get(self.message) {
@@ -261,7 +262,7 @@ where
         }
         self.label.update(ctx)
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         self.label.event(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

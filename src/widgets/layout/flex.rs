@@ -79,14 +79,14 @@ impl<T, W: Widget<T>> Widget<T> for Flex<W> {
         }
         scene.truncate(self.len())
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         self.children
             .iter_mut()
             .map(|widget| widget.event(ctx, event))
             .max()
             .unwrap_or_default()
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         self.children
             .iter_mut()
             .map(|widget| widget.update(ctx))

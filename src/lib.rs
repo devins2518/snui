@@ -325,8 +325,8 @@ pub trait Primitive: Geometry {
 use scene::{Coords, Scene};
 
 pub trait Widget<T> {
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage;
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage;
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage;
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage;
     /// The layout is expected to be computed here.
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size;
     fn draw_scene(&mut self, scene: Scene);

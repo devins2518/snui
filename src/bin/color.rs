@@ -7,7 +7,6 @@ use snui::{theme::*, *};
 
 #[derive(Clone, Debug)]
 struct Color {
-    sync: bool,
     color: tiny_skia::Color,
     string: String,
 }
@@ -30,7 +29,6 @@ impl<'a> Mail<'a, Channel, f32, f32> for Color {
         })
     }
     fn send(&mut self, message: Channel, data: f32) -> Option<f32> {
-        self.sync = true;
         match message {
             Channel::Alpha => self.color.set_alpha(data),
             Channel::Red => self.color.set_red(data),
@@ -48,12 +46,6 @@ impl<'a, 's> Mail<'a, (), &'s str, &'a str> for Color {
     fn send(&'a mut self, _: (), _: &'s str) -> Option<&'a str> {
         self.string = self.as_string();
         Some(&self.string)
-    }
-}
-
-impl Data for Color {
-    fn sync(&mut self) -> bool {
-        std::mem::take(&mut self.sync)
     }
 }
 
@@ -90,18 +82,17 @@ impl Widget<Color> for ColorBlock {
                 .radius(5.),
         )
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<Color>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<Color>) -> Damage {
         self.color = ctx.color;
         let title = ctx.as_string();
         ctx.window().set_title(title);
         Damage::Partial
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<Color>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<Color>, event: Event<'s>) -> Damage {
         match event {
             Event::Configure => {
                 if !self.configured && !ctx.window().get_state().is_empty() {
                     self.configured = true;
-                    ctx.sync = true;
                 }
             }
             Event::Pointer(MouseEvent {
@@ -113,7 +104,7 @@ impl Widget<Color> for ColorBlock {
                         let mut label = Label::new(color.as_string())
                             .background(color.color)
                             .padding(5.)
-                            .button(|_, ctx: &mut SyncContext<Color>, p| {
+                            .button(|_, ctx: &mut UpdateContext<Color>, p| {
                                 if p.left_button_click().is_some() {
                                     ctx.window().close();
                                 }
@@ -196,7 +187,6 @@ fn main() {
 
     client.create_window(
         Color {
-            sync: false,
             color: tiny_skia::Color::WHITE,
             string: String::new(),
         },

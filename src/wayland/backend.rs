@@ -1,6 +1,5 @@
 use crate::cache::*;
 use crate::context::DrawContext;
-use crate::mail::Data;
 use crate::scene::*;
 use crate::wayland::{buffer, GlobalManager, LayerShellConfig, Output, Seat, Shell, Surface};
 use crate::widgets::shapes::Rectangle;
@@ -42,7 +41,7 @@ use wayland_cursor::CursorTheme;
 
 pub struct WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     cache: Cache,
     current: Option<usize>,
@@ -56,7 +55,7 @@ where
 
 impl<T> AsMut<Cache> for WaylandClient<T>
 where
-    T: Data + Clone,
+    T: Clone,
 {
     fn as_mut(&mut self) -> &mut Cache {
         &mut self.cache
@@ -65,7 +64,7 @@ where
 
 impl<T> WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     pub fn new() -> Option<(Self, EventQueue<Self>)> {
         let conn = Connection::connect_to_env().ok()?;
@@ -195,17 +194,14 @@ where
 
 impl<T> Drop for WaylandClient<T>
 where
-    T: Data + Clone,
+    T: Clone,
 {
     fn drop(&mut self) {
         self.globals.borrow().destroy(&mut self.connection.handle())
     }
 }
 
-pub struct View<T>
-where
-    T: Data,
-{
+pub struct View<T> {
     data: T,
     state: State,
     surface: Surface,
@@ -243,7 +239,7 @@ impl Default for State {
 
 impl<T> View<T>
 where
-    T: Data + Clone,
+    T: Clone,
 {
     fn eq_surface(&self, surface: &wl_surface::WlSurface) -> bool {
         self.surface.wl_surface.eq(surface)
@@ -276,7 +272,7 @@ where
 
 use crate::context::WindowHandle;
 
-struct ViewHandle<'s, 'c, T: 'static + Data + Clone> {
+struct ViewHandle<'s, 'c, T: 'static + Clone> {
     qh: &'s QueueHandle<WaylandClient<T>>,
     globals: Rc<RefCell<GlobalManager>>,
     view_slot: &'s mut Option<View<T>>,
@@ -285,7 +281,7 @@ struct ViewHandle<'s, 'c, T: 'static + Data + Clone> {
     surface: &'s mut Surface,
 }
 
-impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
+impl<'s, 'c, T: Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
     fn close(&mut self) {
         // The WaylandClient will destroy the surface and remove the view.
         self.state.configured = false;
@@ -527,7 +523,7 @@ impl<'s, 'c, T: Data + Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
 
 impl<T> View<T>
 where
-    T: Data + std::clone::Clone,
+    T: std::clone::Clone,
 {
     fn event(
         &mut self,
@@ -549,10 +545,10 @@ where
             qh,
             surface: &mut self.surface,
         };
-        let mut ctx = SyncContext::new(&mut self.data, cache, &mut handle);
+        let mut ctx = UpdateContext::new(&mut self.data, cache, &mut handle);
         damage = damage.max(self.widget.event(&mut ctx, event));
 
-        if ctx.sync() {
+        if ctx.updated() {
             damage = damage.max(self.widget.update(&mut ctx));
         }
 
@@ -651,9 +647,7 @@ where
                 .constraint
                 .with_min(width, height)
                 .with_max(width, height);
-            Size { width, height } = self
-                .widget
-                .layout(layout.force(), &self.state.constraint);
+            Size { width, height } = self.widget.layout(layout.force(), &self.state.constraint);
         }
         let surface = &mut self.surface;
 
@@ -702,7 +696,7 @@ impl GlobalManager {
         qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<Surface>
     where
-        T: Data + Clone,
+        T: Clone,
     {
         let wm_base = self.wm_base.as_ref()?;
         let compositor = self.compositor.as_ref()?;
@@ -733,7 +727,7 @@ impl GlobalManager {
         qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<xdg_positioner::XdgPositioner>
     where
-        T: Data + Clone,
+        T: Clone,
     {
         let wm_base = self.wm_base.as_ref()?;
         wm_base.create_positioner(conn, qh, ()).ok()
@@ -747,7 +741,7 @@ impl GlobalManager {
         qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<Surface>
     where
-        T: Data + Clone,
+        T: Clone,
     {
         let wm_base = self.wm_base.as_ref()?;
         let compositor = self.compositor.as_ref()?;
@@ -777,7 +771,7 @@ impl GlobalManager {
         qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<wl_surface::WlSurface>
     where
-        T: Data + Clone,
+        T: Clone,
     {
         let compositor = self.compositor.as_ref()?;
         compositor.create_surface(conn, qh, ()).ok()
@@ -789,7 +783,7 @@ impl GlobalManager {
         qh: &QueueHandle<WaylandClient<T>>,
     ) -> Option<Surface>
     where
-        T: Data + Clone,
+        T: Clone,
     {
         let layer_shell = self.layer_shell.as_ref()?;
         let compositor = self.compositor.as_ref()?;
@@ -894,7 +888,7 @@ use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryHandler};
 
 impl<T> Dispatch<wl_registry::WlRegistry> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -959,13 +953,13 @@ where
     }
 }
 
-impl<T: Data + Clone> ShmHandler for WaylandClient<T> {
+impl<T: Clone> ShmHandler for WaylandClient<T> {
     fn shm_state(&mut self) -> &mut ShmState {
         unsafe { &mut (*self.globals.as_ptr()).shm_state }
     }
 }
 
-impl<T: Data + Clone> ProvidesRegistryState for WaylandClient<T> {
+impl<T: Clone> ProvidesRegistryState for WaylandClient<T> {
     fn registry(&mut self) -> &mut smithay_client_toolkit::registry::RegistryState {
         unsafe { &mut (*self.globals.as_ptr()).registry }
     }
@@ -976,7 +970,7 @@ use std::sync::Arc;
 
 impl<T> Dispatch<wl_buffer::WlBuffer> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = Arc<AtomicBool>;
 
@@ -996,7 +990,7 @@ where
 
 impl<T> Dispatch<wl_compositor::WlCompositor> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1014,7 +1008,7 @@ where
 
 impl<T> Dispatch<xdg_positioner::XdgPositioner> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1032,7 +1026,7 @@ where
 
 impl<T> Dispatch<xdg_popup::XdgPopup> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1090,7 +1084,7 @@ where
 
 impl<T> Dispatch<wl_shm_pool::WlShmPool> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1108,7 +1102,7 @@ where
 
 impl<T> Dispatch<wl_subcompositor::WlSubcompositor> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1126,7 +1120,7 @@ where
 
 impl<T> Dispatch<wl_surface::WlSurface> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1174,7 +1168,7 @@ where
 
 impl<T> Dispatch<wl_callback::WlCallback> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1227,7 +1221,7 @@ where
 
 impl<T> Dispatch<wl_subsurface::WlSubsurface> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1245,7 +1239,7 @@ where
 
 impl<T> Dispatch<wl_region::WlRegion> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1279,7 +1273,7 @@ impl From<xdg_toplevel::State> for WindowState {
 
 impl<T> Dispatch<xdg_toplevel::XdgToplevel> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1352,7 +1346,7 @@ fn list_states(states: Vec<u8>) -> Vec<WindowState> {
 
 impl<T> Dispatch<wl_shm::WlShm> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1370,7 +1364,7 @@ where
 
 impl<T> Dispatch<xdg_wm_base::XdgWmBase> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1390,7 +1384,7 @@ where
 
 impl<T> Dispatch<xdg_surface::XdgSurface> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1427,7 +1421,7 @@ where
 
 impl<T> Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1491,7 +1485,7 @@ where
 
 impl<T> Dispatch<zwlr_layer_shell_v1::ZwlrLayerShellV1> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1509,7 +1503,7 @@ where
 
 impl<T> Dispatch<wl_seat::WlSeat> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1554,7 +1548,7 @@ where
 
 impl<T> Dispatch<wl_pointer::WlPointer> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1665,7 +1659,7 @@ where
 
 impl<T> Dispatch<wl_output::WlOutput> for WaylandClient<T>
 where
-    T: Data + Clone + 'static,
+    T: Clone + 'static,
 {
     type UserData = ();
 
@@ -1724,7 +1718,7 @@ where
 impl<T, I> DelegateDispatchBase<I> for WaylandClient<T>
 where
     I: Proxy,
-    T: Data + Clone,
+    T: Clone,
 {
     type UserData = ();
 }
@@ -1732,7 +1726,7 @@ where
 impl<T, I> DelegateDispatch<I, WaylandClient<T>> for WaylandClient<T>
 where
     I: Proxy,
-    T: Data + Clone,
+    T: Clone,
     Self: Dispatch<I, UserData = Self::UserData>,
 {
     fn event(

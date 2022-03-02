@@ -65,7 +65,7 @@ impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
         }
         self.widget.draw_scene(scene)
     }
-    fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         self.damage = self.old_coords != self.coords;
         let damage = match event {
             Event::Pointer(MouseEvent { position, pointer }) => self.widget.event(
@@ -78,7 +78,7 @@ impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
             .then(|| Damage::Partial.max(damage))
             .unwrap_or(damage)
     }
-    fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         self.damage = self.old_coords != self.coords;
         let damage = self.widget.update(ctx);
         self.damage
