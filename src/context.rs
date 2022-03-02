@@ -257,23 +257,10 @@ impl<'c> DrawContext<'c> {
             blend = BlendMode::SourceOver;
         } else {
             if let Some(last) = self.pending_damage.last() {
-                if last.contains(region.x, region.y)
-                    && last
-                        .merge(&region)
-                        .substract(*last)
-                        .into_iter()
-                        .filter_map(|region| {
-                            if !region.is_empty() {
-                                self.clear(background, region);
-                                Some(())
-                            } else {
-                                None
-                            }
-                        })
-                        .reduce(|_, _| ())
-                        .is_some()
-                {
-                    return;
+                if last.contains(region.x, region.y) {
+                    for region in last.merge(&region).substract(*last) {
+                        self.clear(background, region);
+                    }
                 }
             }
             blend = BlendMode::SourceOver;

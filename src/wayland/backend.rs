@@ -552,7 +552,7 @@ where
         let mut ctx = SyncContext::new(&mut self.data, cache, &mut handle);
         damage = damage.max(self.widget.event(&mut ctx, event));
 
-        while ctx.sync() {
+        if ctx.sync() {
             damage = damage.max(self.widget.update(&mut ctx));
         }
 
@@ -1076,6 +1076,7 @@ where
                 }
                 xdg_popup::Event::PopupDone => {
                     view.state.configured = false;
+                    self.pool.as_mut().unwrap().remove(&view.surface, conn);
                 }
                 _ => {}
             }

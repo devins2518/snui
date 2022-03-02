@@ -26,13 +26,12 @@ pub const TEXT: PixmapPaint = PixmapPaint {
 /// Owned text widget
 #[derive(Clone)]
 pub struct Label {
-    damage: Damage,
     pub(crate) text: String,
     pub(crate) font_size: f32,
     pub(crate) color: Color,
     pub(crate) settings: LayoutSettings,
     pub(crate) fonts: [FontProperty; 2],
-    pub(crate) size: Size,
+    pub(crate) size: Option<Size>,
 }
 
 /// A reference to a Label.
@@ -45,7 +44,7 @@ pub struct LabelRef<'s> {
     pub color: Color,
     pub settings: &'s LayoutSettings,
     pub fonts: &'s [FontProperty],
-    pub size: Size,
+    pub size: Option<Size>,
 }
 
 impl<'s> LabelRef<'s> {
@@ -56,7 +55,7 @@ impl<'s> LabelRef<'s> {
             fonts,
             settings: &DEFAULT_LAYOUT_SETTINGS,
             color: to_color(FG0),
-            size: Size::default(),
+            size: None,
         }
     }
 }
@@ -64,13 +63,12 @@ impl<'s> LabelRef<'s> {
 impl Label {
     pub fn new<T: Into<String>>(text: T) -> Label {
         Label {
-            damage: Damage::None,
             text: text.into(),
             font_size: DEFAULT_FONT_SIZE,
             fonts: Default::default(),
             settings: DEFAULT_LAYOUT_SETTINGS,
             color: to_color(FG0),
-            size: Size::default(),
+            size: None,
         }
     }
     pub fn as_ref(&self) -> LabelRef {
@@ -91,12 +89,12 @@ impl Label {
     }
     pub fn write(&mut self, s: &str) {
         self.text.push_str(s);
-        self.damage = Damage::Partial;
+        self.size = None;
     }
     pub fn edit(&mut self, s: &str) {
         if s.ne(self.text.as_str()) {
             self.text.replace_range(0.., s);
-            self.damage = Damage::Partial;
+            self.size = None;
         }
     }
     pub fn primary_font<F: Into<FontProperty>>(mut self, font: F) -> Self {
@@ -154,10 +152,10 @@ where
 
 impl<'s> Geometry for LabelRef<'s> {
     fn width(&self) -> f32 {
-        self.size.width
+        self.size.unwrap_or_default().width
     }
     fn height(&self) -> f32 {
-        self.size.height
+        self.size.unwrap_or_default().height
     }
 }
 
@@ -214,10 +212,10 @@ impl<T> Widget<T> for Label {
         scene.insert_primitive(&self.as_ref())
     }
     fn event<'s>(&'s mut self, _ctx: &mut SyncContext<T>, _event: Event<'s>) -> Damage {
-        self.damage
+        self.size.map(|_| Damage::None).unwrap_or(Damage::Partial)
     }
     fn update<'s>(&'s mut self, _ctx: &mut SyncContext<T>) -> Damage {
-        self.damage
+        self.size.map(|_| Damage::None).unwrap_or(Damage::Partial)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {
         let fc: &mut cache::FontCache = ctx.as_mut().as_mut();
@@ -226,7 +224,7 @@ impl<T> Widget<T> for Label {
             self.settings.max_height = Some(constraints.maximum_height());
         }
         self.size = fc.layout(&self.as_ref()).size;
-        self.size
+        self.size.unwrap_or_default()
     }
 }
 

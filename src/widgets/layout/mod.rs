@@ -24,6 +24,7 @@ pub trait Container<W> {
 pub struct Positioner<W> {
     coords: Coords,
     old_coords: Coords,
+    damage: bool,
     size: Size,
     pub(crate) widget: W,
 }
@@ -32,12 +33,14 @@ impl<W> Positioner<W> {
     pub(crate) fn new(widget: W) -> Self {
         Positioner {
             widget,
+            damage: true,
             size: Size::default(),
             old_coords: Coords::new(0., 0.),
             coords: Coords::new(0., 0.),
         }
     }
     pub fn translate(mut self, x: f32, y: f32) -> Self {
+        self.old_coords = self.coords;
         self.coords = Coords::new(self.coords.x + x, self.coords.y + y);
         self
     }
@@ -56,14 +59,14 @@ impl<W> Positioner<W> {
 
 impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
     fn draw_scene(&mut self, mut scene: Scene) {
-        if self.old_coords != self.coords {
-            self.old_coords = self.coords;
+        scene = scene.translate(self.coords.x, self.coords.y);
+        if self.damage {
             scene = scene.damage(self.size)
         }
-        self.widget
-            .draw_scene(scene.translate(self.coords.x, self.coords.y))
+        self.widget.draw_scene(scene)
     }
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
+        self.damage = self.old_coords != self.coords;
         let damage = match event {
             Event::Pointer(MouseEvent { position, pointer }) => self.widget.event(
                 ctx,
@@ -71,15 +74,19 @@ impl<T, W: Widget<T>> Widget<T> for Positioner<W> {
             ),
             _ => self.widget.event(ctx, event),
         };
-        self.old_coords
-            .ne(&self.coords)
+        self.damage
             .then(|| Damage::Partial.max(damage))
             .unwrap_or(damage)
     }
     fn update<'s>(&'s mut self, ctx: &mut SyncContext<T>) -> Damage {
-        self.widget.update(ctx)
+        self.damage = self.old_coords != self.coords;
+        let damage = self.widget.update(ctx);
+        self.damage
+            .then(|| Damage::Partial.max(damage))
+            .unwrap_or(damage)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> crate::Size {
+        self.old_coords = self.coords;
         self.size = self.widget.layout(ctx, constraints);
         self.size
     }

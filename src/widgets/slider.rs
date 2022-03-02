@@ -75,104 +75,70 @@ where
             Event::Pointer(MouseEvent {
                 pointer,
                 ref position,
-            }) => {
-                if self.contains(position) {
-                    match pointer {
-                        Pointer::MouseClick {
-                            serial: _,
-                            button,
-                            pressed,
-                        } => {
-                            self.pressed = pressed;
-                            if self.pressed && button.is_left() {
-                                match &self.orientation {
-                                    Orientation::Horizontal => {
-                                        self.slider.set_width(position.x.round());
-                                    }
-                                    Orientation::Vertical => {
-                                        self.slider.set_height(position.y.round());
-                                    }
-                                }
+            }) => match pointer {
+                Pointer::MouseClick {
+                    serial: _,
+                    button,
+                    pressed,
+                } => {
+                    self.pressed = pressed;
+                    if self.pressed && button.is_left() {
+                        match &self.orientation {
+                            Orientation::Horizontal => {
+                                self.slider.set_width(position.x.round());
                             }
-                            if pressed && button.is_left() {
-                                ctx.window().set_cursor(Cursor::Hand);
-                            } else {
-                                ctx.window().set_cursor(Cursor::Arrow);
-                            }
-                            let ratio = match &self.orientation {
-                                Orientation::Horizontal => self.slider.width() / self.size,
-                                Orientation::Vertical => self.slider.height() / self.size,
-                            };
-                            ctx.send(self.message, ratio);
-                            return Damage::Partial;
-                        }
-                        Pointer::Scroll {
-                            orientation: _,
-                            step,
-                        } => {
-                            let ratio = match &self.orientation {
-                                Orientation::Horizontal => {
-                                    let width = (self.slider.width()
-                                        - match step {
-                                            Step::Value(v) => v,
-                                            Step::Increment(s) => (s as f32 * self.size) / 100.,
-                                        })
-                                    .clamp(0., self.size);
-                                    self.slider.set_width(width);
-                                    width / self.size
-                                }
-                                Orientation::Vertical => {
-                                    let height = (self.slider.height()
-                                        - match step {
-                                            Step::Value(v) => v,
-                                            Step::Increment(s) => (s as f32 * self.size) / 100.,
-                                        })
-                                    .clamp(0., self.size);
-                                    self.slider.set_height(height);
-                                    height / self.size
-                                }
-                            };
-                            ctx.send(self.message, ratio);
-                            return Damage::Partial;
-                        }
-                        Pointer::Hover => {
-                            if self.pressed {
-                                match &self.orientation {
-                                    Orientation::Horizontal => {
-                                        let width = position.x.clamp(0., self.size);
-                                        self.slider.set_width(position.x.round());
-                                        ctx.send(self.message, width / self.size);
-                                        return Damage::Partial;
-                                    }
-                                    Orientation::Vertical => {
-                                        let height = position.y.clamp(0., self.size);
-                                        self.slider.set_width(height);
-                                        ctx.send(self.message, height / self.size);
-                                        return Damage::Partial;
-                                    }
-                                }
+                            Orientation::Vertical => {
+                                self.slider.set_height(position.y.round());
                             }
                         }
-                        _ => {}
                     }
-                } else if self.pressed {
-                    match pointer {
-                        Pointer::MouseClick {
-                            serial: _,
-                            button,
-                            pressed,
-                        } => {
-                            if button.is_left() {
-                                self.pressed = pressed;
-                                if pressed {
-                                    ctx.window().set_cursor(Cursor::Hand);
-                                } else {
-                                    ctx.window().set_cursor(Cursor::Arrow);
-                                }
-                                return Damage::Partial;
-                            }
+                    if pressed && button.is_left() {
+                        ctx.window().set_cursor(Cursor::Hand);
+                    } else {
+                        ctx.window().set_cursor(Cursor::Arrow);
+                    }
+                    let ratio = match &self.orientation {
+                        Orientation::Horizontal => self.slider.width() / self.size,
+                        Orientation::Vertical => self.slider.height() / self.size,
+                    };
+                    ctx.send(self.message, ratio);
+                    return Damage::Partial;
+                }
+                Pointer::Scroll {
+                    orientation: _,
+                    step,
+                } => {
+                    let ratio = match &self.orientation {
+                        Orientation::Horizontal => {
+                            let width = (self.slider.width()
+                                - match step {
+                                    Step::Value(v) => v,
+                                    Step::Increment(s) => (s as f32 * self.size) / 100.,
+                                })
+                            .clamp(0., self.size);
+                            self.slider.set_width(width);
+                            width / self.size
                         }
-                        Pointer::Hover => match &self.orientation {
+                        Orientation::Vertical => {
+                            let height = (self.slider.height()
+                                - match step {
+                                    Step::Value(v) => v,
+                                    Step::Increment(s) => (s as f32 * self.size) / 100.,
+                                })
+                            .clamp(0., self.size);
+                            self.slider.set_height(height);
+                            height / self.size
+                        }
+                    };
+                    ctx.send(self.message, ratio);
+                    return Damage::Partial;
+                }
+                Pointer::Leave => {
+                    self.pressed = false;
+                }
+                Pointer::Hover => {
+                    if self.pressed {
+                        match &self.orientation {
                             Orientation::Horizontal => {
                                 let width = position.x.clamp(0., self.size);
                                 self.slider.set_width(position.x.round());
@@ -185,14 +151,11 @@ where
                                 ctx.send(self.message, height / self.size);
                                 return Damage::Partial;
                             }
-                        },
-                        Pointer::Leave => {
-                            return Damage::Partial;
                         }
-                        _ => {}
                     }
                 }
-            }
+                _ => {}
+            },
             _ => {}
         }
         Damage::None

@@ -53,12 +53,7 @@ impl<'a, 's> Mail<'a, (), &'s str, &'a str> for Color {
 
 impl Data for Color {
     fn sync(&mut self) -> bool {
-        if self.sync {
-            self.sync = false;
-            true
-        } else {
-            false
-        }
+        std::mem::take(&mut self.sync)
     }
 }
 
@@ -105,8 +100,8 @@ impl Widget<Color> for ColorBlock {
         match event {
             Event::Configure => {
                 if !self.configured {
-                    self.configured = true;
                     if !ctx.window().get_state().is_empty() {
+                        self.configured = true;
                         ctx.sync = true;
                     }
                 }
@@ -196,8 +191,10 @@ fn ui_builder() -> Flex<impl Widget<Color>> {
 fn main() {
     let (mut client, mut event_queue) = WaylandClient::new().unwrap();
 
-    let window =
-        extra::window::default_window(Listener::new("", ()), ui_builder().clamp().padding(10.));
+    let window = extra::window::default_window(
+        Listener::new("color", ()),
+        ui_builder().clamp().padding(10.),
+    );
 
     client.create_window(
         Color {

@@ -178,7 +178,7 @@ where
                 _ => {}
             }
         }
-        Damage::None
+        self.widget.update(ctx)
     }
     fn event<'s>(&'s mut self, ctx: &mut SyncContext<T>, event: Event<'s>) -> Damage {
         match event {

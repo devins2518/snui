@@ -237,8 +237,8 @@ impl<W> Proxy<W> {
     pub fn new(inner: W) -> Self {
         Proxy {
             inner,
-            size: Size::default(),
             entered: false,
+            size: Size::default(),
             damage: Damage::Partial,
         }
     }
@@ -299,7 +299,7 @@ impl<D, W: Widget<D>> Widget<D> for Proxy<W> {
                     }
                 } else if self.entered {
                     let damage = self.inner.event(ctx, event);
-                    self.entered = self.contains(position) || damage.is_some();
+                    self.entered = damage.is_some();
                     if !self.entered {
                         self.inner
                             .event(ctx, MouseEvent::new(*position, Pointer::Leave))
