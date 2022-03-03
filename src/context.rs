@@ -60,6 +60,8 @@ impl<'c> LayoutCtx<'c> {
             cache,
         }
     }
+    /// Creates a new instance of the LayoutCtx
+    /// with the force field enabled.
     pub fn force<'s, 'n>(&'s mut self) -> LayoutCtx<'n>
     where
         's: 'n,
@@ -85,7 +87,7 @@ pub enum Menu<T> {
     },
 }
 
-/// A window to the window state.
+/// A handle to the window state.
 pub trait WindowHandle<T> {
     /// Closes the window.
     ///
@@ -144,7 +146,6 @@ impl<'c> DerefMut for Backend<'c> {
 }
 
 impl<'c, 't, T> UpdateContext<'c, 't, T> {
-    /// Creates a UpdateContext with a WindowHandle
     pub fn new(data: &'t mut T, cache: &'c mut Cache, window: &'c mut dyn WindowHandle<T>) -> Self {
         Self {
             data,
@@ -174,6 +175,7 @@ impl<'c, 't, T> UpdateContext<'c, 't, T> {
     pub fn fork<'s, 'f>(&'s mut self, data: &'f mut T) -> UpdateContext<'s, 'f, T> {
         UpdateContext::new(data, self.cache, self.window)
     }
+    /// Puts the context in an updated state
     pub fn update(&mut self) {
         self.updated = true;
     }
@@ -245,7 +247,7 @@ impl<'c> DrawContext<'c> {
             self.pending_damage.push(region);
         }
     }
-    pub fn set_clip(&mut self, region: &Region) {
+    pub(crate) fn set_clip(&mut self, region: &Region) {
         let width = self.width();
         let height = self.height();
         if let Some(clipmask) = &mut self.clipmask {
@@ -260,7 +262,7 @@ impl<'c> DrawContext<'c> {
         }
     }
     /// This method is usually called when you want to clean up an area to draw on it.
-    pub fn clear(&mut self, background: &Background, region: Region) {
+    pub(crate) fn clear(&mut self, background: &Background, region: Region) {
         let blend;
         if let Some(background) = background.previous {
             self.clear(background, region);
@@ -346,7 +348,7 @@ impl<'c> DrawContext<'c> {
                                 FilterQuality::Bilinear,
                                 1.0,
                                 self.transform
-                                    .post_translate(background.coords.x, background.coords.y)
+                                    .post_translate(background.position.x, background.position.y)
                                     .post_scale(sx, sy),
                             ),
                             blend_mode: blend,

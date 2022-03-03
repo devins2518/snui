@@ -234,14 +234,14 @@ use crate::mail::*;
 /// The text is fetched from the Data using the provided message.
 pub struct Listener<M> {
     message: M,
-    label: Proxy<Label>,
+    label: Label,
 }
 
 impl<M> Listener<M> {
     pub fn new<T: Into<Label>>(label: T, message: M) -> Self {
         Self {
             message,
-            label: Proxy::new(label.into()),
+            label: label.into(),
         }
     }
 }

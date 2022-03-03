@@ -1,3 +1,5 @@
+//! Layout widgets
+
 pub mod flex;
 
 use crate::*;

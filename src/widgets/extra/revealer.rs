@@ -29,7 +29,7 @@ pub enum Transition {
     SlideBottom,
 }
 
-/// A widget that displays its child using an animated transition
+/// A widget that reveals or hides its child using an animated transition
 pub struct Revealer<M, E, W>
 where
     E: Easer,

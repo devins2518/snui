@@ -183,7 +183,7 @@ fn main() {
         Listener::new("color", ()),
         ui_builder().clamp().padding(10.),
     );
-    let (mut client, mut event_queue) = WaylandClient::new_with_cb(|client, conn, qh| {
+    WaylandClient::init(|client, conn, qh| {
         client.create_window(
             Color {
                 color: tiny_skia::Color::WHITE,
@@ -197,9 +197,4 @@ fn main() {
             qh,
         );
     })
-    .unwrap();
-
-    while client.has_view() {
-        event_queue.blocking_dispatch(&mut client).unwrap();
-    }
 }

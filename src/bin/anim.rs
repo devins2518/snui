@@ -217,7 +217,7 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
 
 fn main() {
     let window = window::default_window(Label::new("Animation"), ui());
-    let (mut client, mut event_queue) = WaylandClient::new_with_cb(|client, conn, qh| {
+    WaylandClient::init(|client, conn, qh| {
         client
             .create_window(
                 Demo::default(),
@@ -234,9 +234,4 @@ fn main() {
             )
             .set_title("Animation".to_string())
     })
-    .unwrap();
-
-    while client.has_view() {
-        event_queue.blocking_dispatch(&mut client).unwrap();
-    }
 }

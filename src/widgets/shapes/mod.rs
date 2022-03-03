@@ -1,3 +1,5 @@
+//! Simple shapes for building widgets
+
 pub mod rectangle;
 pub mod style;
 use crate::scene::*;

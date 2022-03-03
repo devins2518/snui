@@ -1,3 +1,5 @@
+//! Essential types and utilities
+
 use crate::*;
 
 /// Cursor mimetype
@@ -125,6 +127,7 @@ impl Default for Size {
     }
 }
 
+/// Layout constraints
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct BoxConstraints {
     minimum: Size,
@@ -224,7 +227,7 @@ pub enum WindowState {
     TiledTop,
 }
 
-/// Track damage and filters events.
+/// A gate that controls propagation in the widget tree.
 #[derive(Debug)]
 pub struct Proxy<W> {
     size: Size,

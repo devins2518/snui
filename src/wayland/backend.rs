@@ -126,6 +126,16 @@ where
 
         Some((wl_client, event_queue))
     }
+    pub fn init<F>(f: F)
+    where
+        F: FnOnce(&mut Self, &mut ConnectionHandle, &QueueHandle<Self>),
+    {
+        if let Some((mut client, mut event_queue)) = Self::new_with_cb(f) {
+            while client.has_view() {
+                event_queue.blocking_dispatch(&mut client).unwrap();
+            }
+        }
+    }
     fn dispatch(&mut self, event: Event, conn: &mut ConnectionHandle, qh: &QueueHandle<Self>) {
         if let Some(i) = self.current {
             self.views[i].update_scene(

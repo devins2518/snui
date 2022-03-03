@@ -214,6 +214,7 @@ impl<W> DerefMut for Header<W> {
     }
 }
 
+/// A regular window.
 pub struct Window<T, H, W>
 where
     H: Widget<T>,
