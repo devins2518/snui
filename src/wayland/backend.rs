@@ -1109,7 +1109,7 @@ where
         conn: &mut ConnectionHandle,
         _: &QueueHandle<Self>,
     ) {
-        if let Some(view) = self.views.iter_mut().find(|view| {
+        if let Some((i, view)) = self.views.iter_mut().enumerate().find(|(_, view)| {
             view.surface
                 .shell
                 .popup()
@@ -1140,8 +1140,12 @@ where
                     xdg_popup.reposition(conn, view.surface.shell.positioner().unwrap(), token);
                 }
                 xdg_popup::Event::PopupDone => {
-                    view.state.configured = false;
+                    std::mem::drop(view);
+                    let mut view = self.views.remove(i);
+                    view.surface.destroy(conn);
                     self.pool.as_mut().unwrap().remove(&view.surface, conn);
+                    self.remove_children(conn, view.surface.wl_surface);
+                    return;
                 }
                 _ => {}
             }
