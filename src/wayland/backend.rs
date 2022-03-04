@@ -14,10 +14,12 @@ use std::mem::take;
 use std::ops::Deref;
 use std::rc::Rc;
 
+use smithay_client_toolkit::reexports::calloop::timer::TimerHandle;
 use smithay_client_toolkit::reexports::client::{
     protocol::wl_buffer,
     protocol::wl_callback,
     protocol::wl_compositor,
+    protocol::wl_keyboard::{self, KeyState},
     protocol::wl_output,
     protocol::wl_pointer::{self, Axis, ButtonState},
     protocol::wl_region,
@@ -1639,6 +1641,90 @@ where
             .seats
             .push(Seat::new(seat.clone()));
         self.event(seat, event, data, conn, qh);
+    }
+}
+
+use std::time::Duration;
+
+impl<T> Dispatch<wl_keyboard::WlKeyboard> for WaylandClient<T>
+where
+    T: Clone + 'static,
+{
+    type UserData = TimerHandle<wl_keyboard::Event>;
+
+    fn event(
+        &mut self,
+        keyboard: &wl_keyboard::WlKeyboard,
+        event: wl_keyboard::Event,
+        timer: &Self::UserData,
+        conn: &mut ConnectionHandle,
+        qh: &QueueHandle<Self>,
+    ) {
+        if let Some(view) = self.current.and_then(|i| self.views.get_mut(i)) {
+            match event {
+                wl_keyboard::Event::Enter { serial, keys, .. } => {
+                    let key = Key {
+                        serial,
+                        utf8: None,
+                        value: keys.as_slice(),
+                        pressed: false,
+                        modifiers: Modifiers::default(),
+                    };
+                    self.dispatch(Event::Keyboard(key), conn, qh);
+                }
+                wl_keyboard::Event::Leave { .. } => {
+                    self.current = None;
+                }
+                wl_keyboard::Event::Key {
+                    serial,
+                    time,
+                    key,
+                    state,
+                } => {
+                    if !view.state.pending_cb {
+                        view.state.time = time;
+                    }
+                    let pressed = match state {
+                        WEnum::Value(state) => match state {
+                            KeyState::Pressed => {
+                                timer.add_timeout(
+                                    // TO_DO Store the delay in state
+                                    Duration::from_millis(1000),
+                                    event,
+                                );
+                                true
+                            }
+                            _ => {
+                                timer.cancel_all_timeouts();
+                                false
+                            }
+                        },
+                        _ => false,
+                    };
+                    let key = Key {
+                        utf8: None,
+                        serial,
+                        value: &key.to_le_bytes(),
+                        pressed,
+                        modifiers: Modifiers::default(),
+                    };
+                    self.dispatch(Event::Keyboard(key), conn, qh);
+                }
+                _ => {}
+            }
+        } else {
+            match event {
+                wl_keyboard::Event::Enter { ref surface, .. } => {
+                    self.current =
+                        (0..self.views.len()).find(|i| self.views[*i].eq_surface(surface));
+                    self.event(keyboard, event, timer, conn, qh);
+                }
+                wl_keyboard::Event::Leave { .. } => {
+                    self.current = None;
+                }
+                _ => {}
+            }
+        }
     }
 }
 

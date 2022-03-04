@@ -131,8 +131,9 @@ impl Modifiers {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Key<'k> {
+    pub serial: u32,
     pub utf8: Option<&'k String>,
-    pub value: &'k [u32],
+    pub value: &'k [u8],
     pub modifiers: Modifiers,
     pub pressed: bool,
 }
