@@ -14,16 +14,3 @@ pub trait Mail<'a, M, D, U> {
     fn get(&'a self, message: M) -> Option<U>;
     fn send(&'a mut self, message: M, data: D) -> Option<U>;
 }
-
-impl<'a, F, M, D, U> Mail<'a, M, D, U> for F
-where
-    F: Fn(M, Option<D>) -> Option<U>,
-    F: FnMut(M, Option<D>) -> Option<U>,
-{
-    fn get(&'a self, message: M) -> Option<U> {
-        (self)(message, None)
-    }
-    fn send(&'a mut self, message: M, data: D) -> Option<U> {
-        (self)(message, Some(data))
-    }
-}

@@ -677,7 +677,7 @@ where
             let region = Rectangle::new(width, height);
             let mut ctx = DrawContext::new(backend, cache)
                 .with_transform(transform)
-                .with_clipmask(self.clipmask.as_mut());
+                .with_clipmask(self.clipmask.as_mut().unwrap());
 
             self.state.offset = offset;
             self.widget.draw_scene(
@@ -734,7 +734,7 @@ where
             surface.replace_buffer(wl_buffer);
             let region = Rectangle::new(width, height);
             let mut ctx = DrawContext::new(backend, cache)
-                .with_clipmask(self.clipmask.as_mut())
+                .with_clipmask(self.clipmask.as_mut().unwrap())
                 .with_transform(transform);
 
             if offset != self.state.offset {

@@ -308,8 +308,7 @@ where
                 let mut positioned = false;
                 for state in state.iter().rev() {
                     match state {
-                        WindowState::Activated
-                        | WindowState::Resizing => {
+                        WindowState::Activated | WindowState::Resizing => {
                             activated = true;
                             if self.alternate.is_some() && !self.activated {
                                 self.header.set_texture(self.decoration.clone());

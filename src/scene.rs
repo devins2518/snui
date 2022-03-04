@@ -442,11 +442,12 @@ impl<'s, 'c, 'b> Drop for Scene<'s, 'c, 'b> {
                 // Reset the clipmask to the size of its background
                 match self.clip {
                     Some(region) => self.context.set_clip(region),
-                    None => {
-                        if let Some(clipmask) = self.context.clipmask.as_mut() {
-                            clipmask.clear();
+                    None => match self.context.deref_mut() {
+                        Backend::Pixmap { clipmask, .. } => {
+                            clipmask.as_mut().map(|inner| inner.clear());
                         }
-                    }
+                        _ => {}
+                    },
                 }
             }
             _ => {}

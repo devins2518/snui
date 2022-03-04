@@ -164,11 +164,13 @@ impl Primitive for Rectangle {
     fn draw(&self, ctx: &mut DrawContext, transform: tiny_skia::Transform) {
         ctx.draw(|ctx, pb| {
             let path = Rectangle::path(pb, self.width, self.height, self.radius).unwrap();
-            let (backend, clipmask) = ctx.draw_kit();
-            if let Backend::Pixmap(dt) = backend {
+            if let Backend::Pixmap { pixmap, clipmask } = ctx.deref_mut() {
+                let clipmask = clipmask
+                    .as_ref()
+                    .and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
                 match &self.texture {
                     Texture::Color(color) => {
-                        dt.fill_path(
+                        pixmap.fill_path(
                             &path,
                             &Paint {
                                 shader: Shader::SolidColor(*color),
@@ -184,7 +186,7 @@ impl Primitive for Rectangle {
                     Texture::Image(image) => {
                         let sx = self.width() / image.width();
                         let sy = self.height() / image.height();
-                        dt.fill_path(
+                        pixmap.fill_path(
                             &path,
                             &Paint {
                                 shader: Pattern::new(
@@ -213,7 +215,7 @@ impl Primitive for Rectangle {
                             Orientation::Horizontal => region.end(),
                             Orientation::Vertical => region.bottom_anchor(),
                         };
-                        dt.fill_path(
+                        pixmap.fill_path(
                             &path,
                             &Paint {
                                 shader: LinearGradient::new(
@@ -360,8 +362,10 @@ impl Primitive for BorderedRectangle {
                 self.radius,
             )
             .unwrap();
-            let (backend, clipmask) = ctx.draw_kit();
-            if let Backend::Pixmap(dt) = backend {
+            if let Backend::Pixmap { pixmap, clipmask } = ctx.deref_mut() {
+                let clipmask = clipmask
+                    .as_ref()
+                    .and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
                 let stroke = Stroke {
                     width: self.border_width,
                     line_cap: LineCap::Butt,
@@ -371,7 +375,7 @@ impl Primitive for BorderedRectangle {
                 };
                 match &self.texture {
                     Texture::Color(color) => {
-                        dt.stroke_path(
+                        pixmap.stroke_path(
                             &path,
                             &Paint {
                                 shader: Shader::SolidColor(*color),
@@ -387,7 +391,7 @@ impl Primitive for BorderedRectangle {
                     Texture::Image(image) => {
                         let sx = self.width() / image.width();
                         let sy = self.height() / image.height();
-                        dt.stroke_path(
+                        pixmap.stroke_path(
                             &path,
                             &Paint {
                                 shader: Pattern::new(
@@ -416,7 +420,7 @@ impl Primitive for BorderedRectangle {
                             Orientation::Horizontal => region.end(),
                             Orientation::Vertical => region.bottom_anchor(),
                         };
-                        dt.stroke_path(
+                        pixmap.stroke_path(
                             &path,
                             &Paint {
                                 shader: LinearGradient::new(

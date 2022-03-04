@@ -10,7 +10,10 @@ const WINDOW_STATE: [WindowState; 0] = [];
 /// Available rendering Backends
 pub enum Backend<'b> {
     /// A wrapper around a buffer from TinySkia
-    Pixmap(PixmapMut<'b>),
+    Pixmap {
+        pixmap: PixmapMut<'b>,
+        clipmask: Option<&'b mut ClipMask>,
+    },
     /// Doesn't do anything. Meant for testing
     Dummy,
 }
@@ -33,7 +36,6 @@ pub struct DrawContext<'c> {
     transform: Transform,
     path_builder: Option<PathBuilder>,
     pub(crate) backend: Backend<'c>,
-    pub(crate) clipmask: Option<&'c mut ClipMask>,
     pub(crate) cache: &'c mut Cache,
     pub(crate) pending_damage: Vec<Region>,
 }
@@ -115,13 +117,13 @@ impl<'b> Geometry for Backend<'b> {
     fn width(&self) -> f32 {
         match self {
             Backend::Dummy => 0.,
-            Backend::Pixmap(dt) => dt.width() as f32,
+            Backend::Pixmap { pixmap, .. } => pixmap.width() as f32,
         }
     }
     fn height(&self) -> f32 {
         match self {
             Backend::Dummy => 0.,
-            Backend::Pixmap(dt) => dt.height() as f32,
+            Backend::Pixmap { pixmap, .. } => pixmap.height() as f32,
         }
     }
 }
@@ -130,7 +132,7 @@ impl<'b> Deref for Backend<'b> {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         match self {
-            Backend::Pixmap(dt) => dt.as_ref().data(),
+            Backend::Pixmap { pixmap, .. } => pixmap.as_ref().data(),
             _ => panic!("Dummy backend cannot return a slice"),
         }
     }
@@ -139,7 +141,7 @@ impl<'b> Deref for Backend<'b> {
 impl<'c> DerefMut for Backend<'c> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
-            Backend::Pixmap(dt) => dt.data_mut(),
+            Backend::Pixmap { pixmap, .. } => pixmap.data_mut(),
             _ => panic!("Dummy backend cannot return a slice"),
         }
     }
@@ -211,14 +213,18 @@ impl<'c> DrawContext<'c> {
         Self {
             cache,
             backend,
-            clipmask: None,
             pending_damage: Vec::new(),
             transform: Transform::identity(),
             path_builder: Some(PathBuilder::new()),
         }
     }
-    pub fn with_clipmask(mut self, clipmask: Option<&'c mut ClipMask>) -> Self {
-        self.clipmask = clipmask;
+    pub fn with_clipmask(mut self, t_clipmask: &'c mut ClipMask) -> Self {
+        match &mut self.backend {
+            Backend::Pixmap { clipmask, .. } => {
+                *clipmask = Some(t_clipmask);
+            }
+            _ => panic!("Cannot attach clipmask to Dummy backend"),
+        }
         self
     }
     pub fn with_transform(mut self, transform: Transform) -> Self {
@@ -250,15 +256,20 @@ impl<'c> DrawContext<'c> {
     pub(crate) fn set_clip(&mut self, region: &Region) {
         let width = self.width();
         let height = self.height();
-        if let Some(clipmask) = &mut self.clipmask {
-            let mut pb = self.path_builder.take().unwrap();
-            pb.push_rect(region.x, region.y, region.width, region.height);
-            let path = pb
-                .finish()
-                .and_then(|path| path.transform(self.transform))
-                .unwrap();
-            clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
-            self.path_builder = Some(path.clear());
+        match &mut self.backend {
+            Backend::Pixmap { clipmask, .. } => {
+                if let Some(clipmask) = clipmask {
+                    let mut pb = self.path_builder.take().unwrap();
+                    pb.push_rect(region.x, region.y, region.width, region.height);
+                    let path = pb
+                        .finish()
+                        .and_then(|path| path.transform(self.transform))
+                        .unwrap();
+                    clipmask.set_path(width as u32, height as u32, &path, FillRule::Winding, false);
+                    self.path_builder = Some(path.clear());
+                }
+            }
+            _ => {}
         }
     }
     /// This method is usually called when you want to clean up an area to draw on it.
@@ -276,123 +287,103 @@ impl<'c> DrawContext<'c> {
                     }
                 }
             }
-            blend = BlendMode::SourceOver;
+            blend = BlendMode::Source;
             self.commit(region);
         }
-        let clip_mask = self.clipmask.as_ref().and_then(|clipmask| {
-            if !clipmask.is_empty() {
-                Some(&**clipmask)
-            } else {
-                None
+        match &mut self.backend {
+            Backend::Pixmap { pixmap, clipmask } => {
+                let clip_mask = clipmask
+                    .as_ref()
+                    .and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
+                match background.texture() {
+                    Texture::Color(color) => {
+                        pixmap.fill_rect(
+                            region.into(),
+                            &Paint {
+                                shader: Shader::SolidColor(*color),
+                                blend_mode: blend,
+                                anti_alias: false,
+                                force_hq_pipeline: false,
+                            },
+                            self.transform,
+                            clip_mask,
+                        );
+                    }
+                    Texture::LinearGradient(gradient) => {
+                        let background_region = background.region();
+                        let start = match gradient.orientation {
+                            Orientation::Horizontal => background_region.start(),
+                            Orientation::Vertical => background_region.top_anchor(),
+                        };
+                        let end = match gradient.orientation {
+                            Orientation::Horizontal => background_region.end(),
+                            Orientation::Vertical => background_region.bottom_anchor(),
+                        };
+                        pixmap.fill_rect(
+                            region.into(),
+                            &Paint {
+                                shader: LinearGradient::new(
+                                    start.into(),
+                                    end.into(),
+                                    gradient.stops.clone(),
+                                    gradient.mode,
+                                    self.transform,
+                                )
+                                .expect("Failed to build LinearGradient shader"),
+                                blend_mode: blend,
+                                anti_alias: false,
+                                force_hq_pipeline: false,
+                            },
+                            self.transform,
+                            clip_mask,
+                        );
+                    }
+                    Texture::Image(image) => {
+                        let sx = background.rectangle.width / image.width();
+                        let sy = background.rectangle.height / image.height();
+                        pixmap.fill_rect(
+                            region.into(),
+                            &Paint {
+                                shader: Pattern::new(
+                                    image.pixmap(),
+                                    SpreadMode::Repeat,
+                                    FilterQuality::Bilinear,
+                                    1.0,
+                                    self.transform
+                                        .post_translate(
+                                            background.position.x,
+                                            background.position.y,
+                                        )
+                                        .post_scale(sx, sy),
+                                ),
+                                blend_mode: blend,
+                                anti_alias: false,
+                                force_hq_pipeline: false,
+                            },
+                            self.transform,
+                            clip_mask,
+                        );
+                    }
+                    Texture::Transparent => {
+                        pixmap.fill_rect(
+                            region.into(),
+                            &Paint {
+                                shader: Shader::SolidColor(Color::TRANSPARENT),
+                                blend_mode: BlendMode::Clear,
+                                anti_alias: false,
+                                force_hq_pipeline: false,
+                            },
+                            self.transform,
+                            clip_mask,
+                        );
+                    }
+                }
             }
-        });
-        match background.texture() {
-            Texture::Color(color) => match &mut self.backend {
-                Backend::Pixmap(dt) => {
-                    dt.fill_rect(
-                        region.into(),
-                        &Paint {
-                            shader: Shader::SolidColor(*color),
-                            blend_mode: blend,
-                            anti_alias: false,
-                            force_hq_pipeline: false,
-                        },
-                        self.transform,
-                        clip_mask,
-                    );
-                }
-                _ => {}
-            },
-            Texture::LinearGradient(gradient) => match &mut self.backend {
-                Backend::Pixmap(dt) => {
-                    let background_region = background.region();
-                    let start = match gradient.orientation {
-                        Orientation::Horizontal => background_region.start(),
-                        Orientation::Vertical => background_region.top_anchor(),
-                    };
-                    let end = match gradient.orientation {
-                        Orientation::Horizontal => background_region.end(),
-                        Orientation::Vertical => background_region.bottom_anchor(),
-                    };
-                    dt.fill_rect(
-                        region.into(),
-                        &Paint {
-                            shader: LinearGradient::new(
-                                start.into(),
-                                end.into(),
-                                gradient.stops.clone(),
-                                gradient.mode,
-                                self.transform,
-                            )
-                            .expect("Failed to build LinearGradient shader"),
-                            blend_mode: blend,
-                            anti_alias: false,
-                            force_hq_pipeline: false,
-                        },
-                        self.transform,
-                        clip_mask,
-                    );
-                }
-                _ => {}
-            },
-            Texture::Image(image) => match &mut self.backend {
-                Backend::Pixmap(dt) => {
-                    let sx = background.rectangle.width / image.width();
-                    let sy = background.rectangle.height / image.height();
-                    dt.fill_rect(
-                        region.into(),
-                        &Paint {
-                            shader: Pattern::new(
-                                image.pixmap(),
-                                SpreadMode::Repeat,
-                                FilterQuality::Bilinear,
-                                1.0,
-                                self.transform
-                                    .post_translate(background.position.x, background.position.y)
-                                    .post_scale(sx, sy),
-                            ),
-                            blend_mode: blend,
-                            anti_alias: false,
-                            force_hq_pipeline: false,
-                        },
-                        self.transform,
-                        clip_mask,
-                    );
-                }
-                _ => {}
-            },
-            Texture::Transparent => match &mut self.backend {
-                Backend::Pixmap(dt) => {
-                    dt.fill_rect(
-                        region.into(),
-                        &Paint {
-                            shader: Shader::SolidColor(Color::TRANSPARENT),
-                            blend_mode: BlendMode::Clear,
-                            anti_alias: false,
-                            force_hq_pipeline: false,
-                        },
-                        self.transform,
-                        clip_mask,
-                    );
-                }
-                _ => {}
-            },
+            _ => {}
         }
     }
     pub fn damage_queue(&self) -> &[Region] {
         self.pending_damage.as_slice()
-    }
-    pub fn draw_kit(&mut self) -> (&mut Backend<'c>, Option<&ClipMask>) {
-        (
-            &mut self.backend,
-            self.clipmask.as_ref().and_then(|clipmask| {
-                if !clipmask.is_empty() {
-                    Some(&**clipmask)
-                } else {
-                    None
-                }
-            }),
-        )
     }
 }
 

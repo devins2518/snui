@@ -167,41 +167,41 @@ impl<'s> Primitive for LabelRef<'s> {
         settings.max_width = self.settings.max_width.map(|width| width * transform.sx);
         settings.max_height = self.settings.max_height.map(|height| height * transform.sy);
 
-        let clip_mask = context
-            .clipmask
-            .as_ref()
-            .and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
+        match &mut context.backend {
+            Backend::Pixmap { pixmap, clipmask } => {
+                let clipmask = clipmask
+                    .as_ref()
+                    .and_then(|clipmask| (!clipmask.is_empty()).then(|| &**clipmask));
 
-        let x = transform.tx.round();
-        let y = transform.ty.round();
+                let x = transform.tx.round();
+                let y = transform.ty.round();
 
-        for gp in {
-            label.font_size = self.font_size * transform.sy;
-            label.settings = &settings;
-            font_cache.layout(&label);
-            font_cache.layout.glyphs()
-        } {
-            if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index]) {
-                if let Some(pixmap) = glyph_cache.get(gp) {
-                    if let Some(pixmap) =
-                        PixmapRef::from_bytes(pixmap, gp.width as u32, gp.height as u32)
+                for gp in {
+                    label.font_size = self.font_size * transform.sy;
+                    label.settings = &settings;
+                    font_cache.layout(&label);
+                    font_cache.layout.glyphs()
+                } {
+                    if let Some(glyph_cache) = font_cache.fonts.get_mut(&self.fonts[gp.font_index])
                     {
-                        match &mut context.backend {
-                            Backend::Pixmap(dt) => {
-                                dt.draw_pixmap(
+                        if let Some(glyph) = glyph_cache.get(gp) {
+                            if let Some(glyph) =
+                                PixmapRef::from_bytes(glyph, gp.width as u32, gp.height as u32)
+                            {
+                                pixmap.draw_pixmap(
                                     (x + gp.x) as i32,
                                     (y + gp.y) as i32,
-                                    pixmap,
+                                    glyph,
                                     &TEXT,
                                     Transform::identity(),
-                                    clip_mask,
+                                    clipmask,
                                 );
                             }
-                            _ => (),
                         }
                     }
                 }
             }
+            _ => {}
         }
     }
 }

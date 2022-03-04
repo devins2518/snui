@@ -60,7 +60,14 @@ where
         qh,
     ) {
         if let Some(pixmap) = PixmapMut::from_bytes(slice, width, height) {
-            return Some((offset, buffer, Backend::Pixmap(pixmap)));
+            return Some((
+                offset,
+                buffer,
+                Backend::Pixmap {
+                    pixmap,
+                    clipmask: None,
+                },
+            ));
         }
     }
     None
