@@ -229,9 +229,7 @@ impl<T> Widget<T> for Label {
 
 use crate::mail::*;
 
-/// Updates the inner label on sync or configure.
-///
-/// The text is fetched from the Data using the provided message.
+/// A text listener.
 pub struct Listener<M> {
     message: M,
     label: Label,

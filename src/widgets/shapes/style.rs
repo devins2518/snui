@@ -6,8 +6,7 @@ use std::f32::consts::FRAC_1_SQRT_2;
 use std::ops::{Deref, DerefMut};
 use widgets::Padding;
 
-/// Main type used for styling.
-/// Any widget can be wrapped in a WidgetStyle and take advantage of the Style trait.
+/// Main styling widget.
 #[derive(Debug)]
 pub struct WidgetStyle<T, W: Widget<T>> {
     contained: bool,

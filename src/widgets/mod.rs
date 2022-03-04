@@ -41,6 +41,7 @@ pub enum Alignment {
     End,
 }
 
+/// Size constraints
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Constraint {
     /// Size remains the same regardless
@@ -64,7 +65,7 @@ impl<T> Widget<T> for () {
     }
 }
 
-// Simple dump widget with a fixed size.
+// Simple widget with a fixed size.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Spacer {
     pub width: f32,
@@ -117,6 +118,7 @@ impl Default for Spacer {
     }
 }
 
+/// Padding widget
 #[derive(Clone, Debug, PartialEq)]
 pub struct Padding<T, W: Widget<T>> {
     pub widget: W,
@@ -237,7 +239,7 @@ impl<T, W: Widget<T>> DerefMut for Padding<T, W> {
 
 use layout::Positioner;
 
-/// Applies constraint to a widget's dimension.
+/// A widget with dimension constraints.
 #[derive(Clone, Debug, PartialEq)]
 pub struct WidgetBox<T, W: Widget<T>> {
     pub(crate) widget: Positioner<W>,
@@ -358,13 +360,13 @@ impl<T, W: Widget<T>> Widget<T> for WidgetBox<T, W> {
         let (horizontal, vertical) = &self.anchor;
         let dx = match horizontal {
             Alignment::Start => 0.,
-            Alignment::Center => ((width - inner_width) / 2.).floor(),
-            Alignment::End => (width - inner_width).floor(),
+            Alignment::Center => ((width - inner_width) / 2.),
+            Alignment::End => (width - inner_width),
         };
         let dy = match vertical {
             Alignment::Start => 0.,
-            Alignment::Center => ((height - inner_height) / 2.).floor(),
-            Alignment::End => (height - inner_height).floor(),
+            Alignment::Center => ((height - inner_height) / 2.),
+            Alignment::End => (height - inner_height),
         };
         self.widget.set_coords(dx, dy);
         (width, height).into()

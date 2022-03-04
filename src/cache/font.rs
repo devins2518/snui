@@ -12,7 +12,7 @@ use std::fs::read;
 use std::path::Path;
 use tiny_skia::*;
 
-const DEFAULT_FONT_NAME: &str = "sans serif";
+const DEFAULT_FONT_NAME: &str = "CascadiaCode";
 
 pub fn get_size<U: Copy + Clone>(glyphs: &[GlyphPosition<U>]) -> (f32, f32) {
     glyphs

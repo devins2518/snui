@@ -152,8 +152,7 @@ impl<T> Flex<Box<dyn Widget<T>>> {
         self.children.push(child(Box::new(widget)));
     }
     pub fn with_child<W: Widget<T> + 'static>(mut self, widget: W) -> Self {
-        self.children
-            .push(Positioner::new(Proxy::new(Box::new(widget))));
+        self.children.push(child(Box::new(widget)));
         self
     }
     pub fn with_spacing(self, size: f32) -> Self {

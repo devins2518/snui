@@ -3,6 +3,7 @@ use crate::*;
 use std::f32::consts::FRAC_1_SQRT_2;
 use tiny_skia::*;
 
+/// A rectangle widget/primitive.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rectangle {
     pub(crate) width: f32,
@@ -11,6 +12,7 @@ pub struct Rectangle {
     pub(crate) radius: [f32; 4],
 }
 
+/// A bordered rectangle primitive.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BorderedRectangle {
     pub(crate) width: f32,

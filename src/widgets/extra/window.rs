@@ -1,7 +1,11 @@
 use crate::*;
 use crate::{
     scene::Texture,
-    widgets::{layout::flex::Flex, shapes::*, *},
+    widgets::{
+        layout::{child, flex::Flex},
+        shapes::*,
+        *,
+    },
 };
 use std::ops::{Deref, DerefMut};
 use widgets::shapes::Style;
@@ -249,7 +253,7 @@ where
             activated: false,
             positioned: false,
             border: BorderedRectangle::default(),
-            window: Positioner::new(Proxy::new(WidgetStyle::new(widget))),
+            window: child(WidgetStyle::new(widget)),
             radius: (0., 0., 0., 0.),
             decoration: theme::BG2.into(),
             alternate: None,
@@ -304,7 +308,8 @@ where
                 let mut positioned = false;
                 for state in state.iter().rev() {
                     match state {
-                        WindowState::Activated => {
+                        WindowState::Activated
+                        | WindowState::Resizing => {
                             activated = true;
                             if self.alternate.is_some() && !self.activated {
                                 self.header.set_texture(self.decoration.clone());
@@ -322,7 +327,6 @@ where
                             self.set_radius(0.);
                             self.radius = radius;
                         }
-                        _ => {}
                     }
                 }
                 if !activated {

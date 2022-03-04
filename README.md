@@ -2,7 +2,7 @@
 
 **snui** is a simple 2D ui library.
 
-## Supported backends
+## Supports
 
 - [x] xdg-shell
 - [x] layershell
