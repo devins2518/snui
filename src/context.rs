@@ -22,11 +22,11 @@ pub enum Backend<'b> {
 ///
 /// The context dereferences the Data so widgets can interact with it.
 /// It also contains the cache which is used for text layouting and fetching images.
-pub struct UpdateContext<'c, 't, T> {
+pub struct UpdateContext<'a, 'b, T> {
     updated: bool,
-    data: &'t mut T,
-    pub(crate) cache: &'c mut Cache,
-    pub(crate) window: &'c mut dyn WindowHandle<T>,
+    data: &'b mut T,
+    pub(crate) cache: &'a mut Cache,
+    pub(crate) window: &'a mut dyn WindowHandle<T>,
 }
 
 /// A context provided to primitives during draw.
@@ -147,8 +147,8 @@ impl<'c> DerefMut for Backend<'c> {
     }
 }
 
-impl<'c, 't, T> UpdateContext<'c, 't, T> {
-    pub fn new(data: &'t mut T, cache: &'c mut Cache, window: &'c mut dyn WindowHandle<T>) -> Self {
+impl<'a, 'b, T> UpdateContext<'a, 'b, T> {
+    pub fn new(data: &'b mut T, cache: &'a mut Cache, window: &'a mut dyn WindowHandle<T>) -> Self {
         Self {
             data,
             cache,
@@ -160,11 +160,7 @@ impl<'c, 't, T> UpdateContext<'c, 't, T> {
     pub fn window(&mut self) -> &mut dyn WindowHandle<T> {
         &mut *self.window
     }
-    /// Create a custom popup passed to the WindowHandle
-    ///
-    /// Note: Currently the x and y coordinates in the widget system are relative.
-    /// Only the the Scene and by extension the RenderNode know the abosule position
-    /// of things.
+    /// Creates a custom popup passed to the WindowHandle
     pub fn create_popup<F>(&mut self, mut builder: F)
     where
         F: FnMut(&T, LayoutCtx) -> Menu<T>,
@@ -174,7 +170,7 @@ impl<'c, 't, T> UpdateContext<'c, 't, T> {
         self.window.show_menu(menu);
     }
     /// Creates a new instance of an UpdateContext with different data
-    pub fn fork<'s, 'f>(&'s mut self, data: &'f mut T) -> UpdateContext<'s, 'f, T> {
+    pub fn fork<'c, 'd>(&'c mut self, data: &'d mut T) -> UpdateContext<'c, 'd, T> {
         UpdateContext::new(data, self.cache, self.window)
     }
     /// Puts the context in an updated state
@@ -186,21 +182,21 @@ impl<'c, 't, T> UpdateContext<'c, 't, T> {
     }
 }
 
-impl<'c, 't, T> Deref for UpdateContext<'c, 't, T> {
+impl<'a, 'b, T> Deref for UpdateContext<'a, 'b, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.data
     }
 }
 
-impl<'c, 't, T> DerefMut for UpdateContext<'c, 't, T> {
+impl<'a, 'b, T> DerefMut for UpdateContext<'a, 'b, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.updated = true;
         self.data
     }
 }
 
-impl<'c, 't, T> AsMut<Cache> for UpdateContext<'c, 't, T> {
+impl<'a, 'b, T> AsMut<Cache> for UpdateContext<'a, 'b, T> {
     fn as_mut(&mut self) -> &mut Cache {
         self.cache
     }

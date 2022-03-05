@@ -413,6 +413,13 @@ pub trait WidgetExt<T>: Widget<T> + Sized {
             .constraint(widgets::Constraint::Fixed)
             .with_size(width, height)
     }
+    fn activate<M, F>(self, message: M, cb: F) -> Activate<T, Self, M, F>
+    where
+        Self: Widget<T>,
+        F: for<'d> FnMut(&'d mut Proxy<Self>, bool, &'d mut UpdateContext<T>),
+    {
+        Activate::new(self, message, cb)
+    }
     // TO-DO
     // This should be a macro
     fn button<F>(self, cb: F) -> Proxy<Button<T, Self, F>>
@@ -445,16 +452,16 @@ pub trait GeometryExt: Sized {
     }
 }
 
-impl<D, W> WidgetExt<D> for W where W: Widget<D> {}
+impl<T, W> WidgetExt<T> for W where W: Widget<T> {}
 
-impl<D> Widget<D> for Box<dyn Widget<D>> {
+impl<T> Widget<T> for Box<dyn Widget<T>> {
     fn draw_scene(&mut self, scene: Scene) {
         self.deref_mut().draw_scene(scene)
     }
-    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<D>) -> Damage {
+    fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
         self.deref_mut().update(ctx)
     }
-    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<D>, event: Event<'s>) -> Damage {
+    fn event<'s>(&'s mut self, ctx: &mut UpdateContext<T>, event: Event<'s>) -> Damage {
         self.deref_mut().event(ctx, event)
     }
     fn layout(&mut self, ctx: &mut LayoutCtx, constraints: &BoxConstraints) -> Size {

@@ -40,11 +40,11 @@ impl Default for Demo {
 }
 
 // The Switch will use this trait to change the state of our Demo
-impl Mail<'_, Remote, bool, bool> for Demo {
-    fn get(&self, _: Remote) -> Option<bool> {
-        None
+impl<'a, 'b> Mail<'a, &'b Remote, bool, bool> for Demo {
+    fn get(&'a self, _: &'b Remote) -> Option<bool> {
+        Some(AnimationState::Start == self.state)
     }
-    fn send(&mut self, _: Remote, data: bool) -> Option<bool> {
+    fn send(&'a mut self, _: &'b Remote, data: bool) -> Option<bool> {
         match data {
             true => self.start(),
             false => self.pause(),
@@ -199,17 +199,9 @@ fn ui() -> Flex<Box<dyn Widget<Demo>>> {
                 .background(theme::BG1)
                 .padding(2.)
                 .radius(4.)
-                .button(move |this, ctx: &mut UpdateContext<Demo>, p| {
-                    if p.left_button_click().is_some() {
-                        match ctx.state {
-                            AnimationState::Start => {
-                                this.set_texture(theme::BG1);
-                            }
-                            AnimationState::Pause | AnimationState::Stop => {
-                                this.set_texture(theme::RED);
-                            }
-                        }
-                    }
+                .activate(Remote {}, |this, active, _| match active {
+                    true => this.set_texture(theme::RED),
+                    false => this.set_texture(theme::BG1),
                 })
                 .clamp(),
         )

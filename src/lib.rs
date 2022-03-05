@@ -11,6 +11,7 @@ pub use crate::core::*;
 use context::*;
 use std::ops::{Deref, DerefMut};
 use tiny_skia::*;
+use widgets::active::Activate;
 use widgets::button::Button;
 use widgets::layout::Positioner;
 use widgets::shapes::WidgetStyle;

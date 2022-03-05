@@ -1,5 +1,6 @@
 //!	All purpose widgets.
 
+pub mod active;
 pub mod button;
 pub mod extra;
 pub mod image;
@@ -121,8 +122,8 @@ impl Default for Spacer {
 /// Padding widget
 #[derive(Clone, Debug, PartialEq)]
 pub struct Padding<T, W: Widget<T>> {
-    pub widget: W,
-    pub padding: [f32; 4],
+    pub(crate) widget: W,
+    pub(crate) padding: [f32; 4],
     _data: PhantomData<T>,
 }
 

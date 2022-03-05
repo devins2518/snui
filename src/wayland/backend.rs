@@ -274,7 +274,7 @@ struct State {
     configured: bool,
     pending_cb: bool,
     enter_serial: u32,
-    constraint: BoxConstraints,
+    constraints: BoxConstraints,
     window_state: Vec<WindowState>,
     render_node: RenderNode,
 }
@@ -287,7 +287,7 @@ impl Default for State {
             enter_serial: 0,
             configured: false,
             pending_cb: false,
-            constraint: BoxConstraints::default(),
+            constraints: BoxConstraints::default(),
             window_state: Vec::new(),
             render_node: RenderNode::None,
         }
@@ -439,8 +439,8 @@ impl<'s, 'c, T: Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                         self.conn,
                         0,
                         0,
-                        self.state.constraint.maximum_width() as i32,
-                        self.state.constraint.maximum_height() as i32,
+                        self.state.constraints.maximum_width() as i32,
+                        self.state.constraints.maximum_height() as i32,
                     );
                     let view = match &self.surface.shell {
                         Shell::Xdg { xdg_surface, .. } => View {
@@ -560,7 +560,7 @@ impl<'s, 'c, T: Clone> WindowHandle<T> for ViewHandle<'s, 'c, T> {
                     let buffer = &cursor[0];
                     let (hotspot_x, hotspot_y) = buffer.hotspot();
                     surface.set_buffer_scale(self.conn, scale);
-                    surface.attach(self.conn, Some(buffer), 0, 0);
+                    surface.attach(self.conn, Some(buffer), hotspot_x as i32, hotspot_y as i32);
                     surface.commit(self.conn);
                     seat.pointer
                         .as_ref()
@@ -663,7 +663,7 @@ where
             .map(|output| output.scale)
             .unwrap_or(1);
         let mut layout = LayoutCtx::new(cache);
-        let Size { width, height } = self.widget.layout(&mut layout, &self.state.constraint);
+        let Size { width, height } = self.widget.layout(&mut layout, &self.state.constraints);
         let surface = &mut self.surface;
 
         if let Some((offset, wl_buffer, backend)) = buffer(
@@ -709,18 +709,18 @@ where
         let Size {
             mut width,
             mut height,
-        } = self.widget.layout(&mut layout, &self.state.constraint);
-        if self.state.constraint.maximum_width() != width
-            || self.state.constraint.maximum_height() != height
+        } = self.widget.layout(&mut layout, &self.state.constraints);
+        if self.state.constraints.maximum_width() != width
+            || self.state.constraints.maximum_height() != height
         {
-            self.state.constraint = self
+            self.state.constraints = self
                 .state
-                .constraint
+                .constraints
                 .with_min(width, height)
                 .with_max(width, height);
             Size { width, height } = self
                 .widget
-                .layout(&mut layout.force(), &self.state.constraint);
+                .layout(&mut layout.force(), &self.state.constraints);
         }
         let surface = &mut self.surface;
 
@@ -1126,7 +1126,7 @@ where
                     height,
                 } => {
                     if width > 1 && height > 1 {
-                        view.state.constraint = BoxConstraints::new(
+                        view.state.constraints = BoxConstraints::new(
                             (width as f32, height as f32),
                             (width as f32, height as f32),
                         );
@@ -1134,8 +1134,8 @@ where
                         let mut ctx = LayoutCtx::new(&mut self.cache);
                         let Size { width, height } =
                             view.widget.layout(&mut ctx, &BoxConstraints::default());
-                        view.state.constraint = BoxConstraints::new((0., 0.), (width, height));
-                        view.widget.layout(&mut ctx, &view.state.constraint);
+                        view.state.constraints = BoxConstraints::new((0., 0.), (width, height));
+                        view.widget.layout(&mut ctx, &view.state.constraints);
                     }
                 }
                 xdg_popup::Event::Repositioned { token } => {
@@ -1377,18 +1377,18 @@ where
                     states,
                 } => {
                     collect_states(&mut view.state.window_state, states);
-                    if view.state.constraint.maximum_width() as i32 != width
-                        || view.state.constraint.maximum_height() as i32 != height
+                    if view.state.constraints.maximum_width() as i32 != width
+                        || view.state.constraints.maximum_height() as i32 != height
                     {
                         view.state.window_state.push(WindowState::Resizing);
                     }
-                    view.state.constraint =
-                        view.state.constraint.with_max(width as f32, height as f32);
+                    view.state.constraints =
+                        view.state.constraints.with_max(width as f32, height as f32);
                     let mut ctx = LayoutCtx::new(&mut self.cache);
                     if width * height == 0 {
                         let Size { width, height } =
-                            view.widget.layout(&mut ctx, &view.state.constraint);
-                        view.state.constraint = view.state.constraint.with_max(width, height);
+                            view.widget.layout(&mut ctx, &view.state.constraints);
+                        view.state.constraints = view.state.constraints.with_max(width, height);
                         toplevel.set_min_size(conn, width as i32, height as i32);
                         view.state.window_state.push(WindowState::Resizing);
                     }
@@ -1535,11 +1535,11 @@ where
                             if let Some(anchor) = config.anchor {
                                 match anchor {
                                     Anchor::Left | Anchor::Right => {
-                                        let width = view.state.constraint.minimum_width();
+                                        let width = view.state.constraints.minimum_width();
                                         layer_surface.set_exclusive_zone(conn, width as i32)
                                     }
                                     Anchor::Top | Anchor::Bottom => {
-                                        let height = view.state.constraint.minimum_height();
+                                        let height = view.state.constraints.minimum_height();
                                         layer_surface.set_exclusive_zone(conn, height as i32)
                                     }
                                     _ => {}
@@ -1550,7 +1550,7 @@ where
                     view.state.configured = true;
                     view.state.window_state.clear();
                     view.state.window_state.push(WindowState::Resizing);
-                    view.state.constraint = BoxConstraints::new(
+                    view.state.constraints = BoxConstraints::new(
                         (width as f32, height as f32),
                         (width as f32, height as f32),
                     );

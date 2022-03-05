@@ -9,8 +9,26 @@
 ///
 /// ```
 /// ```
+use std::borrow::Borrow;
 
 pub trait Mail<'a, M, D, U> {
     fn get(&'a self, message: M) -> Option<U>;
     fn send(&'a mut self, message: M, data: D) -> Option<U>;
+}
+
+pub trait BorrowMail<'a, M, D, U> {
+    fn get<B: Borrow<M>>(&'a self, message: M) -> Option<U>;
+    fn send<B: Borrow<M>>(&'a mut self, message: M, data: D) -> Option<U>;
+}
+
+impl<'a, M, D, U, T> BorrowMail<'a, M, D, U> for T
+where
+    T: for<'b> Mail<'a, &'b M, D, U>,
+{
+    fn get<B: Borrow<M>>(&'a self, message: M) -> Option<U> {
+        self.get(message.borrow())
+    }
+    fn send<B: Borrow<M>>(&'a mut self, message: M, data: D) -> Option<U> {
+        self.send(message.borrow(), data)
+    }
 }

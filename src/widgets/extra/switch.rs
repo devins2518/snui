@@ -42,16 +42,19 @@ impl<M, E: Easer> Switch<M, E> {
             state: SwitchState::Deactivated,
         }
     }
-    fn set_state(&mut self, state: SwitchState) {
-        match state {
+    fn set_state(&mut self, state: SwitchState) -> SwitchState {
+        let state = match state {
             SwitchState::Activated => {
                 self.easer = Easer::new(0.5, 1., self.toggle.width());
+                SwitchState::Deactivated
             }
             SwitchState::Deactivated => {
                 self.easer = Easer::new(0., 0.5, self.toggle.width());
+                SwitchState::Activated
             }
         };
         self.state = state;
+        state
     }
     /// Duration of the animation in ms
     pub fn duration(mut self, duration: u32) -> Self {
@@ -84,21 +87,21 @@ impl<M, E: Easer> GeometryExt for Switch<M, E> {
 
 impl<M, E, T> Widget<T> for Switch<M, E>
 where
-    M: Clone + Copy,
     E: Easer,
-    T: for<'a> Mail<'a, M, bool, bool>,
+    T: for<'a, 'b> Mail<'a, &'b M, bool, bool>,
 {
     fn draw_scene(&mut self, scene: Scene) {
         Widget::<()>::draw_scene(&mut self.toggle, scene)
     }
     fn update<'s>(&'s mut self, ctx: &mut UpdateContext<T>) -> Damage {
-        if let Some(state) = ctx.get(self.message) {
+        if let Some(state) = ctx.get(&self.message) {
             let state = if state {
-                SwitchState::Activated
-            } else {
                 SwitchState::Deactivated
+            } else {
+                SwitchState::Activated
             };
-            if state != self.state {
+            if state == self.state {
+                self.start = true;
                 self.set_state(state);
                 return Damage::Frame;
             }
@@ -125,8 +128,8 @@ where
                     };
                     self.state = state;
                     match self.state {
-                        SwitchState::Activated => ctx.send(self.message, true),
-                        SwitchState::Deactivated => ctx.send(self.message, false),
+                        SwitchState::Activated => ctx.send(&self.message, true),
+                        SwitchState::Deactivated => ctx.send(&self.message, false),
                     };
                     return Damage::Frame;
                 }

@@ -455,18 +455,16 @@ where
         .with_child(Close::new().padding_left(5.))
 }
 
-fn headerbar<T: 'static>(widget: impl Widget<T> + 'static) -> impl Widget<T> {
+fn headerbar<T: 'static, H: Widget<T> + 'static>(widget: H) -> impl Widget<T> {
     Flex::row()
         .with_child(widget.clamp().anchor(START, CENTER))
         .with_child(wm_button().clamp().anchor(END, CENTER))
 }
 
-pub fn default_window<T, W>(
-    header: impl Widget<T> + 'static,
-    widget: W,
-) -> Window<T, impl Widget<T> + Style, W>
+pub fn default_window<T, H, W>(header: H, widget: W) -> Window<T, impl Widget<T> + Style, W>
 where
     T: 'static,
+    H: Widget<T> + 'static,
     W: Widget<T>,
 {
     Window::new(

@@ -18,7 +18,6 @@ pub trait Container<W> {
     fn pop(&mut self) -> W {
         self.remove(self.len() - 1)
     }
-    fn children(&mut self) -> Vec<&mut W>;
 }
 
 /// Widget with relative positioning

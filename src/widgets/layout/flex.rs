@@ -1,5 +1,7 @@
 //! A layout widget that supports interactive resize.
 
+use std::slice::IterMut;
+
 use crate::widgets::layout::*;
 use crate::widgets::Spacer;
 use crate::*;
@@ -37,8 +39,8 @@ impl<W> Flex<W> {
     pub fn clear(&mut self) {
         self.children.clear();
     }
-    pub fn inner(&mut self) -> &mut [Positioner<Proxy<W>>] {
-        self.children.as_mut_slice()
+    pub fn inner(&mut self) -> IterMut<Positioner<Proxy<W>>> {
+        self.children.iter_mut()
     }
 }
 
@@ -61,12 +63,6 @@ impl<W> Container<W> for Flex<W> {
     }
     fn remove(&mut self, index: usize) -> W {
         self.children.remove(index).widget.inner
-    }
-    fn children(&mut self) -> Vec<&mut W> {
-        self.children
-            .iter_mut()
-            .map(|inner| inner.widget.deref_mut())
-            .collect()
     }
 }
 
